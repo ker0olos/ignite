@@ -13,6 +13,16 @@ import {
 } from "../../shared/hostProtocol";
 import { ClaudeLogo, OpenAILogo } from "@/components/ProviderLogos";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import type { LoginState, useProviders } from "@/hooks/useProviders";
 import { cn } from "@/lib/utils";
 
@@ -190,14 +200,11 @@ function ProviderCard({
             <span className="min-w-0 flex-1 text-[13px]">
               {option.connectedLabel}
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => disconnect(option.provider)}
+            <DisconnectButton
+              title={card.title}
               disabled={!!login}
-            >
-              Disconnect
-            </Button>
+              onConfirm={() => disconnect(option.provider)}
+            />
           </div>
         ))}
 
@@ -237,6 +244,46 @@ function ProviderCard({
         )}
       </div>
     </section>
+  );
+}
+
+function DisconnectButton({
+  title,
+  disabled,
+  onConfirm,
+}: {
+  title: string;
+  disabled: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={<Button variant="destructive" size="sm" disabled={disabled} />}
+      >
+        Disconnect
+      </DialogTrigger>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>Disconnect {title}?</DialogTitle>
+          <DialogDescription>
+            Its saved credentials are removed from this Mac. You can connect
+            again anytime.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>
+            Cancel
+          </DialogClose>
+          <DialogClose
+            render={<Button variant="destructive" />}
+            onClick={onConfirm}
+          >
+            Disconnect
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
