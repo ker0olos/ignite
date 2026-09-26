@@ -104,6 +104,7 @@ export default function App() {
           folder={current}
           tabs={tabs}
           codeThemes={codeThemesFor(settings.theme)}
+          editor={settings.editor}
           hideGitIgnored={settings.files.hide_gitignored}
           actions={settingsButton}
         />

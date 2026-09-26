@@ -57,6 +57,31 @@ describe("codeThemesFor", () => {
   });
 });
 
+describe("BUILT_IN_THEMES", () => {
+  it("offers a short list, split evenly between light and dark", () => {
+    const kinds = m.BUILT_IN_THEMES.map((t) => t.kind);
+    expect(kinds).toHaveLength(8);
+    expect(kinds.filter((k) => k === "light")).toHaveLength(4);
+  });
+
+  it("includes the System pair", () => {
+    const ids = m.BUILT_IN_THEMES.map((t) => t.id);
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        m.DEFAULT_CODE_THEMES.light,
+        m.DEFAULT_CODE_THEMES.dark,
+      ]),
+    );
+  });
+
+  it("still resolves bundled themes that aren't offered, if one is saved", async () => {
+    const { calls } = fake({});
+    expect(await m.resolveTheme("nord", "dark")).toBe("nord");
+    expect(await m.themeKind("nord")).toBe("dark");
+    expect(calls).toEqual([]);
+  });
+});
+
 describe("listThemes", () => {
   it("includes every built-in theme with its kind", async () => {
     fake({});
@@ -383,6 +408,101 @@ describe("resolveTheme", () => {
   });
 });
 
+describe("importTheme", () => {
+  const dir = `${USER_EXT}/me.ohmy-0.2.1`;
+  const editorTheme = extension(
+    dir,
+    {
+      name: "ohmy",
+      publisher: "me",
+      contributes: {
+        themes: [
+          { label: "Oh My!!", uiTheme: "vs-dark", path: "./themes/main.json" },
+        ],
+      },
+    },
+    {
+      "themes/base.json": JSON.stringify({ colors: { a: "#111111" } }),
+      "themes/main.json": JSON.stringify({
+        include: "./base.json",
+        colors: { b: "#222222" },
+        tokenColors: [{ scope: "keyword" }],
+      }),
+    },
+  );
+
+  it("copies an editor theme into the custom folder and returns the copy's id", async () => {
+    const { mkdirs, writes } = fake(editorTheme);
+    const id = await m.importTheme("vscode:me.ohmy/Oh My!!");
+
+    expect(id).toBe("custom:me-ohmy-oh-my.json");
+    expect(mkdirs).toEqual([{ path: CUSTOM_THEMES_DIR, recursive: true }]);
+    expect(JSON.parse(writes[0])).toEqual({
+      name: "Oh My!!",
+      type: "dark",
+      importedFrom: "vscode:me.ohmy/Oh My!!",
+      colors: { a: "#111111", b: "#222222" },
+      tokenColors: [{ scope: "keyword" }],
+    });
+  });
+
+  it("drops the include, so the copy doesn't depend on the editor", async () => {
+    const { writes } = fake(editorTheme);
+    await m.importTheme("vscode:me.ohmy/Oh My!!");
+    expect(JSON.parse(writes[0])).not.toHaveProperty("include");
+  });
+
+  it.each(["system", "dracula", "custom:mine.json"])(
+    "leaves %s as it is",
+    async (id) => {
+      const { writes } = fake({});
+      expect(await m.importTheme(id)).toBe(id);
+      expect(writes).toEqual([]);
+    },
+  );
+
+  it("leaves an editor theme that can't be found as it is", async () => {
+    const { writes } = fake({});
+    expect(await m.importTheme("vscode:gone/T")).toBe("vscode:gone/T");
+    expect(writes).toEqual([]);
+  });
+
+  it("leaves an editor theme whose file can't be read as it is", async () => {
+    const { writes } = fake({
+      [`${dir}/package.json`]: editorTheme[`${dir}/package.json`],
+    });
+    expect(await m.importTheme("vscode:me.ohmy/Oh My!!")).toBe(
+      "vscode:me.ohmy/Oh My!!",
+    );
+    expect(writes).toEqual([]);
+  });
+
+  it("lists a copied theme once, as the copy", async () => {
+    fake({
+      ...editorTheme,
+      [`${HOME}/${CUSTOM_THEMES_DIR}/me-ohmy-oh-my.json`]: JSON.stringify({
+        name: "Oh My!!",
+        importedFrom: "vscode:me.ohmy/Oh My!!",
+      }),
+    });
+    const ids = (await m.listThemes()).map((t) => t.id);
+    expect(ids).toContain("custom:me-ohmy-oh-my.json");
+    expect(ids).not.toContain("vscode:me.ohmy/Oh My!!");
+  });
+});
+
+describe("importedFileName", () => {
+  it("makes a readable, filesystem-safe name from the theme id", () => {
+    expect(m.importedFileName("vscode:vscode.theme-defaults/Dark+")).toBe(
+      "vscode-theme-defaults-dark.json",
+    );
+  });
+
+  it("falls back to a generic name when nothing usable is left", () => {
+    expect(m.importedFileName("vscode:!!!")).toBe("theme.json");
+  });
+});
+
 describe("themeKind", () => {
   it("is null for system, meaning follow macOS", async () => {
     expect(await m.themeKind("system")).toBeNull();
@@ -432,16 +552,27 @@ describe("themeGroups", () => {
     theme("vscode:p.x/T", "VS Code", "Theirs"),
   ];
 
-  it("groups by source in a fixed order, sorted by label", () => {
+  it("groups by source, built-ins in their given order, the rest by label", () => {
+    const more = [...themes, theme("vscode:p.x/A", "VS Code", "Another")];
     expect(
       m
-        .themeGroups(themes, "a")
+        .themeGroups(more, "a")
         .map((g) => [g.source, g.themes.map((t) => t.label)]),
     ).toEqual([
-      ["Built-in", ["Alpha", "Zed"]],
-      ["VS Code", ["Theirs"]],
+      ["Built-in", ["Zed", "Alpha"]],
+      ["VS Code", ["Another", "Theirs"]],
       ["Custom", ["Mine"]],
     ]);
+  });
+
+  it("shows a saved bundled theme outside the short list with the built-ins", () => {
+    const groups = m.themeGroups(themes, "nord");
+    expect(groups[0]).toMatchObject({ source: "Built-in" });
+    expect(groups[0].themes.at(-1)).toMatchObject({
+      id: "nord",
+      label: "Nord",
+    });
+    expect(groups.map((g) => g.source)).not.toContain("Missing");
   });
 
   it("leaves out empty groups", () => {

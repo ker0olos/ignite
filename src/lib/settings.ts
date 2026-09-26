@@ -16,11 +16,17 @@ export type Settings = {
    * decides light or dark mode; "system" follows macOS.
    */
   theme: string;
+  /** How the file viewer shows code. `font_family` is a CSS font-family list. */
+  editor: { font_family: string; word_wrap: boolean };
   files: { hide_gitignored: boolean };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: SYSTEM_THEME,
+  editor: {
+    font_family: "Menlo, Monaco, 'Courier New', monospace",
+    word_wrap: false,
+  },
   files: { hide_gitignored: true },
 };
 
@@ -48,8 +54,19 @@ export async function loadSettings(): Promise<Settings> {
     typeof raw.theme === "string" && raw.theme
       ? (LEGACY_THEMES[raw.theme] ?? raw.theme)
       : DEFAULT_SETTINGS.theme;
+  const editor: Partial<Settings["editor"]> = raw.editor ?? {};
   return {
     theme,
+    editor: {
+      font_family:
+        typeof editor.font_family === "string" && editor.font_family.trim()
+          ? editor.font_family
+          : DEFAULT_SETTINGS.editor.font_family,
+      word_wrap:
+        typeof editor.word_wrap === "boolean"
+          ? editor.word_wrap
+          : DEFAULT_SETTINGS.editor.word_wrap,
+    },
     files: { ...DEFAULT_SETTINGS.files, ...raw.files },
   };
 }

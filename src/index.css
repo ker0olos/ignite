@@ -151,10 +151,17 @@
   }
 }
 
-/* Shiki output from lib/highlight.ts: dual-theme colours and line numbers. */
+/* Shiki output from lib/highlight.ts: dual-theme colours and line numbers.
+   Each line is its own block, so word wrap keeps wrapped text beside its line
+   number. The newlines Shiki puts between lines are collapsed (normal) so
+   they don't double the spacing; spaces inside a line are kept (pre). */
+.code-view {
+  font-size: 12px;
+  line-height: 18px;
+}
 .code-view .shiki {
   background: transparent !important;
-  line-height: 1.6;
+  white-space: normal;
 }
 .code-view .shiki span {
   color: var(--shiki-light);
@@ -165,12 +172,23 @@
 .code-view code {
   counter-reset: line;
 }
+.code-view .line {
+  position: relative;
+  display: block;
+  min-height: 1lh;
+  padding-left: 4.5rem;
+  white-space: pre;
+}
+.code-view.wrap .line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .code-view .line::before {
   counter-increment: line;
   content: counter(line);
-  display: inline-block;
+  position: absolute;
+  left: 0;
   width: 3rem;
-  margin-right: 1.5rem;
   text-align: right;
   color: var(--muted-foreground);
   user-select: none;

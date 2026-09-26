@@ -59,8 +59,13 @@ Two places hold persisted data:
 - **Themes:** the `theme` setting is `"system"` (GitHub Light/Dark following
   macOS) or a theme id. The chosen theme colours code and decides light or dark
   mode. Themes come from Shiki, from extensions installed in VS Code, VSCodium,
-  Cursor or Windsurf (read in place), or from `~/.unnamed-harness/themes/*.json`.
-  Ids for editor themes leave out the extension version so choices survive updates.
+  Cursor or Windsurf, or from `~/.unnamed-harness/themes/*.json`. Picking an
+  editor theme copies it (includes merged) into that folder and saves the
+  copy's id, so uninstalling the editor later can't break it; the copy records
+  `importedFrom`, and the picker lists it once. Never read other editors'
+  settings; only their installed theme files.
+- **Editor settings** (`[editor]` in settings.toml): `font_family` (CSS list,
+  default Menlo) and `word_wrap` for the file viewer.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **App state** in `state.json` in the app data folder (`lib/store.ts`): recent
   folders (shared by all windows) and the main window's last open folder.

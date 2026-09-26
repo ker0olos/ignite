@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { themeKind, type ThemeKind } from "@/lib/codeThemes";
+import { importTheme, themeKind, type ThemeKind } from "@/lib/codeThemes";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -16,7 +16,13 @@ export function useSettings() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
-    loadSettings().then(setSettings);
+    loadSettings().then(async (loaded) => {
+      setSettings(loaded);
+      // A theme picked straight from an editor (before themes were copied in)
+      // is copied now, so uninstalling that editor can't break it later.
+      const theme = await importTheme(loaded.theme);
+      if (theme !== loaded.theme) saveSettings({ ...loaded, theme });
+    });
     const unlisten = onSettingsChange(setSettings);
     return () => {
       unlisten.then((f) => f());

@@ -1,7 +1,12 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { parse } from "smol-toml";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SETTINGS_FILE, saveSettings, type Settings } from "@/lib/settings";
+import {
+  DEFAULT_SETTINGS,
+  SETTINGS_FILE,
+  saveSettings,
+  type Settings,
+} from "@/lib/settings";
 import { fakeFs } from "@/test/fakeFs";
 import { useSettings } from "./useSettings";
 
@@ -36,6 +41,7 @@ describe("useSettings", () => {
     const { result } = renderHook(() => useSettings());
     await waitFor(() =>
       expect(result.current[0]).toEqual({
+        ...DEFAULT_SETTINGS,
         theme: "nord",
         files: { hide_gitignored: false },
       }),
@@ -102,12 +108,59 @@ describe("useSettings", () => {
     });
   });
 
+  describe("a theme saved straight from an editor", () => {
+    const ext = "/me/.vscode/extensions/me.paper-1.0.0";
+    const editorTheme = {
+      [`${ext}/package.json`]: JSON.stringify({
+        name: "paper",
+        publisher: "me",
+        contributes: {
+          themes: [{ label: "Paper", uiTheme: "vs", path: "./t.json" }],
+        },
+      }),
+      [`${ext}/t.json`]: '{ "colors": {} }',
+    };
+    const home = (cmd: string) =>
+      cmd === "plugin:path|resolve_directory" ? "/me" : null;
+
+    it("is copied in and the setting points at the copy", async () => {
+      const { writes } = fakeFs(
+        { ...toml("vscode:me.paper/Paper"), ...editorTheme },
+        home,
+      );
+      fakeSystemAppearance(false);
+      vi.resetModules();
+      const { useSettings } = await import("./useSettings");
+      renderHook(() => useSettings());
+      await waitFor(() => expect(writes).toHaveLength(2));
+      expect(JSON.parse(writes[0])).toMatchObject({ name: "Paper" });
+      expect(parse(writes[1])).toMatchObject({
+        theme: "custom:me-paper-paper.json",
+      });
+    });
+
+    it("is left as saved when the editor theme can't be found", async () => {
+      const { writes } = fakeFs(toml("vscode:gone/Theme"), home);
+      fakeSystemAppearance(false);
+      vi.resetModules();
+      const { useSettings } = await import("./useSettings");
+      const { result } = renderHook(() => useSettings());
+      await waitFor(() =>
+        expect(result.current[0].theme).toBe("vscode:gone/Theme"),
+      );
+      // Give the import attempt time to finish, then confirm nothing was saved.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(writes).toEqual([]);
+    });
+  });
+
   it("saves changes to settings.toml", async () => {
     const { writes } = fakeFs({});
     fakeSystemAppearance(false);
     const { result } = renderHook(() => useSettings());
     const next: Settings = {
       theme: "github-dark",
+      editor: { font_family: "Monaco", word_wrap: true },
       files: { hide_gitignored: true },
     };
     act(() => result.current[1](next));
@@ -121,6 +174,7 @@ describe("useSettings", () => {
     fakeSystemAppearance(false);
     const { result } = renderHook(() => useSettings());
     const next: Settings = {
+      ...DEFAULT_SETTINGS,
       theme: "dracula",
       files: { hide_gitignored: false },
     };

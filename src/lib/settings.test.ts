@@ -30,9 +30,36 @@ describe("loadSettings", () => {
       [FILE]: 'theme = "dracula"\n[files]\nhide_gitignored = false\n',
     });
     expect(await loadSettings()).toEqual({
+      ...DEFAULT_SETTINGS,
       theme: "dracula",
       files: { hide_gitignored: false },
     });
+  });
+
+  it("reads editor settings", async () => {
+    fakeFs({
+      [FILE]: '[editor]\nfont_family = "Monaco"\nword_wrap = true\n',
+    });
+    expect((await loadSettings()).editor).toEqual({
+      font_family: "Monaco",
+      word_wrap: true,
+    });
+  });
+
+  it.each([
+    ["an empty font", 'font_family = "  "\nword_wrap = true'],
+    ["wrong types", "font_family = 3\nword_wrap = true"],
+  ])("falls back to the default font for %s", async (_, toml) => {
+    fakeFs({ [FILE]: `[editor]\n${toml}\n` });
+    expect((await loadSettings()).editor).toEqual({
+      font_family: DEFAULT_SETTINGS.editor.font_family,
+      word_wrap: true,
+    });
+  });
+
+  it("falls back to the default word wrap when it isn't a boolean", async () => {
+    fakeFs({ [FILE]: '[editor]\nword_wrap = "yes"\n' });
+    expect((await loadSettings()).editor).toEqual(DEFAULT_SETTINGS.editor);
   });
 
   it("fills in missing keys from defaults", async () => {
@@ -62,7 +89,7 @@ describe("loadSettings", () => {
   ])("falls back to the default theme for %s", async (_, toml) => {
     fakeFs({ [FILE]: `${toml}\n[files]\nhide_gitignored = false\n` });
     expect(await loadSettings()).toEqual({
-      theme: DEFAULT_SETTINGS.theme,
+      ...DEFAULT_SETTINGS,
       files: { hide_gitignored: false },
     });
   });
@@ -71,6 +98,7 @@ describe("loadSettings", () => {
 describe("saveSettings", () => {
   const next: Settings = {
     theme: "github-dark",
+    editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false },
   };
 

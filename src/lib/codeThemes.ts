@@ -1,5 +1,11 @@
 import { homeDir } from "@tauri-apps/api/path";
-import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
+import {
+  BaseDirectory,
+  mkdir,
+  readDir,
+  readTextFile,
+  writeTextFile,
+} from "@tauri-apps/plugin-fs";
 import { parse as parseJsonc } from "jsonc-parser";
 import { bundledThemesInfo, type ThemeRegistrationAny } from "shiki";
 import { APP_NAME } from "./app";
@@ -14,7 +20,12 @@ export type CodeTheme = {
   kind: ThemeKind;
   source: "Built-in" | "VS Code" | "Custom";
   path?: string;
+  /** For a custom theme copied from an editor: the editor theme's id. */
+  importedFrom?: string;
 };
+
+/** Key written into copied theme files, pointing back at the editor theme. */
+const IMPORTED_FROM = "importedFrom";
 
 /** Theme ids to highlight with in light and dark appearance. */
 export type CodeThemes = Record<ThemeKind, string>;
@@ -38,14 +49,33 @@ export function codeThemesFor(theme: string): CodeThemes {
     : { light: theme, dark: theme };
 }
 
-/** Themes bundled with Shiki; they need no files. */
-export const BUILT_IN_THEMES: CodeTheme[] = bundledThemesInfo.map((t) => ({
-  id: t.id,
-  label: t.displayName,
-  kind: t.type,
-  source: "Built-in",
-}));
-const BUILT_IN_IDS = new Set(BUILT_IN_THEMES.map((t) => t.id));
+/** Every theme bundled with Shiki; any of them works without files. */
+const BUNDLED = new Map<string, CodeTheme>(
+  bundledThemesInfo.map((t) => [
+    t.id,
+    { id: t.id, label: t.displayName, kind: t.type, source: "Built-in" },
+  ]),
+);
+
+/** The short list of bundled themes offered in the picker, light then dark. */
+const OFFERED = [
+  "github-light",
+  "light-plus",
+  "solarized-light",
+  "catppuccin-latte",
+  "github-dark",
+  "dark-plus",
+  "one-dark-pro",
+  "dracula",
+];
+
+/**
+ * Built-in themes shown in Settings. Other bundled ids still resolve if saved.
+ * A test checks all of OFFERED exists, in case Shiki renames a theme.
+ */
+export const BUILT_IN_THEMES: CodeTheme[] = OFFERED.map((id) =>
+  BUNDLED.get(id),
+).filter((t) => t !== undefined);
 
 const EDITORS = ["Visual Studio Code", "VSCodium", "Cursor", "Windsurf"];
 
@@ -139,13 +169,18 @@ async function discoverCustom(home: string): Promise<CodeTheme[]> {
       .map(async (e): Promise<CodeTheme | null> => {
         const path = `${dir}/${e.name}`;
         try {
-          const theme = await readJsonc<{ name?: string; type?: string }>(path);
+          const theme = await readJsonc<Record<string, unknown>>(path);
+          const importedFrom = theme[IMPORTED_FROM];
           return {
             id: `custom:${e.name}`,
-            label: theme.name ?? e.name.replace(/\.json$/, ""),
+            label:
+              typeof theme.name === "string"
+                ? theme.name
+                : e.name.replace(/\.json$/, ""),
             kind: theme.type === "light" ? "light" : "dark",
             source: "Custom",
             path,
+            ...(typeof importedFrom === "string" && { importedFrom }),
           };
         } catch {
           return null;
@@ -159,7 +194,8 @@ let discovered: Promise<CodeTheme[]> | null = null;
 
 /**
  * Every theme on offer: built-in, installed in a VS Code-family editor, and
- * custom files. The same extension installed in two editors is listed once.
+ * custom files. The same extension installed in two editors is listed once,
+ * and an editor theme already copied in is listed only as its copy.
  * Cached for the session; pass `refresh` to rescan the disk.
  */
 export function listThemes(refresh = false) {
@@ -169,14 +205,62 @@ export function listThemes(refresh = false) {
         discoverVsCode(home),
         discoverCustom(home),
       ]);
+      const copied = new Set(custom.map((t) => t.importedFrom));
       const byId = new Map<string, CodeTheme>();
       for (const t of [...BUILT_IN_THEMES, ...vscode, ...custom]) {
-        if (!byId.has(t.id)) byId.set(t.id, t);
+        if (!byId.has(t.id) && !copied.has(t.id)) byId.set(t.id, t);
       }
       return [...byId.values()];
     });
   }
   return discovered;
+}
+
+/** File name for a copied editor theme: stable per theme, safe on disk. */
+export function importedFileName(id: string) {
+  const slug = id
+    .replace(/^vscode:/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${slug || "theme"}.json`;
+}
+
+/**
+ * Copies an editor theme into the custom themes folder (includes merged in,
+ * so it stands alone) and returns the copy's id. Anything that isn't an
+ * editor theme, or can't be found or read, is returned unchanged.
+ */
+export async function importTheme(id: string): Promise<string> {
+  if (!id.startsWith("vscode:")) return id;
+  try {
+    const theme = (await listThemes()).find((t) => t.id === id);
+    if (!theme?.path) return id;
+    const file = await readThemeFile(theme.path);
+    // Already merged in; the copy must not point at the editor's files.
+    delete file.include;
+    const name = importedFileName(id);
+    const home = { baseDir: BaseDirectory.Home };
+    await mkdir(CUSTOM_THEMES_DIR, { ...home, recursive: true });
+    await writeTextFile(
+      `${CUSTOM_THEMES_DIR}/${name}`,
+      JSON.stringify(
+        {
+          ...file,
+          name: theme.label,
+          type: theme.kind,
+          [IMPORTED_FROM]: id,
+        },
+        null,
+        2,
+      ) + "\n",
+      home,
+    );
+    discovered = null;
+    return `custom:${name}`;
+  } catch {
+    return id;
+  }
 }
 
 /**
@@ -185,7 +269,7 @@ export function listThemes(refresh = false) {
  */
 export async function themeKind(id: string): Promise<ThemeKind | null> {
   if (id === SYSTEM_THEME) return null;
-  const builtIn = BUILT_IN_THEMES.find((t) => t.id === id);
+  const builtIn = BUNDLED.get(id);
   if (builtIn) return builtIn.kind;
   const themes = await listThemes().catch(() => []);
   return themes.find((t) => t.id === id)?.kind ?? null;
@@ -194,17 +278,28 @@ export async function themeKind(id: string): Promise<ThemeKind | null> {
 const SOURCES: CodeTheme["source"][] = ["Built-in", "VS Code", "Custom"];
 
 /**
- * Themes grouped by source and sorted by label, for a picker. A `selected`
- * id that no longer exists (say, an uninstalled extension) is kept as a
- * "Missing" entry so the picker still shows what is saved.
+ * Themes grouped by source for a picker: built-ins in their curated order,
+ * the rest sorted by label. A saved bundled theme outside the short list is
+ * shown with the built-ins; a saved id that no longer exists (say, an
+ * uninstalled extension) is kept as a "Missing" entry so the picker still
+ * shows what is saved.
  */
 export function themeGroups(themes: CodeTheme[], selected: string) {
-  const groups = SOURCES.map((source) => ({
-    source: source as string,
-    themes: themes
-      .filter((t) => t.source === source)
-      .sort((a, b) => a.label.localeCompare(b.label)),
-  })).filter((g) => g.themes.length > 0);
+  const extra = BUNDLED.get(selected);
+  if (extra && !themes.some((t) => t.id === selected)) {
+    themes = [...themes, extra];
+  }
+
+  const groups = SOURCES.map((source) => {
+    const inSource = themes.filter((t) => t.source === source);
+    return {
+      source: source as string,
+      themes:
+        source === "Built-in"
+          ? inSource
+          : inSource.sort((a, b) => a.label.localeCompare(b.label)),
+    };
+  }).filter((g) => g.themes.length > 0);
 
   const known =
     selected === SYSTEM_THEME || themes.some((t) => t.id === selected);
@@ -254,7 +349,7 @@ const resolved = new Map<string, Promise<ThemeRegistrationAny | string>>();
  * `kind`, so a missing extension never breaks the file viewer.
  */
 export function resolveTheme(id: string, kind: ThemeKind) {
-  if (BUILT_IN_IDS.has(id)) return Promise.resolve(id);
+  if (BUNDLED.has(id)) return Promise.resolve(id);
   const key = `${kind}:${id}`;
   let theme = resolved.get(key);
   if (!theme) {

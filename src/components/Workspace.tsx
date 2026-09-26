@@ -12,6 +12,7 @@ import {
 import type { useTabs } from "@/hooks/useTabs";
 import { fileIcon } from "@/lib/fileIcons";
 import type { CodeThemes } from "@/lib/codeThemes";
+import type { Settings } from "@/lib/settings";
 import { basename } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 
@@ -24,12 +25,14 @@ export function Workspace({
   folder,
   tabs,
   codeThemes,
+  editor,
   hideGitIgnored,
   actions,
 }: {
   folder: string;
   tabs: ReturnType<typeof useTabs>;
   codeThemes: CodeThemes;
+  editor: Settings["editor"];
   hideGitIgnored: boolean;
   actions: ReactNode;
 }) {
@@ -118,6 +121,7 @@ export function Workspace({
               path={active}
               root={folder}
               themes={codeThemes}
+              editor={editor}
             />
           </div>
         </ResizablePanel>

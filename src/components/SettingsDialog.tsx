@@ -5,14 +5,15 @@ import { Switch } from "@/components/ui/switch";
 import {
   CUSTOM_THEMES_DIR,
   SYSTEM_THEME,
+  importTheme,
   listThemes,
   themeGroups,
   type CodeTheme,
 } from "@/lib/codeThemes";
-import type { Settings } from "@/lib/settings";
+import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 
-const SECTIONS = ["Appearance", "Files"] as const;
+const SECTIONS = ["Appearance", "Editor", "Files"] as const;
 type Section = (typeof SECTIONS)[number];
 
 /** App settings, opened from the gear button or ⌘,. Saved to settings.toml. */
@@ -98,7 +99,46 @@ export function SettingsDialog({
                     <ThemePicker
                       themes={themes}
                       value={settings.theme}
-                      onChange={(theme) => onChange({ ...settings, theme })}
+                      onChange={async (id) => {
+                        // Editor themes are copied in, so uninstalling the
+                        // editor later can't break the saved choice.
+                        const theme = await importTheme(id);
+                        onChange({ ...settings, theme });
+                        if (theme !== id) listThemes(true).then(setThemes);
+                      }}
+                    />
+                  }
+                />
+              </SettingsSection>
+
+              <SettingsSection title="Editor">
+                <Setting
+                  title="Font family"
+                  description="Font for code in the file viewer, as a comma-separated list; the first one installed is used."
+                  control={
+                    <FontInput
+                      value={settings.editor.font_family}
+                      onCommit={(font_family) =>
+                        onChange({
+                          ...settings,
+                          editor: { ...settings.editor, font_family },
+                        })
+                      }
+                    />
+                  }
+                />
+                <Setting
+                  title="Word wrap"
+                  description="Wrap long lines to fit the width of the file viewer."
+                  control={
+                    <Switch
+                      checked={settings.editor.word_wrap}
+                      onCheckedChange={(word_wrap) =>
+                        onChange({
+                          ...settings,
+                          editor: { ...settings.editor, word_wrap },
+                        })
+                      }
                     />
                   }
                 />
@@ -159,6 +199,43 @@ function ThemePicker({
         </optgroup>
       ))}
     </select>
+  );
+}
+
+/**
+ * Text field that saves on Enter or when it loses focus, not per keystroke.
+ * Emptying it restores the default font.
+ */
+function FontInput({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  // Show changes saved elsewhere (another window, a reset) while not typing.
+  const [prev, setPrev] = useState(value);
+  if (value !== prev) {
+    setPrev(value);
+    setDraft(value);
+  }
+
+  const commit = () => {
+    const next = draft.trim() || DEFAULT_SETTINGS.editor.font_family;
+    setDraft(next);
+    if (next !== value) onCommit(next);
+  };
+
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && commit()}
+      spellCheck={false}
+      className="h-7 w-72 shrink-0 rounded-md border bg-background px-2 text-[13px]"
+    />
   );
 }
 

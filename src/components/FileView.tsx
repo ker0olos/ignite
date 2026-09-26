@@ -2,16 +2,20 @@ import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { readForView, type FileContent } from "@/lib/files";
 import type { CodeThemes } from "@/lib/codeThemes";
+import type { Settings } from "@/lib/settings";
+import { cn } from "@/lib/utils";
 
 /** Read-only, syntax-highlighted view of one file, with a breadcrumb. */
 export function FileView({
   path,
   root,
   themes,
+  editor,
 }: {
   path: string;
   root: string;
   themes: CodeThemes;
+  editor: Settings["editor"];
 }) {
   const [loaded, setLoaded] = useState<FileContent | null>(null);
   const { light, dark } = themes;
@@ -47,7 +51,11 @@ export function FileView({
       ) : (
         <div className="min-h-0 flex-1 overscroll-contain overflow-auto">
           <div
-            className="code-view always-bounce pb-8 font-mono text-xs select-text"
+            className={cn(
+              "code-view always-bounce pb-8 select-text",
+              editor.word_wrap && "wrap",
+            )}
+            style={{ fontFamily: editor.font_family }}
             // Shiki escapes the file's contents; the markup is its own.
             dangerouslySetInnerHTML={{ __html: loaded?.html ?? "" }}
           />
