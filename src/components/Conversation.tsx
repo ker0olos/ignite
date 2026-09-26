@@ -12,6 +12,7 @@ import type {
 } from "../../shared/agentTypes";
 import type { Item, ToolRun, Transcript } from "@/lib/transcript";
 import { highlight } from "@/lib/highlight";
+import { mcpCall, type McpCall } from "@/lib/mcpToolCall";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { Settings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
@@ -172,7 +173,10 @@ function AssistantBlock({
           if (!block.thinking && block.redacted) return null;
           return <ThinkingRow key={i} thinking={block.thinking} />;
         }
-        return (
+        const mcp = mcpCall(block.name, block.arguments);
+        return mcp ? (
+          <McpToolRow key={i} call={mcp} run={tools[block.id]} />
+        ) : (
           <ToolRow key={i} call={block} run={tools[block.id]} folder={folder} />
         );
       })}
@@ -409,6 +413,98 @@ function ToolRow({
         />
       </button>
       {open && <ToolDetail call={call} run={run} />}
+    </div>
+  );
+}
+
+/** A call to an MCP server's tool, through pi-mcp-adapter. */
+function McpToolRow({
+  call,
+  run,
+}: {
+  call: McpCall;
+  run: ToolRun | undefined;
+}) {
+  const [open, setOpen] = useState(false);
+  const text = resultText(run?.result);
+
+  return (
+    <div className="rounded-md border">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full min-w-0 items-center gap-2 px-2 py-1.5 text-left"
+      >
+        <StatusIcon run={run} />
+        <span className="min-w-0 flex-1 truncate">
+          <McpCallLabel call={call} />
+        </span>
+        <ChevronRight
+          className={cn(
+            "size-3.5 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-90",
+          )}
+        />
+      </button>
+      {open && (
+        <div className="divide-y border-t">
+          {call.kind === "call" && (
+            <DetailBlock label="Arguments">
+              {typeof call.args === "string"
+                ? call.args
+                : JSON.stringify(call.args, null, 2)}
+            </DetailBlock>
+          )}
+          {call.kind === "script" && (
+            <DetailBlock label="Script">{call.code}</DetailBlock>
+          )}
+          {run?.status === "error" ? (
+            <p className="px-2 py-1.5 text-[12px] whitespace-pre-wrap text-destructive">
+              {text || "Failed."}
+            </p>
+          ) : (
+            text && <DetailBlock label="Result">{truncate(text)}</DetailBlock>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function McpCallLabel({ call }: { call: McpCall }) {
+  const mono = (text: string) => (
+    <code className="font-mono text-[12px]">{text}</code>
+  );
+  switch (call.kind) {
+    case "call":
+      return (
+        <>
+          {call.server && (
+            <span className="text-muted-foreground">{call.server} · </span>
+          )}
+          {mono(call.tool)}
+        </>
+      );
+    case "search":
+      return <>Searched MCP tools for “{call.query}”</>;
+    case "describe":
+      return <>Looked up {mono(call.tool)}</>;
+    case "connect":
+      return <>Connected to {call.server}</>;
+    case "script":
+      return <>Ran an MCP script</>;
+    case "other":
+      return <>Checked MCP servers</>;
+  }
+}
+
+function DetailBlock({ label, children }: { label: string; children: string }) {
+  return (
+    <div className="px-2 py-1.5">
+      <p className="mb-1 text-xs text-muted-foreground">{label}</p>
+      <pre className="max-h-64 overflow-auto font-mono text-[12px] whitespace-pre-wrap">
+        {children}
+      </pre>
     </div>
   );
 }
