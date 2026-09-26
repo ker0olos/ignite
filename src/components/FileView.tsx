@@ -1,31 +1,14 @@
 import { useEffect, useState } from "react";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { ChevronRight } from "lucide-react";
-import { highlight } from "@/lib/highlight";
-
-const MAX_BYTES = 2_000_000;
-
-type Loaded = { html: string } | { message: string };
-
-async function load(path: string): Promise<Loaded> {
-  const bytes = await readFile(path);
-  if (bytes.length > MAX_BYTES)
-    return { message: "File is too large to show." };
-  if (bytes.subarray(0, 8000).includes(0)) {
-    return { message: "Binary file not shown." };
-  }
-  return { html: await highlight(new TextDecoder().decode(bytes), path) };
-}
+import { readForView, type FileContent } from "@/lib/files";
 
 /** Read-only, syntax-highlighted view of one file, with a breadcrumb. */
 export function FileView({ path, root }: { path: string; root: string }) {
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [loaded, setLoaded] = useState<FileContent | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    load(path)
-      .catch(() => ({ message: "Couldn't read this file." }))
-      .then((result) => !cancelled && setLoaded(result));
+    readForView(path).then((result) => !cancelled && setLoaded(result));
     return () => {
       cancelled = true;
     };

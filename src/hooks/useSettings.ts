@@ -8,7 +8,7 @@ import {
 } from "@/lib/settings";
 
 /**
- * User settings from ~/.untitledharness/settings.toml, synced across windows.
+ * User settings from ~/.<APP_NAME>/settings.toml, synced across windows.
  * Also applies the theme as the `dark` class on <html>.
  */
 export function useSettings() {

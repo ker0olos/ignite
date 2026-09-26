@@ -1,28 +1,15 @@
 import { createElement, useEffect, useState } from "react";
-import { readDir, type DirEntry } from "@tauri-apps/plugin-fs";
+import type { DirEntry } from "@tauri-apps/plugin-fs";
 import { ChevronRight, Folder, FolderOpen } from "lucide-react";
 import { fileIcon } from "@/lib/fileIcons";
-import { withoutGitIgnored } from "@/lib/gitignore";
+import { listDir } from "@/lib/files";
 import { cn } from "@/lib/utils";
-
-const HIDDEN = new Set([".git", ".DS_Store"]);
 
 type TreeProps = {
   selected: string | null;
   onOpenFile: (path: string) => void;
   hideGitIgnored: boolean;
 };
-
-// ponytail: no fs watching, the tree reloads only when a folder is re-expanded or reopened
-async function list(dir: string, hideGitIgnored: boolean) {
-  let entries = (await readDir(dir)).filter((e) => !HIDDEN.has(e.name));
-  if (hideGitIgnored) entries = await withoutGitIgnored(dir, entries);
-  return entries.sort(
-    (a, b) =>
-      Number(b.isDirectory) - Number(a.isDirectory) ||
-      a.name.localeCompare(b.name),
-  );
-}
 
 /** Lazy directory tree: folders load their children when first expanded. */
 export function FileTree({ root, ...props }: TreeProps & { root: string }) {
@@ -38,7 +25,7 @@ function Entries({
   const { hideGitIgnored } = props;
 
   useEffect(() => {
-    list(dir, hideGitIgnored).then(setEntries, () => setEntries([]));
+    listDir(dir, hideGitIgnored).then(setEntries, () => setEntries([]));
   }, [dir, hideGitIgnored]);
 
   return entries.map((entry) => (

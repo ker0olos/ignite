@@ -31,13 +31,13 @@
     },
     {
       "identifier": "fs:allow-write-text-file",
-      "allow": [{ "path": "$HOME/.untitledharness/**" }]
+      "allow": [{ "path": "$HOME/.unnamed-harness/**" }]
     },
     {
       "identifier": "fs:allow-mkdir",
       "allow": [
-        { "path": "$HOME/.untitledharness" },
-        { "path": "$HOME/.untitledharness/**" }
+        { "path": "$HOME/.unnamed-harness" },
+        { "path": "$HOME/.unnamed-harness/**" }
       ]
     }
   ]

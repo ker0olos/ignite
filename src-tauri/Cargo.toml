@@ -1,14 +1,13 @@
 [package]
-name = "untitledharness"
+name = "unnamed-harness"
 version = "0.1.0"
 description = "A native macOS harness for AI coding agents"
 edition = "2021"
 
 [lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "untitledharness_lib"
+# Generic on purpose so renaming the app never touches Rust code. It must
+# differ from the bin name: https://github.com/rust-lang/cargo/issues/8519
+name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

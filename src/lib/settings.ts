@@ -6,10 +6,11 @@ import {
   writeTextFile,
 } from "@tauri-apps/plugin-fs";
 import { parse, stringify } from "smol-toml";
+import { APP_NAME } from "./app";
 
 export type Theme = "system" | "light" | "dark";
 
-/** Shape of ~/.untitledharness/settings.toml (keys stay snake_case, as in TOML). */
+/** Shape of ~/.<APP_NAME>/settings.toml (keys stay snake_case, as in TOML). */
 export type Settings = {
   theme: Theme;
   files: { hide_gitignored: boolean };
@@ -20,8 +21,9 @@ export const DEFAULT_SETTINGS: Settings = {
   files: { hide_gitignored: true },
 };
 
-const DIR = ".untitledharness";
-const FILE = `${DIR}/settings.toml`;
+/** Relative to the home directory. */
+export const SETTINGS_DIR = `.${APP_NAME}`;
+export const SETTINGS_FILE = `${SETTINGS_DIR}/settings.toml`;
 const HOME = { baseDir: BaseDirectory.Home };
 const CHANGED = "settings://changed";
 
@@ -29,7 +31,7 @@ const CHANGED = "settings://changed";
 export async function loadSettings(): Promise<Settings> {
   let raw: Partial<Settings>;
   try {
-    raw = parse(await readTextFile(FILE, HOME)) as Partial<Settings>;
+    raw = parse(await readTextFile(SETTINGS_FILE, HOME)) as Partial<Settings>;
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -44,8 +46,8 @@ export async function loadSettings(): Promise<Settings> {
 
 /** Writes settings to disk and tells every window about the change. */
 export async function saveSettings(settings: Settings) {
-  await mkdir(DIR, { ...HOME, recursive: true });
-  await writeTextFile(FILE, stringify(settings) + "\n", HOME);
+  await mkdir(SETTINGS_DIR, { ...HOME, recursive: true });
+  await writeTextFile(SETTINGS_FILE, stringify(settings) + "\n", HOME);
   await emit(CHANGED, settings);
 }
 

@@ -1,4 +1,4 @@
-# untitledharness
+# unnamed-harness
 
 A native macOS app for working with AI coding agents.
 

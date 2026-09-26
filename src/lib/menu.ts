@@ -1,7 +1,8 @@
-import { Menu } from "@tauri-apps/api/menu";
+import { Menu, type MenuOptions } from "@tauri-apps/api/menu";
+import { APP_NAME } from "./app";
 import { openNewWindow } from "./window";
 
-type MenuHandlers = {
+export type MenuHandlers = {
   folders: string[];
   label: (path: string) => string;
   openFolder: () => void;
@@ -13,10 +14,18 @@ type MenuHandlers = {
 
 /**
  * Installs the macOS menu bar. The menu is app-wide, so the focused window
- * calls this to own the handlers. It replaces the default menu, so the
- * standard Edit items must stay for copy/paste to work.
+ * calls this to own the handlers.
  */
-export async function setAppMenu({
+export async function setAppMenu(handlers: MenuHandlers) {
+  const menu = await Menu.new({ items: menuItems(handlers) });
+  await menu.setAsAppMenu();
+}
+
+/**
+ * The menu bar layout. It replaces the default menu, so the standard Edit
+ * items must stay for copy/paste to work in text fields.
+ */
+export function menuItems({
   folders,
   label,
   openFolder,
@@ -24,86 +33,83 @@ export async function setAppMenu({
   closeFolder,
   clearFolders,
   openSettings,
-}: MenuHandlers) {
-  const menu = await Menu.new({
-    items: [
-      {
-        text: "untitledharness",
-        items: [
-          { item: { About: null } },
-          { item: "Separator" },
-          {
-            text: "Settings…",
-            accelerator: "CmdOrCtrl+,",
-            action: openSettings,
-          },
-          { item: "Separator" },
-          { item: "Services" },
-          { item: "Separator" },
-          { item: "Hide" },
-          { item: "HideOthers" },
-          { item: "ShowAll" },
-          { item: "Separator" },
-          { item: "Quit" },
-        ],
-      },
-      {
-        text: "File",
-        items: [
-          {
-            text: "New Window",
-            accelerator: "CmdOrCtrl+Shift+N",
-            action: openNewWindow,
-          },
-          { item: "Separator" },
-          {
-            text: "Open Folder…",
-            accelerator: "CmdOrCtrl+O",
-            action: openFolder,
-          },
-          {
-            text: "Open Recent",
-            items: [
-              ...folders.map((path) => ({
-                text: label(path),
-                action: () => selectFolder(path),
-              })),
-              ...(folders.length ? [{ item: "Separator" as const }] : []),
-              {
-                text: "Clear Recently Opened",
-                enabled: folders.length > 0,
-                action: clearFolders,
-              },
-            ],
-          },
-          { item: "Separator" },
-          { text: "Close Folder", action: closeFolder },
-          { item: "CloseWindow" },
-        ],
-      },
-      {
-        text: "Edit",
-        items: [
-          { item: "Undo" },
-          { item: "Redo" },
-          { item: "Separator" },
-          { item: "Cut" },
-          { item: "Copy" },
-          { item: "Paste" },
-          { item: "SelectAll" },
-        ],
-      },
-      { text: "View", items: [{ item: "Fullscreen" }] },
-      {
-        text: "Window",
-        items: [
-          { item: "Minimize" },
-          { item: "Maximize" },
-          { item: "Separator" },
-          { item: "BringAllToFront" },
-        ],
-      },
-    ],
-  });
-  await menu.setAsAppMenu();
+}: MenuHandlers): NonNullable<MenuOptions["items"]> {
+  return [
+    {
+      text: APP_NAME,
+      items: [
+        { item: { About: null } },
+        { item: "Separator" },
+        {
+          text: "Settings…",
+          accelerator: "CmdOrCtrl+,",
+          action: openSettings,
+        },
+        { item: "Separator" },
+        { item: "Services" },
+        { item: "Separator" },
+        { item: "Hide" },
+        { item: "HideOthers" },
+        { item: "ShowAll" },
+        { item: "Separator" },
+        { item: "Quit" },
+      ],
+    },
+    {
+      text: "File",
+      items: [
+        {
+          text: "New Window",
+          accelerator: "CmdOrCtrl+Shift+N",
+          action: openNewWindow,
+        },
+        { item: "Separator" },
+        {
+          text: "Open Folder…",
+          accelerator: "CmdOrCtrl+O",
+          action: openFolder,
+        },
+        {
+          text: "Open Recent",
+          items: [
+            ...folders.map((path) => ({
+              text: label(path),
+              action: () => selectFolder(path),
+            })),
+            ...(folders.length ? [{ item: "Separator" as const }] : []),
+            {
+              text: "Clear Recently Opened",
+              enabled: folders.length > 0,
+              action: clearFolders,
+            },
+          ],
+        },
+        { item: "Separator" },
+        { text: "Close Folder", action: closeFolder },
+        { item: "CloseWindow" },
+      ],
+    },
+    {
+      text: "Edit",
+      items: [
+        { item: "Undo" },
+        { item: "Redo" },
+        { item: "Separator" },
+        { item: "Cut" },
+        { item: "Copy" },
+        { item: "Paste" },
+        { item: "SelectAll" },
+      ],
+    },
+    { text: "View", items: [{ item: "Fullscreen" }] },
+    {
+      text: "Window",
+      items: [
+        { item: "Minimize" },
+        { item: "Maximize" },
+        { item: "Separator" },
+        { item: "BringAllToFront" },
+      ],
+    },
+  ];
 }

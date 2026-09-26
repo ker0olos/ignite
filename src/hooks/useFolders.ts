@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { stillListed, withRecent } from "@/lib/recent";
 import { onStoreChange, store } from "@/lib/store";
 
 // Only the first window restores its open folder on relaunch; extra windows start empty.
@@ -20,7 +21,7 @@ export function useFolders() {
   const show = useCallback((next: string[]) => {
     foldersRef.current = next;
     setFolders(next);
-    setCurrent((c) => (c && next.includes(c) ? c : null));
+    setCurrent((c) => stillListed(c, next));
   }, []);
 
   const save = useCallback(
@@ -33,7 +34,7 @@ export function useFolders() {
 
   const addFolder = useCallback(
     (path: string) => {
-      save([path, ...foldersRef.current.filter((p) => p !== path)]);
+      save(withRecent(foldersRef.current, path));
       setCurrent(path);
     },
     [save],

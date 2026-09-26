@@ -1,4 +1,5 @@
 import { Folder, FolderOpen } from "lucide-react";
+import { APP_NAME } from "@/lib/app";
 import { basename, dirname, tildify } from "@/lib/paths";
 
 const MAX_RECENT = 8;
@@ -18,9 +19,7 @@ export function Welcome({
   return (
     <main className="flex flex-1 items-center justify-center pb-26">
       <div className="w-80">
-        <h1 className="text-xl font-semibold tracking-tight">
-          untitledharness
-        </h1>
+        <h1 className="text-xl font-semibold tracking-tight">{APP_NAME}</h1>
         <p className="mt-1 text-[13px] text-muted-foreground">
           Open a folder to start a session, or drop one onto the window.
         </p>

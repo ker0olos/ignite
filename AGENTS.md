@@ -2,9 +2,10 @@
 
 Guidance for contributors and AI coding agents working in this repo.
 Tauri 2 + React 19 + TypeScript + Tailwind v4 + shadcn/ui. Early prototype:
-the UI shell works (folders, file tree, settings, multi-window); the agent is
-not wired up yet. For now it is run from source with `npm run tauri dev`, not
-shipped as a built app; prioritise dev-mode behaviour over release builds.
+the UI shell works (folders, file tree, file viewer, settings, multi-window);
+the agent is not wired up yet. For now it is run from source with
+`npm run tauri dev`, not shipped as a built app; prioritise dev-mode behaviour
+over release builds.
 
 ## Structure
 
@@ -12,39 +13,45 @@ shipped as a built app; prioritise dev-mode behaviour over release builds.
 src/                     React frontend (almost all logic lives here)
   main.tsx               Entry: sizes and shows the window, renders <App>
   App.tsx                Composes hooks, picks Welcome vs Workspace
-  index.css              Tailwind + shadcn theme tokens (light/dark)
-  components/
+  index.css              Tailwind + shadcn theme tokens, code-view styles
+  components/            UI only; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
     Welcome.tsx          Screen when no folder is open
-    Workspace.tsx        Open-folder layout: sidebar, header, tabs, content
+    Workspace.tsx        Open-folder layout: sidebar, agent panel, file tabs
     Sidebar.tsx          Title-bar strip + file tree
-    FileTree.tsx         Lazy directory tree (hides Git-ignored files)
-    FileView.tsx         Read-only, syntax-highlighted file tab
-    AgentPanel.tsx       Agent tab: conversation + task composer
+    FileTree.tsx         Lazy directory tree
+    FileView.tsx         Read-only, syntax-highlighted file
+    AgentPanel.tsx       Conversation + task composer (not wired up yet)
     SettingsDialog.tsx   Settings modal
   hooks/
     useFolders.ts        Recent folders + this window's open folder
     useSettings.ts       settings.toml, synced across windows; applies theme
     useFolderDrop.ts     Drag-and-drop folders onto the window
   lib/
+    app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
     store.ts             App state (tauri-plugin-store) + cross-window sync
+    files.ts             Directory listing and reading files for the viewer
     gitignore.ts         .gitignore matching for the file tree
     highlight.ts         Shiki highlighting (light + dark themes)
+    tabs.ts              Open/close logic for file tabs
+    recent.ts            Recent-folders list logic
     fileIcons.ts         Extension → monochrome icon
     menu.ts              macOS menu bar
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
     utils.ts             `cn` class-name helper (shadcn)
+  test/                  Test setup and fake Tauri backends (fakeFs, fakeStore)
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
   capabilities/          Permissions the frontend may use
-.github/workflows/ci.yml Runs `npm run build` + `npm run check` on macOS
+  tests/config.rs        Guards on the config (write scope, hidden window)
+.github/workflows/ci.yml Build, typecheck, lint, format check, tests on macOS
 ```
 
 Two places hold persisted data:
 
-- **User settings** in `~/.untitledharness/settings.toml` (`lib/settings.ts`).
+- **User settings** in `~/.unnamed-harness/settings.toml` (`lib/settings.ts`).
   Human-editable; add new options to the `Settings` type and `DEFAULT_SETTINGS`.
 - **App state** in `state.json` in the app data folder (`lib/store.ts`): recent
   folders (shared by all windows) and the main window's last open folder.
@@ -52,10 +59,32 @@ Two places hold persisted data:
 ## Commands
 
 - Dev app: `npm run tauri dev` (frontend hot-reloads; `src-tauri/` changes relaunch)
-- Verify before finishing any change: `npm run check` (tsc, ESLint, clippy, Prettier, rustfmt)
+- Verify before finishing any change: `npm run check` (tsc, ESLint, clippy,
+  Prettier, rustfmt, Vitest, cargo test). CI runs the same steps.
+- Tests only: `npm run test`; watch mode: `npm run test:watch`
+- Find untested branches: `npm run coverage`
 - Auto-format: `npm run format`
 - Add a UI primitive: `npx shadcn@latest add <name>`
 - Add a Tauri plugin: `npm run tauri add <plugin>` (wires npm, Cargo, `lib.rs` and a default permission)
+
+## Testing
+
+- **What to test:** any logic with branches or failure paths, especially code
+  that talks to Tauri. Every `if`/`else`, fallback and error path should have a
+  test that would fail if it broke. There is no coverage percentage target;
+  use `npm run coverage` to spot branches nothing reaches.
+- **Where logic goes:** keep it out of components. Put it in `lib/` (plain
+  functions) or `hooks/`, where it can be tested without rendering UI.
+- **Faking Tauri:** tests run in jsdom with `@tauri-apps/api/mocks`.
+  `src/test/fakeFs.ts` fakes the fs plugin from a map of paths;
+  `src/test/fakeStore.ts` fakes the store (broadcasting changes like the real
+  one) and the folder picker. Hooks are tested with `renderHook`.
+- **Module state:** modules that read the window label, open the store or
+  cache at import time must be imported fresh per test (`vi.resetModules()`
+  then `await import(...)`); see `useFolders.test.ts` or `gitignore.test.ts`.
+- **Tests beside code:** `foo.ts` is tested in `foo.test.ts` next to it.
+- **Rust:** `src-tauri/tests/` holds integration tests. Add unit tests next to
+  any Rust logic that is added later.
 
 ## Conventions
 
@@ -63,16 +92,33 @@ Two places hold persisted data:
   custom Rust command. `src-tauri/src/lib.rs` should stay plugin registration only.
 - **Permissions are explicit.** Any new Tauri API call needs its permission in
   `src-tauri/capabilities/default.json`; missing ones fail silently at runtime.
+  Write access must stay scoped to the settings folder (enforced by a test).
 - **Layout of `src/`:** screens and pieces in `components/`, stateful logic in
   `hooks/`, non-React helpers in `lib/`. Do not hand-edit `components/ui/`
   beyond small fixes; it is shadcn-generated.
 - **Styling:** Tailwind v4 with shadcn tokens (`bg-background`, `text-muted-foreground`,
   `bg-sidebar`, …). No hard-coded colors. Interface text is 13px (`text-[13px]`)
   to match macOS.
-- **Comments:** sparse; only for non-obvious constraints. Deliberate shortcuts
-  are marked `ponytail:` with their limit and upgrade path.
+- **Comments:** sparse; only for non-obvious constraints. Exported functions get
+  a one-line doc comment. Deliberate shortcuts are marked `ponytail:` with
+  their limit and upgrade path.
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org)
   (`feat(scope): …`, `fix(scope): …`). CI must pass.
+
+## Renaming the app
+
+The name is a placeholder. To rename:
+
+1. Change `APP_NAME` in `src/lib/app.ts`.
+2. Run `npm run test`. `src/lib/app.test.ts` fails for each file that still
+   has the old name: `package.json`, `src-tauri/Cargo.toml`,
+   `src-tauri/tauri.conf.json` (product name, identifier, window title),
+   `index.html`, and the settings folder in `src-tauri/capabilities/default.json`.
+3. Update README.md. The Rust library is named `app_lib` on purpose, so no Rust
+   code changes.
+
+Changing the identifier moves the app data folder, so saved recent folders
+start empty; the settings folder moves with the name.
 
 ## macOS gotchas (learned the hard way)
 
@@ -85,6 +131,6 @@ Two places hold persisted data:
 - The menu bar is global. Only the focused window may call `setAppMenu`,
   otherwise menu actions run in the wrong window.
 - Setting a custom app menu drops the default Edit menu; keep the Edit items or
-  copy/paste stops working.
-- New windows are created in `lib/window.ts`, which mirrors the main window's
-  options in `tauri.conf.json`. Keep the two in sync.
+  copy/paste stops working (tested in `menu.test.ts`).
+- New windows are created from `NEW_WINDOW_OPTIONS` in `lib/window.ts`, which
+  must mirror the main window in `tauri.conf.json` (tested in `window.test.ts`).

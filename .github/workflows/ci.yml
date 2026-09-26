@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,4 +34,14 @@ jobs:
       # tauri::generate_context! needs dist/ to exist before Rust compiles.
       - run: npm run build
 
-      - run: npm run check
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint (ESLint + Clippy)
+        run: npm run lint
+
+      - name: Format check (Prettier + rustfmt)
+        run: npm run format:check
+
+      - name: Tests (Vitest + cargo test)
+        run: npm run test

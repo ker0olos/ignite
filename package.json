@@ -1,5 +1,5 @@
 {
-  "name": "untitledharness",
+  "name": "unnamed-harness",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,7 +12,10 @@
     "lint": "eslint . && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
     "format": "prettier --write . && cargo fmt --manifest-path src-tauri/Cargo.toml",
     "format:check": "prettier --check . && cargo fmt --manifest-path src-tauri/Cargo.toml --check",
-    "check": "npm run typecheck && npm run lint && npm run format:check"
+    "test": "vitest run && cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -36,17 +39,21 @@
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.2",
+    "@vitest/coverage-v8": "^5.0.2",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.12.0",
+    "jsdom": "^29.1.1",
     "prettier": "^3.9.9",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.70.1",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^5.0.2"
   }
 }

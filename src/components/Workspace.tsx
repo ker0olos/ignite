@@ -5,6 +5,7 @@ import { FileView } from "@/components/FileView";
 import { Sidebar } from "@/components/Sidebar";
 import { fileIcon } from "@/lib/fileIcons";
 import { basename } from "@/lib/paths";
+import { closeTab, openTab, type Tabs } from "@/lib/tabs";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,20 +22,11 @@ export function Workspace({
   hideGitIgnored: boolean;
   actions: ReactNode;
 }) {
-  const [files, setFiles] = useState<string[]>([]);
-  const [active, setActive] = useState<string | null>(null);
-
-  function openFile(path: string) {
-    setFiles((f) => (f.includes(path) ? f : [...f, path]));
-    setActive(path);
-  }
-
-  function closeFile(path: string) {
-    const i = files.indexOf(path);
-    const rest = files.filter((f) => f !== path);
-    setFiles(rest);
-    if (active === path) setActive(rest[Math.min(i, rest.length - 1)] ?? null);
-  }
+  const [tabs, setTabs] = useState<Tabs>({ files: [], active: null });
+  const { files, active } = tabs;
+  const openFile = (path: string) => setTabs((t) => openTab(t, path));
+  const closeFile = (path: string) => setTabs((t) => closeTab(t, path));
+  const setActive = (path: string) => setTabs((t) => ({ ...t, active: path }));
 
   return (
     <>
