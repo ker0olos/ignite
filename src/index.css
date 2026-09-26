@@ -123,9 +123,24 @@
   body {
     @apply bg-background text-foreground cursor-default select-none antialiased;
   }
+  /* Like a native window, the page itself never rubber-bands; only scroll
+     areas inside it (file tree, code, settings) bounce. */
+  html,
+  body {
+    @apply h-full overflow-hidden overscroll-none;
+  }
   html {
     @apply font-sans;
   }
+}
+
+/* For the content wrapper inside a scroll area: WebKit only rubber-bands a
+   scroll area whose content overflows, so this keeps it 1px taller than the
+   area, and every pane bounces on its own like a native list. The scroll area
+   itself needs overscroll-contain, or a gesture that starts at an edge is
+   handed to the (non-bouncing) page and nothing happens. */
+@utility always-bounce {
+  min-height: calc(100% + 1px);
 }
 
 /* Scrolls (trackpad, wheel) without a visible bar that could cover content. */

@@ -80,7 +80,7 @@ export function Workspace({
           <div className="flex h-full min-w-0 flex-col">
             <div
               data-tauri-drag-region
-              className="no-scrollbar flex h-13 shrink-0 items-end gap-0.5 overflow-x-auto border-b px-2"
+              className="no-scrollbar flex h-13 shrink-0 items-end gap-0.5 overscroll-contain overflow-x-auto border-b px-2"
             >
               {files.map((path) => (
                 <div

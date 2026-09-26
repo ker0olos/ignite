@@ -87,39 +87,44 @@ export function SettingsDialog({
           <div
             ref={scroller}
             onScroll={trackSection}
-            className="relative flex-1 space-y-10 overflow-y-auto p-6"
+            className="relative flex-1 overscroll-contain overflow-y-auto"
           >
-            <SettingsSection title="Appearance">
-              <Setting
-                title="Theme"
-                description={`Also sets light or dark mode. System follows macOS with GitHub Light and GitHub Dark. Includes themes installed in VS Code, VSCodium, Cursor and Windsurf, and files in ~/${CUSTOM_THEMES_DIR}.`}
-                control={
-                  <ThemePicker
-                    themes={themes}
-                    value={settings.theme}
-                    onChange={(theme) => onChange({ ...settings, theme })}
-                  />
-                }
-              />
-            </SettingsSection>
+            <div className="always-bounce space-y-10 p-6">
+              <SettingsSection title="Appearance">
+                <Setting
+                  title="Theme"
+                  description={`Also sets light or dark mode. System follows macOS with GitHub Light and GitHub Dark. Includes themes installed in VS Code, VSCodium, Cursor and Windsurf, and files in ~/${CUSTOM_THEMES_DIR}.`}
+                  control={
+                    <ThemePicker
+                      themes={themes}
+                      value={settings.theme}
+                      onChange={(theme) => onChange({ ...settings, theme })}
+                    />
+                  }
+                />
+              </SettingsSection>
 
-            <SettingsSection title="Files">
-              <Setting
-                title="Hide Git-ignored files"
-                description="Leave files matched by .gitignore out of the file tree."
-                control={
-                  <Switch
-                    checked={settings.files.hide_gitignored}
-                    onCheckedChange={(checked) =>
-                      onChange({
-                        ...settings,
-                        files: { ...settings.files, hide_gitignored: checked },
-                      })
-                    }
-                  />
-                }
-              />
-            </SettingsSection>
+              <SettingsSection title="Files">
+                <Setting
+                  title="Hide Git-ignored files"
+                  description="Leave files matched by .gitignore out of the file tree."
+                  control={
+                    <Switch
+                      checked={settings.files.hide_gitignored}
+                      onCheckedChange={(checked) =>
+                        onChange({
+                          ...settings,
+                          files: {
+                            ...settings.files,
+                            hide_gitignored: checked,
+                          },
+                        })
+                      }
+                    />
+                  }
+                />
+              </SettingsSection>
+            </div>
           </div>
         </div>
       </DialogContent>

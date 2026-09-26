@@ -45,11 +45,13 @@ export function FileView({
           {loaded.message}
         </p>
       ) : (
-        <div
-          className="code-view min-h-0 flex-1 overflow-auto pb-8 font-mono text-xs select-text"
-          // Shiki escapes the file's contents; the markup is its own.
-          dangerouslySetInnerHTML={{ __html: loaded?.html ?? "" }}
-        />
+        <div className="min-h-0 flex-1 overscroll-contain overflow-auto">
+          <div
+            className="code-view always-bounce pb-8 font-mono text-xs select-text"
+            // Shiki escapes the file's contents; the markup is its own.
+            dangerouslySetInnerHTML={{ __html: loaded?.html ?? "" }}
+          />
+        </div>
       )}
     </div>
   );

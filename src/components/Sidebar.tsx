@@ -23,8 +23,10 @@ export function Sidebar({
       <span className="truncate px-4 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {basename(folder)}
       </span>
-      <nav className="flex-1 overflow-y-auto px-2 pb-2">
-        <FileTree root={folder} {...treeProps} />
+      <nav className="min-h-0 flex-1 overscroll-contain overflow-y-auto">
+        <div className="always-bounce px-2 pb-2">
+          <FileTree root={folder} {...treeProps} />
+        </div>
       </nav>
     </aside>
   );
