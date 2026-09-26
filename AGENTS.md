@@ -58,6 +58,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
+  dev-runner.sh          Runs `tauri dev` from a .app so Stage Manager shows the icon
   capabilities/          Permissions the frontend may use
   tests/config.rs        Guards on the config (write scope, hidden window)
 .github/workflows/ci.yml Build, typecheck, lint, format check, tests on macOS
