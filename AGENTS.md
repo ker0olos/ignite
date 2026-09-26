@@ -24,6 +24,7 @@ src/                     React frontend (almost all logic lives here)
     AgentPanel.tsx       Conversation + task composer
     Conversation.tsx     Renders the transcript: messages, thinking, tool rows
     SettingsDialog.tsx   Settings modal
+    McpServers.tsx       MCP server rows (status, switch, remove) and the add/edit form
     ConnectProviders.tsx Full-window screen to connect Claude / ChatGPT
     ProviderLogos.tsx    Claude and OpenAI marks (LobeHub Icons, MIT)
   hooks/
@@ -34,6 +35,7 @@ src/                     React frontend (almost all logic lives here)
     useProviders.ts      Provider status, sign-in and sign-out via the pi host
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
     useAgentSession.ts   The folder's pi session: conversation, send/stop, model and effort
+    useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -51,6 +53,8 @@ src/                     React frontend (almost all logic lives here)
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     transcript.ts        Rebuilds the conversation from pi's session events
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
+    mcpServers.ts        MCP server form (lines to args/env/headers), status labels
+    mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
     utils.ts             `cn` class-name helper (shadcn)
@@ -61,9 +65,13 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
+  mcpConfig.ts           pi-mcp-adapter's mcp.json: read, edit servers, cached tool names
+  mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
+  testMcpServer.ts       A one-tool stdio MCP server for tests
+  types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
-.todo                    Planned work (tool approval prompts, project trust)
+.todo                    Planned work (tool approval prompts, project trust, MCP sign-in)
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
   dev-runner.sh          Runs `tauri dev` from a .app so Stage Manager shows the icon
@@ -91,7 +99,11 @@ Two places hold persisted data:
   `settings.json`, where pi keeps the last chosen model and effort as the
   default for new sessions, and `sessions/`, one JSONL conversation per
   folder that reopening the folder continues. The model list and each model's effort levels
-  always come from pi; the app never hard-codes them.
+  always come from pi; the app never hard-codes them. `mcp.json` holds the
+  MCP servers in pi-mcp-adapter's documented format (`mcpServers`, optional
+  `settings`); Settings edits it and keeps fields it doesn't show. The adapter
+  caches tool lists in `mcp-cache.json`; OAuth tokens for MCP servers (if any)
+  go to the OS keychain.
 - **App state** in `state.json` in the app data folder (`lib/store.ts`): recent
   folders (shared by all windows) and the main window's last open folder.
 
@@ -100,7 +112,7 @@ Two places hold persisted data:
 The harness drives [pi](https://github.com/earendil-works/pi)
 (`@earendil-works/pi-coding-agent`, pinned 0.87.1), run as a Node sidecar.
 Before touching agent or provider-credential code, read the project skill in
-`.claude/skills/pi/` (SKILL.md, then auth.md, host.md or sessions.md). The
+`.claude/skills/pi/` (SKILL.md, then auth.md, host.md, sessions.md or mcp.md). The
 old `@mariozechner/*` packages and most online material describe an older,
 incompatible API.
 
@@ -108,6 +120,14 @@ The app only renders: pi does the work and the sidecar forwards its session
 events (`toWireEvent`), which `lib/transcript.ts` turns into the conversation.
 pi runs its tools (read, bash, edit, write) without asking; approval prompts
 are planned in `.todo`.
+
+MCP servers come from [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adapter)
+(pinned 2.38.0), loaded into every session by `sidecar/mcpExtension.ts` with
+the app's `mcp.json` as its whole config, so it never reads `~/.config/mcp`,
+a project's `.mcp.json` or other apps' MCP configs. Servers connect on first
+use; the model reaches them through the adapter's `mcp` and `mcp__<server>`
+tools. Saving a change reloads the session (after the current run). Status
+comes from the adapter's event-bus channel; see the skill's mcp.md.
 
 Claude subscriptions run through the user's own Claude Code via the
 `pi-claude-bridge` extension (pi provider `claude-bridge`), because Anthropic
