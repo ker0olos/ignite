@@ -6,6 +6,8 @@ import {
   type AuthPromptData,
   type HostMessage,
   type HostRequest,
+  type McpServer,
+  type McpServerStatus,
   type ModelInfo,
   type OpenedSession,
   type ProviderId,
@@ -15,6 +17,7 @@ import {
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import type { ClaudeCode } from "./claudeCode.ts";
+import type { McpStore } from "./mcpConfig.ts";
 
 /** Sign-ins the app borrows from other tools on this Mac. */
 export type LocalLogins = {
@@ -56,7 +59,33 @@ export type Session = {
     options: { streamingBehavior?: "steer" | "followUp" },
   ): Promise<void>;
   abort(): Promise<void>;
+  /** Reloads extensions, which re-reads mcp.json. */
+  reload(): Promise<void>;
+  readonly extensionRunner: {
+    emit(event: { type: "session_shutdown"; reason: "quit" }): Promise<unknown>;
+    getCommand(name: string): unknown;
+  };
   dispose(): void;
+};
+
+/** pi-mcp-adapter's status snapshot (its MCP_STATUS_EVENT), as far as it's read. */
+export type McpStatusSnapshot = {
+  servers: readonly { name: string; status: string }[];
+};
+
+/** Opens a folder's session; the adapter's status snapshots go to `onMcpStatus`. */
+export type OpenSession = (
+  cwd: string,
+  onMcpStatus: (snapshot: McpStatusSnapshot) => void,
+) => Promise<Session>;
+
+const MCP_STATUSES: Record<string, McpServerStatus> = {
+  connected: "connected",
+  cached: "idle",
+  "not-connected": "idle",
+  failed: "failed",
+  "needs-auth": "needs-auth",
+  disabled: "disabled",
 };
 
 /**
@@ -94,13 +123,20 @@ export function describeError(error: unknown): string {
 export function createHost(
   runtime: Runtime,
   send: (m: HostMessage) => void,
-  openSession: (cwd: string) => Promise<Session>,
+  openSession: OpenSession,
   local: LocalLogins,
+  mcpStore: McpStore,
 ) {
   const { claudeCode } = local;
   let activeLogin: AbortController | null = null;
   let session: Session | null = null;
   let unsubscribe = () => {};
+  // Adapter status per server name, from the open session's latest snapshot.
+  let mcpStatus = new Map<string, string>();
+  // mcp.json changed while pi was running; reload once the run ends.
+  let reloadWhenSettled = false;
+  // Counts opened folders, so a replaced session's status is ignored.
+  let opens = 0;
   const prompts = new Map<number, Pending>();
   let nextPromptId = 1;
 
@@ -235,14 +271,39 @@ export function createHost(
   }
 
   async function open(cwd: string): Promise<OpenedSession> {
+    const opened = ++opens;
+    const previous = session;
     unsubscribe();
-    session?.dispose();
     session = null;
-    const s = await openSession(cwd);
+    reloadWhenSettled = false;
+    mcpStatus = new Map();
+    if (previous) {
+      // dispose() alone leaves extensions running (MCP server processes).
+      await previous.extensionRunner.emit({
+        type: "session_shutdown",
+        reason: "quit",
+      });
+      previous.dispose();
+    }
+    // Status can arrive while the session is still opening; it's kept, and
+    // pushed with the servers once the session is open.
+    const s = await openSession(cwd, (snapshot) => {
+      if (opened !== opens) return;
+      mcpStatus = new Map(snapshot.servers.map((m) => [m.name, m.status]));
+      if (session) void pushMcpServers();
+    });
     session = s;
-    unsubscribe = s.subscribe((event) =>
-      send({ type: "session_event", event: toWireEvent(event) }),
-    );
+    unsubscribe = s.subscribe((event) => {
+      send({ type: "session_event", event: toWireEvent(event) });
+      if (event.type === "agent_settled" && reloadWhenSettled) {
+        reloadWhenSettled = false;
+        s.reload().catch((error: unknown) =>
+          send({ type: "session_error", error: describeError(error) }),
+        );
+      }
+    });
+    // Servers now have a status, even before the adapter reports any.
+    void pushMcpServers();
     return {
       ...(await sessionState()),
       messages: s.messages,
@@ -261,6 +322,49 @@ export function createHost(
     s.prompt(text, options).catch((error: unknown) =>
       send({ type: "session_error", error: describeError(error) }),
     );
+  }
+
+  async function mcpServers(): Promise<McpServer[]> {
+    const saved = await mcpStore.list();
+    if (!session) return saved;
+    // ponytail: a failed server shows no reason; the adapter only logs it to
+    // stderr. Show it once the status snapshot carries one.
+    return saved.map((server) => ({
+      ...server,
+      status: server.enabled
+        ? (MCP_STATUSES[mcpStatus.get(server.name) ?? ""] ?? "idle")
+        : "disabled",
+    }));
+  }
+
+  async function pushMcpServers() {
+    try {
+      send({ type: "mcp_servers", servers: await mcpServers() });
+    } catch {
+      // mcp.json is unreadable; the next request reports why.
+    }
+  }
+
+  // The session's adapter only reads mcp.json on (re)load.
+  async function changeMcp(edit: () => Promise<void>) {
+    await edit();
+    if (session?.isStreaming) reloadWhenSettled = true;
+    else await session?.reload();
+    return mcpServers();
+  }
+
+  async function reconnect(name: string) {
+    const s = current();
+    const server = (await mcpStore.list()).find((m) => m.name === name);
+    if (!server) throw new Error(`There is no server named ${name}.`);
+    if (!server.enabled) throw new Error(`Turn ${name} on first.`);
+    // Without the adapter, pi would send the command to the model as text.
+    if (!s.extensionRunner.getCommand("mcp")) {
+      throw new Error("MCP isn't running in this session. Check mcp.json.");
+    }
+    // The adapter's own command; the new status arrives as a snapshot.
+    await s.prompt(`/mcp reconnect ${name}`, {});
+    return mcpServers();
   }
 
   async function run(request: Extract<HostRequest, { id: number }>) {
@@ -294,6 +398,20 @@ export function createHost(
       case "abort":
         await current().abort();
         return undefined;
+      case "mcp_list":
+        return mcpServers();
+      case "mcp_save":
+        return changeMcp(() =>
+          mcpStore.save(request.name, request.config, request.previousName),
+        );
+      case "mcp_remove":
+        return changeMcp(() => mcpStore.remove(request.name));
+      case "mcp_set_enabled":
+        return changeMcp(() =>
+          mcpStore.setEnabled(request.name, request.enabled),
+        );
+      case "mcp_reconnect":
+        return reconnect(request.name);
     }
   }
 

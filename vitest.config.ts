@@ -15,8 +15,13 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/lib/**", "src/hooks/**", "sidecar/**", "shared/**"],
-      // main.ts is exercised by spawning it (main.test.ts), which v8 can't see.
-      exclude: ["src/lib/utils.ts", "sidecar/main.ts"],
+      // main.ts and the test MCP server run in child processes (main.test.ts),
+      // which v8 can't see.
+      exclude: [
+        "src/lib/utils.ts",
+        "sidecar/main.ts",
+        "sidecar/testMcpServer.ts",
+      ],
     },
   },
 });

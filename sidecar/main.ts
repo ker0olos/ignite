@@ -9,7 +9,9 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   createAgentSession,
+  createEventBus,
   DefaultResourceLoader,
+  initTheme,
   ModelRuntime,
   SessionManager,
   SettingsManager,
@@ -18,8 +20,14 @@ import type { HostMessage, HostRequest } from "../shared/hostProtocol.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { createClaudeCode } from "./claudeCode.ts";
 import { codexBackend, withCodexLogin } from "./credentials.ts";
-import { createHost, type Runtime, type Session } from "./host.ts";
+import {
+  createHost,
+  type McpStatusSnapshot,
+  type Runtime,
+  type Session,
+} from "./host.ts";
 import { createLineSplitter } from "./lines.ts";
+import { createMcpStore } from "./mcpConfig.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
 // own ~/.pi/agent, so signing in or out here doesn't affect it.
@@ -56,18 +64,35 @@ const claudeBridge = join(
   ),
   "src/index.ts",
 );
+// pi-mcp-adapter, reading only agentDir/mcp.json.
+const mcpExtension = join(import.meta.dirname, "mcpExtension.ts");
+// pi-mcp-adapter's status channel (MCP_STATUS_EVENT in its types.ts).
+const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
 
-async function openSession(cwd: string): Promise<Session> {
+// Extensions style status text with pi's TUI theme even without a terminal;
+// pi-mcp-adapter throws on reload if none is set.
+initTheme("dark");
+
+async function openSession(
+  cwd: string,
+  onMcpStatus: (snapshot: McpStatusSnapshot) => void,
+): Promise<Session> {
   // ponytail: project untrusted (no project extensions) until a trust
   // prompt exists; see .todo.
   const settingsManager = SettingsManager.create(cwd, agentDir, {
     projectTrusted: false,
   });
+  // One bus per session, so a closed session's listeners go with it.
+  const eventBus = createEventBus();
+  eventBus.on(MCP_STATUS_EVENT, (data) =>
+    onMcpStatus(data as McpStatusSnapshot),
+  );
   const resourceLoader = new DefaultResourceLoader({
     cwd,
     agentDir,
     settingsManager,
-    additionalExtensionPaths: [claudeBridge],
+    eventBus,
+    additionalExtensionPaths: [claudeBridge, mcpExtension],
   });
   await resourceLoader.reload();
   // Continues the folder's last conversation, saved under agentDir/sessions.
@@ -94,14 +119,23 @@ async function openSession(cwd: string): Promise<Session> {
   ) {
     await session.setModel(wanted);
   }
+  // Starts extensions (session_start), as pi's own modes do; the error
+  // listener also makes a reload start them again.
+  await session.bindExtensions({
+    onError: ({ extensionPath, event, error }) =>
+      process.stderr.write(`pi-host: ${extensionPath} (${event}): ${error}\n`),
+  });
   return session as unknown as Session;
 }
 
 // pi's types are pi-ai's; they match Runtime and Session structurally.
-const host = createHost(runtime as unknown as Runtime, send, openSession, {
-  claudeCode: createClaudeCode(),
-  usesCodexLogin: logins.usesCodex,
-});
+const host = createHost(
+  runtime as unknown as Runtime,
+  send,
+  openSession,
+  { claudeCode: createClaudeCode(), usesCodexLogin: logins.usesCodex },
+  createMcpStore(join(agentDir, "mcp.json")),
+);
 
 const inFlight = new Set<Promise<void>>();
 
