@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { HostMessage } from "../shared/hostProtocol.ts";
+import type { HostMessage, SessionState } from "../shared/hostProtocol.ts";
 
 // Starts the real sidecar (real pi, real process) with a throwaway home
 // folder, so nothing touches the user's credentials.
@@ -16,9 +16,10 @@ afterEach(() => rm(home, { recursive: true, force: true }));
 
 function run(
   input: string,
+  env: Record<string, string> = {},
 ): Promise<{ messages: HostMessage[]; code: number | null }> {
   const child = spawn(process.execPath, [join(__dirname, "main.ts")], {
-    env: { ...process.env, HOME: home, PI_OFFLINE: "1" },
+    env: { ...process.env, HOME: home, PI_OFFLINE: "1", ...env },
   });
   let out = "";
   child.stdout.on("data", (chunk) => (out += chunk));
@@ -78,5 +79,19 @@ describe("sidecar process", () => {
         data: { id: "openai", connected: false },
       },
     ]);
+  }, 30_000);
+
+  it("opens a pi session for a folder with the connected provider's models", async () => {
+    const { messages } = await run(
+      JSON.stringify({ id: 1, type: "open_session", cwd: home }) + "\n",
+      { OPENAI_API_KEY: "sk-test" },
+    );
+    const response = messages.find((m) => m.type === "response");
+    expect(response).toMatchObject({ id: 1, ok: true });
+    const state = (response as { data: SessionState }).data;
+    expect(state.models.length).toBeGreaterThan(0);
+    expect(state.models.every((m) => m.provider === "openai")).toBe(true);
+    expect(state.model?.provider).toBe("openai");
+    expect(state.thinkingLevels).toContain(state.thinkingLevel);
   }, 30_000);
 });

@@ -8,6 +8,7 @@ import { Welcome } from "@/components/Welcome";
 import { Workspace } from "@/components/Workspace";
 import { Button } from "@/components/ui/button";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
+import { useAgentSession } from "@/hooks/useAgentSession";
 import { useConnectScreen } from "@/hooks/useConnectScreen";
 import { useFolders } from "@/hooks/useFolders";
 import { useProviders } from "@/hooks/useProviders";
@@ -34,6 +35,7 @@ export default function App() {
   const [settings, setSettings] = useSettings();
   const providers = useProviders();
   const connectScreen = useConnectScreen(providers.statuses);
+  const session = useAgentSession(providers.host, current, providers.statuses);
   const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
   const [home, setHome] = useState("");
@@ -119,6 +121,7 @@ export default function App() {
           editor={settings.editor}
           hideGitIgnored={settings.files.hide_gitignored}
           actions={settingsButton}
+          session={session}
         />
       ) : (
         <div className="flex flex-1 flex-col">

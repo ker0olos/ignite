@@ -6,8 +6,11 @@ import {
   type AuthPromptData,
   type HostMessage,
   type HostRequest,
+  type ModelInfo,
   type ProviderId,
   type ProviderStatus,
+  type SessionState,
+  type ThinkingLevel,
 } from "../shared/hostProtocol.ts";
 
 type Interaction = {
@@ -25,6 +28,17 @@ export type Runtime = {
     interaction: Interaction,
   ): Promise<unknown>;
   logout(providerId: string): Promise<void>;
+  getAvailable(): Promise<readonly ModelInfo[]>;
+};
+
+/** The slice of pi's AgentSession the host needs; tests pass a fake. */
+export type Session = {
+  readonly model: ModelInfo | undefined;
+  readonly thinkingLevel: ThinkingLevel;
+  getAvailableThinkingLevels(): ThinkingLevel[];
+  setModel(model: ModelInfo, options: { persist: boolean }): Promise<void>;
+  setThinkingLevel(level: ThinkingLevel, options: { persist: boolean }): void;
+  dispose(): void;
 };
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };
@@ -42,8 +56,13 @@ export function describeError(error: unknown): string {
  * Handles the app's requests against pi's ModelRuntime. One sign-in runs at a
  * time; its prompts are forwarded to the app and answered by id.
  */
-export function createHost(runtime: Runtime, send: (m: HostMessage) => void) {
+export function createHost(
+  runtime: Runtime,
+  send: (m: HostMessage) => void,
+  openSession: (cwd: string) => Promise<Session>,
+) {
   let activeLogin: AbortController | null = null;
+  let session: Session | null = null;
   const prompts = new Map<number, Pending>();
   let nextPromptId = 1;
 
@@ -121,6 +140,41 @@ export function createHost(runtime: Runtime, send: (m: HostMessage) => void) {
     return status(provider);
   }
 
+  const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
+    provider,
+    id,
+    name,
+  });
+
+  function current(): Session {
+    if (!session) throw new Error("No folder is open.");
+    return session;
+  }
+
+  // Everything comes from pi: the connected providers' models, and the levels
+  // the session's model supports (pi clamps the level itself).
+  async function sessionState(): Promise<SessionState> {
+    const s = current();
+    const models = await runtime.getAvailable();
+    return {
+      models: models.map(info),
+      model: s.model && info(s.model),
+      thinkingLevel: s.thinkingLevel,
+      thinkingLevels: s.getAvailableThinkingLevels(),
+    };
+  }
+
+  async function setModel(provider: string, modelId: string) {
+    const s = current();
+    const model = (await runtime.getAvailable()).find(
+      (m) => m.provider === provider && m.id === modelId,
+    );
+    if (!model) throw new Error(`${modelId} isn't available.`);
+    // Persisted so the next session starts with the same choice.
+    await s.setModel(model, { persist: true });
+    return sessionState();
+  }
+
   async function run(request: Extract<HostRequest, { id: number }>) {
     switch (request.type) {
       case "status":
@@ -133,6 +187,18 @@ export function createHost(runtime: Runtime, send: (m: HostMessage) => void) {
       case "logout":
         await runtime.logout(request.provider);
         return status(request.provider);
+      case "open_session":
+        session?.dispose();
+        session = null;
+        session = await openSession(request.cwd);
+        return sessionState();
+      case "session_state":
+        return sessionState();
+      case "set_model":
+        return setModel(request.provider, request.modelId);
+      case "set_thinking_level":
+        current().setThinkingLevel(request.level, { persist: true });
+        return sessionState();
     }
   }
 

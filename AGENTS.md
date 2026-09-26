@@ -32,6 +32,7 @@ src/                     React frontend (almost all logic lives here)
     useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
     useProviders.ts      Provider status, sign-in and sign-out via the pi host
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
+    useAgentSession.ts   The folder's pi session: model and effort pickers
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -47,13 +48,14 @@ src/                     React frontend (almost all logic lives here)
     lifecycle.ts         Confirm before quitting or closing a window
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
+    modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
     utils.ts             `cn` class-name helper (shadcn)
   test/                  Test setup and fake Tauri backends (fakeFs, fakeStore)
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
   main.ts                stdio wiring; pi's files live in ~/.unnamed-harness/pi
-  host.ts                Handles requests against pi's ModelRuntime (tested with a fake)
+  host.ts                Handles requests against pi's ModelRuntime and AgentSession (tested with fakes)
   lines.ts               LF-only JSONL splitting
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 src-tauri/               Rust shell: registers plugins, nothing else
@@ -79,6 +81,10 @@ Two places hold persisted data:
 - **Editor settings** (`[editor]` in settings.toml): `font_family` (CSS list,
   default Menlo) and `word_wrap` for the file viewer.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
+- **pi's own files** in `~/.unnamed-harness/pi`: credentials (`auth.json`) and
+  `settings.json`, where pi keeps the last chosen model and effort as the
+  default for new sessions. The model list and each model's effort levels
+  always come from pi; the app never hard-codes them.
 - **App state** in `state.json` in the app data folder (`lib/store.ts`): recent
   folders (shared by all windows) and the main window's last open folder.
 

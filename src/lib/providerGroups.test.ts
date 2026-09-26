@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ProviderStatus } from "../../shared/hostProtocol";
-import { PROVIDER_GROUPS, groupConnection } from "./providerGroups";
+import {
+  PROVIDER_GROUPS,
+  groupConnection,
+  providerName,
+} from "./providerGroups";
 
 const [claude, chatgpt] = PROVIDER_GROUPS;
 const off: ProviderStatus[] = [
@@ -66,5 +70,17 @@ describe("groupConnection", () => {
         withStatus({ id: "anthropic", connected: true, method: "oauth" }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("providerName", () => {
+  it("names providers by brand", () => {
+    expect(providerName("anthropic")).toBe("Claude");
+    expect(providerName("openai-codex")).toBe("ChatGPT");
+    expect(providerName("openai")).toBe("ChatGPT");
+  });
+
+  it("falls back to the provider id", () => {
+    expect(providerName("google")).toBe("google");
   });
 });

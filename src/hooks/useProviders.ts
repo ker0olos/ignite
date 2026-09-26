@@ -32,6 +32,7 @@ export function useProviders(open: () => Promise<HostClient> = openPiHost) {
     message: string;
   } | null>(null);
   const client = useRef<HostClient | null>(null);
+  const [host, setHost] = useState<HostClient | null>(null);
 
   const updateStatus = (status: ProviderStatus) =>
     setStatuses(
@@ -62,6 +63,7 @@ export function useProviders(open: () => Promise<HostClient> = openPiHost) {
         started = c;
         if (cancelled) return void c.close();
         client.current = c;
+        setHost(c);
         unsubscribe = c.subscribe(onMessage);
         setStatuses(await c.request({ type: "status" }));
       })
@@ -114,6 +116,8 @@ export function useProviders(open: () => Promise<HostClient> = openPiHost) {
   }, []);
 
   return {
+    /** The sidecar, once started; shared with the agent session. */
+    host,
     /** Null until the sidecar has answered. */
     statuses,
     /** Set when the sidecar couldn't start; nothing else works then. */

@@ -27,3 +27,12 @@ export function groupConnection(
   if (status(group.apiKey, "api_key")) return "api_key";
   return null;
 }
+
+/** The brand a pi provider belongs to, or the provider id if it has none. */
+export function providerName(provider: string): string {
+  return (
+    PROVIDER_GROUPS.find(
+      (g) => g.subscription === provider || g.apiKey === provider,
+    )?.name ?? provider
+  );
+}

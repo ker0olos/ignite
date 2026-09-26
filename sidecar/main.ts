@@ -6,10 +6,15 @@
  */
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import {
+  createAgentSession,
+  ModelRuntime,
+  SessionManager,
+  SettingsManager,
+} from "@earendil-works/pi-coding-agent";
 import type { HostMessage, HostRequest } from "../shared/hostProtocol.ts";
 import { APP_NAME } from "../src/lib/app.ts";
-import { createHost, type Runtime } from "./host.ts";
+import { createHost, type Runtime, type Session } from "./host.ts";
 import { createLineSplitter } from "./lines.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
@@ -26,8 +31,23 @@ const runtime = await ModelRuntime.create({
 const send = (message: HostMessage) =>
   process.stdout.write(JSON.stringify(message) + "\n");
 
-// ModelRuntime's login/checkAuth types are pi-ai's; they match Runtime structurally.
-const host = createHost(runtime as unknown as Runtime, send);
+async function openSession(cwd: string): Promise<Session> {
+  const { session } = await createAgentSession({
+    cwd,
+    agentDir,
+    modelRuntime: runtime,
+    // ponytail: in memory and project untrusted (no project extensions) until
+    // prompting and a trust prompt exist.
+    sessionManager: SessionManager.inMemory(cwd),
+    settingsManager: SettingsManager.create(cwd, agentDir, {
+      projectTrusted: false,
+    }),
+  });
+  return session as unknown as Session;
+}
+
+// pi's types are pi-ai's; they match Runtime and Session structurally.
+const host = createHost(runtime as unknown as Runtime, send, openSession);
 
 const inFlight = new Set<Promise<void>>();
 

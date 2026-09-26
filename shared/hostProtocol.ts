@@ -50,6 +50,23 @@ export type AuthEventData =
     }
   | { type: "progress"; message: string };
 
+/** pi's thinking levels (effort), from lowest to highest. */
+export type ThinkingLevel =
+  "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
+export type ModelInfo = { provider: string; id: string; name: string };
+
+/** The session's model and effort, with the choices pi offers for them. */
+export type SessionState = {
+  /** Models of every connected provider. */
+  models: ModelInfo[];
+  /** Unset until a provider is connected and a model chosen. */
+  model?: ModelInfo;
+  thinkingLevel: ThinkingLevel;
+  /** Levels the current model supports; just "off" when it can't reason. */
+  thinkingLevels: ThinkingLevel[];
+};
+
 /** Messages the app sends. Those with an `id` get exactly one `response`. */
 export type HostRequest =
   | { id: number; type: "status" }
@@ -63,6 +80,11 @@ export type HostRequest =
     }
   | { id: number; type: "cancel_login" }
   | { id: number; type: "logout"; provider: ProviderId }
+  /** Starts the agent session for a folder, replacing any previous one. */
+  | { id: number; type: "open_session"; cwd: string }
+  | { id: number; type: "session_state" }
+  | { id: number; type: "set_model"; provider: string; modelId: string }
+  | { id: number; type: "set_thinking_level"; level: ThinkingLevel }
   | { type: "prompt_answer"; promptId: number; value: string }
   | { type: "prompt_cancel"; promptId: number };
 
@@ -72,6 +94,10 @@ export type HostResponses = {
   login: ProviderStatus;
   cancel_login: undefined;
   logout: ProviderStatus;
+  open_session: SessionState;
+  session_state: SessionState;
+  set_model: SessionState;
+  set_thinking_level: SessionState;
 };
 
 /** Messages the sidecar sends. */

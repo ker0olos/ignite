@@ -9,6 +9,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useTabs } from "@/hooks/useTabs";
 import { fileIcon } from "@/lib/fileIcons";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -28,6 +29,7 @@ export function Workspace({
   editor,
   hideGitIgnored,
   actions,
+  session,
 }: {
   folder: string;
   tabs: ReturnType<typeof useTabs>;
@@ -35,6 +37,7 @@ export function Workspace({
   editor: Settings["editor"];
   hideGitIgnored: boolean;
   actions: ReactNode;
+  session: ReturnType<typeof useAgentSession>;
 }) {
   const { files, active } = tabs;
   const openFile = tabs.open;
@@ -74,7 +77,7 @@ export function Workspace({
       <PaneHandle />
       <ResizablePanel id="agent" minSize="320px">
         <div className="flex h-full flex-col">
-          <AgentPanel folder={folder} />
+          <AgentPanel folder={folder} session={session} />
         </div>
       </ResizablePanel>
       {active && <PaneHandle />}

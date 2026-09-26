@@ -1,7 +1,17 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
-import type { HostMessage, HostRequest } from "../shared/hostProtocol.ts";
-import { createHost, describeError, type Runtime } from "./host.ts";
+import type {
+  HostMessage,
+  HostRequest,
+  ModelInfo,
+  ThinkingLevel,
+} from "../shared/hostProtocol.ts";
+import {
+  createHost,
+  describeError,
+  type Runtime,
+  type Session,
+} from "./host.ts";
 
 type Interaction = Parameters<Runtime["login"]>[2];
 
@@ -26,14 +36,45 @@ function fakeRuntime(
       connected.set(id, method);
     }),
     logout: vi.fn(async (id) => void connected.delete(id)),
+    getAvailable: async () => MODELS,
   };
   return { runtime, connected };
 }
 
+// Extra fields stand in for the rest of pi's Model, which the app never sees.
+const OPUS = { provider: "anthropic", id: "opus", name: "Opus", api: "x" };
+const MINI = { provider: "openai", id: "mini", name: "Mini", api: "x" };
+const MODELS: ModelInfo[] = [OPUS, MINI];
+
+/** A fake AgentSession: Opus reasons, Mini doesn't, like pi clamps. */
+function fakeSession() {
+  const levels = (m?: ModelInfo): ThinkingLevel[] =>
+    m?.id === "opus" ? ["off", "low", "high"] : ["off"];
+  const session = {
+    model: OPUS as ModelInfo | undefined,
+    thinkingLevel: "low" as ThinkingLevel,
+    getAvailableThinkingLevels: () => levels(session.model),
+    setModel: vi.fn(async (m: ModelInfo) => {
+      session.model = m;
+      if (!levels(m).includes(session.thinkingLevel)) {
+        session.thinkingLevel = "off";
+      }
+    }),
+    setThinkingLevel: vi.fn((level: ThinkingLevel) => {
+      session.thinkingLevel = level;
+    }),
+    dispose: vi.fn(),
+  };
+  return session satisfies Session;
+}
+
 /** Wires a host to a fake runtime and records everything it sends. */
-function setup(runtime: Runtime) {
+function setup(
+  runtime: Runtime,
+  openSession: (cwd: string) => Promise<Session> = async () => fakeSession(),
+) {
   const sent: HostMessage[] = [];
-  const host = createHost(runtime, (m) => sent.push(m));
+  const host = createHost(runtime, (m) => sent.push(m), openSession);
   const responses = () => sent.filter((m) => m.type === "response");
   const request = async (r: HostRequest) => host.handle(r);
   return { host, sent, responses, request };
@@ -423,5 +464,121 @@ describe("describeError", () => {
 
   it("stringifies non-errors", () => {
     expect(describeError("plain")).toBe("plain");
+  });
+});
+
+describe("sessions", () => {
+  const opus = { provider: "anthropic", id: "opus", name: "Opus" };
+  const mini = { provider: "openai", id: "mini", name: "Mini" };
+
+  it("opens a session for a folder and reports pi's choices", async () => {
+    const openSession = vi.fn(async () => fakeSession());
+    const { request, responses } = setup(fakeRuntime().runtime, openSession);
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    expect(openSession).toHaveBeenCalledWith("/work");
+    expect(responses()[0]).toEqual({
+      type: "response",
+      id: 1,
+      ok: true,
+      data: {
+        models: [opus, mini],
+        model: opus,
+        thinkingLevel: "low",
+        thinkingLevels: ["off", "low", "high"],
+      },
+    });
+  });
+
+  it("reports a session with no model yet", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime, async () => ({
+      ...fakeSession(),
+      model: undefined,
+    }));
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    const data = (responses()[0] as { data: { model?: unknown } }).data;
+    expect(data.model).toBeUndefined();
+  });
+
+  it("disposes the previous session when another folder opens", async () => {
+    const first = fakeSession();
+    const sessions = [first, fakeSession()];
+    const { request } = setup(fakeRuntime().runtime, async () =>
+      sessions.shift()!,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/a" });
+    await request({ id: 2, type: "open_session", cwd: "/b" });
+    expect(first.dispose).toHaveBeenCalled();
+  });
+
+  it("switches model through pi, keeping it for the next session", async () => {
+    const session = fakeSession();
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({
+      id: 2,
+      type: "set_model",
+      provider: "openai",
+      modelId: "mini",
+    });
+    expect(session.setModel).toHaveBeenCalledWith(MINI, { persist: true });
+    expect(responses()[1]).toMatchObject({
+      ok: true,
+      data: { model: mini, thinkingLevel: "off", thinkingLevels: ["off"] },
+    });
+  });
+
+  it("refuses a model that isn't available", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime);
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({
+      id: 2,
+      type: "set_model",
+      provider: "openai",
+      modelId: "gone",
+    });
+    expect(responses()[1]).toMatchObject({
+      ok: false,
+      error: "gone isn't available.",
+    });
+  });
+
+  it("sets the effort through pi, keeping it for the next session", async () => {
+    const session = fakeSession();
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "set_thinking_level", level: "high" });
+    expect(session.setThinkingLevel).toHaveBeenCalledWith("high", {
+      persist: true,
+    });
+    expect(responses()[1]).toMatchObject({
+      ok: true,
+      data: { thinkingLevel: "high" },
+    });
+  });
+
+  it("refreshes the state", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime);
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "session_state" });
+    expect(responses()[1]).toMatchObject({ ok: true, data: { model: opus } });
+  });
+
+  it.each([
+    { id: 1, type: "session_state" },
+    { id: 1, type: "set_thinking_level", level: "high" },
+    { id: 1, type: "set_model", provider: "anthropic", modelId: "opus" },
+  ] as HostRequest[])("fails $type before a folder is open", async (r) => {
+    const { request, responses } = setup(fakeRuntime().runtime);
+    await request(r);
+    expect(responses()[0]).toMatchObject({
+      ok: false,
+      error: "No folder is open.",
+    });
   });
 });

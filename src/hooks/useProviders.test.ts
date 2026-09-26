@@ -72,7 +72,8 @@ async function setup(fake = fakeClient()) {
 
 describe("useProviders", () => {
   it("loads each provider's status from the sidecar", async () => {
-    const { result } = await setup();
+    const { result, client } = await setup();
+    expect(result.current.host).toBe(client);
     expect(result.current.statuses).toEqual(DISCONNECTED);
     expect(result.current.anyConnected).toBe(false);
   });
