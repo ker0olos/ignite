@@ -4,6 +4,7 @@ export default defineConfig({
   resolve: {
     alias: { "@": new URL("./src", import.meta.url).pathname },
   },
+  define: { __PI_HOST_PATH__: JSON.stringify("/repo/sidecar/main.ts") },
   test: {
     // Tauri's IPC mocks (@tauri-apps/api/mocks) need a window object.
     environment: "jsdom",
@@ -13,8 +14,9 @@ export default defineConfig({
     // for finding untested paths, not a gate, so there are no thresholds.
     coverage: {
       provider: "v8",
-      include: ["src/lib/**", "src/hooks/**"],
-      exclude: ["src/lib/utils.ts"],
+      include: ["src/lib/**", "src/hooks/**", "sidecar/**", "shared/**"],
+      // main.ts is exercised by spawning it (main.test.ts), which v8 can't see.
+      exclude: ["src/lib/utils.ts", "sidecar/main.ts"],
     },
   },
 });

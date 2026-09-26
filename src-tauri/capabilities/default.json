@@ -66,6 +66,19 @@
         }
       ]
     },
-    "process:default"
+    "process:default",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "pi-host",
+          "cmd": "node",
+          "args": [{ "validator": "^/.+/sidecar/main\\.ts$" }]
+        }
+      ]
+    },
+    "shell:allow-stdin-write",
+    "shell:allow-kill",
+    "opener:default"
   ]
 }

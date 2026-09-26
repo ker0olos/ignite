@@ -9,7 +9,7 @@ const FILE = "state.json";
  */
 export const store = load(FILE);
 
-export type StoreKey = "folders" | "current";
+export type StoreKey = "folders" | "current" | "connectScreenSeen";
 
 // Store's own onKeyChange filters by a per-webview resource id, so it misses other windows.
 export function onStoreChange(cb: (key: StoreKey, value: unknown) => void) {

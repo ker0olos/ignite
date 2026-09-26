@@ -23,11 +23,15 @@ src/                     React frontend (almost all logic lives here)
     FileView.tsx         Read-only, syntax-highlighted file
     AgentPanel.tsx       Conversation + task composer (not wired up yet)
     SettingsDialog.tsx   Settings modal
+    ConnectProviders.tsx Full-window screen to connect Claude / ChatGPT
+    ProviderLogos.tsx    Claude and OpenAI marks (LobeHub Icons, MIT)
   hooks/
     useFolders.ts        Recent folders + this window's open folder
     useSettings.ts       settings.toml, synced across windows; applies theme
     useFolderDrop.ts     Drag-and-drop folders onto the window
     useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
+    useProviders.ts      Provider status, sign-in and sign-out via the pi host
+    useConnectScreen.ts  When the connect screen shows (first launch, on request)
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -41,10 +45,17 @@ src/                     React frontend (almost all logic lives here)
     fileIcons.ts         Extension → monochrome icon
     menu.ts              macOS menu bar
     lifecycle.ts         Confirm before quitting or closing a window
+    piHost.ts            Starts the pi host sidecar; request/response client
+    providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
     utils.ts             `cn` class-name helper (shadcn)
   test/                  Test setup and fake Tauri backends (fakeFs, fakeStore)
+sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
+  main.ts                stdio wiring; pi's files live in ~/.unnamed-harness/pi
+  host.ts                Handles requests against pi's ModelRuntime (tested with a fake)
+  lines.ts               LF-only JSONL splitting
+shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
   capabilities/          Permissions the frontend may use
@@ -69,6 +80,15 @@ Two places hold persisted data:
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **App state** in `state.json` in the app data folder (`lib/store.ts`): recent
   folders (shared by all windows) and the main window's last open folder.
+
+## The agent (pi)
+
+The harness drives [pi](https://github.com/earendil-works/pi)
+(`@earendil-works/pi-coding-agent`, pinned 0.87.1), run as a Node sidecar.
+Before touching agent or provider-credential code, read the project skill in
+`.claude/skills/pi/` (SKILL.md, then auth.md, host.md or sessions.md). The
+old `@mariozechner/*` packages and most online material describe an older,
+incompatible API.
 
 ## Commands
 

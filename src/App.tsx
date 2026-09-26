@@ -2,12 +2,15 @@ import { useEffect, useState } from "react";
 import { homeDir } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Settings } from "lucide-react";
+import { ConnectProviders } from "@/components/ConnectProviders";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { Welcome } from "@/components/Welcome";
 import { Workspace } from "@/components/Workspace";
 import { Button } from "@/components/ui/button";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
+import { useConnectScreen } from "@/hooks/useConnectScreen";
 import { useFolders } from "@/hooks/useFolders";
+import { useProviders } from "@/hooks/useProviders";
 import { useSettings } from "@/hooks/useSettings";
 import { useTabs } from "@/hooks/useTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
@@ -29,6 +32,8 @@ export default function App() {
     clearFolders,
   } = useFolders();
   const [settings, setSettings] = useSettings();
+  const providers = useProviders();
+  const connectScreen = useConnectScreen(providers.statuses);
   const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
   const [home, setHome] = useState("");
@@ -98,7 +103,14 @@ export default function App() {
         dragging && "ring-2 ring-foreground/20 ring-inset",
       )}
     >
-      {current ? (
+      {connectScreen.open ? (
+        <div className="flex-1">
+          <ConnectProviders
+            providers={providers}
+            onDone={connectScreen.dismiss}
+          />
+        </div>
+      ) : current ? (
         <Workspace
           key={current}
           folder={current}
@@ -129,6 +141,12 @@ export default function App() {
         onOpenChange={setSettingsOpen}
         settings={settings}
         onChange={setSettings}
+        providers={providers.statuses}
+        providersError={providers.hostError}
+        onManageProviders={() => {
+          setSettingsOpen(false);
+          connectScreen.show();
+        }}
       />
     </div>
   );

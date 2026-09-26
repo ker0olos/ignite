@@ -11,6 +11,13 @@ export default defineConfig(() => ({
   resolve: {
     alias: { "@": new URL("./src", import.meta.url).pathname },
   },
+  // ponytail: the app runs from source, so the sidecar is started from this
+  // checkout; a built app would bundle it and resolve it from resources instead
+  define: {
+    __PI_HOST_PATH__: JSON.stringify(
+      new URL("./sidecar/main.ts", import.meta.url).pathname,
+    ),
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

@@ -36,7 +36,7 @@ describe("app name", () => {
     const paths = capabilities.permissions.flatMap((p) =>
       typeof p === "string" || !p.identifier.match(/write|mkdir/)
         ? []
-        : p.allow.map((a) => a.path),
+        : p.allow.flatMap((a) => ("path" in a ? [a.path] : [])),
     );
     expect(paths.length).toBeGreaterThan(0);
     for (const path of paths) {

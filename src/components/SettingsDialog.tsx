@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Settings2 } from "lucide-react";
+import type { ProviderStatus } from "../../shared/hostProtocol";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -11,9 +13,10 @@ import {
   type CodeTheme,
 } from "@/lib/codeThemes";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings";
+import { PROVIDER_GROUPS, groupConnection } from "@/lib/providerGroups";
 import { cn } from "@/lib/utils";
 
-const SECTIONS = ["Appearance", "Editor", "Files"] as const;
+const SECTIONS = ["Providers", "Appearance", "Editor", "Files"] as const;
 type Section = (typeof SECTIONS)[number];
 
 /** App settings, opened from the gear button or ⌘,. Saved to settings.toml. */
@@ -22,11 +25,18 @@ export function SettingsDialog({
   onOpenChange,
   settings,
   onChange,
+  providers,
+  providersError,
+  onManageProviders,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: Settings;
   onChange: (settings: Settings) => void;
+  /** Connection status per provider; null while loading. */
+  providers: ProviderStatus[] | null;
+  providersError: string | null;
+  onManageProviders: () => void;
 }) {
   const [section, setSection] = useState<Section>(SECTIONS[0]);
   const [themes, setThemes] = useState<CodeTheme[]>([]);
@@ -91,6 +101,55 @@ export function SettingsDialog({
             className="relative flex-1 overscroll-contain overflow-y-auto"
           >
             <div className="always-bounce space-y-10 p-6">
+              <SettingsSection title="Providers">
+                <Setting
+                  title="Model providers"
+                  description="Sign in with a subscription or add an API key."
+                  control={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onManageProviders}
+                    >
+                      Manage providers
+                    </Button>
+                  }
+                />
+                <div className="mt-3 divide-y rounded-lg border">
+                  {providersError ? (
+                    <p className="px-3 py-2.5 text-xs text-destructive">
+                      Couldn't start the agent host: {providersError}
+                    </p>
+                  ) : (
+                    providers &&
+                    PROVIDER_GROUPS.map((group) => {
+                      const how = groupConnection(group, providers);
+                      return (
+                        <div
+                          key={group.name}
+                          className="flex items-center justify-between px-3 py-2 text-[13px]"
+                        >
+                          <span>{group.name}</span>
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <span
+                              className={cn(
+                                "size-1.5 rounded-full",
+                                how ? "bg-success" : "bg-muted-foreground/40",
+                              )}
+                            />
+                            {how === "subscription"
+                              ? "Subscription"
+                              : how === "api_key"
+                                ? "API key"
+                                : "Not connected"}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </SettingsSection>
+
               <SettingsSection title="Appearance">
                 <Setting
                   title="Theme"

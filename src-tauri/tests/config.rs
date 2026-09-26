@@ -78,3 +78,30 @@ fn capability_applies_to_every_window() {
     let capability = read_json("capabilities/default.json");
     assert_eq!(capability["windows"], serde_json::json!(["*"]));
 }
+
+#[test]
+fn frontend_can_only_start_the_pi_sidecar() {
+    // Spawning processes from the web view is the riskiest permission we
+    // grant: it must name one command with one fixed script argument.
+    let capability = read_json("capabilities/default.json");
+    let permissions = capability["permissions"].as_array().unwrap();
+
+    for id in ["shell:default", "shell:allow-execute", "shell:allow-open"] {
+        assert!(
+            !permissions.iter().any(|p| p.as_str() == Some(id)),
+            "{id} must not be granted"
+        );
+    }
+
+    let spawn: Vec<&Value> = permissions
+        .iter()
+        .filter(|p| p["identifier"] == "shell:allow-spawn")
+        .flat_map(|p| p["allow"].as_array().unwrap())
+        .collect();
+    assert_eq!(spawn.len(), 1, "exactly one spawnable command");
+    assert_eq!(spawn[0]["cmd"], "node");
+    let args = spawn[0]["args"].as_array().expect("fixed argument list");
+    assert_eq!(args.len(), 1);
+    let validator = args[0]["validator"].as_str().expect("argument validator");
+    assert!(validator.ends_with("/sidecar/main\\.ts$"), "{validator}");
+}
