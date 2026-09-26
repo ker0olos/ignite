@@ -147,6 +147,9 @@ incompatible API.
   (`feat(scope): …`, `fix(scope): …`). CI must pass.
 
 ## Renaming the app
+- **Menus are shadcn.** Every menu, picker and dropdown uses a shadcn component
+  (`Select`, `DropdownMenu`, …; add missing ones with `npx shadcn@latest add`).
+  Never a native `<select>` or a hand-rolled popup.
 
 The name is a placeholder. To rename:
 
