@@ -3,13 +3,12 @@ import { homeDir } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Settings } from "lucide-react";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { Sidebar } from "@/components/Sidebar";
 import { Welcome } from "@/components/Welcome";
 import { Workspace } from "@/components/Workspace";
 import { Button } from "@/components/ui/button";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
 import { useFolders } from "@/hooks/useFolders";
-import { useTheme } from "@/hooks/useTheme";
+import { useSettings } from "@/hooks/useSettings";
 import { setAppMenu } from "@/lib/menu";
 import { tildify } from "@/lib/paths";
 import { cn } from "@/lib/utils";
@@ -26,7 +25,7 @@ export default function App() {
     closeFolder,
     clearFolders,
   } = useFolders();
-  const [theme, setTheme] = useTheme();
+  const [settings, setSettings] = useSettings();
   const dragging = useFolderDrop(addFolder);
   const [home, setHome] = useState("");
   const [focused, setFocused] = useState(false);
@@ -85,10 +84,12 @@ export default function App() {
       )}
     >
       {current ? (
-        <>
-          <Sidebar folder={current} actions={settingsButton} />
-          <Workspace folder={current} home={home} />
-        </>
+        <Workspace
+          key={current}
+          folder={current}
+          hideGitIgnored={settings.files.hide_gitignored}
+          actions={settingsButton}
+        />
       ) : (
         <div className="flex flex-1 flex-col">
           <div
@@ -108,8 +109,8 @@ export default function App() {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
-        theme={theme}
-        onThemeChange={setTheme}
+        settings={settings}
+        onChange={setSettings}
       />
     </div>
   );

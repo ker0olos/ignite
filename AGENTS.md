@@ -3,7 +3,8 @@
 Guidance for contributors and AI coding agents working in this repo.
 Tauri 2 + React 19 + TypeScript + Tailwind v4 + shadcn/ui. Early prototype:
 the UI shell works (folders, file tree, settings, multi-window); the agent is
-not wired up yet.
+not wired up yet. For now it is run from source with `npm run tauri dev`, not
+shipped as a built app; prioritise dev-mode behaviour over release builds.
 
 ## Structure
 
@@ -15,16 +16,22 @@ src/                     React frontend (almost all logic lives here)
   components/
     ui/                  shadcn/ui components (CLI-generated)
     Welcome.tsx          Screen when no folder is open
+    Workspace.tsx        Open-folder layout: sidebar, header, tabs, content
     Sidebar.tsx          Title-bar strip + file tree
-    Workspace.tsx        Header and task composer for the open folder
-    FileTree.tsx         Lazy directory tree with file-type icons
+    FileTree.tsx         Lazy directory tree (hides Git-ignored files)
+    FileView.tsx         Read-only, syntax-highlighted file tab
+    AgentPanel.tsx       Agent tab: conversation + task composer
     SettingsDialog.tsx   Settings modal
   hooks/
     useFolders.ts        Recent folders + this window's open folder
-    useTheme.ts          Persisted theme, applied as the `dark` class
+    useSettings.ts       settings.toml, synced across windows; applies theme
     useFolderDrop.ts     Drag-and-drop folders onto the window
   lib/
-    store.ts             Persisted state (tauri-plugin-store) + cross-window sync
+    settings.ts          Settings type, defaults, TOML load/save
+    store.ts             App state (tauri-plugin-store) + cross-window sync
+    gitignore.ts         .gitignore matching for the file tree
+    highlight.ts         Shiki highlighting (light + dark themes)
+    fileIcons.ts         Extension → monochrome icon
     menu.ts              macOS menu bar
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
@@ -35,8 +42,12 @@ src-tauri/               Rust shell: registers plugins, nothing else
 .github/workflows/ci.yml Runs `npm run build` + `npm run check` on macOS
 ```
 
-State lives in `state.json` (app data folder). Recent folders and the theme
-are shared by all windows; each window keeps its own open folder.
+Two places hold persisted data:
+
+- **User settings** in `~/.untitledharness/settings.toml` (`lib/settings.ts`).
+  Human-editable; add new options to the `Settings` type and `DEFAULT_SETTINGS`.
+- **App state** in `state.json` in the app data folder (`lib/store.ts`): recent
+  folders (shared by all windows) and the main window's last open folder.
 
 ## Commands
 

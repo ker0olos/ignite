@@ -127,3 +127,28 @@
     @apply font-sans;
   }
 }
+
+/* Shiki output from lib/highlight.ts: dual-theme colours and line numbers. */
+.code-view .shiki {
+  background: transparent !important;
+  line-height: 1.6;
+}
+.code-view .shiki span {
+  color: var(--shiki-light);
+}
+.dark .code-view .shiki span {
+  color: var(--shiki-dark);
+}
+.code-view code {
+  counter-reset: line;
+}
+.code-view .line::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 3rem;
+  margin-right: 1.5rem;
+  text-align: right;
+  color: var(--muted-foreground);
+  user-select: none;
+}

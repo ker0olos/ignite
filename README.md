@@ -21,10 +21,5 @@ npm run tauri dev
 The first launch compiles the Rust side and takes a few minutes. After that it
 starts quickly.
 
-## Build the app
-
-```sh
-npm run tauri build
-```
-
-The `.app` and `.dmg` end up in `src-tauri/target/release/bundle/`.
+For now the app is meant to be run this way, in dev mode, rather than built
+and installed.

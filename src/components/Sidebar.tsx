@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { FileTree } from "@/components/FileTree";
 import { basename } from "@/lib/paths";
 
@@ -6,7 +6,8 @@ import { basename } from "@/lib/paths";
 export function Sidebar({
   folder,
   actions,
-}: {
+  ...treeProps
+}: Omit<ComponentProps<typeof FileTree>, "root"> & {
   folder: string;
   actions: ReactNode;
 }) {
@@ -23,7 +24,7 @@ export function Sidebar({
         {basename(folder)}
       </span>
       <nav className="flex-1 overflow-y-auto px-2 pb-2">
-        <FileTree key={folder} root={folder} />
+        <FileTree root={folder} {...treeProps} />
       </nav>
     </aside>
   );
