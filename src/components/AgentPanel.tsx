@@ -1,6 +1,8 @@
-import { ArrowUp, Check, ChevronDown } from "lucide-react";
+import { useRef, useState } from "react";
+import { ArrowUp, Check, ChevronDown, Square } from "lucide-react";
 import type { ModelInfo, ThinkingLevel } from "../../shared/hostProtocol";
 import { Button } from "@/components/ui/button";
+import { Conversation } from "@/components/Conversation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import type { useAgentSession } from "@/hooks/useAgentSession";
+import type { CodeThemes } from "@/lib/codeThemes";
 import {
   EFFORT_LABELS,
   modelLabel,
@@ -25,36 +28,83 @@ import {
   type MenuGroup,
 } from "@/lib/modelMenu";
 import { basename } from "@/lib/paths";
+import type { Settings } from "@/lib/settings";
 
 type Session = ReturnType<typeof useAgentSession>;
 type SessionState = NonNullable<Session["state"]>;
 
-/** Conversation area and task composer. Not wired to an agent yet. */
+/** Conversation area and task composer. */
 export function AgentPanel({
   folder,
   session,
+  codeThemes,
+  editor,
 }: {
   folder: string;
   session: Session;
+  codeThemes: CodeThemes;
+  editor: Settings["editor"];
 }) {
-  const { state } = session;
+  const { state, transcript } = session;
+  const [text, setText] = useState("");
+  const mainRef = useRef<HTMLElement>(null);
+  const running = transcript?.running ?? false;
+
+  const handleSend = () => {
+    if (!text.trim()) return;
+    const value = text;
+    setText("");
+    void session.send(value);
+  };
 
   return (
     <>
-      <main className="min-h-0 flex-1 overscroll-contain overflow-y-auto">
-        {/* The empty area doubles as the title bar, so it drags the window. */}
-        <div
-          data-tauri-drag-region
-          className="always-bounce flex items-center justify-center text-sm text-muted-foreground"
-        >
-          What should we build in {basename(folder)}?
-        </div>
+      <main
+        ref={mainRef}
+        className="min-h-0 flex-1 overscroll-contain overflow-y-auto"
+      >
+        {transcript && transcript.items.length > 0 ? (
+          <Conversation
+            transcript={transcript}
+            folder={folder}
+            editor={editor}
+            codeThemes={codeThemes}
+            scrollRef={mainRef}
+          />
+        ) : (
+          // The empty area doubles as the title bar, so it drags the window.
+          <div
+            data-tauri-drag-region
+            className="always-bounce flex h-full items-center justify-center text-sm text-muted-foreground"
+          >
+            What should we build in {basename(folder)}?
+          </div>
+        )}
       </main>
-      <form className="p-4" onSubmit={(e) => e.preventDefault()}>
+      <form
+        className="p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSend();
+        }}
+      >
         <div className="rounded-lg border bg-background focus-within:ring-3 focus-within:ring-ring/50 dark:bg-input/30">
           <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing)
+                return;
+              e.preventDefault();
+              handleSend();
+            }}
             placeholder="Describe a task…"
-            className="min-h-20 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+            autoCorrect="off"
+            autoCapitalize="off"
+            autoComplete="off"
+            spellCheck={false}
+            rows={1}
+            className="max-h-[calc(5lh+1rem)] min-h-0 resize-none overflow-y-auto border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
           />
           <div className="flex items-center gap-1 px-2 pb-2">
             {state && state.models.length > 0 && (
@@ -69,9 +119,25 @@ export function AgentPanel({
                 {session.error}
               </span>
             )}
-            <Button type="submit" size="icon-sm" className="ml-auto" disabled>
-              <ArrowUp />
-            </Button>
+            {running ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                className="ml-auto"
+                onClick={() => void session.stop()}
+              >
+                <Square />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                size="icon-sm"
+                className="ml-auto"
+                disabled={!text.trim()}
+              >
+                <ArrowUp />
+              </Button>
+            )}
           </div>
         </div>
       </form>

@@ -2,8 +2,8 @@
 
 Guidance for contributors and AI coding agents working in this repo.
 Tauri 2 + React 19 + TypeScript + Tailwind v4 + shadcn/ui. Early prototype:
-the UI shell works (folders, file tree, file viewer, settings, multi-window);
-the agent is not wired up yet. For now it is run from source with
+the UI shell works (folders, file tree, file viewer, settings, multi-window)
+and the composer runs pi on the open folder, showing its conversation. For now it is run from source with
 `npm run tauri dev`, not shipped as a built app; prioritise dev-mode behaviour
 over release builds.
 
@@ -21,7 +21,8 @@ src/                     React frontend (almost all logic lives here)
     Sidebar.tsx          Title-bar strip + file tree
     FileTree.tsx         Lazy directory tree
     FileView.tsx         Read-only, syntax-highlighted file
-    AgentPanel.tsx       Conversation + task composer (not wired up yet)
+    AgentPanel.tsx       Conversation + task composer
+    Conversation.tsx     Renders the transcript: messages, thinking, tool rows
     SettingsDialog.tsx   Settings modal
     ConnectProviders.tsx Full-window screen to connect Claude / ChatGPT
     ProviderLogos.tsx    Claude and OpenAI marks (LobeHub Icons, MIT)
@@ -32,7 +33,7 @@ src/                     React frontend (almost all logic lives here)
     useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
     useProviders.ts      Provider status, sign-in and sign-out via the pi host
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
-    useAgentSession.ts   The folder's pi session: model and effort pickers
+    useAgentSession.ts   The folder's pi session: conversation, send/stop, model and effort
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -48,6 +49,7 @@ src/                     React frontend (almost all logic lives here)
     lifecycle.ts         Confirm before quitting or closing a window
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
+    transcript.ts        Rebuilds the conversation from pi's session events
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
@@ -56,8 +58,12 @@ src/                     React frontend (almost all logic lives here)
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
   main.ts                stdio wiring; pi's files live in ~/.unnamed-harness/pi
   host.ts                Handles requests against pi's ModelRuntime and AgentSession (tested with fakes)
+  claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
+  credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
+shared/agentTypes.ts     pi's messages and session events as they cross the wire
+.todo                    Planned work (tool approval prompts, project trust)
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
   dev-runner.sh          Runs `tauri dev` from a .app so Stage Manager shows the icon
@@ -81,9 +87,10 @@ Two places hold persisted data:
 - **Editor settings** (`[editor]` in settings.toml): `font_family` (CSS list,
   default Menlo) and `word_wrap` for the file viewer.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
-- **pi's own files** in `~/.unnamed-harness/pi`: credentials (`auth.json`) and
+- **pi's own files** in `~/.unnamed-harness/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
-  default for new sessions. The model list and each model's effort levels
+  default for new sessions, and `sessions/`, one JSONL conversation per
+  folder that reopening the folder continues. The model list and each model's effort levels
   always come from pi; the app never hard-codes them.
 - **App state** in `state.json` in the app data folder (`lib/store.ts`): recent
   folders (shared by all windows) and the main window's last open folder.
@@ -96,6 +103,17 @@ Before touching agent or provider-credential code, read the project skill in
 `.claude/skills/pi/` (SKILL.md, then auth.md, host.md or sessions.md). The
 old `@mariozechner/*` packages and most online material describe an older,
 incompatible API.
+
+The app only renders: pi does the work and the sidecar forwards its session
+events (`toWireEvent`), which `lib/transcript.ts` turns into the conversation.
+pi runs its tools (read, bash, edit, write) without asking; approval prompts
+are planned in `.todo`.
+
+Claude subscriptions run through the user's own Claude Code via the
+`pi-claude-bridge` extension (pi provider `claude-bridge`), because Anthropic
+bills pi's direct Claude sign-in to extra usage. See the skill's auth.md. ChatGPT signs in
+automatically with the Codex CLI's login (`~/.codex/auth.json`) when the app
+has none of its own; token refreshes are written back to that file.
 
 ## Commands
 
@@ -137,6 +155,9 @@ incompatible API.
 - **Layout of `src/`:** screens and pieces in `components/`, stateful logic in
   `hooks/`, non-React helpers in `lib/`. Do not hand-edit `components/ui/`
   beyond small fixes; it is shadcn-generated.
+- **Menus are shadcn.** Every menu, picker and dropdown uses a shadcn component
+  (`Select`, `DropdownMenu`, …; add missing ones with `npx shadcn@latest add`).
+  Never a native `<select>` or a hand-rolled popup.
 - **Styling:** Tailwind v4 with shadcn tokens (`bg-background`, `text-muted-foreground`,
   `bg-sidebar`, …). No hard-coded colors. Interface text is 13px (`text-[13px]`)
   to match macOS.
@@ -147,9 +168,6 @@ incompatible API.
   (`feat(scope): …`, `fix(scope): …`). CI must pass.
 
 ## Renaming the app
-- **Menus are shadcn.** Every menu, picker and dropdown uses a shadcn component
-  (`Select`, `DropdownMenu`, …; add missing ones with `npx shadcn@latest add`).
-  Never a native `<select>` or a hand-rolled popup.
 
 The name is a placeholder. To rename:
 

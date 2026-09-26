@@ -34,7 +34,8 @@ filesystem and shell). The app talks to the sidecar; the sidecar uses pi.
 ## References (read the one you need)
 
 - [auth.md](auth.md) — `ModelRuntime`, login/logout, `AuthInteraction`, the
-  Claude and Codex OAuth flows, API keys, `auth.json`, billing warning.
+  Claude and Codex OAuth flows, API keys, `auth.json`, and why Claude
+  subscriptions go through Claude Code (`pi-claude-bridge`).
 - [host.md](host.md) — running pi as a sidecar: RPC framing, commands,
   events, extension UI dialogs, the SDK alternative, packaging, network.
 - [sessions.md](sessions.md) — sessions, agent dir, tools, permissions,

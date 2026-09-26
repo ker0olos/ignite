@@ -4,12 +4,20 @@
  * Auth prompt and event shapes mirror pi-ai's AuthPrompt / AuthEvent, minus
  * the AbortSignals that can't cross a process boundary.
  */
+import type { AgentMessage, SessionEvent } from "./agentTypes.ts";
 
-export type ProviderId = "anthropic" | "openai-codex" | "openai";
+/**
+ * pi's providers, plus "claude-code": the user's own Claude Code login, which
+ * the pi-claude-bridge extension runs Claude models on (its models are pi's
+ * "claude-bridge" provider).
+ */
+export type ProviderId =
+  "claude-code" | "anthropic" | "openai-codex" | "openai";
 export type AuthMethod = "oauth" | "api_key";
 
 /** Every provider the app can connect, in display order. */
 export const PROVIDERS: readonly ProviderId[] = [
+  "claude-code",
   "anthropic",
   "openai-codex",
   "openai",
@@ -20,6 +28,10 @@ export type ProviderStatus = {
   connected: boolean;
   /** How it is connected: a subscription sign-in or an API key. */
   method?: AuthMethod;
+  /** For claude-code: whether Claude Code is installed at all. */
+  installed?: boolean;
+  /** For openai-codex: signed in with the Codex CLI's login, not the app's. */
+  viaCodex?: boolean;
 };
 
 export type AuthPromptData =
@@ -67,6 +79,14 @@ export type SessionState = {
   thinkingLevels: ThinkingLevel[];
 };
 
+/** What opening a folder's session returns: its settings and its history. */
+export type OpenedSession = SessionState & {
+  /** The conversation so far, when an earlier session is continued. */
+  messages: AgentMessage[];
+  /** Whether pi is still working on it. */
+  running: boolean;
+};
+
 /** Messages the app sends. Those with an `id` get exactly one `response`. */
 export type HostRequest =
   | { id: number; type: "status" }
@@ -85,6 +105,9 @@ export type HostRequest =
   | { id: number; type: "session_state" }
   | { id: number; type: "set_model"; provider: string; modelId: string }
   | { id: number; type: "set_thinking_level"; level: ThinkingLevel }
+  /** Resolves once pi has accepted the message; the run streams as events. */
+  | { id: number; type: "prompt"; text: string }
+  | { id: number; type: "abort" }
   | { type: "prompt_answer"; promptId: number; value: string }
   | { type: "prompt_cancel"; promptId: number };
 
@@ -94,10 +117,12 @@ export type HostResponses = {
   login: ProviderStatus;
   cancel_login: undefined;
   logout: ProviderStatus;
-  open_session: SessionState;
+  open_session: OpenedSession;
   session_state: SessionState;
   set_model: SessionState;
   set_thinking_level: SessionState;
+  prompt: undefined;
+  abort: undefined;
 };
 
 /** Messages the sidecar sends. */
@@ -108,7 +133,10 @@ export type HostMessage =
   | { type: "auth_event"; event: AuthEventData }
   | { type: "auth_prompt"; promptId: number; prompt: AuthPromptData }
   /** The flow no longer needs this prompt (e.g. the browser callback won). */
-  | { type: "auth_prompt_closed"; promptId: number };
+  | { type: "auth_prompt_closed"; promptId: number }
+  | { type: "session_event"; event: SessionEvent }
+  /** A run pi accepted but couldn't carry out (e.g. no model or credentials). */
+  | { type: "session_error"; error: string };
 
 /**
  * pi interprets stored keys: a leading `!` runs a shell command and `$NAME`

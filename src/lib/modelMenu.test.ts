@@ -85,3 +85,36 @@ describe("modelLabel", () => {
     expect(modelLabel(opus45)).toBe("Claude Opus 4.5");
   });
 });
+
+describe("the Claude Code bridge", () => {
+  const bridged = (model: ModelInfo) => ({
+    ...model,
+    provider: "claude-bridge",
+  });
+
+  it("features the bridge's Claude models over pi's own", () => {
+    const { featured, more } = modelMenu([opus55, bridged(opus55)]);
+    expect(featured[0].models).toEqual([
+      expect.objectContaining({ provider: "claude-bridge", label: "Opus 5.5" }),
+    ]);
+    expect(more).toEqual([]);
+    expect(modelLabel(bridged(opus55))).toBe("Opus 5.5");
+  });
+
+  it("lists other Claude models once, from the bridge", () => {
+    const { more } = modelMenu([opus45Dated, bridged(opus45Dated), spark]);
+    expect(more[0]).toEqual({
+      name: "Claude",
+      models: [{ ...bridged(opus45Dated), label: "Claude Opus 4.5" }],
+    });
+    const reversed = modelMenu([bridged(opus45Dated), opus45Dated]).more;
+    expect(reversed[0].models[0].provider).toBe("claude-bridge");
+  });
+
+  it("keeps models from providers outside any brand", () => {
+    const gemini = m("google", "gemini", "Gemini");
+    expect(modelMenu([gemini, gemini]).more).toEqual([
+      { name: "google", models: [{ ...gemini, label: "Gemini" }] },
+    ]);
+  });
+});

@@ -1,9 +1,10 @@
 import type { ModelInfo, ThinkingLevel } from "../../shared/hostProtocol";
-import { providerName } from "./providerGroups";
+import { PROVIDER_GROUPS, providerName } from "./providerGroups";
 
 /** A model worth showing up front, with the name and blurb the menu uses. */
 type Featured = {
-  provider: string;
+  /** Where the model may come from, preferred first. */
+  providers: string[];
   id: string;
   label: string;
   description?: string;
@@ -12,43 +13,43 @@ type Featured = {
 // ponytail: hand-picked; update when providers ship new models.
 const FEATURED: Featured[] = [
   {
-    provider: "anthropic",
+    providers: ["claude-bridge", "anthropic"],
     id: "claude-fable-5-1",
     label: "Fable 5.1",
     description: "For your toughest challenges",
   },
   {
-    provider: "anthropic",
+    providers: ["claude-bridge", "anthropic"],
     id: "claude-opus-5-5",
     label: "Opus 5.5",
     description: "Most capable for ambitious work",
   },
   {
-    provider: "anthropic",
+    providers: ["claude-bridge", "anthropic"],
     id: "claude-sonnet-5",
     label: "Sonnet 5",
     description: "Most efficient for everyday tasks",
   },
   {
-    provider: "anthropic",
+    providers: ["claude-bridge", "anthropic"],
     id: "claude-haiku-4-5",
     label: "Haiku 4.5",
     description: "Fastest for quick answers",
   },
   {
-    provider: "openai-codex",
+    providers: ["openai-codex"],
     id: "gpt-6-astra",
     label: "GPT-6 Astra",
     description: "For your toughest, multi-step work",
   },
   {
-    provider: "openai-codex",
+    providers: ["openai-codex"],
     id: "gpt-6-sol",
     label: "GPT-6 Sol",
     description: "Strong reasoning for complex coding",
   },
   {
-    provider: "openai-codex",
+    providers: ["openai-codex"],
     id: "gpt-6-luna",
     label: "GPT-6 Luna",
     description: "Fast and efficient for everyday tasks",
@@ -78,26 +79,39 @@ export function modelMenu(models: readonly ModelInfo[]): {
   more: MenuGroup[];
 } {
   const featured = FEATURED.flatMap((f) => {
-    const model = models.find((m) => same(m, f));
+    const model = f.providers
+      .map((provider) => models.find((m) => same(m, { provider, id: f.id })))
+      .find(Boolean);
     return model
       ? [{ ...model, label: f.label, description: f.description }]
       : [];
   });
-  const seen = new Set(featured.map((m) => baseName(m.name)));
-  const more: MenuModel[] = [];
+  const taken = new Set(featured.map((m) => baseName(m.name)));
+  // One entry per name; the brand's preferred provider wins (the Claude Code
+  // bridge over pi's own Claude sign-in).
+  const more = new Map<string, MenuModel>();
   for (const m of models) {
     const label = baseName(m.name);
-    if (seen.has(label)) continue;
-    seen.add(label);
-    more.push({ ...m, label });
+    const kept = more.get(label);
+    if (taken.has(label) || (kept && rank(kept) <= rank(m))) continue;
+    more.set(label, { ...m, label });
   }
-  return { featured: byBrand(featured), more: byBrand(more) };
+  return { featured: byBrand(featured), more: byBrand([...more.values()]) };
 }
 
 /** The short name for the menu button: the featured label, or pi's name. */
 export function modelLabel(model: ModelInfo): string {
-  return FEATURED.find((f) => same(f, model))?.label ?? baseName(model.name);
+  return (
+    FEATURED.find(
+      (f) => f.providers.includes(model.provider) && f.id === model.id,
+    )?.label ?? baseName(model.name)
+  );
 }
+
+const rank = (m: ModelInfo) =>
+  PROVIDER_GROUPS.find((g) =>
+    g.modelProviders.includes(m.provider),
+  )?.modelProviders.indexOf(m.provider) ?? 0;
 
 function byBrand(models: MenuModel[]): MenuGroup[] {
   const groups = new Map<string, MenuModel[]>();

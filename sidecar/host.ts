@@ -7,11 +7,21 @@ import {
   type HostMessage,
   type HostRequest,
   type ModelInfo,
+  type OpenedSession,
   type ProviderId,
   type ProviderStatus,
   type SessionState,
   type ThinkingLevel,
 } from "../shared/hostProtocol.ts";
+import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
+import type { ClaudeCode } from "./claudeCode.ts";
+
+/** Sign-ins the app borrows from other tools on this Mac. */
+export type LocalLogins = {
+  claudeCode: ClaudeCode;
+  /** Whether openai-codex runs on the Codex CLI's login. */
+  usesCodexLogin(): Promise<boolean>;
+};
 
 type Interaction = {
   signal?: AbortSignal;
@@ -38,8 +48,33 @@ export type Session = {
   getAvailableThinkingLevels(): ThinkingLevel[];
   setModel(model: ModelInfo, options: { persist: boolean }): Promise<void>;
   setThinkingLevel(level: ThinkingLevel, options: { persist: boolean }): void;
+  readonly messages: AgentMessage[];
+  readonly isStreaming: boolean;
+  subscribe(listener: (event: SessionEvent) => void): () => void;
+  prompt(
+    text: string,
+    options: { streamingBehavior?: "steer" | "followUp" },
+  ): Promise<void>;
+  abort(): Promise<void>;
   dispose(): void;
 };
+
+/**
+ * pi's documented wire form of a session event (docs/json.md): message_update
+ * drops the cumulative message and partial snapshots, so each update carries
+ * only its delta.
+ */
+export function toWireEvent(event: SessionEvent): SessionEvent {
+  if (event.type !== "message_update") return event;
+  const update: Record<string, unknown> = { ...event.assistantMessageEvent };
+  const wire: Record<string, unknown> = {
+    ...event,
+    assistantMessageEvent: update,
+  };
+  delete wire.message;
+  delete update.partial;
+  return wire as SessionEvent;
+}
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };
 
@@ -60,17 +95,28 @@ export function createHost(
   runtime: Runtime,
   send: (m: HostMessage) => void,
   openSession: (cwd: string) => Promise<Session>,
+  local: LocalLogins,
 ) {
+  const { claudeCode } = local;
   let activeLogin: AbortController | null = null;
   let session: Session | null = null;
+  let unsubscribe = () => {};
   const prompts = new Map<number, Pending>();
   let nextPromptId = 1;
 
   async function status(id: ProviderId): Promise<ProviderStatus> {
+    if (id === "claude-code") {
+      const { installed, loggedIn } = await claudeCode.status();
+      return loggedIn
+        ? { id, connected: true, method: "oauth", installed }
+        : { id, connected: false, installed };
+    }
     const auth = await runtime.checkAuth(id);
-    return auth
-      ? { id, connected: true, method: auth.type }
-      : { id, connected: false };
+    if (!auth) return { id, connected: false };
+    if (id === "openai-codex" && (await local.usesCodexLogin())) {
+      return { id, connected: true, method: auth.type, viaCodex: true };
+    }
+    return { id, connected: true, method: auth.type };
   }
 
   function interaction(signal: AbortSignal, apiKey?: string): Interaction {
@@ -124,11 +170,17 @@ export function createHost(
     const controller = new AbortController();
     activeLogin = controller;
     try {
-      await runtime.login(
-        provider,
-        method,
-        interaction(controller.signal, apiKey?.trim()),
-      );
+      if (provider === "claude-code") {
+        await claudeCode.login(controller.signal, (url) =>
+          send({ type: "auth_event", event: { type: "auth_url", url } }),
+        );
+      } else {
+        await runtime.login(
+          provider,
+          method,
+          interaction(controller.signal, apiKey?.trim()),
+        );
+      }
     } catch (error) {
       if (controller.signal.aborted) {
         throw new Error("Sign-in cancelled.", { cause: error });
@@ -155,9 +207,16 @@ export function createHost(
   // the session's model supports (pi clamps the level itself).
   async function sessionState(): Promise<SessionState> {
     const s = current();
-    const models = await runtime.getAvailable();
+    const [models, claude] = await Promise.all([
+      runtime.getAvailable(),
+      claudeCode.status(),
+    ]);
+    // The bridge lists its models whether or not Claude Code is signed in.
+    const usable = models.filter(
+      (m) => m.provider !== "claude-bridge" || claude.loggedIn,
+    );
     return {
-      models: models.map(info),
+      models: usable.map(info),
       model: s.model && info(s.model),
       thinkingLevel: s.thinkingLevel,
       thinkingLevels: s.getAvailableThinkingLevels(),
@@ -175,6 +234,35 @@ export function createHost(
     return sessionState();
   }
 
+  async function open(cwd: string): Promise<OpenedSession> {
+    unsubscribe();
+    session?.dispose();
+    session = null;
+    const s = await openSession(cwd);
+    session = s;
+    unsubscribe = s.subscribe((event) =>
+      send({ type: "session_event", event: toWireEvent(event) }),
+    );
+    return {
+      ...(await sessionState()),
+      messages: s.messages,
+      running: s.isStreaming,
+    };
+  }
+
+  // pi's prompt() resolves when the whole run ends; the app follows the run
+  // through events, so only a failure is reported here.
+  function prompt(text: string) {
+    const s = current();
+    // A message sent mid-run steers the agent rather than waiting for the end.
+    const options = s.isStreaming
+      ? { streamingBehavior: "steer" as const }
+      : {};
+    s.prompt(text, options).catch((error: unknown) =>
+      send({ type: "session_error", error: describeError(error) }),
+    );
+  }
+
   async function run(request: Extract<HostRequest, { id: number }>) {
     switch (request.type) {
       case "status":
@@ -185,13 +273,14 @@ export function createHost(
         activeLogin?.abort();
         return undefined;
       case "logout":
+        // Signing out would sign the user out of Claude Code itself.
+        if (request.provider === "claude-code") {
+          throw new Error("Sign out of Claude Code in Claude Code.");
+        }
         await runtime.logout(request.provider);
         return status(request.provider);
       case "open_session":
-        session?.dispose();
-        session = null;
-        session = await openSession(request.cwd);
-        return sessionState();
+        return open(request.cwd);
       case "session_state":
         return sessionState();
       case "set_model":
@@ -199,6 +288,12 @@ export function createHost(
       case "set_thinking_level":
         current().setThinkingLevel(request.level, { persist: true });
         return sessionState();
+      case "prompt":
+        prompt(request.text);
+        return undefined;
+      case "abort":
+        await current().abort();
+        return undefined;
     }
   }
 

@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HostMessage, SessionState } from "../shared/hostProtocol.ts";
 
@@ -19,7 +19,14 @@ function run(
   env: Record<string, string> = {},
 ): Promise<{ messages: HostMessage[]; code: number | null }> {
   const child = spawn(process.execPath, [join(__dirname, "main.ts")], {
-    env: { ...process.env, HOME: home, PI_OFFLINE: "1", ...env },
+    // PATH has only node, so no real Claude Code is found.
+    env: {
+      ...process.env,
+      HOME: home,
+      PATH: dirname(process.execPath),
+      PI_OFFLINE: "1",
+      ...env,
+    },
   });
   let out = "";
   child.stdout.on("data", (chunk) => (out += chunk));
@@ -46,6 +53,7 @@ describe("sidecar process", () => {
       id: 1,
       ok: true,
       data: [
+        { id: "claude-code", connected: false, installed: false },
         { id: "anthropic", connected: false },
         { id: "openai-codex", connected: false },
         { id: "openai", connected: false },

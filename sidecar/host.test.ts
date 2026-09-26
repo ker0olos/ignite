@@ -4,14 +4,18 @@ import type {
   HostMessage,
   HostRequest,
   ModelInfo,
+  ProviderStatus,
   ThinkingLevel,
 } from "../shared/hostProtocol.ts";
+import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import {
   createHost,
   describeError,
+  toWireEvent,
   type Runtime,
   type Session,
 } from "./host.ts";
+import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
 
 type Interaction = Parameters<Runtime["login"]>[2];
 
@@ -63,18 +67,41 @@ function fakeSession() {
     setThinkingLevel: vi.fn((level: ThinkingLevel) => {
       session.thinkingLevel = level;
     }),
+    messages: [] as AgentMessage[],
+    isStreaming: false,
+    listeners: new Set<(e: SessionEvent) => void>(),
+    subscribe: vi.fn((cb: (e: SessionEvent) => void) => {
+      session.listeners.add(cb);
+      return () => void session.listeners.delete(cb);
+    }),
+    emit: (e: SessionEvent) => session.listeners.forEach((cb) => cb(e)),
+    prompt: vi.fn(async () => {}),
+    abort: vi.fn(async () => {}),
     dispose: vi.fn(),
   };
   return session satisfies Session;
+}
+
+/** A fake Claude Code install; signed out unless told otherwise. */
+function fakeClaudeCode(
+  status: ClaudeCodeStatus = { installed: true, loggedIn: false },
+  login: ClaudeCode["login"] = async () => {},
+) {
+  return { status: async () => status, login: vi.fn(login) };
 }
 
 /** Wires a host to a fake runtime and records everything it sends. */
 function setup(
   runtime: Runtime,
   openSession: (cwd: string) => Promise<Session> = async () => fakeSession(),
+  claudeCode: ClaudeCode = fakeClaudeCode(),
+  usesCodexLogin = async () => false,
 ) {
   const sent: HostMessage[] = [];
-  const host = createHost(runtime, (m) => sent.push(m), openSession);
+  const host = createHost(runtime, (m) => sent.push(m), openSession, {
+    claudeCode,
+    usesCodexLogin,
+  });
   const responses = () => sent.filter((m) => m.type === "response");
   const request = async (r: HostRequest) => host.handle(r);
   return { host, sent, responses, request };
@@ -100,12 +127,111 @@ describe("status", () => {
         id: 1,
         ok: true,
         data: [
+          { id: "claude-code", connected: false, installed: true },
           { id: "anthropic", connected: true, method: "oauth" },
           { id: "openai-codex", connected: false },
           { id: "openai", connected: false },
         ],
       },
     ]);
+  });
+});
+
+describe("Claude Code", () => {
+  it("reports a signed-in Claude Code as a subscription", async () => {
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      undefined,
+      fakeClaudeCode({ installed: true, loggedIn: true }),
+    );
+    await request({ id: 1, type: "status" });
+    expect((responses()[0] as { data: unknown[] }).data[0]).toEqual({
+      id: "claude-code",
+      connected: true,
+      method: "oauth",
+      installed: true,
+    });
+  });
+
+  it("signs in through Claude Code, opening its sign-in page", async () => {
+    const claude = fakeClaudeCode(undefined, async (_signal, onUrl) =>
+      onUrl("https://claude.ai/login"),
+    );
+    const { runtime } = fakeRuntime();
+    const { request, sent } = setup(runtime, undefined, claude);
+    await request({
+      id: 1,
+      type: "login",
+      provider: "claude-code",
+      method: "oauth",
+    });
+    expect(claude.login).toHaveBeenCalled();
+    expect(runtime.login).not.toHaveBeenCalled();
+    expect(sent).toContainEqual({
+      type: "auth_event",
+      event: { type: "auth_url", url: "https://claude.ai/login" },
+    });
+  });
+
+  it("won't sign out of Claude Code itself", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime);
+    await request({ id: 1, type: "logout", provider: "claude-code" });
+    expect(responses()[0]).toMatchObject({
+      ok: false,
+      error: "Sign out of Claude Code in Claude Code.",
+    });
+  });
+
+  it("offers the bridge's models only while Claude Code is signed in", async () => {
+    const bridged = {
+      provider: "claude-bridge",
+      id: "claude-opus-5-5",
+      name: "Claude Opus 5.5",
+    };
+    const runtime = {
+      ...fakeRuntime().runtime,
+      getAvailable: async () => [...MODELS, bridged],
+    };
+    const ids = async (loggedIn: boolean) => {
+      const { request, responses } = setup(
+        runtime,
+        undefined,
+        fakeClaudeCode({ installed: true, loggedIn }),
+      );
+      await request({ id: 1, type: "open_session", cwd: "/work" });
+      const data = (responses()[0] as { data: { models: ModelInfo[] } }).data;
+      return data.models.map((m) => m.provider);
+    };
+    expect(await ids(false)).toEqual(["anthropic", "openai"]);
+    expect(await ids(true)).toEqual(["anthropic", "openai", "claude-bridge"]);
+  });
+});
+
+describe("Codex login", () => {
+  it("marks ChatGPT signed in through the Codex CLI", async () => {
+    const { runtime, connected } = fakeRuntime();
+    connected.set("openai-codex", "oauth");
+    const status = async (usesCodex: boolean) => {
+      const { request, responses } = setup(
+        runtime,
+        undefined,
+        undefined,
+        async () => usesCodex,
+      );
+      await request({ id: 1, type: "status" });
+      return (responses()[0] as { data: ProviderStatus[] }).data[2];
+    };
+    expect(await status(true)).toEqual({
+      id: "openai-codex",
+      connected: true,
+      method: "oauth",
+      viaCodex: true,
+    });
+    expect(await status(false)).toEqual({
+      id: "openai-codex",
+      connected: true,
+      method: "oauth",
+    });
   });
 });
 
@@ -485,7 +611,24 @@ describe("sessions", () => {
         model: opus,
         thinkingLevel: "low",
         thinkingLevels: ["off", "low", "high"],
+        messages: [],
+        running: false,
       },
+    });
+  });
+
+  it("returns the conversation of a continued session", async () => {
+    const session = fakeSession();
+    const hello = { role: "user", content: "hi", timestamp: 1 } as const;
+    session.messages = [hello];
+    session.isStreaming = true;
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    expect(responses()[0]).toMatchObject({
+      data: { messages: [hello], running: true },
     });
   });
 
@@ -569,7 +712,100 @@ describe("sessions", () => {
     expect(responses()[1]).toMatchObject({ ok: true, data: { model: opus } });
   });
 
+  it("forwards the session's events in pi's wire form", async () => {
+    const session = fakeSession();
+    const { request, sent } = setup(fakeRuntime().runtime, async () => session);
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    session.emit({ type: "agent_start" });
+    session.emit({
+      type: "message_update",
+      message: { role: "assistant" },
+      assistantMessageEvent: {
+        type: "text_delta",
+        contentIndex: 0,
+        delta: "Hi",
+        partial: { role: "assistant" },
+      },
+    } as SessionEvent);
+    expect(sent.filter((m) => m.type === "session_event")).toEqual([
+      { type: "session_event", event: { type: "agent_start" } },
+      {
+        type: "session_event",
+        event: {
+          type: "message_update",
+          assistantMessageEvent: {
+            type: "text_delta",
+            contentIndex: 0,
+            delta: "Hi",
+          },
+        },
+      },
+    ]);
+  });
+
+  it("stops forwarding the previous session's events", async () => {
+    const first = fakeSession();
+    const sessions = [first, fakeSession()];
+    const { request, sent } = setup(fakeRuntime().runtime, async () =>
+      sessions.shift()!,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/a" });
+    await request({ id: 2, type: "open_session", cwd: "/b" });
+    first.emit({ type: "agent_start" });
+    expect(sent.some((m) => m.type === "session_event")).toBe(false);
+  });
+
+  it("sends a prompt without waiting for the run", async () => {
+    const session = fakeSession();
+    session.prompt.mockReturnValue(new Promise(() => {}));
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "prompt", text: "Fix it" });
+    expect(session.prompt).toHaveBeenCalledWith("Fix it", {});
+    expect(responses()[1]).toEqual({ type: "response", id: 2, ok: true });
+  });
+
+  it("steers the run with a prompt sent while it works", async () => {
+    const session = fakeSession();
+    session.isStreaming = true;
+    const { request } = setup(fakeRuntime().runtime, async () => session);
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "prompt", text: "Stop that" });
+    expect(session.prompt).toHaveBeenCalledWith("Stop that", {
+      streamingBehavior: "steer",
+    });
+  });
+
+  it("reports a run pi couldn't carry out", async () => {
+    const session = fakeSession();
+    session.prompt.mockRejectedValue(new Error("No model selected."));
+    const { request, sent } = setup(fakeRuntime().runtime, async () => session);
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "prompt", text: "Hi" });
+    expect(await waitFor(sent, "session_error")).toEqual({
+      type: "session_error",
+      error: "No model selected.",
+    });
+  });
+
+  it("aborts the run", async () => {
+    const session = fakeSession();
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "abort" });
+    expect(session.abort).toHaveBeenCalled();
+    expect(responses()[1]).toEqual({ type: "response", id: 2, ok: true });
+  });
+
   it.each([
+    { id: 1, type: "prompt", text: "Hi" },
+    { id: 1, type: "abort" },
     { id: 1, type: "session_state" },
     { id: 1, type: "set_thinking_level", level: "high" },
     { id: 1, type: "set_model", provider: "anthropic", modelId: "opus" },
@@ -580,5 +816,12 @@ describe("sessions", () => {
       ok: false,
       error: "No folder is open.",
     });
+  });
+});
+
+describe("toWireEvent", () => {
+  it("leaves events other than message_update alone", () => {
+    const event = { type: "message_end", message: { role: "user" } };
+    expect(toWireEvent(event as SessionEvent)).toBe(event);
   });
 });

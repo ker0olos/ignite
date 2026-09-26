@@ -6,11 +6,18 @@ import type {
   ThinkingLevel,
 } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
+import {
+  applyError,
+  applyEvent,
+  fromHistory,
+  type Transcript,
+} from "@/lib/transcript";
 
 /**
- * The pi session for the open folder: its model and effort, and the choices
- * pi offers for them. Refreshed when providers connect or disconnect, since
- * that changes which models are available.
+ * The pi session for the open folder: the conversation, sending and stopping,
+ * and its model and effort with the choices pi offers for them. The settings
+ * refresh when providers connect or disconnect, since that changes which
+ * models are available.
  */
 export function useAgentSession(
   host: HostClient | null,
@@ -22,6 +29,7 @@ export function useAgentSession(
     host: HostClient;
     folder: string;
     state: SessionState;
+    transcript: Transcript;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const current =
@@ -39,7 +47,16 @@ export function useAgentSession(
     let live = true;
     host
       .request({ type: "open_session", cwd: folder })
-      .then((state) => live && setSession({ host, folder, state }))
+      .then(
+        ({ messages, running, ...state }) =>
+          live &&
+          setSession({
+            host,
+            folder,
+            state,
+            transcript: fromHistory(messages, running),
+          }),
+      )
       .catch((e: Error) => live && setError(e.message));
     return () => {
       live = false;
@@ -57,6 +74,36 @@ export function useAgentSession(
       live = false;
     };
   }, [opened, statuses, setState]);
+
+  useEffect(() => {
+    if (!opened) return;
+    const update = (f: (t: Transcript) => Transcript) =>
+      setSession((s) => s && { ...s, transcript: f(s.transcript) });
+    return opened.subscribe((message) => {
+      if (message.type === "session_event") {
+        update((t) => applyEvent(t, message.event));
+      } else if (message.type === "session_error") {
+        update((t) => applyError(t, message.error));
+      }
+    });
+  }, [opened]);
+
+  const send = useCallback(
+    async (text: string) => {
+      if (!opened || !text.trim()) return;
+      setError(null);
+      try {
+        await opened.request({ type: "prompt", text });
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    },
+    [opened],
+  );
+
+  const stop = useCallback(async () => {
+    await opened?.request({ type: "abort" }).catch(() => {});
+  }, [opened]);
 
   const change = useCallback(
     async (
@@ -78,7 +125,11 @@ export function useAgentSession(
   return {
     /** Null until the session is open. */
     state: current?.state ?? null,
+    /** The conversation; null until the session is open. */
+    transcript: current?.transcript ?? null,
     error,
+    send,
+    stop,
     setModel: (model: ModelInfo) =>
       change({
         type: "set_model",

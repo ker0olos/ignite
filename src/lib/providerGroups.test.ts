@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { ProviderStatus } from "../../shared/hostProtocol";
 import {
   PROVIDER_GROUPS,
+  claudeSignIn,
   groupConnection,
   providerName,
 } from "./providerGroups";
 
 const [claude, chatgpt] = PROVIDER_GROUPS;
 const off: ProviderStatus[] = [
+  { id: "claude-code", connected: false },
   { id: "anthropic", connected: false },
   { id: "openai-codex", connected: false },
   { id: "openai", connected: false },
@@ -73,8 +75,30 @@ describe("groupConnection", () => {
   });
 });
 
+describe("Claude Code", () => {
+  it("counts a signed-in Claude Code as a Claude subscription", () => {
+    expect(
+      groupConnection(
+        claude,
+        withStatus({ id: "claude-code", connected: true, method: "oauth" }),
+      ),
+    ).toBe("subscription");
+  });
+
+  it("offers Claude Code's sign-in only when it's installed", () => {
+    expect(claudeSignIn(null)).toBe("anthropic");
+    expect(claudeSignIn(off)).toBe("anthropic");
+    expect(
+      claudeSignIn(
+        withStatus({ id: "claude-code", connected: false, installed: true }),
+      ),
+    ).toBe("claude-code");
+  });
+});
+
 describe("providerName", () => {
   it("names providers by brand", () => {
+    expect(providerName("claude-bridge")).toBe("Claude");
     expect(providerName("anthropic")).toBe("Claude");
     expect(providerName("openai-codex")).toBe("ChatGPT");
     expect(providerName("openai")).toBe("ChatGPT");

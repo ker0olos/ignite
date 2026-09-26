@@ -10,6 +10,7 @@ import {
   apiKeyProblem,
   type AuthMethod,
   type ProviderId,
+  type ProviderStatus,
 } from "../../shared/hostProtocol";
 import { ClaudeLogo, OpenAILogo } from "@/components/ProviderLogos";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { LoginState, useProviders } from "@/hooks/useProviders";
+import { claudeSignIn } from "@/lib/providerGroups";
 import { cn } from "@/lib/utils";
 
 type Providers = ReturnType<typeof useProviders>;
@@ -35,6 +37,10 @@ type Option = {
   hint: string;
   connectedLabel: string;
   keyPlaceholder?: string;
+  /** Shown instead when it's signed in with another tool's login. */
+  borrowedLabel?: string;
+  /** Whether to offer this option, given every provider's status. */
+  offered?: (statuses: ProviderStatus[] | null) => boolean;
 };
 
 type Card = {
@@ -51,11 +57,20 @@ const CARDS: Card[] = [
     icon: ClaudeLogo,
     options: [
       {
+        provider: "claude-code",
+        method: "oauth",
+        label: "Sign in with Claude",
+        hint: "Uses your Claude Code sign-in",
+        connectedLabel: "Using your Claude Code sign-in",
+        offered: (s) => claudeSignIn(s) === "claude-code",
+      },
+      {
         provider: "anthropic",
         method: "oauth",
         label: "Sign in with Claude",
         hint: "",
         connectedLabel: "Signed in to your Claude",
+        offered: (s) => claudeSignIn(s) === "anthropic",
       },
       {
         provider: "anthropic",
@@ -78,6 +93,7 @@ const CARDS: Card[] = [
         label: "Sign in with ChatGPT",
         hint: "",
         connectedLabel: "Signed in to your ChatGPT",
+        borrowedLabel: "Using your Codex sign-in",
       },
       {
         provider: "openai",
@@ -163,6 +179,9 @@ function ProviderCard({
   const { statuses, login, error, connect, disconnect } = providers;
   const [keyFor, setKeyFor] = useState<Option | null>(null);
   const status = (id: ProviderId) => statuses?.find((s) => s.id === id);
+  // Signed in through Claude Code or the Codex CLI rather than the app.
+  const borrowed = (o: Option) =>
+    o.provider === "claude-code" || !!status(o.provider)?.viaCodex;
 
   const ids = card.options.map((o) => o.provider);
   const connected = card.options.filter(
@@ -170,7 +189,9 @@ function ProviderCard({
       status(o.provider)?.connected && status(o.provider)?.method === o.method,
   );
   // Each card is one choice: once either way is connected, the other is hidden.
-  const available = connected.length ? [] : card.options;
+  const available = connected.length
+    ? []
+    : card.options.filter((o) => o.offered?.(statuses) ?? true);
   const activeLogin = login && ids.includes(login.provider) ? login : null;
   const cardError = error && ids.includes(error.provider) ? error : null;
   const Icon = card.icon;
@@ -198,13 +219,18 @@ function ProviderCard({
           >
             <Check className="size-4 shrink-0 text-success" />
             <span className="min-w-0 flex-1 text-[13px]">
-              {option.connectedLabel}
+              {borrowed(option)
+                ? (option.borrowedLabel ?? option.connectedLabel)
+                : option.connectedLabel}
             </span>
-            <DisconnectButton
-              title={card.title}
-              disabled={!!login}
-              onConfirm={() => disconnect(option.provider)}
-            />
+            {/* Signing out here would sign the user out of that tool too. */}
+            {!borrowed(option) && (
+              <DisconnectButton
+                title={card.title}
+                disabled={!!login}
+                onConfirm={() => disconnect(option.provider)}
+              />
+            )}
           </div>
         ))}
 

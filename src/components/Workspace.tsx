@@ -77,7 +77,12 @@ export function Workspace({
       <PaneHandle />
       <ResizablePanel id="agent" minSize="320px">
         <div className="flex h-full flex-col">
-          <AgentPanel folder={folder} session={session} />
+          <AgentPanel
+            folder={folder}
+            session={session}
+            codeThemes={codeThemes}
+            editor={editor}
+          />
         </div>
       </ResizablePanel>
       {active && <PaneHandle />}

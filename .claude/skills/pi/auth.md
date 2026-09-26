@@ -122,12 +122,49 @@ with `stopReason: "error"` and `errorMessage`. Codex retries failed calls
   `delete`) passed as `ModelRuntime.create({ credentials })` can add one.
 - `readStoredCredential(providerId, authPath?)` is the only exported reader.
 
-## Claude subscription billing notice
+## Claude subscriptions: use Claude Code, not pi's Claude sign-in
 
-pi's own wording (`CA/dist/modes/interactive/interactive-mode.js:140`), shown
-when `anthropic` uses OAuth: "Anthropic subscription auth is active.
-Third-party harness usage draws from extra usage and is billed per token, not
-your Claude plan limits. Manage extra usage at https://claude.ai/settings/usage."
-Setting: `warnings.anthropicExtraUsage` (default true). This is pi's claim
-about Anthropic's billing, not something we have verified, and the user has
-seen it contradicted. The app deliberately shows no billing note; don't add one.
+Verified (Sept 2026): with pi's `anthropic` OAuth, Anthropic rejects every
+request with `400 "Third-party apps now draw from your extra usage, not your
+plan limits"` unless the account has extra usage. pi warns about this itself
+(`warnings.anthropicExtraUsage`). Requests made through Anthropic's own Claude
+Code / Agent SDK still count against the plan (Claude Help Center, "Use the
+Claude Agent SDK with your Claude plan").
+
+So the app runs Claude on the user's own Claude Code login through the
+`pi-claude-bridge` extension (pinned; loaded per session in `sidecar/main.ts`
+via `additionalExtensionPaths`). It registers pi provider `claude-bridge`
+(models like `claude-bridge/claude-opus-5-5`); pi still runs the tools.
+
+- The app's `claude-code` "provider" is `claude auth status` / `claude auth
+login` (`sidecar/claudeCode.ts`). When Claude Code is installed, the Claude
+  card offers only that sign-in; pi's `anthropic` OAuth is the fallback.
+- The bridge lists its models even when Claude Code is signed out; the host
+  hides them then.
+- Never sign the user out of Claude Code from the app.
+- `ANTHROPIC_API_KEY` in the environment redirects Claude Code away from the
+  subscription (bridge README). The bridge's config lives at
+  `<agentDir>/claude-bridge.json` (`provider.plan: "max"` enables 1M Opus).
+- Anthropic doesn't allow third-party products to offer claude.ai login
+  without approval; fine for personal use, revisit before distributing.
+
+## ChatGPT: borrowing the Codex CLI's login
+
+OpenAI bills pi's own `openai-codex` sign-in to the ChatGPT plan, so this is
+only to skip a sign-in. `sidecar/credentials.ts` passes pi a CredentialStore
+(`ModelRuntime.create({ credentials })`): the app's auth.json (pi's own
+`AuthStorage`, loaded by file path since it isn't exported), falling back to
+`~/.codex/auth.json` for `openai-codex` via an `AuthStorageBackend` adapter.
+
+- A refresh rotates the refresh token, so refreshed tokens are written back
+  into Codex's file (other fields kept); never keep a private copy.
+- Signing out never deletes Codex's login; the UI hides Disconnect
+  (`ProviderStatus.viaCodex`).
+- An app sign-in of its own wins over the Codex login.
+
+## Extension providers and the initial model
+
+`createAgentSession` picks the model (saved session, then settings default)
+before extensions register providers, so a saved `claude-bridge/*` model comes
+back as "unknown". `sidecar/main.ts` re-picks it with `session.setModel` once
+the session exists.
