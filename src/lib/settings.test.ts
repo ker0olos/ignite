@@ -26,23 +26,41 @@ describe("loadSettings", () => {
   });
 
   it("reads saved values", async () => {
-    fakeFs({ [FILE]: 'theme = "dark"\n[files]\nhide_gitignored = false\n' });
+    fakeFs({
+      [FILE]: 'theme = "dracula"\n[files]\nhide_gitignored = false\n',
+    });
     expect(await loadSettings()).toEqual({
-      theme: "dark",
+      theme: "dracula",
       files: { hide_gitignored: false },
     });
   });
 
   it("fills in missing keys from defaults", async () => {
-    fakeFs({ [FILE]: 'theme = "light"\n' });
+    fakeFs({ [FILE]: 'theme = "nord"\n' });
     expect(await loadSettings()).toEqual({
       ...DEFAULT_SETTINGS,
-      theme: "light",
+      theme: "nord",
     });
   });
 
-  it("replaces an unknown theme with the default but keeps other values", async () => {
-    fakeFs({ [FILE]: 'theme = "neon"\n[files]\nhide_gitignored = false\n' });
+  it("keeps theme ids it doesn't know, since they may come from extensions", async () => {
+    fakeFs({ [FILE]: 'theme = "vscode:me.theme/Mine"\n' });
+    expect((await loadSettings()).theme).toBe("vscode:me.theme/Mine");
+  });
+
+  it.each([
+    ["light", "github-light"],
+    ["dark", "github-dark"],
+  ])("maps the old appearance value %s to the %s theme", async (old, theme) => {
+    fakeFs({ [FILE]: `theme = "${old}"\n` });
+    expect((await loadSettings()).theme).toBe(theme);
+  });
+
+  it.each([
+    ["a number", "theme = 3"],
+    ["an empty string", 'theme = ""'],
+  ])("falls back to the default theme for %s", async (_, toml) => {
+    fakeFs({ [FILE]: `${toml}\n[files]\nhide_gitignored = false\n` });
     expect(await loadSettings()).toEqual({
       theme: DEFAULT_SETTINGS.theme,
       files: { hide_gitignored: false },
@@ -51,7 +69,10 @@ describe("loadSettings", () => {
 });
 
 describe("saveSettings", () => {
-  const next: Settings = { theme: "dark", files: { hide_gitignored: false } };
+  const next: Settings = {
+    theme: "github-dark",
+    files: { hide_gitignored: false },
+  };
 
   it("creates the settings directory first", async () => {
     const { mkdirs } = fakeFs({});

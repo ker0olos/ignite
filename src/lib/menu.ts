@@ -10,6 +10,9 @@ export type MenuHandlers = {
   closeFolder: () => void;
   clearFolders: () => void;
   openSettings: () => void;
+  closeTab: () => void;
+  closeWindow: () => void;
+  quit: () => void;
 };
 
 /**
@@ -23,7 +26,8 @@ export async function setAppMenu(handlers: MenuHandlers) {
 
 /**
  * The menu bar layout. It replaces the default menu, so the standard Edit
- * items must stay for copy/paste to work in text fields.
+ * items must stay for copy/paste to work in text fields. Quit and window
+ * closing are custom items (not the predefined ones) so they can ask first.
  */
 export function menuItems({
   folders,
@@ -33,6 +37,9 @@ export function menuItems({
   closeFolder,
   clearFolders,
   openSettings,
+  closeTab,
+  closeWindow,
+  quit,
 }: MenuHandlers): NonNullable<MenuOptions["items"]> {
   return [
     {
@@ -52,7 +59,7 @@ export function menuItems({
         { item: "HideOthers" },
         { item: "ShowAll" },
         { item: "Separator" },
-        { item: "Quit" },
+        { text: `Quit ${APP_NAME}`, accelerator: "CmdOrCtrl+Q", action: quit },
       ],
     },
     {
@@ -85,8 +92,13 @@ export function menuItems({
           ],
         },
         { item: "Separator" },
+        { text: "Close Tab", accelerator: "CmdOrCtrl+W", action: closeTab },
+        {
+          text: "Close Window",
+          accelerator: "CmdOrCtrl+Shift+W",
+          action: closeWindow,
+        },
         { text: "Close Folder", action: closeFolder },
-        { item: "CloseWindow" },
       ],
     },
     {

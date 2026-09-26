@@ -12,7 +12,7 @@ export function Sidebar({
   actions: ReactNode;
 }) {
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
+    <aside className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       {/* pl-20 clears the native traffic lights */}
       <div
         data-tauri-drag-region

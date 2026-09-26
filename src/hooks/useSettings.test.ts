@@ -30,32 +30,66 @@ beforeEach(() => document.documentElement.classList.remove("dark"));
 describe("useSettings", () => {
   it("loads settings from settings.toml", async () => {
     fakeFs({
-      [SETTINGS_FILE]: 'theme = "light"\n[files]\nhide_gitignored = false\n',
+      [SETTINGS_FILE]: 'theme = "nord"\n[files]\nhide_gitignored = false\n',
     });
     fakeSystemAppearance(false);
     const { result } = renderHook(() => useSettings());
     await waitFor(() =>
       expect(result.current[0]).toEqual({
-        theme: "light",
+        theme: "nord",
         files: { hide_gitignored: false },
       }),
     );
   });
 
-  describe("theme", () => {
-    it("dark forces dark mode even on a light system", async () => {
-      fakeFs(toml("dark"));
+  describe("light or dark mode follows the theme", () => {
+    it("a dark theme turns on dark mode even on a light system", async () => {
+      fakeFs(toml("github-dark"));
       fakeSystemAppearance(false);
       renderHook(() => useSettings());
       await waitFor(() => expect(isDark()).toBe(true));
     });
 
-    it("light forces light mode even on a dark system", async () => {
-      fakeFs(toml("light"));
+    it("a light theme turns off dark mode even on a dark system", async () => {
+      fakeFs(toml("github-light"));
       fakeSystemAppearance(true);
       const { result } = renderHook(() => useSettings());
-      await waitFor(() => expect(result.current[0].theme).toBe("light"));
-      expect(isDark()).toBe(false);
+      await waitFor(() => expect(result.current[0].theme).toBe("github-light"));
+      await waitFor(() => expect(isDark()).toBe(false));
+    });
+
+    it("a VS Code theme uses the kind its extension declares", async () => {
+      const ext = "/me/.vscode/extensions/me.light-1.0.0";
+      fakeFs(
+        {
+          ...toml("vscode:me.light/Paper"),
+          [`${ext}/package.json`]: JSON.stringify({
+            name: "light",
+            publisher: "me",
+            contributes: {
+              themes: [{ label: "Paper", uiTheme: "vs", path: "./t.json" }],
+            },
+          }),
+        },
+        (cmd) => (cmd === "plugin:path|resolve_directory" ? "/me" : null),
+      );
+      fakeSystemAppearance(true);
+      // codeThemes caches discovered themes per module; start fresh.
+      vi.resetModules();
+      const { useSettings } = await import("./useSettings");
+      renderHook(() => useSettings());
+      await waitFor(() => expect(isDark()).toBe(false));
+    });
+
+    it("an unknown theme follows the system", async () => {
+      fakeFs(toml("vscode:gone.theme/Missing"), (cmd) =>
+        cmd === "plugin:path|resolve_directory" ? "/me" : null,
+      );
+      fakeSystemAppearance(true);
+      vi.resetModules();
+      const { useSettings } = await import("./useSettings");
+      renderHook(() => useSettings());
+      await waitFor(() => expect(isDark()).toBe(true));
     });
 
     it("system follows the OS appearance, including live changes", async () => {
@@ -72,7 +106,10 @@ describe("useSettings", () => {
     const { writes } = fakeFs({});
     fakeSystemAppearance(false);
     const { result } = renderHook(() => useSettings());
-    const next: Settings = { theme: "dark", files: { hide_gitignored: true } };
+    const next: Settings = {
+      theme: "github-dark",
+      files: { hide_gitignored: true },
+    };
     act(() => result.current[1](next));
     expect(result.current[0]).toEqual(next);
     await waitFor(() => expect(writes).toHaveLength(1));
@@ -83,7 +120,10 @@ describe("useSettings", () => {
     fakeFs({});
     fakeSystemAppearance(false);
     const { result } = renderHook(() => useSettings());
-    const next: Settings = { theme: "dark", files: { hide_gitignored: false } };
+    const next: Settings = {
+      theme: "dracula",
+      files: { hide_gitignored: false },
+    };
     await act(() => saveSettings(next));
     expect(result.current[0]).toEqual(next);
   });

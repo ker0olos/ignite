@@ -1,18 +1,30 @@
 import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { readForView, type FileContent } from "@/lib/files";
+import type { CodeThemes } from "@/lib/codeThemes";
 
 /** Read-only, syntax-highlighted view of one file, with a breadcrumb. */
-export function FileView({ path, root }: { path: string; root: string }) {
+export function FileView({
+  path,
+  root,
+  themes,
+}: {
+  path: string;
+  root: string;
+  themes: CodeThemes;
+}) {
   const [loaded, setLoaded] = useState<FileContent | null>(null);
+  const { light, dark } = themes;
 
   useEffect(() => {
     let cancelled = false;
-    readForView(path).then((result) => !cancelled && setLoaded(result));
+    readForView(path, { light, dark }).then(
+      (result) => !cancelled && setLoaded(result),
+    );
     return () => {
       cancelled = true;
     };
-  }, [path]);
+  }, [path, light, dark]);
 
   const crumbs = path.slice(root.length + 1).split("/");
 

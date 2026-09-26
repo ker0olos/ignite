@@ -1,6 +1,9 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it, vi } from "vitest";
+import { APP_NAME } from "./app";
 import { menuItems, setAppMenu, type MenuHandlers } from "./menu";
+
+const QUIT = `Quit ${APP_NAME}`;
 
 type Item = {
   text?: string;
@@ -20,7 +23,15 @@ function handlers(folders: string[]): MenuHandlers {
     closeFolder: vi.fn(),
     clearFolders: vi.fn(),
     openSettings: vi.fn(),
+    closeTab: vi.fn(),
+    closeWindow: vi.fn(),
+    quit: vi.fn(),
   };
+}
+
+/** Every item, flattened across submenus. */
+function all(items: Item[]): Item[] {
+  return items.flatMap((i) => [i, ...all(i.items ?? [])]);
 }
 
 /** Finds a menu item by its text, searching submenus. */
@@ -67,17 +78,44 @@ describe("menuItems", () => {
     expect(find(items, "Open Folder…")?.accelerator).toBe("CmdOrCtrl+O");
     expect(find(items, "New Window")?.accelerator).toBe("CmdOrCtrl+Shift+N");
     expect(find(items, "Settings…")?.accelerator).toBe("CmdOrCtrl+,");
+    expect(find(items, "Close Tab")?.accelerator).toBe("CmdOrCtrl+W");
+    expect(find(items, "Close Window")?.accelerator).toBe("CmdOrCtrl+Shift+W");
+    expect(find(items, QUIT)?.accelerator).toBe("CmdOrCtrl+Q");
+  });
+
+  it("never uses a shortcut twice", () => {
+    const shortcuts = all(build(handlers(["/a"])))
+      .map((i) => i.accelerator)
+      .filter(Boolean);
+    expect(new Set(shortcuts).size).toBe(shortcuts.length);
+  });
+
+  it("uses custom Quit and Close items so they can ask first", () => {
+    // The predefined ones act immediately, skipping the confirmation.
+    const kinds = all(build(handlers([]))).map((i) => i.item);
+    expect(kinds).not.toContain("Quit");
+    expect(kinds).not.toContain("CloseWindow");
   });
 
   it("wires actions to the handlers", () => {
     const h = handlers([]);
     const items = build(h);
-    find(items, "Open Folder…")?.action?.();
-    find(items, "Close Folder")?.action?.();
-    find(items, "Settings…")?.action?.();
+    for (const text of [
+      "Open Folder…",
+      "Close Folder",
+      "Settings…",
+      "Close Tab",
+      "Close Window",
+      QUIT,
+    ]) {
+      find(items, text)?.action?.();
+    }
     expect(h.openFolder).toHaveBeenCalledOnce();
     expect(h.closeFolder).toHaveBeenCalledOnce();
     expect(h.openSettings).toHaveBeenCalledOnce();
+    expect(h.closeTab).toHaveBeenCalledOnce();
+    expect(h.closeWindow).toHaveBeenCalledOnce();
+    expect(h.quit).toHaveBeenCalledOnce();
   });
 
   describe("Open Recent", () => {

@@ -54,35 +54,38 @@ describe("listDir", () => {
 });
 
 describe("readForView", () => {
+  const view = (path: string) =>
+    readForView(path, { light: "github-light", dark: "github-dark" });
+
   it("highlights a text file", async () => {
     fakeFs({ "/a.ts": "const x = 1;" });
-    const result = await readForView("/a.ts");
+    const result = await view("/a.ts");
     expect(result).toHaveProperty("html");
     expect("html" in result && result.html).toContain("shiki");
   });
 
   it("refuses files over the size limit", async () => {
     fakeFs({ "/big.txt": new Uint8Array(MAX_VIEW_BYTES + 1).fill(65) });
-    expect(await readForView("/big.txt")).toEqual({
+    expect(await view("/big.txt")).toEqual({
       message: "File is too large to show.",
     });
   });
 
   it("shows a file exactly at the size limit", async () => {
     fakeFs({ "/edge.txt": new Uint8Array(MAX_VIEW_BYTES).fill(65) });
-    expect(await readForView("/edge.txt")).toHaveProperty("html");
+    expect(await view("/edge.txt")).toHaveProperty("html");
   });
 
   it("refuses binary files", async () => {
     fakeFs({ "/img.png": new Uint8Array([0x89, 0x50, 0x00, 0x47]) });
-    expect(await readForView("/img.png")).toEqual({
+    expect(await view("/img.png")).toEqual({
       message: "Binary file not shown.",
     });
   });
 
   it("turns read errors into a message instead of throwing", async () => {
     fakeFs({});
-    expect(await readForView("/gone.ts")).toEqual({
+    expect(await view("/gone.ts")).toEqual({
       message: "Couldn't read this file.",
     });
   });

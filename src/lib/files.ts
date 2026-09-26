@@ -1,5 +1,6 @@
 import { readDir, readFile } from "@tauri-apps/plugin-fs";
 import { withoutGitIgnored } from "./gitignore";
+import type { CodeThemes } from "./codeThemes";
 import { highlight } from "./highlight";
 
 /** Never shown in the file tree, whatever the Git setting. */
@@ -27,7 +28,10 @@ export async function listDir(dir: string, hideGitIgnored: boolean) {
 export type FileContent = { html: string } | { message: string };
 
 /** Reads a file for the viewer. Never throws; failures become a message. */
-export async function readForView(path: string): Promise<FileContent> {
+export async function readForView(
+  path: string,
+  themes: CodeThemes,
+): Promise<FileContent> {
   try {
     const bytes = await readFile(path);
     if (bytes.length > MAX_VIEW_BYTES) {
@@ -36,7 +40,8 @@ export async function readForView(path: string): Promise<FileContent> {
     if (bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)) {
       return { message: "Binary file not shown." };
     }
-    return { html: await highlight(new TextDecoder().decode(bytes), path) };
+    const text = new TextDecoder().decode(bytes);
+    return { html: await highlight(text, path, themes) };
   } catch {
     return { message: "Couldn't read this file." };
   }

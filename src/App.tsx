@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
 import { useFolders } from "@/hooks/useFolders";
 import { useSettings } from "@/hooks/useSettings";
+import { useTabs } from "@/hooks/useTabs";
+import { codeThemesFor } from "@/lib/codeThemes";
+import { confirmBeforeClose, confirmQuit } from "@/lib/lifecycle";
 import { setAppMenu } from "@/lib/menu";
 import { tildify } from "@/lib/paths";
 import { cn } from "@/lib/utils";
@@ -26,6 +29,7 @@ export default function App() {
     clearFolders,
   } = useFolders();
   const [settings, setSettings] = useSettings();
+  const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
   const [home, setHome] = useState("");
   const [focused, setFocused] = useState(false);
@@ -34,13 +38,18 @@ export default function App() {
   useEffect(() => {
     homeDir().then(setHome);
     win.isFocused().then(setFocused);
-    const unlisten = win.onFocusChanged(({ payload }) => setFocused(payload));
+    const unlistenFocus = win.onFocusChanged(({ payload }) =>
+      setFocused(payload),
+    );
+    const unlistenClose = confirmBeforeClose();
     return () => {
-      unlisten.then((f) => f());
+      unlistenFocus.then((f) => f());
+      unlistenClose.then((f) => f());
     };
   }, []);
 
   // The macOS menu bar is app-wide, so the focused window owns its handlers.
+  const { active, close: closeTab } = tabs;
   useEffect(() => {
     if (!loaded || !focused) return;
     setAppMenu({
@@ -51,6 +60,10 @@ export default function App() {
       closeFolder,
       clearFolders,
       openSettings: () => setSettingsOpen(true),
+      // ⌘W closes the file tab; with none open it falls through to the window.
+      closeTab: () => (active ? closeTab(active) : win.close()),
+      closeWindow: () => win.close(),
+      quit: confirmQuit,
     });
   }, [
     loaded,
@@ -61,6 +74,8 @@ export default function App() {
     addFolder,
     closeFolder,
     clearFolders,
+    active,
+    closeTab,
   ]);
 
   if (!loaded) return null;
@@ -87,6 +102,8 @@ export default function App() {
         <Workspace
           key={current}
           folder={current}
+          tabs={tabs}
+          codeThemes={codeThemesFor(settings.theme)}
           hideGitIgnored={settings.files.hide_gitignored}
           actions={settingsButton}
         />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { themeKind, type ThemeKind } from "@/lib/codeThemes";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -22,17 +23,28 @@ export function useSettings() {
     };
   }, []);
 
+  // The theme decides light or dark; "system" (or an unknown theme) follows macOS.
   const { theme } = settings;
   useEffect(() => {
+    let cancelled = false;
+    let kind: ThemeKind | null = null;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const apply = () =>
       document.documentElement.classList.toggle(
         "dark",
-        theme === "dark" || (theme === "system" && media.matches),
+        kind ? kind === "dark" : media.matches,
       );
     apply();
+    themeKind(theme).then((k) => {
+      if (cancelled) return;
+      kind = k;
+      apply();
+    });
     media.addEventListener("change", apply);
-    return () => media.removeEventListener("change", apply);
+    return () => {
+      cancelled = true;
+      media.removeEventListener("change", apply);
+    };
   }, [theme]);
 
   function updateSettings(next: Settings) {

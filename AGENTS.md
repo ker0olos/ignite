@@ -17,7 +17,7 @@ src/                     React frontend (almost all logic lives here)
   components/            UI only; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
     Welcome.tsx          Screen when no folder is open
-    Workspace.tsx        Open-folder layout: sidebar, agent panel, file tabs
+    Workspace.tsx        Open-folder layout: resizable sidebar, agent panel, file tabs
     Sidebar.tsx          Title-bar strip + file tree
     FileTree.tsx         Lazy directory tree
     FileView.tsx         Read-only, syntax-highlighted file
@@ -27,17 +27,20 @@ src/                     React frontend (almost all logic lives here)
     useFolders.ts        Recent folders + this window's open folder
     useSettings.ts       settings.toml, synced across windows; applies theme
     useFolderDrop.ts     Drag-and-drop folders onto the window
+    useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
     store.ts             App state (tauri-plugin-store) + cross-window sync
     files.ts             Directory listing and reading files for the viewer
     gitignore.ts         .gitignore matching for the file tree
-    highlight.ts         Shiki highlighting (light + dark themes)
+    highlight.ts         Shiki highlighting with the chosen theme(s)
+    codeThemes.ts        Theme discovery (Shiki, VS Code-family editors, custom files) and loading
     tabs.ts              Open/close logic for file tabs
     recent.ts            Recent-folders list logic
     fileIcons.ts         Extension → monochrome icon
     menu.ts              macOS menu bar
+    lifecycle.ts         Confirm before quitting or closing a window
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
     utils.ts             `cn` class-name helper (shadcn)
@@ -53,6 +56,12 @@ Two places hold persisted data:
 
 - **User settings** in `~/.unnamed-harness/settings.toml` (`lib/settings.ts`).
   Human-editable; add new options to the `Settings` type and `DEFAULT_SETTINGS`.
+- **Themes:** the `theme` setting is `"system"` (GitHub Light/Dark following
+  macOS) or a theme id. The chosen theme colours code and decides light or dark
+  mode. Themes come from Shiki, from extensions installed in VS Code, VSCodium,
+  Cursor or Windsurf (read in place), or from `~/.unnamed-harness/themes/*.json`.
+  Ids for editor themes leave out the extension version so choices survive updates.
+- **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **App state** in `state.json` in the app data folder (`lib/store.ts`): recent
   folders (shared by all windows) and the main window's last open folder.
 
@@ -132,5 +141,9 @@ start empty; the settings folder moves with the name.
   otherwise menu actions run in the wrong window.
 - Setting a custom app menu drops the default Edit menu; keep the Edit items or
   copy/paste stops working (tested in `menu.test.ts`).
+- Quit and Close Window are custom menu items, not the predefined `Quit` /
+  `CloseWindow` ones, which act immediately and skip the confirmation dialog.
+  ⌘W closes the active file tab and only falls through to the window when no
+  tab is open. Quitting from the Dock still skips confirmation.
 - New windows are created from `NEW_WINDOW_OPTIONS` in `lib/window.ts`, which
   must mirror the main window in `tauri.conf.json` (tested in `window.test.ts`).

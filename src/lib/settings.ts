@@ -7,18 +7,27 @@ import {
 } from "@tauri-apps/plugin-fs";
 import { parse, stringify } from "smol-toml";
 import { APP_NAME } from "./app";
-
-export type Theme = "system" | "light" | "dark";
+import { SYSTEM_THEME } from "./codeThemes";
 
 /** Shape of ~/.<APP_NAME>/settings.toml (keys stay snake_case, as in TOML). */
 export type Settings = {
-  theme: Theme;
+  /**
+   * "system", or a theme id from codeThemes.ts. The theme colours code and
+   * decides light or dark mode; "system" follows macOS.
+   */
+  theme: string;
   files: { hide_gitignored: boolean };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: "system",
+  theme: SYSTEM_THEME,
   files: { hide_gitignored: true },
+};
+
+// Earlier versions stored the appearance itself; map it to the matching theme.
+const LEGACY_THEMES: Record<string, string> = {
+  light: "github-light",
+  dark: "github-dark",
 };
 
 /** Relative to the home directory. */
@@ -27,7 +36,7 @@ export const SETTINGS_FILE = `${SETTINGS_DIR}/settings.toml`;
 const HOME = { baseDir: BaseDirectory.Home };
 const CHANGED = "settings://changed";
 
-/** Reads settings, falling back to defaults for a missing file or unknown values. */
+/** Reads settings, falling back to defaults for a missing file or bad values. */
 export async function loadSettings(): Promise<Settings> {
   let raw: Partial<Settings>;
   try {
@@ -35,9 +44,10 @@ export async function loadSettings(): Promise<Settings> {
   } catch {
     return DEFAULT_SETTINGS;
   }
-  const theme = ["system", "light", "dark"].includes(raw.theme as string)
-    ? (raw.theme as Theme)
-    : DEFAULT_SETTINGS.theme;
+  const theme =
+    typeof raw.theme === "string" && raw.theme
+      ? (LEGACY_THEMES[raw.theme] ?? raw.theme)
+      : DEFAULT_SETTINGS.theme;
   return {
     theme,
     files: { ...DEFAULT_SETTINGS.files, ...raw.files },

@@ -128,6 +128,14 @@
   }
 }
 
+/* Scrolls (trackpad, wheel) without a visible bar that could cover content. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Shiki output from lib/highlight.ts: dual-theme colours and line numbers. */
 .code-view .shiki {
   background: transparent !important;

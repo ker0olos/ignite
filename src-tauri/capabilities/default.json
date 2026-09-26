@@ -9,36 +9,63 @@
     "core:window:allow-set-size",
     "core:window:allow-set-position",
     "core:window:allow-show",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
     "core:webview:allow-create-webview-window",
     "dialog:default",
     "store:default",
     "fs:default",
     {
       "identifier": "fs:allow-read-dir",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-read-file",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-read-text-file",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-exists",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-write-text-file",
-      "allow": [{ "path": "$HOME/.unnamed-harness/**" }]
+      "allow": [
+        {
+          "path": "$HOME/.unnamed-harness/**"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-mkdir",
       "allow": [
-        { "path": "$HOME/.unnamed-harness" },
-        { "path": "$HOME/.unnamed-harness/**" }
+        {
+          "path": "$HOME/.unnamed-harness"
+        },
+        {
+          "path": "$HOME/.unnamed-harness/**"
+        }
       ]
-    }
+    },
+    "process:default"
   ]
 }
