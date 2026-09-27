@@ -84,6 +84,8 @@ export type OpenSession = (
   cwd: string,
   onMcpStatus: (snapshot: McpStatusSnapshot) => void,
   onApproval: (ask: ApprovalAsk) => void,
+  /** Deletes the folder's saved conversations and starts an empty one. */
+  fresh: boolean,
 ) => Promise<Session>;
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };

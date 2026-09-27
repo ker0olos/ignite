@@ -58,10 +58,11 @@ export async function setModel(
   return sessionState(ctx);
 }
 
-/** Opens a folder's session and returns its initial state. */
+/** Opens a folder's session (an empty one if `fresh`) and returns its state. */
 export async function open(
   ctx: HostContext,
   cwd: string,
+  fresh = false,
 ): Promise<OpenedSession> {
   const opened = ++ctx.opens;
   const previous = ctx.session;
@@ -93,7 +94,7 @@ export async function open(
   // A replaced session's tool calls can't be answered any more.
   const onApproval = (ask: ApprovalAsk) =>
     opened === ctx.opens ? askApproval(ctx, ask) : ask.answer(false);
-  const s = await ctx.openSession(cwd, onMcpStatus, onApproval);
+  const s = await ctx.openSession(cwd, onMcpStatus, onApproval, fresh);
   ctx.session = s;
   ctx.cwd = cwd;
   // ponytail: kept in memory; a sidecar restart before a folder opens drops them.

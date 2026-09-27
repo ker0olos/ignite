@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type {
   ModelInfo,
+  OpenedSession,
   ProjectTrust,
   ProviderStatus,
   SessionState,
@@ -18,6 +19,18 @@ type Opened = {
   trust: ProjectTrust;
   transcript: Transcript;
 };
+
+const toOpened = (
+  host: HostClient,
+  folder: string,
+  { messages, running, trust, ...state }: OpenedSession,
+): Opened => ({
+  host,
+  folder,
+  state,
+  trust,
+  transcript: fromHistory(messages, running),
+});
 
 /** What the app sees of the session; every field is null until it's open. */
 const view = (s: Opened | null) => ({
@@ -62,17 +75,7 @@ export function useAgentSession(
     let live = true;
     host
       .request({ type: "open_session", cwd: folder })
-      .then(
-        ({ messages, running, trust, ...state }) =>
-          live &&
-          setSession({
-            host,
-            folder,
-            state,
-            trust,
-            transcript: fromHistory(messages, running),
-          }),
-      )
+      .then((s) => live && setSession(toOpened(host, folder, s)))
       .catch((e: Error) => live && setError(e.message));
     return () => {
       live = false;
@@ -122,6 +125,17 @@ export function useAgentSession(
     [opened],
   );
 
+  const clear = useCallback(async () => {
+    if (!opened || !folder) return;
+    setError(null);
+    try {
+      const s = await opened.request({ type: "clear_session" });
+      setSession(toOpened(opened, folder, s));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [opened, folder]);
+
   const stop = useCallback(async () => {
     await opened?.request({ type: "abort" }).catch(() => {});
   }, [opened]);
@@ -148,6 +162,8 @@ export function useAgentSession(
     error,
     send,
     stop,
+    /** Deletes the folder's saved conversations and starts an empty one. */
+    clear,
     /** Approves or denies a tool call that waits for the user. */
     answer,
     setTrust,

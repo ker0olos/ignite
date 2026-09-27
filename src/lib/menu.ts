@@ -48,7 +48,7 @@ export function menuItems({
         { item: { About: null } },
         { item: "Separator" },
         {
-          text: "Settings…",
+          text: "Settings",
           accelerator: "CmdOrCtrl+,",
           action: openSettings,
         },
@@ -72,7 +72,7 @@ export function menuItems({
         },
         { item: "Separator" },
         {
-          text: "Open Folder…",
+          text: "Open Folder",
           accelerator: "CmdOrCtrl+O",
           action: openFolder,
         },

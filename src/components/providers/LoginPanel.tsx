@@ -16,8 +16,8 @@ export function LoginPanel({
         <Loader2 className="size-4 animate-spin text-muted-foreground" />
         {login.progress ??
           (login.method === "api_key"
-            ? "Saving your key…"
-            : "Waiting for you to sign in…")}
+            ? "Saving your key"
+            : "Waiting for you to sign in")}
       </div>
 
       <div className="mt-3 flex justify-end">

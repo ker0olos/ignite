@@ -16,7 +16,7 @@ export function ProviderState({
         )}
       />
       {how === undefined
-        ? "Checking…"
+        ? "Checking"
         : how === "subscription"
           ? "Subscription"
           : how === "api_key"

@@ -111,7 +111,7 @@ function applyCompactionEvent(
   event: CompactionEvent,
 ): Transcript {
   if (event.type === "compaction_start") {
-    return notice(t, "Compacting the conversation…");
+    return notice(t, "Compacting the conversation");
   }
   return event.errorMessage ? notice(t, event.errorMessage, true) : t;
 }
@@ -209,6 +209,8 @@ function startOrEndBlock(update: StreamUpdate): ContentBlock | undefined {
     case "thinking_start":
       return { type: "thinking", thinking: "" };
     case "toolcall_start":
+      // Without a name the row can't be drawn; it shows at toolcall_end.
+      if (!update.toolName) return undefined;
       return {
         type: "toolCall",
         id: update.id,

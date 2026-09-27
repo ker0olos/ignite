@@ -38,7 +38,7 @@ export function Welcome({
           className="-mx-2 mt-5 flex h-8 w-[calc(100%+1rem)] items-center gap-2 rounded-md px-2 text-[13px] hover:bg-accent"
         >
           <FolderOpen className="size-4 text-muted-foreground" />
-          Open Folder…
+          Open Folder
           <kbd className="ml-auto font-sans text-xs text-muted-foreground">
             ⌘O
           </kbd>

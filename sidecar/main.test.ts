@@ -116,6 +116,48 @@ describe("sidecar process", () => {
     expect(state.thinkingLevels).toContain(state.thinkingLevel);
   }, 30_000);
 
+  it("clears a folder's saved conversations and starts an empty one", async () => {
+    process.env.PI_CODING_AGENT_DIR = join(home, `.${APP_NAME}`, "pi");
+    const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+    const saved = SessionManager.create(home);
+    saved.appendMessage({ role: "user", content: "hello", timestamp: 1 });
+    saved.appendMessage({
+      role: "assistant",
+      content: [{ type: "text", text: "hi" }],
+      api: "openai-responses",
+      provider: "openai",
+      model: "gpt-4.1",
+      usage: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 0,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: "stop",
+      timestamp: 2,
+    });
+    delete process.env.PI_CODING_AGENT_DIR;
+
+    const sidecar = start({ OPENAI_API_KEY: "sk-test" });
+    const answer = async (id: number) => {
+      const r = await sidecar.next(
+        (m): m is Extract<HostMessage, { type: "response" }> =>
+          m.type === "response" && m.id === id,
+      );
+      return (r as { data: { messages: unknown[] } }).data.messages;
+    };
+    sidecar.send({ id: 1, type: "open_session", cwd: home });
+    expect(await answer(1)).toHaveLength(2);
+    sidecar.send({ id: 2, type: "clear_session" });
+    expect(await answer(2)).toHaveLength(0);
+    // Reopening the folder finds nothing to continue.
+    sidecar.send({ id: 3, type: "open_session", cwd: home });
+    expect(await answer(3)).toHaveLength(0);
+    await sidecar.stop();
+  }, 30_000);
+
   it("loads mods/ files in place of the ones they override", async () => {
     const mods = join(home, "mods");
     await mkdir(join(mods, "src/lib"), { recursive: true });
@@ -160,13 +202,14 @@ describe("sidecar process", () => {
 });
 
 /** A sidecar kept running, for conversations that wait on events. */
-function start() {
+function start(env: Record<string, string> = {}) {
   const child = spawn(process.execPath, [join(__dirname, "main.ts")], {
     env: {
       ...process.env,
       HOME: home,
       PATH: dirname(process.execPath),
       PI_OFFLINE: "1",
+      ...env,
     },
   });
   const messages: HostMessage[] = [];

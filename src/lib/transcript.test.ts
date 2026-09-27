@@ -132,6 +132,17 @@ describe("applyEvent", () => {
     expect(lastMessage(ended)).toMatchObject({ content: [call] });
   });
 
+  it("waits for a tool call's end when its start has no name", () => {
+    const started = run([
+      { type: "message_start", message: assistant() },
+      update({
+        type: "toolcall_start",
+        contentIndex: 0,
+      } as unknown as Parameters<typeof update>[0]),
+    ]);
+    expect(lastMessage(started)).toMatchObject({ content: [] });
+  });
+
   it("ignores updates it can't place", () => {
     const noAssistant = run([{ type: "message_start", message: user }]);
     expect(
@@ -287,7 +298,7 @@ describe("applyEvent", () => {
       { kind: "notice", text: "Retrying (1/3): 529 overloaded" },
       { kind: "notice", text: "Gave up.", error: true },
       { kind: "notice", text: "The request failed.", error: true },
-      { kind: "notice", text: "Compacting the conversation…" },
+      { kind: "notice", text: "Compacting the conversation" },
       { kind: "notice", text: "Too big.", error: true },
     ]);
   });

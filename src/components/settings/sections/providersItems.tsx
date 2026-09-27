@@ -5,7 +5,7 @@ import { ProviderTile } from "@/components/settings/ProviderTile";
 import { Button } from "@/components/ui/button";
 import { PROVIDER_GROUPS, groupConnection } from "@/lib/providerGroups";
 
-/** Settings rows for connected providers, plus the "Manage…" entry. */
+/** Settings rows for connected providers, plus the "Manage" entry. */
 export function providersItems({
   providers,
   providersError,
@@ -41,7 +41,7 @@ export function providersItems({
       keywords: "connect disconnect manage provider account login api key",
       control: (
         <Button variant="outline" size="sm" onClick={onManageProviders}>
-          Manage…
+          Manage
         </Button>
       ),
     },

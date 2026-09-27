@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { Composer } from "@/components/agent/Composer";
+import { ConversationMenu } from "@/components/agent/ConversationMenu";
 import { ConversationSkeleton } from "@/components/agent/ConversationSkeleton";
 import { EmptyConversation } from "@/components/agent/EmptyConversation";
 import { TrustPrompt } from "@/components/agent/TrustPrompt";
@@ -34,6 +35,13 @@ export function AgentPanel({
 
   return (
     <>
+      {!loading && (
+        <ConversationMenu
+          folder={folder}
+          running={running}
+          onClear={() => void session.clear()}
+        />
+      )}
       <main
         ref={mainRef}
         className="min-h-0 flex-1 overscroll-contain overflow-y-auto"

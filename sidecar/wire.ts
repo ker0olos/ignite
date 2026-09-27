@@ -13,6 +13,17 @@ export function toWireEvent(event: SessionEvent): SessionEvent {
     assistantMessageEvent: update,
   };
   delete wire.message;
+  // The wire form names the tool call that starts, which only `partial` has.
+  if (update.type === "toolcall_start") {
+    const { partial, contentIndex } =
+      event.assistantMessageEvent as unknown as {
+        partial?: { content?: { id?: string; name?: string }[] };
+        contentIndex: number;
+      };
+    const block = partial?.content?.[contentIndex];
+    update.id = block?.id;
+    update.toolName = block?.name;
+  }
   delete update.partial;
   return wire as SessionEvent;
 }
