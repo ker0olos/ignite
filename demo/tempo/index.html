@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tempo</title>
+  </head>
+  <body>
+    <main>
+      <div class="timer">25:00</div>
+      <button id="start" class="accent">Start focus</button>
+    </main>
+    <dialog id="settings">
+      <label>Focus <input name="focusMinutes" type="number" /></label>
+      <label>Break <input name="breakMinutes" type="number" /></label>
+      <label>Sound <input name="sound" type="checkbox" /></label>
+      <label>
+        Theme
+        <select name="theme">
+          <option value="system">Match system</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+    </dialog>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -54,12 +54,14 @@ src/                     React frontend (almost all logic lives here)
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     transcript.ts        Rebuilds the conversation from pi's session events
-    toolRows.ts          Conversation rows: folds reads/searches/shell runs, parses edit diffs
+    toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands, parses edit diffs
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
     memory.ts            Memory settings text: cmem status line, relative times
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
     dangerousCommands.ts Regex denylist of risky shell commands that Auto still asks about
+    demo.ts              Demo mode (`npm run demo`): its folder, model state, shown session
+    demoTranscript.ts    The demo's fixed conversation
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
@@ -92,6 +94,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
   testMcpServer.ts       A one-tool stdio MCP server for tests
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
+demo/tempo/              Sample project `npm run demo` opens (not built or tested here)
+docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
 .todo                    Planned work
@@ -228,6 +232,10 @@ has none of its own; token refreshes are written back to that file.
 ## Commands
 
 - Dev app: `npm run tauri dev` (frontend hot-reloads; `src-tauri/` changes relaunch)
+- Demo for screenshots: `npm run demo` opens `demo/tempo` with a fixed
+  conversation (`lib/demoTranscript.ts`) instead of a pi session. No sign-in,
+  nothing runs or is saved, so clearing sessions or app state never loses it.
+  `demo.test.ts` keeps its diffs in line with the files in `demo/tempo`.
 - Verify before finishing any change: `npm run check` (tsc, ESLint, clippy,
   Prettier, rustfmt, Vitest, cargo test). CI runs the same steps.
 - Tests only: `npm run test`; watch mode: `npm run test:watch`

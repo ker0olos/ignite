@@ -17,6 +17,12 @@ export default defineConfig(() => ({
     __PI_HOST_PATH__: JSON.stringify(
       new URL("./sidecar/main.ts", import.meta.url).pathname,
     ),
+    // `npm run demo` opens the sample project with a fixed conversation.
+    __DEMO_FOLDER__: JSON.stringify(
+      process.env.IGNITION_DEMO
+        ? new URL("./demo/tempo", import.meta.url).pathname
+        : null,
+    ),
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

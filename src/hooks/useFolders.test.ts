@@ -14,17 +14,19 @@ async function setup({
   label = "main",
   saved = {},
   picked = null,
+  demo = null,
 }: {
   label?: string;
   saved?: Record<string, unknown>;
   picked?: string | null;
+  demo?: string | null;
 } = {}) {
   const store = fakeStore(saved, picked);
   mockWindows(label);
   fakeFs({}, store.handle);
   vi.resetModules();
   const { useFolders } = await import("./useFolders");
-  const hook = renderHook(() => useFolders());
+  const hook = renderHook(() => useFolders(demo));
   await waitFor(() => expect(hook.result.current.loaded).toBe(true));
   return { ...hook, store };
 }
@@ -43,6 +45,17 @@ describe("useFolders", () => {
       const { result } = await setup({ label: "window-1", saved: savedState });
       expect(result.current.folders).toEqual(["/a", "/b"]);
       expect(result.current.current).toBeNull();
+    });
+
+    it("opens the demo folder in demo mode without remembering it", async () => {
+      const { result, store } = await setup({
+        saved: savedState,
+        demo: "/repo/demo/tempo",
+      });
+      expect(result.current.current).toBe("/repo/demo/tempo");
+      await new Promise((r) => setTimeout(r, 10));
+      expect(store.sets.filter(([key]) => key === "current")).toEqual([]);
+      expect(store.data.get("current")).toBe("/b");
     });
 
     it("starts empty on first launch", async () => {

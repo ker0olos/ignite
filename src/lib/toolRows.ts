@@ -40,7 +40,13 @@ function pushBlock(rows: Row[], block: Block, showThinking: boolean) {
 const isEndOfRun = (assistant: AssistantMessage) =>
   assistant.stopReason === "error" || assistant.stopReason === "aborted";
 
-/** Flattens the transcript into rows, folding consecutive quiet tool calls. */
+// Folding one call saves no space and hides what it ran.
+const unfoldSingle = (row: Row): Row =>
+  row.kind === "group" && row.calls.length === 1
+    ? { kind: "tool", call: row.calls[0] }
+    : row;
+
+/** Flattens the transcript into rows, folding two or more consecutive quiet tool calls. */
 export function toRows(items: Item[], showThinking = false): Row[] {
   const rows: Row[] = [];
   for (const item of items) {
@@ -61,7 +67,7 @@ export function toRows(items: Item[], showThinking = false): Row[] {
       rows.push({ kind: "end", message: assistant });
     }
   }
-  return rows;
+  return rows.map(unfoldSingle);
 }
 
 const plural = (n: number, one: string, many: string) =>

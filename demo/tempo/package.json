@@ -1,0 +1,15 @@
+{
+  "name": "tempo",
+  "private": true,
+  "version": "1.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0",
+    "vitest": "^3.2.0"
+  }
+}
