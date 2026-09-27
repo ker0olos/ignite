@@ -6,7 +6,7 @@ import type { Credential, CredentialStore } from "@earendil-works/pi-ai";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { codexBackend, withCodexLogin } from "./credentials.ts";
 
-// The same store pi uses for auth.json (see main.ts).
+// The same store pi uses for auth.json (see start.ts).
 const { AuthStorage } = await import(
   new URL(
     "./core/auth-storage.js",

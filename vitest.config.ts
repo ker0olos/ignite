@@ -7,6 +7,7 @@ export default defineConfig({
   define: {
     __PI_HOST_PATH__: JSON.stringify("/repo/sidecar/main.ts"),
     __DEMO_FOLDER__: "null",
+    __HEALTH_FILE__: "null",
   },
   test: {
     // Tauri's IPC mocks (@tauri-apps/api/mocks) need a window object.
@@ -22,11 +23,12 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/lib/**", "src/hooks/**", "sidecar/**", "shared/**"],
-      // main.ts and the test MCP server run in child processes (main.test.ts),
-      // which v8 can't see.
+      // These run in child processes (main.test.ts), which v8 can't see.
       exclude: [
         "src/lib/utils.ts",
         "sidecar/main.ts",
+        "sidecar/start.ts",
+        "sidecar/modsHooks.ts",
         "sidecar/testMcpServer.ts",
       ],
     },

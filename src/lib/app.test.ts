@@ -1,6 +1,8 @@
 import { parse } from "smol-toml";
 import { describe, expect, it } from "vitest";
 import indexHtml from "../../index.html?raw";
+import launchSh from "../../launcher/launch.sh?raw";
+import setupSh from "../../launcher/setup.sh?raw";
 import pkg from "../../package.json";
 import capabilities from "../../src-tauri/capabilities/default.json";
 import cargoToml from "../../src-tauri/Cargo.toml?raw";
@@ -30,6 +32,14 @@ describe("app name", () => {
 
   it("matches the page title", () => {
     expect(indexHtml).toContain(`<title>${APP_TITLE}</title>`);
+  });
+
+  it("matches the launcher's folders, app name and binary", () => {
+    for (const script of [setupSh, launchSh]) {
+      expect(script).toContain(`$HOME/.${APP_NAME}/`);
+    }
+    expect(setupSh).toContain(`${APP_TITLE}.app`);
+    expect(launchSh).toContain(`target/debug/${APP_NAME}`);
   });
 
   it("is the same name in both spellings", () => {

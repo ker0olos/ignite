@@ -28,24 +28,32 @@ as it happens.
 ## Requirements
 
 - macOS
-- [Node.js](https://nodejs.org) 22 or newer
+- [Node.js](https://nodejs.org) 22.18 or newer
 - [Rust](https://rustup.rs)
 - Xcode Command Line Tools: `xcode-select --install`
 
-## Run it
+## Install
 
 ```sh
-git clone https://github.com/ker0olos/ignition.git
-cd ignition
+git clone https://github.com/ker0olos/ignition.git ~/.ignition/app
+cd ~/.ignition/app
 npm install
-npm run tauri dev
+npm run setup
 ```
 
-The first launch compiles the Rust side and takes a few minutes. After that it
-starts quickly.
+Ignition is now in `~/Applications`. The first start takes a few minutes. It
+updates itself each time it opens, and goes back to the last working version
+if an update fails to start.
 
-For now the app is meant to be run this way, in dev mode, rather than built
-and installed.
+## Make it yours
 
-To look around without signing in, `npm run demo` opens a sample project with
-a finished conversation, the one in the screenshot above.
+Don't edit `~/.ignition/app`; updates reset it. Copy the file you want to
+change into `~/.ignition/mods` at the same path and edit the copy there, or ask
+the agent to. Updates never touch your copies. If Ignition fails to start with
+them, it starts without them and tells you.
+
+## Develop
+
+Clone anywhere else, `npm install`, then `npm run tauri dev`. This never
+updates itself and ignores `~/.ignition/mods`. `npm run demo` opens a sample
+project with a finished conversation.

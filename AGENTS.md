@@ -68,7 +68,9 @@ src/                     React frontend (almost all logic lives here)
     utils.ts             `cn` class-name helper (shadcn)
   test/                  Test setup, fake Tauri backends (fakeFs, fakeStore), shared shell command cases
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
-  main.ts                stdio wiring; pi's files live in ~/.ignition/pi
+  main.ts                Entry: turns on mods/ overrides, then loads start.ts
+  start.ts               stdio wiring; pi's files live in ~/.ignition/pi
+  modsHooks.ts           Node resolve hooks that load mods/ files in place of the repo's
   host.ts                Request dispatch; createHost builds the handler
   hostTypes.ts           Shared types and HostContext; per-function context instead of closures
   hostAuth.ts            Provider sign-in (status, interaction, login)
@@ -98,6 +100,12 @@ demo/tempo/              Sample project `npm run demo` opens (not built or teste
 docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
+shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITION_MODS)
+shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
+launcher/                How users run the app (not maintainers; see README)
+  setup.sh               `npm run setup`: makes ~/Applications/Ignition.app
+  launch.sh              What that app runs: update, start with ~/.ignition/mods,
+                         fall back to the last good version, then to no mods
 .todo                    Planned work
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
@@ -228,6 +236,23 @@ Claude subscriptions run through the user's own Claude Code via the
 bills pi's direct Claude sign-in to extra usage. See the skill's auth.md. ChatGPT signs in
 automatically with the Codex CLI's login (`~/.codex/auth.json`) when the app
 has none of its own; token refreshes are written back to that file.
+
+## Users and mods
+
+Users run the app through `launcher/` (README "Install"), and maintainers run
+`npm run tauri dev`. For users, `IGNITION_MODS` points at `~/.ignition/mods`:
+a file there replaces the file at the same path under `src/`, `sidecar/` or
+`shared/` (Vite through `shared/modsVitePlugin.ts`, Node through
+`sidecar/modsHooks.ts`), so their changes never conflict with upstream.
+Without the variable nothing changes.
+
+- `sidecar/main.ts` only turns the overrides on, then loads `start.ts`. Keep
+  it that way; anything it imports statically can't be modded.
+- Load sibling files through `import.meta.resolve`, not `import.meta.dirname`,
+  so they are still found when the importing file is a mod.
+- The launcher counts a start as good once `reportHealthy()` (`lib/health.ts`)
+  writes `IGNITION_HEALTH_FILE`, after the sidecar answers. Keep that call on
+  the startup path, or every update looks broken and gets rolled back.
 
 ## Commands
 

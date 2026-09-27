@@ -1,13 +1,17 @@
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 // @ts-expect-error type error without @types/node package
 import process from "node:process";
+import { overlayFromEnv } from "./shared/modsOverlay.ts";
+import { modsVitePlugin } from "./shared/modsVitePlugin.ts";
 const host = process.env.TAURI_DEV_HOST;
+const root = new URL(".", import.meta.url).pathname;
+const overlay = overlayFromEnv(root);
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [react(), tailwindcss()],
+  plugins: [overlay && modsVitePlugin(overlay), react(), tailwindcss()],
   resolve: {
     alias: { "@": new URL("./src", import.meta.url).pathname },
   },
@@ -23,6 +27,7 @@ export default defineConfig(() => ({
         ? new URL("./demo/tempo", import.meta.url).pathname
         : null,
     ),
+    __HEALTH_FILE__: JSON.stringify(process.env.IGNITION_HEALTH_FILE || null),
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -41,6 +46,9 @@ export default defineConfig(() => ({
           port: 1421,
         }
       : undefined,
+    fs: {
+      allow: [searchForWorkspaceRoot(root), ...(overlay ? [overlay.mods] : [])],
+    },
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],

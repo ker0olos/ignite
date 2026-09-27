@@ -6,6 +6,7 @@ import type {
   ProviderId,
   ProviderStatus,
 } from "../../shared/hostProtocol";
+import { reportHealthy } from "@/lib/health";
 import { openPiHost, type HostClient } from "@/lib/piHost";
 
 /** A sign-in in progress. */
@@ -66,6 +67,7 @@ export function useProviders(open: () => Promise<HostClient> = openPiHost) {
         setHost(c);
         unsubscribe = c.subscribe(onMessage);
         setStatuses(await c.request({ type: "status" }));
+        void reportHealthy();
       })
       .catch((e: Error) => !cancelled && setHostError(e.message));
 
