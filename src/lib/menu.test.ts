@@ -98,6 +98,17 @@ describe("menuItems", () => {
     expect(kinds).not.toContain("CloseWindow");
   });
 
+  it("reloads the page from the View menu", () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { reload });
+    try {
+      find(build(handlers([])), "Reload")?.action?.();
+      expect(reload).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("wires actions to the handlers", () => {
     const h = handlers([]);
     const items = build(h);
