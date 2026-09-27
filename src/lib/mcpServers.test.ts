@@ -142,10 +142,9 @@ describe("describeServer", () => {
 });
 
 describe("toolSummary", () => {
-  it("counts and names the first tools", () => {
+  it("counts the tools", () => {
     expect(toolSummary([])).toBe("No tools yet");
-    expect(toolSummary(["read"])).toBe("1 tool: read");
-    expect(toolSummary(["a", "b", "c"])).toBe("3 tools: a, b, c");
-    expect(toolSummary(["a", "b", "c", "d"])).toBe("4 tools: a, b, c, …");
+    expect(toolSummary(["read"])).toBe("1 tool");
+    expect(toolSummary(["a", "b", "c", "d"])).toBe("4 tools");
   });
 });

@@ -123,9 +123,8 @@ export function describeServer({ config }: McpServer): string {
     : config.url;
 }
 
-/** Its tools in a few words: a count and the first names. */
+/** Its tools as a count. */
 export function toolSummary(tools: readonly string[]): string {
   if (tools.length === 0) return "No tools yet";
-  const names = tools.slice(0, 3).join(", ") + (tools.length > 3 ? ", …" : "");
-  return `${tools.length} ${tools.length === 1 ? "tool" : "tools"}: ${names}`;
+  return `${tools.length} ${tools.length === 1 ? "tool" : "tools"}`;
 }
