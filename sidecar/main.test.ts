@@ -115,6 +115,48 @@ describe("sidecar process", () => {
     expect(state.model?.provider).toBe("openai");
     expect(state.thinkingLevels).toContain(state.thinkingLevel);
   }, 30_000);
+
+  it("loads mods/ files in place of the ones they override", async () => {
+    const mods = join(home, "mods");
+    await mkdir(join(mods, "src/lib"), { recursive: true });
+    // app.ts imports a file only mods/ has, which imports one only the repo has.
+    await writeFile(
+      join(mods, "src/lib/app.ts"),
+      'export { APP_NAME, APP_TITLE } from "./modName.ts";',
+    );
+    await writeFile(
+      join(mods, "src/lib/modName.ts"),
+      'import { basename } from "./paths.ts";\n' +
+        'export const APP_NAME = basename("/x/modded");\n' +
+        'export const APP_TITLE = "Modded";',
+    );
+    await run(
+      '{"id":1,"type":"login","provider":"openai","method":"api_key","apiKey":"sk-test"}\n',
+      { IGNITION_MODS: mods },
+    );
+    expect(existsSync(join(home, ".modded/pi/auth.json"))).toBe(true);
+  }, 30_000);
+
+  it("still finds its packages and extensions when start.ts itself is modded", async () => {
+    const mods = join(home, "mods");
+    const start = await readFile(join(__dirname, "start.ts"), "utf8");
+    await mkdir(join(mods, "sidecar"), { recursive: true });
+    await writeFile(
+      join(mods, "sidecar/start.ts"),
+      start.replace(
+        'send({ type: "ready" })',
+        'send({ type: "modded" } as never)',
+      ),
+    );
+    const { messages } = await run(
+      JSON.stringify({ id: 1, type: "open_session", cwd: home }) + "\n",
+      { IGNITION_MODS: mods, OPENAI_API_KEY: "sk-test" },
+    );
+    expect(messages[0]).toEqual({ type: "modded" });
+    expect(messages.find((m) => m.type === "response")).toMatchObject({
+      ok: true,
+    });
+  }, 30_000);
 });
 
 /** A sidecar kept running, for conversations that wait on events. */

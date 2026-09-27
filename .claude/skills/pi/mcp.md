@@ -64,7 +64,7 @@ or `bearerToken` runs a shell command. Other per-server fields (`lifecycle`,
 - `pi.events` channel `"pi-mcp-adapter/status/v1"` (`MCP_STATUS_EVENT`) carries
   `{ servers: [{ name, status, toolCount, disabled, ... }] }` with status
   `connected | cached | failed | needs-auth | not-connected | disabled`.
-  `sidecar/main.ts` gives each session its own `createEventBus()` through
+  `sidecar/start.ts` gives each session its own `createEventBus()` through
   `DefaultResourceLoader({ eventBus })` and forwards snapshots to the host.
 - No error text is in the snapshot; failures only go to stderr
   (`MCP: Failed to connect to <name>: ...`).
@@ -139,7 +139,7 @@ Code-credentials`, `mcpOAuth`, matched by `serverUrl`, `expiresAt` in ms)
   adapter's own `/mcp-auth` launches the browser itself through the `open`
   package, which loses the URL when the sidecar runs under the app (Chrome
   opens with no tab). Failures are reported with `ctx.ui.notify(..., "error")`,
-  which the headless UI in `main.ts` turns into an `extension_error`.
+  which the headless UI in `start.ts` turns into an `extension_error`.
 - With a fake `HOME` the keychain can't be read, so a check reports `failed`
   instead of `needs-auth`; test sign-in flows with the real home.
 
@@ -163,5 +163,5 @@ The adapter keeps OAuth tokens and client registrations in the macOS keychain
 and re-added under the same name would silently sign back in. Removing a server
 first runs our `/app-mcp-sign-out <name>` (the adapter's `removeAuth`). With no
 folder open, or if it fails, the name waits in memory and is signed out when
-the next folder opens. The adapter logs with `console.log`, so `main.ts` sends
+the next folder opens. The adapter logs with `console.log`, so `start.ts` sends
 console output to stderr to keep stdout protocol-only.

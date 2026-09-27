@@ -1,5 +1,5 @@
 /**
- * pi-mcp-adapter as a pi extension, loaded into every session by main.ts.
+ * pi-mcp-adapter as a pi extension, loaded into every session by start.ts.
  * Given a config, the adapter reads no other source (~/.config/mcp, a
  * project's .mcp.json, other apps' configs): servers come from the app's
  * mcp.json only. It runs on each (re)load, so saved changes apply on reload.

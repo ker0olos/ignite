@@ -132,7 +132,7 @@ Code / Agent SDK still count against the plan (Claude Help Center, "Use the
 Claude Agent SDK with your Claude plan").
 
 So the app runs Claude on the user's own Claude Code login through the
-`pi-claude-bridge` extension (pinned; loaded per session in `sidecar/main.ts`
+`pi-claude-bridge` extension (pinned; loaded per session in `sidecar/start.ts`
 via `additionalExtensionPaths`). It registers pi provider `claude-bridge`
 (models like `claude-bridge/claude-opus-5-5`); pi still runs the tools.
 
@@ -166,5 +166,5 @@ only to skip a sign-in. `sidecar/credentials.ts` passes pi a CredentialStore
 
 `createAgentSession` picks the model (saved session, then settings default)
 before extensions register providers, so a saved `claude-bridge/*` model comes
-back as "unknown". `sidecar/main.ts` re-picks it with `session.setModel` once
+back as "unknown". `sidecar/start.ts` re-picks it with `session.setModel` once
 the session exists.
