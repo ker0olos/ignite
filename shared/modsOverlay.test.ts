@@ -130,7 +130,7 @@ describe("modsVitePlugin", () => {
           void (handlers[event] = cb),
       },
     };
-    const { configureServer } = modsVitePlugin(overlay) as {
+    const { configureServer } = modsVitePlugin(overlay) as unknown as {
       configureServer: (s: typeof server) => void;
     };
     configureServer(server);
