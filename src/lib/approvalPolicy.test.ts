@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  WINDOWS_SHELL,
   approvalFor,
   isInside,
   outsidePaths,
@@ -7,6 +8,60 @@ import {
 } from "./approvalPolicy";
 
 const place = { cwd: "/Users/me/app", home: "/Users/me" };
+
+describe("on Windows", () => {
+  const win = {
+    cwd: "C:\\Users\\Me\\app",
+    home: "C:\\Users\\Me",
+    windows: true,
+  };
+  const file = (path: string) => approvalFor("auto", "read", { path }, win);
+
+  it("resolves drive letters, backslashes and case like Windows", () => {
+    expect(resolvePath("src\\a.ts", win)).toBe("c:/users/me/app/src/a.ts");
+    expect(resolvePath("C:\\Users\\ME\\APP\\b.ts", win)).toBe(
+      "c:/users/me/app/b.ts",
+    );
+    expect(resolvePath("..\\x", win)).toBe("c:/users/me/x");
+    expect(resolvePath("~\\.ssh\\id_rsa", win)).toBe("c:/users/me/.ssh/id_rsa");
+    expect(resolvePath("\\Windows\\hosts", win)).toBe("c:/windows/hosts");
+    expect(resolvePath("D:notes.txt", win)).toBe("d:/notes.txt");
+    expect(resolvePath("@src/a.ts", win)).toBe("c:/users/me/app/src/a.ts");
+  });
+
+  it("lets file tools inside the folder run, however the path is written", () => {
+    expect(file("src\\a.ts")).toBeNull();
+    expect(file("c:\\users\\me\\APP\\src\\a.ts")).toBeNull();
+    expect(file("C:/Users/Me/app/README.md")).toBeNull();
+  });
+
+  it("asks for file tools outside the folder", () => {
+    expect(file("C:\\Users\\Me\\.ssh\\id_rsa")).toEqual({
+      reason: "Outside the project: ~/.ssh/id_rsa",
+    });
+    expect(file("D:\\secrets.txt")).toEqual({
+      reason: "Outside the project: d:/secrets.txt",
+    });
+    expect(file("..\\app-old\\x")).not.toBeNull();
+    expect(file("\\\\server\\share\\x")).not.toBeNull();
+  });
+
+  it("asks for every shell command, naming a danger when there is one", () => {
+    const shell = (toolName: string, command: string) =>
+      approvalFor("auto", toolName, { command }, win, { sandboxed: true });
+    expect(shell("bash", "npm test")).toEqual({ reason: WINDOWS_SHELL });
+    expect(shell("powershell", "Get-ChildItem")).toEqual({
+      reason: WINDOWS_SHELL,
+    });
+    expect(shell("bash", "git push --force")).toEqual({
+      reason: "Rewrites or deletes history on the remote",
+    });
+  });
+
+  it("leaves other tools to Auto as elsewhere", () => {
+    expect(approvalFor("auto", "mcp", { tool: "search" }, win)).toBeNull();
+  });
+});
 
 describe("resolvePath", () => {
   it("resolves paths the way pi's tools do", () => {

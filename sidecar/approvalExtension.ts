@@ -19,7 +19,12 @@ import type { ApprovalMode, ApprovalRequest } from "../shared/hostProtocol.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { approvalFor, resolvePath } from "../src/lib/approvalPolicy.ts";
 import { loadBashParser } from "./bashParser.ts";
-import { blockedSummary, createSandbox, type Sandbox } from "./sandbox.ts";
+import {
+  blockedSummary,
+  createSandbox,
+  refusedLine,
+  type Sandbox,
+} from "./sandbox.ts";
 
 // Without these, commands are still checked: as raw text, and for paths
 // outside the folder instead of in the sandbox.
@@ -73,9 +78,11 @@ export async function realPath(path: string): Promise<string> {
 // A symlink inside the folder can point outside it, so file tools are
 // judged by where their path really leads. Shell commands are judged by
 // their text, against the folder as pi names it.
+// ponytail: on Windows, junctions aren't followed; paths are only compared.
 async function judged(input: Record<string, unknown>, cwd: string) {
-  if (typeof input.path !== "string") {
-    return { input, place: { cwd, home: homedir() } };
+  const windows = process.platform === "win32";
+  if (windows || typeof input.path !== "string") {
+    return { input, place: { cwd, home: homedir(), windows } };
   }
   const place = { cwd: await realPath(cwd), home: await realPath(homedir()) };
   const path = await realPath(resolvePath(input.path, place));
@@ -148,13 +155,14 @@ export default function approval(pi: ExtensionAPI) {
     const box = await sandbox;
     if (command === undefined || !box) return;
     sandboxed.delete(event.toolCallId);
+    // A command that succeeded wasn't stopped, whatever else macOS logged.
+    if (!event.isError) return;
     const text = event.content
       .flatMap((c) => (c.type === "text" ? [c.text] : []))
       .join("\n");
-    const explained = box.explain(event.toolCallId, text);
-    const what = blockedSummary(explained);
-    // A command that succeeded wasn't stopped, whatever else macOS logged.
-    if (!event.isError || !what) return;
+    const explained = await box.explain(event.toolCallId, text);
+    const what = blockedSummary(explained) ?? refusedLine(text);
+    if (!what) return;
     blocked.set(command, what);
     return {
       content: [{ type: "text", text: `${explained}\n\n${RETRY_HINT}` }],

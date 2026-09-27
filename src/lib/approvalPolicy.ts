@@ -10,8 +10,12 @@ import {
 } from "./dangerousCommands.ts";
 import { tildify } from "./paths.ts";
 
-/** Where the session runs; both absolute. */
-export type Place = { cwd: string; home: string };
+/** Where the session runs; both absolute. `windows`: they are Windows paths. */
+export type Place = { cwd: string; home: string; windows?: boolean };
+
+/** Shell commands on Windows ask in Auto too: no sandbox, and a denylist for Unix. */
+export const WINDOWS_SHELL = "Shell commands aren't sandboxed on Windows";
+const SHELL_TOOLS = new Set(["bash", "powershell"]);
 
 // Built-in tools whose `path` argument names what they read or change.
 const FILE_TOOLS = new Set(["read", "edit", "write", "grep", "find", "ls"]);
@@ -28,8 +32,24 @@ function normalize(path: string): string {
   return "/" + parts.join("/");
 }
 
+/**
+ * A Windows path in a form to compare: forward slashes, lower case (Windows
+ * names aren't case sensitive), `c:/…`. A path without a drive is on cwd's.
+ */
+function windowsPath(path: string, { cwd, home }: Place): string {
+  const slash = (p: string) => p.replace(/\\/g, "/");
+  let p = slash(path.replace(/^@/, "")).replace(/^~(?=\/|$)/, slash(home));
+  if (/^[a-z]:(?!\/)/i.test(p)) p = `${p.slice(0, 2)}/${p.slice(2)}`;
+  else if (p.startsWith("/")) p = slash(cwd).slice(0, 2) + p;
+  else if (!/^[a-z]:\//i.test(p)) p = `${slash(cwd)}/${p}`;
+  const [drive, ...rest] = p.split("/");
+  return (drive + normalize(rest.join("/"))).toLowerCase();
+}
+
 /** An absolute path for `path` as pi resolves it: `@` dropped, `~` expanded, relative to cwd. */
-export function resolvePath(path: string, { cwd, home }: Place): string {
+export function resolvePath(path: string, place: Place): string {
+  if (place.windows) return windowsPath(path, place);
+  const { cwd, home } = place;
   const bare = path.replace(/^@/, "");
   const expanded = bare
     .replace(/^~(?=\/|$)/, home)
@@ -78,7 +98,14 @@ export function outsidePaths(
 }
 
 const outsideReason = (path: string, place: Place) =>
-  `Outside the project: ${tildify(path, place.home)}`;
+  `Outside the project: ${tildify(path, resolvePath(place.home, place))}`;
+
+/** Why a file tool call needs approval under Auto, or null when it may run. */
+function fileReason(path: string, place: Place): string | null {
+  const resolved = resolvePath(path, place);
+  const inside = isInside(resolved, resolvePath(place.cwd, place));
+  return inside ? null : outsideReason(resolved, place);
+}
 
 /** How shell commands are judged under Auto. */
 export type BashCheck = {
@@ -88,23 +115,33 @@ export type BashCheck = {
   sandboxed?: boolean;
 };
 
+/** Why a shell command needs approval under Auto, or null when it may run. */
+function bashReason(
+  command: string,
+  place: Place,
+  { parse, sandboxed }: BashCheck,
+): string | null {
+  const pipelines = parse?.(command);
+  const danger = dangerousCommand(command, pipelines);
+  if (danger || place.windows) return danger ?? WINDOWS_SHELL;
+  if (sandboxed) return null;
+  const [outside] = outsidePaths(command, place, pipelines);
+  return outside ? outsideReason(outside, place) : null;
+}
+
 /** Why a call needs approval under Auto, or null when it may run. */
 function autoReason(
   toolName: string,
   input: Record<string, unknown>,
   place: Place,
-  { parse, sandboxed }: BashCheck,
+  bash: BashCheck,
 ): string | null {
   if (toolName === "bash" && typeof input.command === "string") {
-    const pipelines = parse?.(input.command);
-    const danger = dangerousCommand(input.command, pipelines);
-    if (danger || sandboxed) return danger;
-    const [outside] = outsidePaths(input.command, place, pipelines);
-    return outside ? outsideReason(outside, place) : null;
+    return bashReason(input.command, place, bash);
   }
+  if (place.windows && SHELL_TOOLS.has(toolName)) return WINDOWS_SHELL;
   if (FILE_TOOLS.has(toolName) && typeof input.path === "string") {
-    const path = resolvePath(input.path, place);
-    return isInside(path, place.cwd) ? null : outsideReason(path, place);
+    return fileReason(input.path, place);
   }
   return null;
 }

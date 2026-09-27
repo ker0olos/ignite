@@ -171,7 +171,9 @@ was blocked, the extension appends the sandbox's report and tells the model
 to rerun it unchanged; the rerun asks the user, and if approved runs outside
 the sandbox. Approving a denylisted command also runs it outside. Where the
 sandbox can't start, Auto instead asks for bash commands naming absolute, `~`
-or `..` paths outside the folder. Bash commands are parsed first
+or `..` paths outside the folder. On Windows (no sandbox, and a denylist
+written for Unix) Auto asks for every bash and PowerShell command; file
+tools compare Windows paths (drive letters, backslashes, any case). Bash commands are parsed first
 (`sidecar/bashParser.ts`, tree-sitter's bash grammar): the rules check each
 pipeline's real words and redirects, including code run by `bash -c`,
 `eval`, `$(…)` or a heredoc fed to a shell, so quoted text and other heredocs

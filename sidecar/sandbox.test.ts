@@ -10,6 +10,8 @@ import {
   ALLOWED_DOMAINS,
   blockedSummary,
   createSandbox,
+  explainWhenReported,
+  refusedLine,
   sandboxConfig,
   type Sandbox,
 } from "./sandbox.ts";
@@ -83,6 +85,38 @@ describe("blockedSummary", () => {
   });
 });
 
+describe("refusedLine", () => {
+  it("finds where the command says the OS refused it", () => {
+    expect(
+      refusedLine("a\ntouch: /Users/me/x: Operation not permitted\nb"),
+    ).toBe("touch: /Users/me/x: Operation not permitted");
+  });
+
+  it("is null for other failures", () => {
+    expect(refusedLine("npm ERR! code E404")).toBeNull();
+  });
+});
+
+describe("explainWhenReported", () => {
+  it("waits for a report that arrives late", async () => {
+    let calls = 0;
+    const annotate = (out: string) => (++calls < 3 ? out : `${out} [report]`);
+    expect(await explainWhenReported(annotate, "failed", { delay: 1 })).toBe(
+      "failed [report]",
+    );
+    expect(calls).toBe(3);
+  });
+
+  it("gives up after its tries, returning the output as is", async () => {
+    let calls = 0;
+    const annotate = (out: string) => (calls++, out);
+    expect(
+      await explainWhenReported(annotate, "failed", { tries: 4, delay: 1 }),
+    ).toBe("failed");
+    expect(calls).toBe(4);
+  });
+});
+
 // The real sandbox, on the platform CI and the app run on.
 describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
   const sh = promisify(exec);
@@ -111,7 +145,7 @@ describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
       return { ok: true, out: (await sh(wrapped, { cwd })).stdout };
     } catch (error) {
       const stderr = (error as { stderr: string }).stderr;
-      return { ok: false, out: sandbox.explain(id, stderr) };
+      return { ok: false, out: await sandbox.explain(id, stderr) };
     }
   };
 
@@ -125,7 +159,11 @@ describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
     const { ok, out } = await run(`P=${escape}; touch "$P"`, "write");
     expect(ok).toBe(false);
     expect(existsSync(escape)).toBe(false);
-    expect(blockedSummary(out)).toContain("file-write");
+    // Under load macOS can report it after explain() stops waiting; the
+    // refusal in the output is what the extension falls back to then.
+    expect(blockedSummary(out) ?? refusedLine(out)).toMatch(
+      /file-write|Operation not permitted/,
+    );
   });
 
   it("blocks reading credentials", async () => {

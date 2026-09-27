@@ -23,6 +23,7 @@ import approval, {
   type ApprovalAsk,
 } from "./approvalExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
+import { WINDOWS_SHELL } from "../src/lib/approvalPolicy.ts";
 
 // A fake sandbox: wrapping marks the command, and `violation` is what it
 // reports blocking. The real one is tested in sandbox.test.ts.
@@ -31,7 +32,7 @@ vi.mock("./sandbox.ts", async (actual) => ({
   ...(await actual<typeof import("./sandbox.ts")>()),
   createSandbox: async () => ({
     wrap: async (command: string) => `sandboxed ${command}`,
-    explain: (_id: string, output: string) =>
+    explain: async (_id: string, output: string) =>
       fake.violation
         ? `${output}\n<sandbox_violations>\nsh(1) deny(1) ${fake.violation}\n</sandbox_violations>`
         : output,
@@ -245,6 +246,29 @@ describe("the sandbox in Auto", () => {
     expect(input().command).toBe("sandboxed touch ~/x");
   });
 
+  it("sees a block in the output when the sandbox's report is late", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "touch ~/x" });
+    const refused = "touch: /Users/me/x: Operation not permitted";
+    const explained = (await result(refused, true)) as {
+      content: { text: string }[];
+    };
+    expect(explained.content[0].text).toBe(`${refused}\n\n${RETRY_HINT}`);
+    void call("bash", { command: "touch ~/x" });
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.reason).toBe(
+      `The sandbox blocked it (${refused}); run it outside?`,
+    );
+  });
+
+  it("leaves other failures alone", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "npm test" });
+    expect(await result("1 test failed", true)).toBeUndefined();
+    await call("bash", { command: "npm test" });
+    expect(asks).toEqual([]);
+  });
+
   it("ignores what the sandbox logged for a command that succeeded", async () => {
     const { asks, call, result } = load();
     await call("bash", { command: "curl https://registry.npmjs.org" });
@@ -252,6 +276,19 @@ describe("the sandbox in Auto", () => {
     expect(await result("200", false)).toBeUndefined();
     await call("bash", { command: "curl https://registry.npmjs.org" });
     expect(asks).toEqual([]);
+  });
+
+  it("asks for shell commands on Windows", async () => {
+    const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    Object.defineProperty(process, "platform", { value: "win32" });
+    try {
+      const { asks, call } = load();
+      void call("bash", { command: "npm test" });
+      await vi.waitFor(() => expect(asks).toHaveLength(1));
+      expect(asks[0].request.reason).toBe(WINDOWS_SHELL);
+    } finally {
+      Object.defineProperty(process, "platform", platform);
+    }
   });
 
   it("leaves results of calls it didn't sandbox alone", async () => {
