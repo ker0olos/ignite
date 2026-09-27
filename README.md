@@ -35,8 +35,8 @@ as it happens.
 ## Install
 
 ```sh
-git clone https://github.com/ker0olos/ignition.git ~/.ignition/app
-cd ~/.ignition/app
+git clone https://github.com/ker0olos/ignition.git
+cd ignition
 npm install
 npm run setup
 ```
@@ -47,13 +47,12 @@ if an update fails to start.
 
 ## Make it yours
 
-Don't edit `~/.ignition/app`; updates reset it. Copy the file you want to
-change into `~/.ignition/mods` at the same path and edit the copy there, or ask
-the agent to. Updates never touch your copies. If Ignition fails to start with
+Updates skip a clone with local edits or commits, so rather than editing it,
+copy the file you want to change into `~/.ignition/mods` at the same path and
+edit the copy there, or ask the agent to. Updates never touch your copies. If Ignition fails to start with
 them, it starts without them and tells you.
 
 ## Develop
 
-Clone anywhere else, `npm install`, then `npm run tauri dev`. This never
-updates itself and ignores `~/.ignition/mods`. `npm run demo` opens a sample
+`npm install`, then `npm run tauri dev`. This never updates itself and ignores `~/.ignition/mods`. `npm run demo` opens a sample
 project with a finished conversation.
