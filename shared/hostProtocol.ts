@@ -79,8 +79,25 @@ export type SessionState = {
   thinkingLevels: ThinkingLevel[];
 };
 
+/**
+ * Whether the folder's own pi resources (`.pi/` extensions, skills, settings)
+ * load. "ask": it has some and the user hasn't decided yet.
+ */
+export type ProjectTrust = "trusted" | "untrusted" | "ask";
+
+/** Manual asks before every tool call; Auto only before risky ones. */
+export type ApprovalMode = "auto" | "manual";
+
+/** A tool call waiting for the user to approve or deny it. */
+export type ApprovalRequest = {
+  toolCallId: string;
+  /** Why Auto stopped for it; unset in Manual, which asks for everything. */
+  reason?: string;
+};
+
 /** What opening a folder's session returns: its settings and its history. */
 export type OpenedSession = SessionState & {
+  trust: ProjectTrust;
   /** The conversation so far, when an earlier session is continued. */
   messages: AgentMessage[];
   /** Whether pi is still working on it. */
@@ -217,8 +234,11 @@ export type HostRequest =
   | { id: number; type: "memory_status"; cwd?: string }
   /** The memory setting was saved; reloads the session to add or drop cmem's tools. */
   | { id: number; type: "memory_changed" }
+  /** Saves the folder's trust; trusting it reloads the session. */
+  | { id: number; type: "set_trust"; cwd: string; trusted: boolean }
   | { type: "prompt_answer"; promptId: number; value: string }
-  | { type: "prompt_cancel"; promptId: number };
+  | { type: "prompt_cancel"; promptId: number }
+  | { type: "approval_answer"; toolCallId: string; approved: boolean };
 
 /** What each request resolves to. */
 export type HostResponses = {
@@ -242,6 +262,7 @@ export type HostResponses = {
   mcp_import: McpServer[];
   memory_status: MemoryStatus;
   memory_changed: undefined;
+  set_trust: undefined;
 };
 
 /** Messages the sidecar sends. */
@@ -258,6 +279,8 @@ export type HostMessage =
   | { type: "session_error"; error: string }
   /** An extension reported a problem (e.g. an MCP sign-in that failed). */
   | { type: "extension_error"; message: string }
+  /** A tool call waits for the user (see ApprovalMode). */
+  | { type: "approval_request"; request: ApprovalRequest }
   /** The MCP servers changed (a status, or a saved change). */
   | { type: "mcp_servers"; servers: McpServer[] };
 

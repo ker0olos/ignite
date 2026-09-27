@@ -4,11 +4,10 @@ import type {
   ToolResult,
 } from "../../../shared/agentTypes";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
-import { OutputPreview } from "@/components/conversation/OutputPreview";
 import type { ToolProps } from "@/components/conversation/shared";
-import { ToolBody } from "@/components/conversation/ToolBody";
 import { ToolHead } from "@/components/conversation/ToolHead";
 import { ToolOutcome } from "@/components/conversation/ToolOutcome";
+import { ToolRunOutcome } from "@/components/conversation/ToolRunOutcome";
 import { mcpCall } from "@/lib/mcpToolCall";
 
 /** Path relative to the open folder when it's inside it, else as given. */
@@ -54,7 +53,14 @@ function toolArg(call: ToolCall, folder: string) {
 }
 
 /** One tool call: `● Update(path)` with its outcome underneath, as Claude Code draws it. */
-export function ToolView({ call, run, folder, editor, codeThemes }: ToolProps) {
+export function ToolView({
+  call,
+  run,
+  folder,
+  editor,
+  codeThemes,
+  onApprove,
+}: ToolProps) {
   const mcp = mcpCall(call.name, call.arguments);
   const text = resultText(run?.result);
   return (
@@ -70,22 +76,17 @@ export function ToolView({ call, run, folder, editor, codeThemes }: ToolProps) {
         }
         arg={mcp ? "" : toolArg(call, folder)}
       />
-      {run?.status === "error" ? (
+      {run && (
         <ToolOutcome>
-          <OutputPreview text={text || "Failed."} error />
+          <ToolRunOutcome
+            call={call}
+            run={run}
+            text={text}
+            editor={editor}
+            codeThemes={codeThemes}
+            onApprove={onApprove}
+          />
         </ToolOutcome>
-      ) : (
-        run && (
-          <ToolOutcome>
-            <ToolBody
-              call={call}
-              run={run}
-              text={text}
-              editor={editor}
-              codeThemes={codeThemes}
-            />
-          </ToolOutcome>
-        )
       )}
     </div>
   );

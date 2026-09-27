@@ -14,7 +14,7 @@ export function EditToolBody({
   text,
   editor,
   codeThemes,
-}: Omit<ToolProps, "folder" | "run" | "call"> & {
+}: Omit<ToolProps, "folder" | "run" | "call" | "onApprove"> & {
   run: ToolRun;
   path: string;
   text: string;

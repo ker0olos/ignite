@@ -1,13 +1,1 @@
 # Later
-
-## Tool approval prompts
-pi runs bash, edit and write without asking. Add an optional approval step:
-- A pi extension with a `tool_call` handler that returns `{ block: true, reason }`
-  when the user declines (see .claude/skills/pi/sessions.md, "Permissions and trust").
-- The handler asks the app over the sidecar protocol and waits for the answer.
-- UI: approve / deny inline on the tool row; a setting for which tools ask
-  (e.g. always ask for bash, never for read).
-
-## Project trust prompt
-Sessions open folders as untrusted, so project `.pi/` extensions and settings
-never load. Ask once per folder and save the answer in pi's trust store.

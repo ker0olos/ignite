@@ -21,12 +21,13 @@ const oneConnected: ProviderStatus[] = [
 async function setup(
   saved: Record<string, unknown>,
   statuses: ProviderStatus[] | null,
+  demo = false,
 ) {
   const store = fakeStore(saved);
   fakeFs({}, store.handle);
   vi.resetModules();
   const { useConnectScreen } = await import("./useConnectScreen");
-  const hook = renderHook(({ s }) => useConnectScreen(s), {
+  const hook = renderHook(({ s }) => useConnectScreen(s, demo), {
     initialProps: { s: statuses },
   });
   return { ...hook, store };
@@ -39,6 +40,12 @@ describe("useConnectScreen", () => {
   it("opens on first launch when nothing is connected", async () => {
     const { result } = await setup({}, none);
     await waitFor(() => expect(result.current.open).toBe(true));
+  });
+
+  it("stays closed in demo mode, which needs no provider", async () => {
+    const { result } = await setup({}, none, true);
+    await settle();
+    expect(result.current.open).toBe(false);
   });
 
   it("stays closed on first launch when a provider is connected", async () => {

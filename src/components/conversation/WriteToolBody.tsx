@@ -12,7 +12,7 @@ export function WriteToolBody({
   running,
   editor,
   codeThemes,
-}: Omit<ToolProps, "folder" | "run" | "call"> & {
+}: Omit<ToolProps, "folder" | "run" | "call" | "onApprove"> & {
   content: string;
   path: string;
   running: boolean;

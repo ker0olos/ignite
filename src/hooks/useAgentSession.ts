@@ -1,24 +1,38 @@
 import { useCallback, useEffect, useState } from "react";
 import type {
   ModelInfo,
+  ProjectTrust,
   ProviderStatus,
   SessionState,
   ThinkingLevel,
 } from "../../shared/hostProtocol";
 import type { ImageContent } from "../../shared/agentTypes";
 import type { HostClient } from "@/lib/piHost";
-import {
-  applyError,
-  applyEvent,
-  fromHistory,
-  type Transcript,
-} from "@/lib/transcript";
+import { useSessionEvents } from "@/hooks/useSessionEvents";
+import { fromHistory, type Transcript } from "@/lib/transcript";
+
+type Opened = {
+  host: HostClient;
+  folder: string;
+  state: SessionState;
+  trust: ProjectTrust;
+  transcript: Transcript;
+};
+
+/** What the app sees of the session; every field is null until it's open. */
+const view = (s: Opened | null) => ({
+  state: s?.state ?? null,
+  /** The conversation. */
+  transcript: s?.transcript ?? null,
+  /** Whether the folder's own pi resources load. */
+  trust: s?.trust ?? null,
+});
 
 /**
  * The pi session for the open folder: the conversation, sending and stopping,
- * and its model and effort with the choices pi offers for them. The settings
- * refresh when providers connect or disconnect, since that changes which
- * models are available.
+ * approving tool calls, the folder's trust, and its model and effort with the
+ * choices pi offers for them. The settings refresh when providers connect or
+ * disconnect, since that changes which models are available.
  */
 export function useAgentSession(
   host: HostClient | null,
@@ -26,12 +40,7 @@ export function useAgentSession(
   statuses: ProviderStatus[] | null,
 ) {
   // Tagged with what it was opened for, so a stale session never shows.
-  const [session, setSession] = useState<{
-    host: HostClient;
-    folder: string;
-    state: SessionState;
-    transcript: Transcript;
-  } | null>(null);
+  const [session, setSession] = useState<Opened | null>(null);
   const [error, setError] = useState<string | null>(null);
   const current =
     session && session.host === host && session.folder === folder
@@ -42,6 +51,11 @@ export function useAgentSession(
     (state: SessionState) => setSession((s) => s && { ...s, state }),
     [],
   );
+  const update = useCallback(
+    (f: (t: Transcript) => Transcript) =>
+      setSession((s) => s && { ...s, transcript: f(s.transcript) }),
+    [],
+  );
 
   useEffect(() => {
     if (!host || !folder) return;
@@ -49,12 +63,13 @@ export function useAgentSession(
     host
       .request({ type: "open_session", cwd: folder })
       .then(
-        ({ messages, running, ...state }) =>
+        ({ messages, running, trust, ...state }) =>
           live &&
           setSession({
             host,
             folder,
             state,
+            trust,
             transcript: fromHistory(messages, running),
           }),
       )
@@ -76,18 +91,19 @@ export function useAgentSession(
     };
   }, [opened, statuses, setState]);
 
-  useEffect(() => {
-    if (!opened) return;
-    const update = (f: (t: Transcript) => Transcript) =>
-      setSession((s) => s && { ...s, transcript: f(s.transcript) });
-    return opened.subscribe((message) => {
-      if (message.type === "session_event") {
-        update((t) => applyEvent(t, message.event));
-      } else if (message.type === "session_error") {
-        update((t) => applyError(t, message.error));
-      }
-    });
-  }, [opened]);
+  const answer = useSessionEvents(opened, update, setError);
+
+  const setTrust = useCallback(
+    async (trusted: boolean) => {
+      if (!opened || !folder) return;
+      const trust = trusted ? "trusted" : "untrusted";
+      setSession((s) => s && { ...s, trust });
+      await opened
+        .request({ type: "set_trust", cwd: folder, trusted })
+        .catch((e: Error) => setError(e.message));
+    },
+    [opened, folder],
+  );
 
   const send = useCallback(
     async (text: string, images: ImageContent[] = []) => {
@@ -128,13 +144,13 @@ export function useAgentSession(
   );
 
   return {
-    /** Null until the session is open. */
-    state: current?.state ?? null,
-    /** The conversation; null until the session is open. */
-    transcript: current?.transcript ?? null,
+    ...view(current),
     error,
     send,
     stop,
+    /** Approves or denies a tool call that waits for the user. */
+    answer,
+    setTrust,
     setModel: (model: ModelInfo) =>
       change({
         type: "set_model",

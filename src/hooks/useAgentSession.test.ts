@@ -32,7 +32,7 @@ function fakeHost(answer: (req: { type: string }) => Promise<unknown>) {
         ? { messages: [], running: false, ...(data as object) }
         : data;
     }) as unknown as HostClient["request"],
-    send: vi.fn(),
+    send: vi.fn(async () => {}),
     subscribe: (cb: (m: HostMessage) => void) => {
       listeners.add(cb);
       return () => void listeners.delete(cb);
@@ -47,6 +47,78 @@ const types = (host: HostClient) =>
   vi.mocked(host.request).mock.calls.map(([r]) => r.type);
 
 describe("useAgentSession", () => {
+  it("reports the folder's trust and saves the user's answer", async () => {
+    const host = fakeHost(async (req) =>
+      req.type === "open_session" ? { ...STATE, trust: "ask" } : undefined,
+    );
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.trust).toBe("ask"));
+    expect(result.current.state).toEqual(STATE);
+    await act(() => result.current.setTrust(true));
+    expect(result.current.trust).toBe("trusted");
+    expect(host.request).toHaveBeenCalledWith({
+      type: "set_trust",
+      cwd: "/work",
+      trusted: true,
+    });
+    await act(() => result.current.setTrust(false));
+    expect(result.current.trust).toBe("untrusted");
+  });
+
+  it("shows why trust couldn't be saved", async () => {
+    const host = fakeHost(async (req) =>
+      req.type === "set_trust"
+        ? Promise.reject(new Error("Disk full"))
+        : { ...STATE, trust: "ask" },
+    );
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.trust).toBe("ask"));
+    await act(() => result.current.setTrust(true));
+    expect(result.current.error).toBe("Disk full");
+  });
+
+  it("does nothing with trust or approvals before the session opens", () => {
+    const host = fakeHost(() => new Promise(() => {}));
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    expect(result.current.trust).toBeNull();
+    void result.current.setTrust(true);
+    result.current.answer("c1", true);
+    expect(types(host)).toEqual(["open_session"]);
+    expect(host.send).not.toHaveBeenCalled();
+  });
+
+  it("shows a tool call waiting for approval and sends the answer", async () => {
+    const host = fakeHost(async () => STATE);
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.state).toEqual(STATE));
+    host.emit({
+      type: "approval_request",
+      request: { toolCallId: "c1", reason: "Kills processes by name" },
+    });
+    expect(result.current.transcript?.tools.c1).toEqual({
+      status: "running",
+      approval: { reason: "Kills processes by name" },
+    });
+    act(() => result.current.answer("c1", false));
+    expect(result.current.transcript?.tools.c1.approval).toBeUndefined();
+    expect(host.send).toHaveBeenCalledWith({
+      type: "approval_answer",
+      toolCallId: "c1",
+      approved: false,
+    });
+  });
+
+  it("shows why an approval couldn't be sent", async () => {
+    const host = fakeHost(async () => STATE);
+    host.send.mockRejectedValueOnce(new Error("The agent host stopped."));
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.state).toEqual(STATE));
+    act(() => result.current.answer("c1", true));
+    await waitFor(() =>
+      expect(result.current.error).toBe("The agent host stopped."),
+    );
+  });
+
   it("opens a session for the folder", async () => {
     const host = fakeHost(async () => STATE);
     const { result } = renderHook(() =>

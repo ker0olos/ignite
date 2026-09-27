@@ -47,6 +47,11 @@ Settings: global `settings.json` deep-merged under project `.pi/settings.json`.
   prompts, themes and `.agents/skills` load only when trusted. RPC can't
   prompt: pass `--approve` / `--no-approve` or they are skipped. The SDK path
   defaults to trusted. `AGENTS.md` / `CLAUDE.md` load regardless.
+- In this app: `sidecar/approvalExtension.ts` gates tools over the event bus
+  (not `ctx.ui.confirm`, which can't say which tool row it's for), and
+  `sidecar/trust.ts` wraps `ProjectTrustStore` + `hasTrustRequiringProjectResources`.
+  Trusting an open folder calls `settingsManager.setProjectTrusted(true)` and
+  `session.reload()`; `reload()` keeps that trust state.
 - pi's own advice (`docs/security.md`): real isolation needs a container/VM;
   trust and transcripts are not a security boundary.
 

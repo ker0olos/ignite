@@ -1,5 +1,5 @@
 import { AssistantText } from "@/components/conversation/AssistantText";
-import type { Editor } from "@/components/conversation/shared";
+import type { Editor, ToolProps } from "@/components/conversation/shared";
 import { ThinkingRow } from "@/components/conversation/ThinkingRow";
 import { ToolGroup } from "@/components/conversation/ToolGroup";
 import { ToolView } from "@/components/conversation/ToolView";
@@ -16,12 +16,14 @@ export function RowView({
   folder,
   editor,
   codeThemes,
+  onApprove,
 }: {
   row: Row;
   tools: Record<string, ToolRun>;
   folder: string;
   editor: Editor;
   codeThemes: CodeThemes;
+  onApprove: ToolProps["onApprove"];
 }) {
   switch (row.kind) {
     case "notice":
@@ -55,6 +57,7 @@ export function RowView({
           folder={folder}
           editor={editor}
           codeThemes={codeThemes}
+          onApprove={onApprove}
         />
       );
     case "group":
@@ -65,6 +68,7 @@ export function RowView({
           folder={folder}
           editor={editor}
           codeThemes={codeThemes}
+          onApprove={onApprove}
         />
       );
     case "end":

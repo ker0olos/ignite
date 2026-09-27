@@ -12,7 +12,10 @@ export function ToolBody({
   text,
   editor,
   codeThemes,
-}: Omit<ToolProps, "folder" | "run"> & { run: ToolRun; text: string }) {
+}: Omit<ToolProps, "folder" | "run" | "onApprove"> & {
+  run: ToolRun;
+  text: string;
+}) {
   const path = String(call.arguments.path ?? "");
   const running = run.status === "running";
 

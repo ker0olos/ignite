@@ -25,10 +25,8 @@ type Request =
 export type HostClient = {
   /** Sends a request and resolves with its response data, or rejects with its error. */
   request<R extends Request>(request: R): Promise<HostResponses[R["type"]]>;
-  /** Sends a message that has no response (prompt answers). */
-  send(
-    message: Extract<HostRequest, { type: "prompt_answer" | "prompt_cancel" }>,
-  ): Promise<void>;
+  /** Sends a message that has no response (prompt and approval answers). */
+  send(message: Exclude<HostRequest, { id: number }>): Promise<void>;
   /** Receives every message that isn't a response. Returns an unsubscribe. */
   subscribe(cb: (message: HostMessage) => void): () => void;
   close(): Promise<void>;

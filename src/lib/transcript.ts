@@ -1,3 +1,4 @@
+import type { ApprovalRequest } from "../../shared/hostProtocol";
 import type {
   AgentMessage,
   AssistantMessage,
@@ -14,6 +15,8 @@ export type ToolRun = {
   status: "running" | "done" | "error";
   /** Latest partial output while running, then the final result. */
   result?: ToolResult;
+  /** Set while the call waits for the user to approve it. */
+  approval?: { reason?: string };
 };
 
 export type Transcript = {
@@ -59,8 +62,26 @@ function applyToolExecutionEvent(
       return setTool(t, event.toolCallId, {
         status: event.isError ? "error" : "done",
         result: event.result,
+        approval: undefined,
       });
   }
+}
+
+/** Marks a tool call as waiting for the user. */
+export function requestApproval(
+  t: Transcript,
+  { toolCallId, reason }: ApprovalRequest,
+): Transcript {
+  return setTool(t, toolCallId, {
+    status: t.tools[toolCallId]?.status ?? "running",
+    approval: reason ? { reason } : {},
+  });
+}
+
+/** The user answered; the call stops waiting (its outcome follows as events). */
+export function settleApproval(t: Transcript, toolCallId: string): Transcript {
+  const run = t.tools[toolCallId];
+  return run ? setTool(t, toolCallId, { ...run, approval: undefined }) : t;
 }
 
 type RetryEvent = Extract<

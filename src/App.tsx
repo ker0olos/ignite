@@ -21,6 +21,8 @@ import { useSettings } from "@/hooks/useSettings";
 import { useTabs } from "@/hooks/useTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
 import { needingSignIn } from "@/lib/mcpServers";
+import { approvalSetting } from "@/lib/settings";
+import { DEMO_FOLDER, shownSession } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -36,10 +38,11 @@ export default function App() {
   const [settings, setSettings] = useSettings();
   const providers = useProviders();
   const connectScreen = useConnectScreen(providers.statuses);
-  const agent = useAgentSession(providers.host, current, providers.statuses);
-  // Without a host the session never opens; show why instead of loading.
-  const session = { ...agent, error: agent.error ?? providers.hostError };
-  const mcp = useMcpServers(providers.host, current);
+  // The demo folder shows a fixed conversation; pi never runs in it.
+  const live = DEMO_FOLDER ? null : current;
+  const agent = useAgentSession(providers.host, live, providers.statuses);
+  const session = shownSession(agent, providers.hostError);
+  const mcp = useMcpServers(providers.host, live);
   const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -98,6 +101,7 @@ export default function App() {
           editor={settings.editor}
           hideGitIgnored={settings.files.hide_gitignored}
           showThinking={settings.conversation.show_thinking}
+          approval={approvalSetting(settings, setSettings)}
           actions={settingsButton}
           banner={
             <SignInBanner

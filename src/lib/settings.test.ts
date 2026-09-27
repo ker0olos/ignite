@@ -1,8 +1,9 @@
 import { parse } from "smol-toml";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fakeFs } from "@/test/fakeFs";
 import {
   DEFAULT_SETTINGS,
+  approvalSetting,
   SETTINGS_DIR,
   SETTINGS_FILE,
   loadSettings,
@@ -74,6 +75,16 @@ describe("loadSettings", () => {
     expect((await loadSettings()).memory).toEqual({ cmem: false });
   });
 
+  it("reads the approval mode", async () => {
+    fakeFs({ [FILE]: '[approval]\nmode = "manual"\n' });
+    expect((await loadSettings()).approval).toEqual({ mode: "manual" });
+  });
+
+  it("falls back to Auto for an approval mode it doesn't know", async () => {
+    fakeFs({ [FILE]: '[approval]\nmode = "never"\n' });
+    expect((await loadSettings()).approval).toEqual({ mode: "auto" });
+  });
+
   it("fills in missing keys from defaults", async () => {
     fakeFs({ [FILE]: 'theme = "nord"\n' });
     expect(await loadSettings()).toEqual({
@@ -107,6 +118,19 @@ describe("loadSettings", () => {
   });
 });
 
+describe("approvalSetting", () => {
+  it("offers the mode and saves a change without touching other settings", () => {
+    const save = vi.fn(async () => {});
+    const approval = approvalSetting(DEFAULT_SETTINGS, save);
+    expect(approval.mode).toBe("auto");
+    approval.onChange("manual");
+    expect(save).toHaveBeenCalledWith({
+      ...DEFAULT_SETTINGS,
+      approval: { mode: "manual" },
+    });
+  });
+});
+
 describe("saveSettings", () => {
   const next: Settings = {
     theme: "github-dark",
@@ -114,6 +138,7 @@ describe("saveSettings", () => {
     files: { hide_gitignored: false },
     conversation: { show_thinking: true },
     memory: { cmem: false },
+    approval: { mode: "manual" },
   };
 
   it("creates the settings directory first", async () => {

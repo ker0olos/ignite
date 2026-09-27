@@ -1,0 +1,29 @@
+:root {
+  --bg: #fbfaf7;
+  --text: #1f1d1a;
+  --muted: #7a756c;
+  --accent: #e0643b;
+}
+
+:root[data-theme="dark"] {
+  --bg: #161514;
+  --text: #f2efe9;
+  --muted: #9c968c;
+  --accent: #f07a52;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.timer {
+  font-size: 6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.accent {
+  color: var(--accent);
+}

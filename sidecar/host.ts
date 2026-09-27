@@ -19,6 +19,9 @@ import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
 import { describeError } from "./wire.ts";
 import { memoryStatus } from "./cmem.ts";
+import { answerApproval, denyAll } from "./hostApproval.ts";
+import { setTrust } from "./hostTrust.ts";
+import type { TrustStore } from "./trust.ts";
 
 type IdRequest = Extract<HostRequest, { id: number }>;
 type Handler<K extends IdRequest["type"]> = (
@@ -53,6 +56,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     return undefined;
   },
   abort: async (ctx) => {
+    denyAll(ctx);
     await current(ctx).abort();
     return undefined;
   },
@@ -78,6 +82,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     await changeMcp(ctx, async () => {});
     return undefined;
   },
+  set_trust: (ctx, r) => setTrust(ctx, r.cwd, r.trusted),
 };
 
 /**
@@ -91,6 +96,7 @@ export function createHost(
   local: LocalLogins,
   mcpStore: McpStore,
   catalog: McpCatalogSource,
+  trust: TrustStore,
 ) {
   const ctx: HostContext = {
     runtime,
@@ -99,8 +105,11 @@ export function createHost(
     local,
     mcpStore,
     catalog,
+    trust,
     activeLogin: null,
     session: null,
+    cwd: null,
+    approvals: new Map(),
     unsubscribe: () => {},
     mcpStatus: new Map(),
     pendingSignOuts: new Set(),
@@ -119,6 +128,10 @@ export function createHost(
     }
     if (request.type === "prompt_cancel") {
       ctx.prompts.get(request.promptId)?.reject(new Error("Cancelled"));
+      return;
+    }
+    if (request.type === "approval_answer") {
+      answerApproval(ctx, request.toolCallId, request.approved);
       return;
     }
     try {

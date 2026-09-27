@@ -1,3 +1,5 @@
+import { ApprovalMenu } from "@/components/agent/ApprovalMenu";
+import type { Approval } from "@/components/agent/Composer";
 import { EffortMenu } from "@/components/agent/EffortMenu";
 import { Kbd } from "@/components/agent/Kbd";
 import { ModelMenu } from "@/components/agent/ModelMenu";
@@ -14,11 +16,13 @@ export function ComposerToolbar({
   loading,
   running,
   canSend,
+  approval,
 }: {
   session: Session;
   loading: boolean;
   running: boolean;
   canSend: boolean;
+  approval: Approval;
 }) {
   const { state } = session;
   return (
@@ -36,6 +40,7 @@ export function ComposerToolbar({
       {state && state.thinkingLevels.length > 1 && (
         <EffortMenu state={state} session={session} />
       )}
+      <ApprovalMenu mode={approval.mode} onChange={approval.onChange} />
       {session.error && (
         <span className="truncate text-xs text-destructive">
           {session.error}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { DEMO_FOLDER } from "@/lib/demo";
 import { stillListed, withRecent } from "@/lib/recent";
 import { onStoreChange, store } from "@/lib/store";
 
@@ -9,9 +10,10 @@ const isMainWindow = getCurrentWindow().label === "main";
 
 /**
  * Recently opened folders (shared by all windows, most recent first) and the
- * folder open in this window.
+ * folder open in this window. In demo mode the main window opens
+ * `demoFolder` and doesn't remember it.
  */
-export function useFolders() {
+export function useFolders(demoFolder = DEMO_FOLDER) {
   const [folders, setFolders] = useState<string[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -51,7 +53,9 @@ export function useFolders() {
   useEffect(() => {
     store.then(async (s) => {
       show((await s.get<string[]>("folders")) ?? []);
-      if (isMainWindow) setCurrent((await s.get<string>("current")) ?? null);
+      if (isMainWindow) {
+        setCurrent(demoFolder ?? (await s.get<string>("current")) ?? null);
+      }
       setLoaded(true);
     });
     const unlisten = onStoreChange((key, value) => {
@@ -60,11 +64,14 @@ export function useFolders() {
     return () => {
       unlisten.then((f) => f());
     };
-  }, [show]);
+  }, [show, demoFolder]);
 
   useEffect(() => {
-    if (loaded && isMainWindow) store.then((s) => s.set("current", current));
-  }, [loaded, current]);
+    // The demo folder isn't remembered, so the next normal launch is unaffected.
+    if (loaded && isMainWindow && !demoFolder) {
+      store.then((s) => s.set("current", current));
+    }
+  }, [loaded, current, demoFolder]);
 
   return {
     loaded,

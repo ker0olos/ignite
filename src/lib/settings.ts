@@ -6,6 +6,7 @@ import {
   writeTextFile,
 } from "@tauri-apps/plugin-fs";
 import { parse, stringify } from "smol-toml";
+import type { ApprovalMode } from "../../shared/hostProtocol";
 import { APP_NAME } from "./app";
 import { SYSTEM_THEME } from "./codeThemes";
 
@@ -22,6 +23,8 @@ export type Settings = {
   conversation: { show_thinking: boolean };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
+  /** `mode`: "auto" asks only before risky tool calls, "manual" before all. */
+  approval: { mode: ApprovalMode };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -33,7 +36,14 @@ export const DEFAULT_SETTINGS: Settings = {
   files: { hide_gitignored: true },
   conversation: { show_thinking: false },
   memory: { cmem: true },
+  approval: { mode: "auto" },
 };
+
+const readApproval = (
+  approval: Partial<Settings["approval"]> = {},
+): Settings["approval"] => ({
+  mode: approval.mode === "manual" ? "manual" : "auto",
+});
 
 // Earlier versions stored the appearance itself; map it to the matching theme.
 const LEGACY_THEMES: Record<string, string> = {
@@ -75,6 +85,7 @@ export async function loadSettings(): Promise<Settings> {
     files: { ...DEFAULT_SETTINGS.files, ...raw.files },
     conversation: { ...DEFAULT_SETTINGS.conversation, ...raw.conversation },
     memory: { ...DEFAULT_SETTINGS.memory, ...raw.memory },
+    approval: readApproval(raw.approval),
   };
 }
 
@@ -83,6 +94,18 @@ export async function saveSettings(settings: Settings) {
   await mkdir(SETTINGS_DIR, { ...HOME, recursive: true });
   await writeTextFile(SETTINGS_FILE, stringify(settings) + "\n", HOME);
   await emit(CHANGED, settings);
+}
+
+/** The approval mode setting, and a change that saves it. */
+export function approvalSetting(
+  settings: Settings,
+  save: (settings: Settings) => Promise<void>,
+) {
+  return {
+    mode: settings.approval.mode,
+    onChange: (mode: ApprovalMode) =>
+      void save({ ...settings, approval: { mode } }),
+  };
 }
 
 // ponytail: hand edits to settings.toml apply on next window load; fs watch if that matters

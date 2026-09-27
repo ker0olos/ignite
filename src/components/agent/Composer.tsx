@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import type { ImageContent } from "../../../shared/agentTypes";
+import type { ApprovalMode } from "../../../shared/hostProtocol";
 import { ComposerToolbar } from "@/components/agent/ComposerToolbar";
 import { ImageAttachments } from "@/components/agent/ImageAttachments";
 import { MENU_TRIGGER } from "@/components/agent/styles";
@@ -10,15 +11,23 @@ import { pastedImages, pickImages } from "@/lib/images";
 
 type Session = ReturnType<typeof useAgentSession>;
 
+/** The approval mode setting and how to change it. */
+export type Approval = {
+  mode: ApprovalMode;
+  onChange: (mode: ApprovalMode) => void;
+};
+
 /** Task composer: prompt textarea, toolbar, and send/stop button. */
 export function Composer({
   session,
   loading,
   running,
+  approval,
 }: {
   session: Session;
   loading: boolean;
   running: boolean;
+  approval: Approval;
 }) {
   const { state } = session;
   const [text, setText] = useState("");
@@ -91,6 +100,7 @@ export function Composer({
             loading={loading}
             running={running}
             canSend={canSend}
+            approval={approval}
           />
         </div>
       </div>

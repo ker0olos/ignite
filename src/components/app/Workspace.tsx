@@ -10,6 +10,7 @@ import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useTabs } from "@/hooks/useTabs";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { Settings } from "@/lib/settings";
+import type { Approval } from "@/components/agent/Composer";
 
 /**
  * Everything shown for an open folder: sidebar, full-height agent panel, and
@@ -23,6 +24,7 @@ export function Workspace({
   editor,
   hideGitIgnored,
   showThinking,
+  approval,
   actions,
   banner,
   session,
@@ -33,6 +35,7 @@ export function Workspace({
   editor: Settings["editor"];
   hideGitIgnored: boolean;
   showThinking: boolean;
+  approval: Approval;
   actions: ReactNode;
   banner?: ReactNode;
   session: ReturnType<typeof useAgentSession>;
@@ -82,6 +85,7 @@ export function Workspace({
             codeThemes={codeThemes}
             editor={editor}
             showThinking={showThinking}
+            approval={approval}
           />
         </div>
       </ResizablePanel>

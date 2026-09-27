@@ -53,7 +53,13 @@ describe("toRows", () => {
 
   it("keeps edits, writes and other tools on their own rows, splitting groups", () => {
     const rows = toRows([
-      assistant([call("read", "a"), call("edit"), call("read", "b")]),
+      assistant([
+        call("read", "a"),
+        call("grep", "b"),
+        call("edit"),
+        call("read", "c"),
+        call("ls", "d"),
+      ]),
     ]);
     expect(rows.map((r) => r.kind)).toEqual(["group", "tool", "group"]);
   });
@@ -62,11 +68,28 @@ describe("toRows", () => {
     const rows = toRows([
       assistant([
         call("read", "a"),
-        { type: "text", text: "hm" },
         call("read", "b"),
+        { type: "text", text: "hm" },
+        call("read", "c"),
+        call("read", "d"),
       ]),
     ]);
     expect(rows.map((r) => r.kind)).toEqual(["group", "text", "group"]);
+  });
+
+  it("shows a lone quiet call as its own row instead of a group of one", () => {
+    const rows = toRows([
+      assistant([
+        call("edit"),
+        call("bash", "b"),
+        { type: "text", text: "ok" },
+      ]),
+    ]);
+    expect(rows).toEqual([
+      { kind: "tool", call: call("edit") },
+      { kind: "tool", call: call("bash", "b") },
+      { kind: "text", text: "ok" },
+    ]);
   });
 
   it("hides thinking unless asked to show it", () => {

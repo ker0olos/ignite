@@ -27,6 +27,8 @@ import type { McpStatusSnapshot, Runtime, Session } from "./hostTypes.ts";
 import { createLineSplitter } from "./lines.ts";
 import { findImports, PRESETS } from "./mcpCatalog.ts";
 import { createMcpStore, MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";
+import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
+import { createTrustStore } from "./trust.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
 // own ~/.pi/agent, so signing in or out here doesn't affect it.
@@ -115,6 +117,9 @@ const claudeBridge = join(
 // pi-mcp-adapter, reading only agentDir/mcp.json.
 const mcpExtension = join(import.meta.dirname, "mcpExtension.ts");
 const cmemExtension = join(import.meta.dirname, "cmemExtension.ts");
+// Last, so it judges tool calls as the other extensions left them.
+const approvalExtension = join(import.meta.dirname, "approvalExtension.ts");
+const trust = createTrustStore(agentDir);
 // pi-mcp-adapter's status channel (MCP_STATUS_EVENT in its types.ts).
 const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
 
@@ -150,11 +155,11 @@ async function reselectModel(
 async function openSession(
   cwd: string,
   onMcpStatus: (snapshot: McpStatusSnapshot) => void,
+  onApproval: (ask: ApprovalAsk) => void,
 ): Promise<Session> {
-  // ponytail: project untrusted (no project extensions) until a trust
-  // prompt exists; see .todo.
+  // Project .pi/ resources load only once the user trusts the folder.
   const settingsManager = SettingsManager.create(cwd, agentDir, {
-    projectTrusted: false,
+    projectTrusted: trust.get(cwd) === "trusted",
   });
   // One bus per session, so a closed session's listeners go with it.
   const eventBus = createEventBus();
@@ -164,12 +169,18 @@ async function openSession(
   eventBus.on(MCP_STATUS_EVENT, (data) =>
     onMcpStatus(data as McpStatusSnapshot),
   );
+  eventBus.on(APPROVAL_EVENT, (data) => onApproval(data as ApprovalAsk));
   const resourceLoader = new DefaultResourceLoader({
     cwd,
     agentDir,
     settingsManager,
     eventBus,
-    additionalExtensionPaths: [claudeBridge, mcpExtension, cmemExtension],
+    additionalExtensionPaths: [
+      claudeBridge,
+      mcpExtension,
+      cmemExtension,
+      approvalExtension,
+    ],
   });
   await resourceLoader.reload();
   // Continues the folder's last conversation, saved under agentDir/sessions.
@@ -201,6 +212,7 @@ const host = createHost(
   { claudeCode: createClaudeCode(), usesCodexLogin: logins.usesCodex },
   createMcpStore(join(agentDir, "mcp.json")),
   { presets: PRESETS, findImports: (cwd) => findImports(homedir(), cwd) },
+  trust,
 );
 
 const inFlight = new Set<Promise<void>>();
