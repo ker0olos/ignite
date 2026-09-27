@@ -13,7 +13,7 @@ type McpChange = Extract<
       | "mcp_save"
       | "mcp_remove"
       | "mcp_set_enabled"
-      | "mcp_reconnect"
+      | "mcp_sign_in"
       | "mcp_add_preset"
       | "mcp_import";
   }
@@ -48,6 +48,8 @@ export function useMcpServers(
     const show = (servers: McpServer[]) => live && setLoaded({ host, servers });
     const unsubscribe = host.subscribe((message) => {
       if (message.type === "mcp_servers") show(message.servers);
+      // A failed sign-in is reported by the adapter, not the request.
+      else if (message.type === "extension_error") setError(message.message);
     });
     host
       .request({ type: "mcp_list" })
@@ -105,7 +107,8 @@ export function useMcpServers(
     remove: (name: string) => act({ type: "mcp_remove", name }),
     setEnabled: (name: string, enabled: boolean) =>
       act({ type: "mcp_set_enabled", name, enabled }),
-    reconnect: (name: string) => act({ type: "mcp_reconnect", name }),
+    /** Signs in in the browser; resolves once it's done or has failed. */
+    signIn: (name: string) => act({ type: "mcp_sign_in", name }),
     /** Null until loaded; the last one stays while a refresh loads. */
     catalog,
     addPreset: (preset: string) => act({ type: "mcp_add_preset", preset }),

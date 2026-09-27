@@ -11,6 +11,7 @@ import {
   createAgentSession,
   createEventBus,
   DefaultResourceLoader,
+  type ExtensionUIContext,
   initTheme,
   ModelRuntime,
   SessionManager,
@@ -28,7 +29,7 @@ import {
 } from "./host.ts";
 import { createLineSplitter } from "./lines.ts";
 import { findImports, PRESETS } from "./mcpCatalog.ts";
-import { createMcpStore } from "./mcpConfig.ts";
+import { createMcpStore, MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
 // own ~/.pi/agent, so signing in or out here doesn't affect it.
@@ -54,8 +55,57 @@ const runtime = await ModelRuntime.create({
   modelsPath: null,
 });
 
+// Stdout carries protocol messages only; extensions' console output (e.g.
+// pi-mcp-adapter's "Removed credentials") goes to stderr with the rest.
+console.log = console.info = console.error;
+
 const send = (message: HostMessage) =>
   process.stdout.write(JSON.stringify(message) + "\n");
+
+// Extensions only report problems (a failed MCP sign-in) through a bound UI.
+// This one declines every prompt and passes errors on to the app.
+const headlessUI = {
+  select: async () => undefined,
+  confirm: async () => false,
+  input: async () => undefined,
+  notify: (message: string, type?: "info" | "warning" | "error") => {
+    process.stderr.write(`pi-host: ${type ?? "info"}: ${message}\n`);
+    if (type === "error") send({ type: "extension_error", message });
+  },
+  onTerminalInput: () => () => {},
+  setStatus: () => {},
+  setWorkingMessage: () => {},
+  setWorkingVisible: () => {},
+  setWorkingIndicator: () => {},
+  setHiddenThinkingLabel: () => {},
+  setWidget: () => {},
+  setFooter: () => {},
+  setHeader: () => {},
+  setTitle: () => {},
+  custom: async () => undefined,
+  pasteToEditor: () => {},
+  setEditorText: () => {},
+  getEditorText: () => "",
+  editor: async () => undefined,
+  addAutocompleteProvider: () => {},
+  setEditorComponent: () => {},
+  getEditorComponent: () => undefined,
+  // Styling helpers (fg, bold, ...) return the text as is; nothing is drawn.
+  theme: new Proxy(
+    {},
+    {
+      get:
+        () =>
+        (...args: unknown[]) =>
+          args.at(-1),
+    },
+  ),
+  getAllThemes: () => [],
+  getTheme: () => undefined,
+  setTheme: () => ({ success: false, error: "No UI" }),
+  getToolsExpanded: () => false,
+  setToolsExpanded: () => {},
+} as unknown as ExtensionUIContext;
 
 // Runs Claude through the user's own Claude Code (Agent SDK), which Anthropic
 // bills to the Claude plan; pi's direct Claude sign-in draws extra usage.
@@ -85,6 +135,9 @@ async function openSession(
   });
   // One bus per session, so a closed session's listeners go with it.
   const eventBus = createEventBus();
+  eventBus.on(MCP_AUTH_URL_EVENT, (url) =>
+    send({ type: "auth_event", event: { type: "auth_url", url: String(url) } }),
+  );
   eventBus.on(MCP_STATUS_EVENT, (data) =>
     onMcpStatus(data as McpStatusSnapshot),
   );
@@ -123,6 +176,7 @@ async function openSession(
   // Starts extensions (session_start), as pi's own modes do; the error
   // listener also makes a reload start them again.
   await session.bindExtensions({
+    uiContext: headlessUI,
     onError: ({ extensionPath, event, error }) =>
       process.stderr.write(`pi-host: ${extensionPath} (${event}): ${error}\n`),
   });

@@ -3,7 +3,8 @@ import { homeDir } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Settings } from "lucide-react";
 import { ConnectProviders } from "@/components/ConnectProviders";
-import { SettingsDialog } from "@/components/SettingsDialog";
+import { SettingsDialog, type Section } from "@/components/SettingsDialog";
+import { SignInBanner } from "@/components/SignInBanner";
 import { Welcome } from "@/components/Welcome";
 import { Workspace } from "@/components/Workspace";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { useProviders } from "@/hooks/useProviders";
 import { useSettings } from "@/hooks/useSettings";
 import { useTabs } from "@/hooks/useTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
+import { needingSignIn } from "@/lib/mcpServers";
 import { confirmBeforeClose, confirmQuit } from "@/lib/lifecycle";
 import { setAppMenu } from "@/lib/menu";
 import { tildify } from "@/lib/paths";
@@ -43,6 +45,11 @@ export default function App() {
   const [home, setHome] = useState("");
   const [focused, setFocused] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<Section>("Providers");
+  const openSettings = (section: Section = "Providers") => {
+    setSettingsSection(section);
+    setSettingsOpen(true);
+  };
 
   useEffect(() => {
     homeDir().then(setHome);
@@ -68,7 +75,7 @@ export default function App() {
       selectFolder: addFolder,
       closeFolder,
       clearFolders,
-      openSettings: () => setSettingsOpen(true),
+      openSettings: () => openSettings(),
       // ⌘W closes the file tab; with none open it falls through to the window.
       closeTab: () => (active ? closeTab(active) : win.close()),
       closeWindow: () => win.close(),
@@ -93,7 +100,7 @@ export default function App() {
     <Button
       variant="ghost"
       size="icon-sm"
-      onClick={() => setSettingsOpen(true)}
+      onClick={() => openSettings()}
       aria-label="Settings"
     >
       <Settings />
@@ -123,6 +130,13 @@ export default function App() {
           editor={settings.editor}
           hideGitIgnored={settings.files.hide_gitignored}
           actions={settingsButton}
+          banner={
+            <SignInBanner
+              names={needingSignIn(mcp.servers)}
+              onSignIn={mcp.signIn}
+              onOpenSettings={() => openSettings("MCP")}
+            />
+          }
           session={session}
         />
       ) : (
@@ -142,6 +156,8 @@ export default function App() {
         </div>
       )}
       <SettingsDialog
+        key={settingsSection}
+        initialSection={settingsSection}
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         settings={settings}

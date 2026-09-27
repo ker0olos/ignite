@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { McpServer } from "../../shared/hostProtocol";
 import {
   EMPTY_FORM,
-  describeServer,
+  needingSignIn,
   readForm,
   statusLabel,
   toForm,
-  toolSummary,
 } from "./mcpServers";
 
 const local: McpServer = {
@@ -121,6 +120,7 @@ describe("statusLabel", () => {
   it.each([
     ["connected", "Connected"],
     ["idle", "Ready"],
+    ["checking", "Checking…"],
     ["failed", "Couldn't connect"],
     ["needs-auth", "Needs sign-in"],
     ["disabled", "Off"],
@@ -130,21 +130,22 @@ describe("statusLabel", () => {
 
   it("says a server isn't running while no folder is open", () => {
     expect(statusLabel(local)).toBe("Not running");
+    expect(statusLabel({ ...local, status: "idle", tools: [] })).toBe(
+      "Not connected yet",
+    );
     expect(statusLabel({ ...local, enabled: false })).toBe("Off");
   });
 });
 
-describe("describeServer", () => {
-  it("shows the command line or the URL", () => {
-    expect(describeServer(local)).toBe("npx -y @mcp/files /tmp/a b");
-    expect(describeServer(remote)).toBe("https://mcp.example.com/mcp");
-  });
-});
-
-describe("toolSummary", () => {
-  it("counts the tools", () => {
-    expect(toolSummary([])).toBe("No tools yet");
-    expect(toolSummary(["read"])).toBe("1 tool");
-    expect(toolSummary(["a", "b", "c", "d"])).toBe("4 tools");
+describe("needingSignIn", () => {
+  it("lists servers in use that wait for sign-in", () => {
+    expect(
+      needingSignIn([
+        { ...remote, name: "sentry", status: "needs-auth" },
+        { ...remote, name: "off", enabled: false, status: "needs-auth" },
+        { ...remote, name: "ok", status: "connected" },
+      ]),
+    ).toEqual(["sentry"]);
+    expect(needingSignIn(null)).toEqual([]);
   });
 });

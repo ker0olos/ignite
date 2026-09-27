@@ -105,6 +105,7 @@ export function readForm(
 const STATUS_LABELS: Record<McpServerStatus, string> = {
   connected: "Connected",
   idle: "Ready",
+  checking: "Checking…",
   failed: "Couldn't connect",
   "needs-auth": "Needs sign-in",
   disabled: "Off",
@@ -112,19 +113,17 @@ const STATUS_LABELS: Record<McpServerStatus, string> = {
 
 /** A server's state in words; without a status no folder (session) is open. */
 export function statusLabel(server: McpServer): string {
+  // Servers connect on first use; "Ready" needs a past connection to vouch for it.
+  if (server.status === "idle" && server.tools.length === 0) {
+    return "Not connected yet";
+  }
   if (server.status) return STATUS_LABELS[server.status];
   return server.enabled ? "Not running" : "Off";
 }
 
-/** What the server runs or where it is, in one line. */
-export function describeServer({ config }: McpServer): string {
-  return config.type === "stdio"
-    ? [config.command, ...config.args].join(" ")
-    : config.url;
-}
-
-/** Its tools as a count. */
-export function toolSummary(tools: readonly string[]): string {
-  if (tools.length === 0) return "No tools yet";
-  return `${tools.length} ${tools.length === 1 ? "tool" : "tools"}`;
+/** Names of the servers in use that are waiting for the user to sign in. */
+export function needingSignIn(servers: McpServer[] | null): string[] {
+  return (servers ?? [])
+    .filter((m) => m.enabled && m.status === "needs-auth")
+    .map((m) => m.name);
 }

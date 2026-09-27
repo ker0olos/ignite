@@ -11,9 +11,3 @@ pi runs bash, edit and write without asking. Add an optional approval step:
 ## Project trust prompt
 Sessions open folders as untrusted, so project `.pi/` extensions and settings
 never load. Ask once per folder and save the answer in pi's trust store.
-
-## MCP server sign-in
-Remote MCP servers that use OAuth show "Needs sign-in", but nothing signs in.
-pi-mcp-adapter has `/mcp-auth <server>`; run it from the host (like
-`/mcp reconnect`) and open its browser URL the way provider sign-ins do.
-Check first how it reports the URL without a UI (.claude/skills/pi/mcp.md).

@@ -15,6 +15,7 @@ import {
   McpServerControls,
   McpServerDialog,
 } from "@/components/McpServers";
+import { ClaudeLogo, OpenAILogo } from "@/components/ProviderLogos";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -36,7 +37,6 @@ import {
   type CodeTheme,
 } from "@/lib/codeThemes";
 import type { useMcpServers } from "@/hooks/useMcpServers";
-import { describeServer, toolSummary } from "@/lib/mcpServers";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings";
 import { PROVIDER_GROUPS, groupConnection } from "@/lib/providerGroups";
 import { cn } from "@/lib/utils";
@@ -51,13 +51,17 @@ const SECTIONS = {
   Editor: { icon: Code, blurb: "How files look in the viewer." },
   Files: { icon: FolderTree, blurb: "What the file tree shows." },
 } satisfies Record<string, { icon: LucideIcon; blurb: string }>;
-type Section = keyof typeof SECTIONS;
+export type Section = keyof typeof SECTIONS;
 const SECTION_NAMES = Object.keys(SECTIONS) as Section[];
 
 interface Item {
   section: Section;
   title: string;
   description?: string;
+  /** A mark shown before the title. */
+  icon?: ReactNode;
+  /** The row element's id, to scroll to it. */
+  id?: string;
   /** Extra words search should match. */
   keywords?: string;
   control?: ReactNode;
@@ -73,6 +77,7 @@ export function SettingsDialog({
   providersError,
   onManageProviders,
   mcp,
+  initialSection = "Providers",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -83,13 +88,30 @@ export function SettingsDialog({
   providersError: string | null;
   onManageProviders: () => void;
   mcp: ReturnType<typeof useMcpServers>;
+  /** The section shown first; changing it needs a new `key` to take effect. */
+  initialSection?: Section;
 }) {
-  const [section, setSection] = useState<Section>("Providers");
+  const [section, setSection] = useState<Section>(initialSection);
   // The server being edited, "new" while adding one.
   const [editing, setEditing] = useState<McpServer | "new" | null>(null);
   const [query, setQuery] = useState("");
   const [themes, setThemes] = useState<CodeTheme[]>([]);
   const search = useRef<HTMLInputElement>(null);
+
+  // Bring a server that was just added (preset, import or form) into view.
+  const serverNames = mcp.servers?.map((m) => m.name).join("\n") ?? null;
+  const knownNames = useRef<string[] | null>(null);
+  useEffect(() => {
+    if (serverNames === null) return;
+    const names = serverNames.split("\n");
+    const known = knownNames.current;
+    knownNames.current = names;
+    const added = known && names.find((n) => !known.includes(n));
+    if (!added) return;
+    document
+      .getElementById(serverRowId(added))
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [serverNames]);
 
   // Rescan on every open so newly installed themes show up.
   useEffect(() => {
@@ -108,6 +130,7 @@ export function SettingsDialog({
       : PROVIDER_GROUPS.map((group) => ({
           section: "Providers" as const,
           title: group.name,
+          icon: <ProviderTile name={group.name} />,
           keywords: "provider account model subscription api key",
           control: (
             <ProviderState
@@ -117,9 +140,8 @@ export function SettingsDialog({
         }))),
     {
       section: "Providers",
-      title: "Connect or disconnect",
-      description: "Sign in with a subscription or add an API key.",
-      keywords: "provider account login",
+      title: "",
+      keywords: "connect disconnect manage provider account login api key",
       control: (
         <Button variant="outline" size="sm" onClick={onManageProviders}>
           Manage…
@@ -137,15 +159,15 @@ export function SettingsDialog({
       : []),
     ...(mcp.servers ?? []).map((server) => ({
       section: "MCP" as const,
+      id: serverRowId(server.name),
       title: server.name,
-      description: `${describeServer(server)} · ${toolSummary(server.tools)}`,
       keywords: `mcp server tool ${server.tools.join(" ")}`,
       control: (
         <McpServerControls
           server={server}
           onEdit={() => setEditing(server)}
           onEnabledChange={(enabled) => mcp.setEnabled(server.name, enabled)}
-          onReconnect={() => mcp.reconnect(server.name)}
+          onSignIn={() => mcp.signIn(server.name)}
           onRemove={() => mcp.remove(server.name)}
         />
       ),
@@ -358,18 +380,27 @@ export function SettingsDialog({
   );
 }
 
+const serverRowId = (name: string) => `mcp-server-${name}`;
+
 function Row({ item }: { item: Item }) {
   return (
-    <div className="flex min-h-11 items-center justify-between gap-6 px-4 py-2.5">
-      <div className="min-w-0">
+    <div id={item.id} className="flex min-h-11 items-center gap-3 px-4 py-2.5">
+      {item.icon}
+      <div className="min-w-0 flex-1">
         <p className="text-[13px]">{item.title}</p>
         {item.description && (
           <p className="text-xs text-muted-foreground">{item.description}</p>
         )}
       </div>
-      {item.control && <div className="shrink-0">{item.control}</div>}
+      {item.control && <div className="ml-3 shrink-0">{item.control}</div>}
     </div>
   );
+}
+
+/** A provider's logo. */
+function ProviderTile({ name }: { name: string }) {
+  const Logo = name === "Claude" ? ClaudeLogo : OpenAILogo;
+  return <Logo className="size-4 shrink-0" />;
 }
 
 function ProviderState({

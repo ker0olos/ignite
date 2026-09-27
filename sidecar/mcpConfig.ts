@@ -3,10 +3,11 @@
  * dir, in the format its README documents. The host edits the servers there;
  * fields the app doesn't show (settings, timeouts, filters) are kept as is.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import {
   isServerCacheValid,
+  getMetadataCachePath,
   loadMetadataCache,
 } from "pi-mcp-adapter/metadata-cache";
 import {
@@ -14,6 +15,13 @@ import {
   type McpServer,
   type McpServerConfig,
 } from "../shared/hostProtocol.ts";
+
+/** Our sign-in command, registered by mcpExtension.ts next to the adapter. */
+export const MCP_SIGN_IN_COMMAND = "app-mcp-sign-in";
+/** Deletes a server's saved sign-in, also registered by mcpExtension.ts. */
+export const MCP_SIGN_OUT_COMMAND = "app-mcp-sign-out";
+/** Event-bus channel on which that command hands over the page to open. */
+export const MCP_AUTH_URL_EVENT = "app/mcp-auth-url";
 
 /** One server as pi-mcp-adapter reads it. */
 export type McpEntry = {
@@ -130,6 +138,30 @@ function cachedTools(name: string, entry: McpEntry): string[] {
 /** Edits the servers in mcp.json, one change at a time. */
 export function createMcpStore(path: string) {
   let queue: Promise<unknown> = Promise.resolve();
+  // Our own file beside the adapter's config: servers that need sign-in.
+  const signInPath = join(dirname(path), "mcp-sign-in.json");
+
+  async function readSignIns(): Promise<string[]> {
+    try {
+      const names = JSON.parse(await readFile(signInPath, "utf8"));
+      return Array.isArray(names) ? names : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Records whether a server needs sign-in. */
+  function setNeedsSignIn(name: string, needed: boolean) {
+    const run = queue.then(async () => {
+      const names = await readSignIns();
+      if (names.includes(name) === needed) return;
+      const next = needed ? [...names, name] : names.filter((n) => n !== name);
+      await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+      await writeFile(signInPath, JSON.stringify(next));
+    });
+    queue = run.catch(() => {});
+    return run;
+  }
 
   function change(
     edit: (servers: Record<string, McpEntry>) => Record<string, McpEntry>,
@@ -195,13 +227,31 @@ export function createMcpStore(path: string) {
       }));
     },
 
-    remove(name: string) {
-      return change((servers) => {
+    /**
+     * Servers found to need sign-in, remembered across restarts so they say so
+     * before the adapter connects them again.
+     */
+    needsSignIn: readSignIns,
+
+    setNeedsSignIn,
+
+    /** Removes a server and forgets the tools cached from its last connection. */
+    async remove(name: string) {
+      await change((servers) => {
         existing(servers, name);
         return Object.fromEntries(
           Object.entries(servers).filter(([n]) => n !== name),
         );
       });
+      await setNeedsSignIn(name, false);
+      // saveMetadataCache merges into the file, so it can't drop an entry.
+      const cache = loadMetadataCache();
+      if (cache?.servers[name]) {
+        delete cache.servers[name];
+        const cachePath = getMetadataCachePath();
+        await writeFile(`${cachePath}.tmp`, JSON.stringify(cache));
+        await rename(`${cachePath}.tmp`, cachePath);
+      }
     },
 
     setEnabled(name: string, enabled: boolean) {

@@ -102,8 +102,8 @@ or `bearerToken` runs a shell command. Other per-server fields (`lifecycle`,
 
 - Presets: `KNOWN_SERVER_PRESETS` from `pi-mcp-adapter/config` (public
   subpath) plus our own few (Playwright pinned, Sentry, Supabase, Linear with
-  `auth: "oauth"`). OAuth presets add fine but show "Needs sign-in" until MCP
-  sign-in exists (.todo).
+  `auth: "oauth"`). OAuth presets show "Needs sign-in" once checked; the row's Sign
+  in button signs in.
 - Imports: the adapter's own import readers (`extractServers`, `IMPORT_PATHS`)
   aren't exported and skip Claude Code's per-folder servers, so the app reads
   the files itself: `~/.claude.json` (`mcpServers` and
@@ -116,3 +116,45 @@ or `bearerToken` runs a shell command. Other per-server fields (`lifecycle`,
 - The app passes the open folder as `cwd` with `mcp_catalog` / `mcp_import`
   rather than relying on the session, so the answer never races a folder
   switch.
+
+## Setup check and sign-in
+
+- Servers stay `lazy`. After a URL server is added, imported or edited the
+  host sends the adapter's `/mcp reconnect <name>` once (not while pi runs),
+  so its real status (connected, needs-auth, failed) shows during setup.
+  Local command servers are never started this way.
+- Sign in runs our own command, `/app-mcp-sign-in <name>`, registered by
+  `sidecar/mcpExtension.ts`. It calls the adapter's `authenticate()` (not a
+  public export; loaded by file path, which only pi's extension loader can do
+  since Node won't strip types under node_modules) with
+  `openAuthorizationUrl` sending the page over pi's event bus
+  (`app/mcp-auth-url`) to the app, which opens it with Tauri's opener. The
+  adapter's own `/mcp-auth` launches the browser itself through the `open`
+  package, which loses the URL when the sidecar runs under the app (Chrome
+  opens with no tab). Failures are reported with `ctx.ui.notify(..., "error")`,
+  which the headless UI in `main.ts` turns into an `extension_error`.
+- With a fake `HOME` the keychain can't be read, so a check reports `failed`
+  instead of `needs-auth`; test sign-in flows with the real home.
+
+## The app's name on sign-in pages
+
+The adapter names its host from pi's rebranding manifest (`piConfig.name` in
+`$PI_PACKAGE_DIR/package.json`, falling back to "pi"): the OAuth client it
+registers ("Pi Coding Agent" by default) and the "return to pi" callback page.
+pi itself reads its themes, docs and assets from `PI_PACKAGE_DIR`, so it can't
+point at our folder for good. `asApp()` in `sidecar/mcpExtension.ts` writes
+`<agentDir>/branding/package.json` with `piConfig.name = APP_TITLE`, points
+`PI_PACKAGE_DIR` at it only while a sign-in runs, and sets
+`<APP_TITLE>_CODING_AGENT_DIR` so the renamed adapter still finds the agent dir.
+A server registered before this keeps its old client name until its sign-in is
+cleared.
+
+## Removing a server deletes its sign-in
+
+The adapter keeps OAuth tokens and client registrations in the macOS keychain
+(service `pi-mcp-adapter.oauth`) keyed by server **name**, so a server removed
+and re-added under the same name would silently sign back in. Removing a server
+first runs our `/app-mcp-sign-out <name>` (the adapter's `removeAuth`). With no
+folder open, or if it fails, the name waits in memory and is signed out when
+the next folder opens. The adapter logs with `console.log`, so `main.ts` sends
+console output to stderr to keep stdout protocol-only.

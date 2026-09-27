@@ -18,7 +18,12 @@ import {
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import type { ClaudeCode } from "./claudeCode.ts";
-import type { McpEntry, McpStore } from "./mcpConfig.ts";
+import {
+  MCP_SIGN_IN_COMMAND,
+  MCP_SIGN_OUT_COMMAND,
+  type McpEntry,
+  type McpStore,
+} from "./mcpConfig.ts";
 import { needsSignIn, type ImportSource, type Preset } from "./mcpCatalog.ts";
 
 /** What the MCP settings offer to add in one click. */
@@ -148,6 +153,10 @@ export function createHost(
   let unsubscribe = () => {};
   // Adapter status per server name, from the open session's latest snapshot.
   let mcpStatus = new Map<string, string>();
+  // Removed servers whose saved sign-in still has to be deleted.
+  const pendingSignOuts = new Set<string>();
+  // URL servers being connected once after setup.
+  const checking = new Set<string>();
   // mcp.json changed while pi was running; reload once the run ends.
   let reloadWhenSettled = false;
   // Counts opened folders, so a replaced session's status is ignored.
@@ -292,6 +301,7 @@ export function createHost(
     session = null;
     reloadWhenSettled = false;
     mcpStatus = new Map();
+    checking.clear();
     if (previous) {
       // dispose() alone leaves extensions running (MCP server processes).
       await previous.extensionRunner.emit({
@@ -305,9 +315,18 @@ export function createHost(
     const s = await openSession(cwd, (snapshot) => {
       if (opened !== opens) return;
       mcpStatus = new Map(snapshot.servers.map((m) => [m.name, m.status]));
-      if (session) void pushMcpServers();
+      // While the session is still opening, open() pushes once it's done.
+      const push = !!session;
+      void rememberSignIns(snapshot).then(() => {
+        if (push) void pushMcpServers();
+      });
     });
     session = s;
+    // ponytail: kept in memory; a sidecar restart before a folder opens drops them.
+    for (const name of [...pendingSignOuts]) {
+      pendingSignOuts.delete(name);
+      await signOut(name);
+    }
     unsubscribe = s.subscribe((event) => {
       send({ type: "session_event", event: toWireEvent(event) });
       if (event.type === "agent_settled" && reloadWhenSettled) {
@@ -339,16 +358,34 @@ export function createHost(
     );
   }
 
+  // What the adapter learns about sign-in outlives it: a server stays "needs
+  // sign-in" after a restart until it connects, without connecting to find out.
+  async function rememberSignIns(snapshot: McpStatusSnapshot) {
+    for (const { name, status } of snapshot.servers) {
+      if (status === "needs-auth") await mcpStore.setNeedsSignIn(name, true);
+      if (status === "connected") await mcpStore.setNeedsSignIn(name, false);
+    }
+  }
+
   async function mcpServers(): Promise<McpServer[]> {
     const saved = await mcpStore.list();
     if (!session) return saved;
+    const signIns = await mcpStore.needsSignIn();
+    const known = (name: string) => {
+      const status = MCP_STATUSES[mcpStatus.get(name) ?? ""] ?? "idle";
+      return status === "idle" && signIns.includes(name)
+        ? "needs-auth"
+        : status;
+    };
     // ponytail: a failed server shows no reason; the adapter only logs it to
     // stderr. Show it once the status snapshot carries one.
     return saved.map((server) => ({
       ...server,
-      status: server.enabled
-        ? (MCP_STATUSES[mcpStatus.get(server.name) ?? ""] ?? "idle")
-        : "disabled",
+      status: !server.enabled
+        ? "disabled"
+        : checking.has(server.name)
+          ? "checking"
+          : known(server.name),
     }));
   }
 
@@ -361,11 +398,39 @@ export function createHost(
   }
 
   // The session's adapter only reads mcp.json on (re)load.
-  async function changeMcp(edit: () => Promise<void>) {
+  /**
+   * Saves a change and applies it. Servers still connect lazily, but URL
+   * servers in `check` connect once now, so one that needs sign-in says so
+   * while it's being set up rather than when the agent first needs it.
+   */
+  async function changeMcp(edit: () => Promise<void>, check: string[] = []) {
     await edit();
-    if (session?.isStreaming) reloadWhenSettled = true;
-    else await session?.reload();
+    if (session?.isStreaming) {
+      reloadWhenSettled = true;
+    } else if (session) {
+      await session.reload();
+      await checkUrlServers(check);
+    }
     return mcpServers();
+  }
+
+  /** Marks the URL servers among `names` as checking, then checks them in the background. */
+  async function checkUrlServers(names: string[]) {
+    const s = session;
+    if (!s?.extensionRunner.getCommand("mcp")) return;
+    const urls = (await mcpStore.list())
+      .filter((m) => names.includes(m.name) && m.enabled)
+      .filter((m) => m.config.type === "http")
+      .map((m) => m.name);
+    urls.forEach((name) => checking.add(name));
+    void (async () => {
+      for (const name of urls) {
+        // The result arrives as a status snapshot; a failure is shown there.
+        await s.prompt(`/mcp reconnect ${name}`, {}).catch(() => {});
+        checking.delete(name);
+        await pushMcpServers();
+      }
+    })();
   }
 
   async function mcpCatalog(cwd?: string): Promise<McpCatalog> {
@@ -395,7 +460,10 @@ export function createHost(
   function addPreset(id: string) {
     const preset = catalog.presets.find((p) => p.id === id);
     if (!preset) throw new Error(`There is no preset named ${id}.`);
-    return changeMcp(() => mcpStore.add({ [preset.id]: preset.entry }));
+    return changeMcp(
+      () => mcpStore.add({ [preset.id]: preset.entry }),
+      [preset.id],
+    );
   }
 
   async function importServers(
@@ -409,11 +477,43 @@ export function createHost(
     if (!source) throw new Error("Those servers are no longer there.");
     const entries = Object.entries(source.servers)
       .filter(([name]) => names.includes(name))
-      .map(([name, entry]) => [toServerName(name), entry]);
-    return changeMcp(() => mcpStore.add(Object.fromEntries(entries)));
+      .map(([name, entry]) => [toServerName(name), entry] as const);
+    return changeMcp(
+      () => mcpStore.add(Object.fromEntries(entries)),
+      entries.map(([name]) => name),
+    );
   }
 
-  async function reconnect(name: string) {
+  /**
+   * Deletes a server's saved sign-in, so removing and re-adding it asks again.
+   * Without a session to run it in, it runs when the next folder opens.
+   */
+  async function signOut(name: string) {
+    const s = session;
+    if (s?.extensionRunner.getCommand(MCP_SIGN_OUT_COMMAND)) {
+      try {
+        await s.prompt(`/${MCP_SIGN_OUT_COMMAND} ${name}`, {});
+        return;
+      } catch {
+        // Retried when the next folder opens.
+      }
+    }
+    pendingSignOuts.add(name);
+  }
+
+  async function signIn(name: string) {
+    const s = await usableServer(name);
+    if (!s.extensionRunner.getCommand(MCP_SIGN_IN_COMMAND)) {
+      throw new Error("MCP sign-in isn't available in this session.");
+    }
+    // Opens the sign-in page through the app and waits for the browser's
+    // callback; a failure comes back as an extension_error.
+    await s.prompt(`/${MCP_SIGN_IN_COMMAND} ${name}`, {});
+    await s.prompt(`/mcp reconnect ${name}`, {});
+    return mcpServers();
+  }
+
+  async function usableServer(name: string) {
     const s = current();
     const server = (await mcpStore.list()).find((m) => m.name === name);
     if (!server) throw new Error(`There is no server named ${name}.`);
@@ -422,9 +522,7 @@ export function createHost(
     if (!s.extensionRunner.getCommand("mcp")) {
       throw new Error("MCP isn't running in this session. Check mcp.json.");
     }
-    // The adapter's own command; the new status arrives as a snapshot.
-    await s.prompt(`/mcp reconnect ${name}`, {});
-    return mcpServers();
+    return s;
   }
 
   async function run(request: Extract<HostRequest, { id: number }>) {
@@ -461,17 +559,22 @@ export function createHost(
       case "mcp_list":
         return mcpServers();
       case "mcp_save":
-        return changeMcp(() =>
-          mcpStore.save(request.name, request.config, request.previousName),
+        return changeMcp(
+          () =>
+            mcpStore.save(request.name, request.config, request.previousName),
+          [request.name],
         );
       case "mcp_remove":
-        return changeMcp(() => mcpStore.remove(request.name));
+        return changeMcp(async () => {
+          await signOut(request.name);
+          await mcpStore.remove(request.name);
+        });
       case "mcp_set_enabled":
         return changeMcp(() =>
           mcpStore.setEnabled(request.name, request.enabled),
         );
-      case "mcp_reconnect":
-        return reconnect(request.name);
+      case "mcp_sign_in":
+        return signIn(request.name);
       case "mcp_catalog":
         return mcpCatalog(request.cwd);
       case "mcp_add_preset":

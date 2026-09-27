@@ -29,6 +29,7 @@ export function Workspace({
   editor,
   hideGitIgnored,
   actions,
+  banner,
   session,
 }: {
   folder: string;
@@ -37,6 +38,7 @@ export function Workspace({
   editor: Settings["editor"];
   hideGitIgnored: boolean;
   actions: ReactNode;
+  banner?: ReactNode;
   session: ReturnType<typeof useAgentSession>;
 }) {
   const { files, active } = tabs;
@@ -69,6 +71,7 @@ export function Workspace({
         <Sidebar
           folder={folder}
           actions={actions}
+          banner={banner}
           selected={active}
           onOpenFile={openFile}
           hideGitIgnored={hideGitIgnored}

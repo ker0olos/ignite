@@ -70,6 +70,14 @@ describe("useMcpServers", () => {
     expect(result.current.servers).toEqual([connected]);
   });
 
+  it("shows problems extensions report, such as a failed sign-in", async () => {
+    const host = fakeHost(async () => [docs]);
+    const { result } = renderHook(() => useMcpServers(host));
+    await waitFor(() => expect(result.current.servers).toEqual([docs]));
+    host.emit({ type: "extension_error", message: "Sign-in was denied." });
+    expect(result.current.error).toBe("Sign-in was denied.");
+  });
+
   it("reports a list it couldn't load", async () => {
     const host = fakeHost(async () => {
       throw new Error("mcp.json isn't valid JSON.");
@@ -145,7 +153,7 @@ describe("useMcpServers", () => {
   it.each([
     ["remove", { type: "mcp_remove", name: "docs" }],
     ["setEnabled", { type: "mcp_set_enabled", name: "docs", enabled: false }],
-    ["reconnect", { type: "mcp_reconnect", name: "docs" }],
+    ["signIn", { type: "mcp_sign_in", name: "docs" }],
   ] as const)("sends %s and shows its result", async (action, request) => {
     const host = fakeHost(async () => [docs]);
     const { result } = renderHook(() => useMcpServers(host));
@@ -159,14 +167,14 @@ describe("useMcpServers", () => {
   });
 
   it("shows a failed row action until the next one succeeds", async () => {
-    const reconnect = vi.fn(async () => {
+    const signIn = vi.fn(async () => {
       throw new Error("Turn docs on first.");
     });
     const host = fakeHost(async (req) =>
-      req.type === "mcp_reconnect" ? reconnect() : [docs],
+      req.type === "mcp_sign_in" ? signIn() : [docs],
     );
     const { result } = renderHook(() => useMcpServers(host));
-    await act(() => result.current.reconnect("docs"));
+    await act(() => result.current.signIn("docs"));
     expect(result.current.error).toBe("Turn docs on first.");
     await act(() => result.current.remove("docs"));
     expect(result.current.error).toBeNull();

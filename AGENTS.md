@@ -25,6 +25,8 @@ src/                     React frontend (almost all logic lives here)
     Conversation.tsx     Renders the transcript: messages, thinking, tool rows
     SettingsDialog.tsx   Settings modal
     McpServers.tsx       MCP server rows (status, switch, remove) and the add/edit form
+    McpIcons.tsx         Brand marks for MCP presets and the apps servers import from
+    SignInBanner.tsx     Sidebar warning when an MCP server in use needs sign-in
     ConnectProviders.tsx Full-window screen to connect Claude / ChatGPT
     ProviderLogos.tsx    Claude and OpenAI marks (LobeHub Icons, MIT)
   hooks/
@@ -72,7 +74,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
-.todo                    Planned work (tool approval prompts, project trust, MCP sign-in)
+.todo                    Planned work (tool approval prompts, project trust)
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
   dev-runner.sh          Runs `tauri dev` from a .app so Stage Manager shows the icon
@@ -129,7 +131,10 @@ MCP servers come from [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adap
 the app's `mcp.json` as its whole config, so it never reads `~/.config/mcp`,
 a project's `.mcp.json` or other apps' MCP configs. Servers connect on first
 use; the model reaches them through the adapter's `mcp` and `mcp__<server>`
-tools. Saving a change reloads the session (after the current run). Status
+tools. Saving a change reloads the session (after the current run), and a
+URL server that was just added, imported or edited connects once, so one that
+needs OAuth shows "Needs sign-in" (with a Sign in button running the adapter's
+`/mcp-auth`) during setup rather than when the agent first needs it. Status
 comes from the adapter's event-bus channel; see the skill's mcp.md.
 Settings offers presets (the adapter's list plus a few of ours) and imports
 servers already set up in Claude Code (user, this folder's local scope,

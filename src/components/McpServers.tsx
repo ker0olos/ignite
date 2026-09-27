@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Check, Pencil, RotateCw, Trash2 } from "lucide-react";
+import { Check, Loader2, Pencil, Trash2 } from "lucide-react";
 import type {
   McpCatalog,
   McpServer,
@@ -35,44 +35,43 @@ import {
 } from "@/lib/mcpServers";
 import { cn } from "@/lib/utils";
 
-/** A server row's status, on/off switch, and reconnect, edit and remove. */
+/** A server row's status (with sign-in when needed), switch, edit and remove. */
 export function McpServerControls({
   server,
   onEdit,
   onEnabledChange,
-  onReconnect,
+  onSignIn,
   onRemove,
 }: {
   server: McpServer;
   onEdit: () => void;
   onEnabledChange: (enabled: boolean) => void;
-  onReconnect: () => void;
+  onSignIn: () => Promise<void>;
   onRemove: () => void;
 }) {
   return (
     <div className="flex items-center gap-1">
-      <span className="mr-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span
-          className={cn(
-            "size-1.5 rounded-full bg-muted-foreground/40",
-            server.status === "connected" && "bg-success",
-            server.status === "idle" && "bg-muted-foreground",
-            (server.status === "failed" || server.status === "needs-auth") &&
-              "bg-destructive",
+      {server.status === "needs-auth" ? (
+        <AsyncButton onClick={onSignIn} className="gap-2">
+          <span className="size-1.5 rounded-full bg-destructive" />
+          Sign in
+        </AsyncButton>
+      ) : (
+        <span className="mr-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          {server.status === "checking" ? (
+            <Loader2 className="size-3 animate-spin" />
+          ) : (
+            <span
+              className={cn(
+                "size-1.5 rounded-full bg-muted-foreground/40",
+                server.status === "connected" && "bg-success",
+                server.status === "idle" && "bg-muted-foreground",
+                server.status === "failed" && "bg-destructive",
+              )}
+            />
           )}
-        />
-        {statusLabel(server)}
-      </span>
-      {server.status && server.enabled && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Reconnect ${server.name}`}
-          title="Reconnect"
-          onClick={onReconnect}
-        >
-          <RotateCw />
-        </Button>
+          {statusLabel(server)}
+        </span>
       )}
       <Button
         variant="ghost"
@@ -250,9 +249,11 @@ function Added() {
 /** An outline button that disables itself until its own request settles. */
 function AsyncButton({
   onClick,
+  className,
   children,
 }: {
   onClick: () => Promise<void>;
+  className?: string;
   children: ReactNode;
 }) {
   const [pending, setPending] = useState(false);
@@ -260,7 +261,7 @@ function AsyncButton({
     <Button
       variant="outline"
       size="sm"
-      className="shrink-0"
+      className={cn("shrink-0", className)}
       disabled={pending}
       onClick={async () => {
         setPending(true);

@@ -102,7 +102,13 @@ export type McpServerConfig =
  * first use, so "idle" is the normal state of a working server.
  */
 export type McpServerStatus =
-  "connected" | "idle" | "failed" | "needs-auth" | "disabled";
+  | "connected"
+  | "idle"
+  /** Being connected once after it was set up, to learn its real status. */
+  | "checking"
+  | "failed"
+  | "needs-auth"
+  | "disabled";
 
 /** A server saved in pi's mcp.json, with what the session knows about it. */
 export type McpServer = {
@@ -173,7 +179,8 @@ export type HostRequest =
     }
   | { id: number; type: "mcp_remove"; name: string }
   | { id: number; type: "mcp_set_enabled"; name: string; enabled: boolean }
-  | { id: number; type: "mcp_reconnect"; name: string }
+  /** Runs the server's OAuth sign-in in the browser; resolves when it ends. */
+  | { id: number; type: "mcp_sign_in"; name: string }
   /** `cwd`: the open folder, whose project servers other apps may have. */
   | { id: number; type: "mcp_catalog"; cwd?: string }
   | { id: number; type: "mcp_add_preset"; preset: string }
@@ -204,7 +211,7 @@ export type HostResponses = {
   mcp_save: McpServer[];
   mcp_remove: McpServer[];
   mcp_set_enabled: McpServer[];
-  mcp_reconnect: McpServer[];
+  mcp_sign_in: McpServer[];
   mcp_catalog: McpCatalog;
   mcp_add_preset: McpServer[];
   mcp_import: McpServer[];
@@ -222,6 +229,8 @@ export type HostMessage =
   | { type: "session_event"; event: SessionEvent }
   /** A run pi accepted but couldn't carry out (e.g. no model or credentials). */
   | { type: "session_error"; error: string }
+  /** An extension reported a problem (e.g. an MCP sign-in that failed). */
+  | { type: "extension_error"; message: string }
   /** The MCP servers changed (a status, or a saved change). */
   | { type: "mcp_servers"; servers: McpServer[] };
 

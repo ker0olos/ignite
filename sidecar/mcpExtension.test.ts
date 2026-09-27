@@ -1,15 +1,27 @@
 // @vitest-environment node
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createMcpAdapter } from "pi-mcp-adapter";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { writeMcpFile } from "./mcpConfig.ts";
-import mcp from "./mcpExtension.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  MCP_AUTH_URL_EVENT,
+  MCP_SIGN_IN_COMMAND,
+  MCP_SIGN_OUT_COMMAND,
+  writeMcpFile,
+} from "./mcpConfig.ts";
+import mcp, { asApp } from "./mcpExtension.ts";
+import { APP_TITLE } from "../src/lib/app.ts";
 
 const install = vi.fn();
 vi.mock("pi-mcp-adapter", () => ({ createMcpAdapter: vi.fn(() => install) }));
+const authenticate = vi.fn();
+const removeAuth = vi.fn();
+vi.mock("../node_modules/pi-mcp-adapter/mcp-auth-flow.ts", () => ({
+  authenticate,
+  removeAuth,
+}));
 
 let dir: string;
 beforeEach(async () => {
@@ -21,7 +33,14 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-const pi = {} as ExtensionAPI;
+type Handler = (args: string, ctx: unknown) => Promise<void>;
+const commands = new Map<string, Handler>();
+const emit = vi.fn();
+const pi = {
+  registerCommand: (name: string, options: { handler: Handler }) =>
+    commands.set(name, options.handler),
+  events: { emit },
+} as unknown as ExtensionAPI;
 
 it("installs the adapter with the app's servers only", async () => {
   await writeMcpFile(join(dir, "mcp.json"), {
@@ -40,4 +59,104 @@ it("installs it with no servers before any are added", async () => {
   expect(createMcpAdapter).toHaveBeenCalledWith({
     config: { mcpServers: {} },
   });
+});
+
+describe("the sign-in command", () => {
+  const notify = vi.fn();
+  const signIn = async (name: string) => {
+    await mcp(pi);
+    await commands.get(MCP_SIGN_IN_COMMAND)!(name, {
+      signal: undefined,
+      ui: { notify },
+    });
+  };
+  beforeEach(async () => {
+    notify.mockClear();
+    authenticate.mockReset();
+    await writeMcpFile(join(dir, "mcp.json"), {
+      mcpServers: {
+        web: { url: "https://x.dev/mcp", auth: "oauth" },
+        local: { command: "npx" },
+      },
+    });
+  });
+
+  it("signs in, handing the page to open to the app", async () => {
+    authenticate.mockImplementation(
+      async (
+        _name: string,
+        _url: string,
+        _entry: unknown,
+        options: { openAuthorizationUrl(url: string): void },
+      ) => {
+        options.openAuthorizationUrl("https://x.dev/authorize");
+        return "authenticated";
+      },
+    );
+    await signIn("web");
+    expect(authenticate).toHaveBeenCalledWith(
+      "web",
+      "https://x.dev/mcp",
+      { url: "https://x.dev/mcp", auth: "oauth" },
+      expect.anything(),
+    );
+    expect(emit).toHaveBeenCalledWith(
+      MCP_AUTH_URL_EVENT,
+      "https://x.dev/authorize",
+    );
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["missing", "There is no server named missing."],
+    ["local", "local has no URL to sign in to."],
+  ])("reports %s", async (name, message) => {
+    await signIn(name);
+    expect(notify).toHaveBeenCalledWith(
+      `Couldn't sign in to ${name}: ${message}`,
+      "error",
+    );
+    expect(authenticate).not.toHaveBeenCalled();
+  });
+
+  it("reports a sign-in that didn't finish", async () => {
+    authenticate.mockResolvedValue("failed");
+    await signIn("web");
+    expect(notify).toHaveBeenCalledWith(
+      "Couldn't sign in to web: Signing in to web didn't finish.",
+      "error",
+    );
+  });
+});
+
+describe("asApp", () => {
+  it("names the app while it runs, then puts pi's package dir back", async () => {
+    vi.stubEnv("PI_PACKAGE_DIR", "/pi");
+    const seen = await asApp(async () => ({
+      dir: process.env.PI_PACKAGE_DIR!,
+      agentDir: process.env[`${APP_TITLE.toUpperCase()}_CODING_AGENT_DIR`],
+    }));
+    const manifest = JSON.parse(
+      await readFile(join(seen.dir, "package.json"), "utf8"),
+    );
+    expect(manifest.piConfig).toEqual({ name: APP_TITLE });
+    expect(seen.agentDir).toBe(dir);
+    expect(process.env.PI_PACKAGE_DIR).toBe("/pi");
+  });
+
+  it("clears the package dir again when there was none, even on failure", async () => {
+    vi.stubEnv("PI_PACKAGE_DIR", undefined);
+    await expect(
+      asApp(async () => {
+        throw new Error("denied");
+      }),
+    ).rejects.toThrow("denied");
+    expect(process.env.PI_PACKAGE_DIR).toBeUndefined();
+  });
+});
+
+it("deletes a server's saved sign-in", async () => {
+  await mcp(pi);
+  await commands.get(MCP_SIGN_OUT_COMMAND)!("web", { signal: undefined });
+  expect(removeAuth).toHaveBeenCalledWith("web", { signal: undefined });
 });

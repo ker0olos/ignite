@@ -1,9 +1,17 @@
 // @vitest-environment node
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   computeServerHash,
+  loadMetadataCache,
   saveMetadataCache,
 } from "pi-mcp-adapter/metadata-cache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -297,10 +305,43 @@ describe("createMcpStore", () => {
     );
   });
 
-  it("removes a server", async () => {
-    await writeMcpFile(path, { mcpServers: { a: {}, b: {} } });
+  it("remembers which servers need sign-in", async () => {
+    const store = createMcpStore(path);
+    expect(await store.needsSignIn()).toEqual([]);
+    await store.setNeedsSignIn("a", true);
+    await store.setNeedsSignIn("a", true);
+    await store.setNeedsSignIn("b", true);
+    expect(await createMcpStore(path).needsSignIn()).toEqual(["a", "b"]);
+    await store.setNeedsSignIn("a", false);
+    expect(await store.needsSignIn()).toEqual(["b"]);
+  });
+
+  it("treats an unreadable sign-in file as empty", async () => {
+    const signIns = join(dirname(path), "mcp-sign-in.json");
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(signIns, "{ nope");
+    expect(await createMcpStore(path).needsSignIn()).toEqual([]);
+    await writeFile(signIns, '{"a": 1}');
+    expect(await createMcpStore(path).needsSignIn()).toEqual([]);
+  });
+
+  it("forgets a removed server needed sign-in", async () => {
+    await writeMcpFile(path, { mcpServers: { a: {} } });
+    const store = createMcpStore(path);
+    await store.setNeedsSignIn("a", true);
+    await store.remove("a");
+    expect(await store.needsSignIn()).toEqual([]);
+  });
+
+  it("removes a server and forgets its cached tools", async () => {
+    const a = { command: "a" };
+    await writeMcpFile(path, { mcpServers: { a, b: {} } });
+    cacheTools("a", a, ["search"]);
     await createMcpStore(path).remove("a");
     expect((await saved()).mcpServers).toEqual({ b: {} });
+    expect(loadMetadataCache()?.servers.a).toBeUndefined();
+    // Nothing cached is fine too.
+    await createMcpStore(path).remove("b");
   });
 
   it("turns a server off and on with the adapter's disabled flag", async () => {

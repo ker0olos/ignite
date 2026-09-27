@@ -6,10 +6,13 @@ import { basename } from "@/lib/paths";
 export function Sidebar({
   folder,
   actions,
+  banner,
   ...treeProps
 }: Omit<ComponentProps<typeof FileTree>, "root"> & {
   folder: string;
   actions: ReactNode;
+  /** Shown above the folder name, e.g. a sign-in warning. */
+  banner?: ReactNode;
 }) {
   return (
     <aside className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -20,6 +23,7 @@ export function Sidebar({
       >
         {actions}
       </div>
+      {banner}
       <span className="truncate px-4 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {basename(folder)}
       </span>
