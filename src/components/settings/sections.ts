@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  Brain,
   Code,
   FolderTree,
   MessageSquare,
@@ -14,6 +15,10 @@ export const SECTIONS = {
   MCP: {
     icon: Server,
     blurb: "Tools the agent can use from other apps and services.",
+  },
+  Memory: {
+    icon: Brain,
+    blurb: "What the agent remembers across sessions, with cmem.",
   },
   Appearance: { icon: Palette, blurb: "Colors for the app and code." },
   Editor: { icon: Code, blurb: "How files look in the viewer." },

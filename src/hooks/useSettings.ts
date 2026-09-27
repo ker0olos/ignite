@@ -54,9 +54,10 @@ export function useSettings() {
     };
   }, [theme]);
 
+  /** Shows the change now; resolves once it's saved. */
   function updateSettings(next: Settings) {
     setSettings(next);
-    saveSettings(next);
+    return saveSettings(next);
   }
 
   return [settings, updateSettings] as const;

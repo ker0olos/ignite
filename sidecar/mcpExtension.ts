@@ -22,6 +22,7 @@ import {
 } from "./mcpConfig.ts";
 import { APP_TITLE } from "../src/lib/app.ts";
 import { readClaudeCodeKeychain, signInFor } from "./claudeCodeMcpAuth.ts";
+import { cmemServer } from "./cmem.ts";
 
 // The adapter's sign-in isn't a public export, and Node can't load its
 // TypeScript from node_modules; pi's extension loader can, from here.
@@ -63,8 +64,12 @@ export async function asApp<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export default async function mcp(pi: ExtensionAPI) {
-  const file = await readMcpFile(join(getAgentDir(), "mcp.json"));
-  createMcpAdapter({ config: adapterConfig(file) })(pi);
+  const config = adapterConfig(
+    await readMcpFile(join(getAgentDir(), "mcp.json")),
+  );
+  // cmem's server rides along unlisted: the Memory settings manage it.
+  config.mcpServers = { ...(await cmemServer()), ...config.mcpServers };
+  createMcpAdapter({ config })(pi);
 
   // Like the adapter's /mcp-auth, but the app opens the sign-in page: the
   // adapter's own browser launch loses the URL when the app starts it.

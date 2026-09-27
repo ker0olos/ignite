@@ -69,6 +69,11 @@ describe("loadSettings", () => {
     });
   });
 
+  it("reads memory settings", async () => {
+    fakeFs({ [FILE]: "[memory]\ncmem = false\n" });
+    expect((await loadSettings()).memory).toEqual({ cmem: false });
+  });
+
   it("fills in missing keys from defaults", async () => {
     fakeFs({ [FILE]: 'theme = "nord"\n' });
     expect(await loadSettings()).toEqual({
@@ -108,6 +113,7 @@ describe("saveSettings", () => {
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false },
     conversation: { show_thinking: true },
+    memory: { cmem: false },
   };
 
   it("creates the settings directory first", async () => {

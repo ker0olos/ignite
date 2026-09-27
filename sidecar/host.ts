@@ -18,6 +18,7 @@ import { mcpServers, changeMcp } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
 import { describeError } from "./wire.ts";
+import { memoryStatus } from "./cmem.ts";
 
 type IdRequest = Extract<HostRequest, { id: number }>;
 type Handler<K extends IdRequest["type"]> = (
@@ -71,6 +72,12 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   mcp_catalog: (ctx, r) => mcpCatalog(ctx, r.cwd),
   mcp_add_preset: (ctx, r) => addPreset(ctx, r.preset),
   mcp_import: (ctx, r) => importServers(ctx, r.source, r.names, r.cwd),
+  memory_status: (_ctx, r) => memoryStatus(r.cwd),
+  // The MCP extension reads the setting on (re)load, like mcp.json.
+  memory_changed: async (ctx) => {
+    await changeMcp(ctx, async () => {});
+    return undefined;
+  },
 };
 
 /**

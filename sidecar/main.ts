@@ -114,6 +114,7 @@ const claudeBridge = join(
 );
 // pi-mcp-adapter, reading only agentDir/mcp.json.
 const mcpExtension = join(import.meta.dirname, "mcpExtension.ts");
+const cmemExtension = join(import.meta.dirname, "cmemExtension.ts");
 // pi-mcp-adapter's status channel (MCP_STATUS_EVENT in its types.ts).
 const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
 
@@ -168,7 +169,7 @@ async function openSession(
     agentDir,
     settingsManager,
     eventBus,
-    additionalExtensionPaths: [claudeBridge, mcpExtension],
+    additionalExtensionPaths: [claudeBridge, mcpExtension, cmemExtension],
   });
   await resourceLoader.reload();
   // Continues the folder's last conversation, saved under agentDir/sessions.

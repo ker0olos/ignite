@@ -1,22 +1,26 @@
-import { McpImportSources } from "@/components/mcp/McpImportSources";
-import { McpQuickAdd } from "@/components/mcp/McpQuickAdd";
 import {
   SECTIONS,
   type Item,
   type Section,
 } from "@/components/settings/sections";
+import { SectionExtras } from "@/components/settings/SectionExtras";
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import type { useMcpServers } from "@/hooks/useMcpServers";
+import type { useMemory } from "@/hooks/useMemory";
 
 /** The dialog's right side: the visible settings, grouped by section. */
 export function SettingsSections({
   query,
   groups,
   mcp,
+  memory,
+  folder,
 }: {
   query: string;
   groups: (readonly [Section, Item[]])[];
   mcp: ReturnType<typeof useMcpServers>;
+  memory: ReturnType<typeof useMemory>;
+  folder: string | null;
 }) {
   const q = query.trim();
   return (
@@ -45,28 +49,12 @@ export function SettingsSections({
               <SettingsRow key={i.title} item={i} />
             ))}
           </div>
-          {s === "MCP" && !!mcp.catalog?.sources.length && (
-            <div className="mt-4">
-              <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-                Import from other apps
-              </h3>
-              <McpImportSources
-                sources={mcp.catalog.sources}
-                onImport={mcp.importServers}
-              />
-            </div>
-          )}
-          {s === "MCP" && !!mcp.catalog?.presets.length && (
-            <div className="mt-4">
-              <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-                Quick add
-              </h3>
-              <McpQuickAdd
-                presets={mcp.catalog.presets}
-                onAdd={mcp.addPreset}
-              />
-            </div>
-          )}
+          <SectionExtras
+            section={s}
+            mcp={mcp}
+            memory={memory}
+            folder={folder}
+          />
         </section>
       ))}
     </div>

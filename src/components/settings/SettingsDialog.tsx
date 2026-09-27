@@ -12,11 +12,13 @@ import { conversationItems } from "@/components/settings/sections/conversationIt
 import { editorItems } from "@/components/settings/sections/editorItems";
 import { filesItems } from "@/components/settings/sections/filesItems";
 import { mcpItems } from "@/components/settings/sections/mcpItems";
+import { memoryItems } from "@/components/settings/sections/memoryItems";
 import { providersItems } from "@/components/settings/sections/providersItems";
 import { SettingsNav } from "@/components/settings/SettingsNav";
 import { SettingsSections } from "@/components/settings/SettingsSections";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { useMcpServers } from "@/hooks/useMcpServers";
+import type { useMemory } from "@/hooks/useMemory";
 import type { CodeTheme } from "@/lib/codeThemes";
 import { listThemes } from "@/lib/codeThemeDiscovery";
 import type { Settings } from "@/lib/settings";
@@ -33,17 +35,23 @@ export function SettingsDialog({
   providersError,
   onManageProviders,
   mcp,
+  memory,
+  folder,
   initialSection = "Providers",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: Settings;
-  onChange: (settings: Settings) => void;
+  /** Resolves once the change is saved. */
+  onChange: (settings: Settings) => void | Promise<void>;
   /** Connection status per provider; null while loading. */
   providers: ProviderStatus[] | null;
   providersError: string | null;
   onManageProviders: () => void;
   mcp: ReturnType<typeof useMcpServers>;
+  memory: ReturnType<typeof useMemory>;
+  /** The open folder, whose memories the Memory section previews. */
+  folder: string | null;
   /** The section shown first; changing it needs a new `key` to take effect. */
   initialSection?: Section;
 }) {
@@ -77,6 +85,7 @@ export function SettingsDialog({
   const items: Item[] = [
     ...providersItems({ providers, providersError, onManageProviders }),
     ...mcpItems({ mcp, onEdit: setEditing, onAdd: () => setEditing("new") }),
+    ...memoryItems({ memory, folderOpen: !!folder, settings, onChange }),
     ...appearanceItems({
       themes,
       settings,
@@ -122,7 +131,13 @@ export function SettingsDialog({
           items={items}
           matches={matches}
         />
-        <SettingsSections query={query} groups={groups} mcp={mcp} />
+        <SettingsSections
+          query={query}
+          groups={groups}
+          mcp={mcp}
+          memory={memory}
+          folder={folder}
+        />
         <McpServerDialog
           open={editing !== null}
           onOpenChange={(next) => !next && setEditing(null)}
