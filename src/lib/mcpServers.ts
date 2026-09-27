@@ -5,15 +5,18 @@ import {
   type McpServerStatus,
 } from "../../shared/hostProtocol";
 
-/** The add/edit form's fields, as typed. Lists are one entry per line. */
+/** One name/value row of the form (an environment variable or a header). */
+export type Pair = { key: string; value: string };
+
+/** The add/edit form's fields, as typed. Arguments are one per line. */
 export type McpForm = {
   name: string;
   type: McpServerConfig["type"];
   command: string;
   args: string;
-  env: string;
+  env: readonly Pair[];
   url: string;
-  headers: string;
+  headers: readonly Pair[];
 };
 
 export const EMPTY_FORM: McpForm = {
@@ -21,15 +24,13 @@ export const EMPTY_FORM: McpForm = {
   type: "http",
   command: "",
   args: "",
-  env: "",
+  env: [],
   url: "",
-  headers: "",
+  headers: [],
 };
 
-const formatPairs = (pairs: Record<string, string>, separator: string) =>
-  Object.entries(pairs)
-    .map(([key, value]) => `${key}${separator}${value}`)
-    .join("\n");
+const toPairs = (record: Record<string, string>): Pair[] =>
+  Object.entries(record).map(([key, value]) => ({ key, value }));
 
 /** The form for editing a saved server. */
 export function toForm({ name, config }: McpServer): McpForm {
@@ -40,13 +41,13 @@ export function toForm({ name, config }: McpServer): McpForm {
         type: "stdio",
         command: config.command,
         args: config.args.join("\n"),
-        env: formatPairs(config.env, "="),
+        env: toPairs(config.env),
       }
     : {
         ...EMPTY_FORM,
         name,
         url: config.url,
-        headers: formatPairs(config.headers, ": "),
+        headers: toPairs(config.headers),
       };
 }
 
@@ -56,22 +57,18 @@ const lines = (text: string) =>
     .map((line) => line.trim())
     .filter(Boolean);
 
-/** `KEY=value` (env) or `Name: value` (headers) lines; an error names the bad line. */
-function parsePairs(
-  text: string,
-  separator: "=" | ":",
+/** Rows as a record, skipping empty ones; an error if a value has no name. */
+function fromPairs(
+  pairs: readonly Pair[],
   what: string,
 ): Record<string, string> | string {
-  const pairs: Record<string, string> = {};
-  for (const line of lines(text)) {
-    const at = line.indexOf(separator);
-    const key = line.slice(0, at).trim();
-    if (at === -1 || !key) {
-      return `Write each ${what} as ${separator === "=" ? "NAME=value" : "Name: value"}.`;
-    }
-    pairs[key] = line.slice(at + 1).trim();
+  const record: Record<string, string> = {};
+  for (const { key, value } of pairs) {
+    if (!key.trim() && !value.trim()) continue;
+    if (!key.trim()) return `Give each ${what} a name.`;
+    record[key.trim()] = value.trim();
   }
-  return pairs;
+  return record;
 }
 
 /**
@@ -85,7 +82,7 @@ export function readForm(
   const name = form.name.trim();
   let config: McpServerConfig;
   if (form.type === "stdio") {
-    const env = parsePairs(form.env, "=", "variable");
+    const env = fromPairs(form.env, "variable");
     if (typeof env === "string") return { problem: env };
     config = {
       type: "stdio",
@@ -94,7 +91,7 @@ export function readForm(
       env,
     };
   } else {
-    const headers = parsePairs(form.headers, ":", "header");
+    const headers = fromPairs(form.headers, "header");
     if (typeof headers === "string") return { problem: headers };
     config = { type: "http", url: form.url.trim(), headers };
   }

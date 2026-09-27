@@ -39,7 +39,10 @@ describe("toForm and readForm", () => {
       name: "files",
       command: "npx",
       args: "-y\n@mcp/files\n/tmp/a b",
-      env: "ROOT=/tmp\nTOKEN=${FILES_TOKEN}",
+      env: [
+        { key: "ROOT", value: "/tmp" },
+        { key: "TOKEN", value: "${FILES_TOKEN}" },
+      ],
     });
     expect(readForm(form, [])).toEqual({ name: "files", config: local.config });
   });
@@ -51,12 +54,12 @@ describe("toForm and readForm", () => {
       name: "docs",
       type: "http",
       url: "https://mcp.example.com/mcp",
-      headers: "Authorization: Bearer abc",
+      headers: [{ key: "Authorization", value: "Bearer abc" }],
     });
     expect(readForm(form, [])).toEqual({ name: "docs", config: remote.config });
   });
 
-  it("trims what was typed and skips blank lines", () => {
+  it("trims what was typed and skips blank lines and rows", () => {
     expect(
       readForm(
         {
@@ -65,7 +68,10 @@ describe("toForm and readForm", () => {
           name: " files ",
           command: " node ",
           args: " server.js \n\n --stdio",
-          env: " A = 1=2 \n\n",
+          env: [
+            { key: " A ", value: " 1=2 " },
+            { key: " ", value: "" },
+          ],
         },
         [],
       ),
@@ -96,11 +102,14 @@ describe("toForm and readForm", () => {
   });
 
   it.each([
-    [{ env: "NOEQUALS" }, "Write each variable as NAME=value."],
-    [{ env: "=value" }, "Write each variable as NAME=value."],
+    [{ env: [{ key: "", value: "1" }] }, "Give each variable a name."],
     [
-      { type: "http", url: "https://x.dev", headers: "Bearer" },
-      "Write each header as Name: value.",
+      {
+        type: "http",
+        url: "https://x.dev",
+        headers: [{ key: " ", value: "Bearer x" }],
+      },
+      "Give each header a name.",
     ],
     [{ command: "" }, "Enter a command."],
     [{ name: "files" }, "There is already a server named files."],
