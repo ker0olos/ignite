@@ -1,9 +1,9 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it, vi } from "vitest";
-import { APP_NAME } from "./app";
+import { APP_TITLE } from "./app";
 import { menuItems, setAppMenu, type MenuHandlers } from "./menu";
 
-const QUIT = `Quit ${APP_NAME}`;
+const QUIT = `Quit ${APP_TITLE}`;
 
 type Item = {
   text?: string;

@@ -1,5 +1,5 @@
 import { Menu, type MenuOptions } from "@tauri-apps/api/menu";
-import { APP_NAME } from "./app";
+import { APP_TITLE } from "./app";
 import { openNewWindow } from "./window";
 
 export type MenuHandlers = {
@@ -43,7 +43,7 @@ export function menuItems({
 }: MenuHandlers): NonNullable<MenuOptions["items"]> {
   return [
     {
-      text: APP_NAME,
+      text: APP_TITLE,
       items: [
         { item: { About: null } },
         { item: "Separator" },
@@ -59,7 +59,7 @@ export function menuItems({
         { item: "HideOthers" },
         { item: "ShowAll" },
         { item: "Separator" },
-        { text: `Quit ${APP_NAME}`, accelerator: "CmdOrCtrl+Q", action: quit },
+        { text: `Quit ${APP_TITLE}`, accelerator: "CmdOrCtrl+Q", action: quit },
       ],
     },
     {

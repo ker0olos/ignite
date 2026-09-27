@@ -1,5 +1,5 @@
 import { Folder, FolderOpen } from "lucide-react";
-import { APP_NAME } from "@/lib/app";
+import { APP_TITLE } from "@/lib/app";
 import { basename, dirname, tildify } from "@/lib/paths";
 
 const MAX_RECENT = 8;
@@ -19,7 +19,17 @@ export function Welcome({
   return (
     <main className="flex flex-1 items-center justify-center pb-26">
       <div className="w-80">
-        <h1 className="text-xl font-semibold tracking-tight">{APP_NAME}</h1>
+        <svg
+          viewBox="0 0 64 64"
+          role="img"
+          aria-label={APP_TITLE}
+          className="mx-auto mb-10 size-28 fill-muted-foreground stroke-muted-foreground opacity-30"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        >
+          <path d="M33 26h10L27 56l6-23z" className="opacity-50" />
+          <path d="M37 8 23 33h10v-7z" />
+        </svg>
         <p className="mt-1 text-[13px] text-muted-foreground">
           Open a folder to start a session, or drop one onto the window.
         </p>

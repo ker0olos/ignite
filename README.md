@@ -1,4 +1,4 @@
-# unnamed-harness
+# ignition
 
 A native macOS app for working with AI coding agents.
 
@@ -12,8 +12,8 @@ A native macOS app for working with AI coding agents.
 ## Run it
 
 ```sh
-git clone https://github.com/lead-led/unnamed-harness.git
-cd unnamed-harness
+git clone https://github.com/ker0olos/ignition.git
+cd ignition
 npm install
 npm run tauri dev
 ```
