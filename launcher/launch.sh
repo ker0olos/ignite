@@ -13,11 +13,6 @@ main() {
   exec >>"$state/log" 2>&1
   echo "--- $(date)"
   cd "$app" || exit 1
-  # Updating resets the checkout, which would wipe a developer's clone.
-  if [ "$app" != "$HOME/.ignition/app" ]; then
-    notify "Ignition only runs from ~/.ignition/app. See the README."
-    return
-  fi
   # Otherwise the start would fail and look like a broken update.
   if curl -sf localhost:1420 >/dev/null; then
     notify "Port 1420 is taken, most likely by Ignition in dev mode. Quit it first."
@@ -28,9 +23,8 @@ main() {
   start_app "$mods" && return
   local good
   good=$(cat "$state/good" 2>/dev/null)
-  if [ -n "$good" ] && [ "$good" != "$(git rev-parse HEAD)" ]; then
-    git rev-parse HEAD >"$state/bad"
-    move_to "$good"
+  if [ -n "$good" ] && [ "$good" != "$(git rev-parse HEAD)" ] &&
+    git rev-parse HEAD >"$state/bad" && move_to "$good"; then
     notify "The latest update didn't start with your changes, so Ignition is staying on the previous version."
     start_app "$mods" && return
   fi
@@ -52,10 +46,11 @@ update() {
   move_to "$latest"
 }
 
-# The code here is upstream's, never edited in place, so it's safe to reset.
+# Resets only a checkout with no local edits or commits, so a working clone is left alone.
 move_to() {
   local before
   before=$(git rev-parse HEAD)
+  git diff --quiet HEAD && git merge-base --is-ancestor HEAD origin/main || return 1
   git reset -q --hard "$1"
   git diff --quiet "$before" "$1" -- package-lock.json ||
     npm ci --no-audit --no-fund

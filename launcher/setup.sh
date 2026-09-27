@@ -5,8 +5,6 @@ set -euo pipefail
 app=$(cd "$(dirname "$0")/.." && pwd)
 bundle="$HOME/Applications/Ignition.app"
 
-[ "$app" = "$HOME/.ignition/app" ] ||
-  { echo "Run this from ~/.ignition/app; updates reset that checkout (see the README)." >&2; exit 1; }
 command -v cargo >/dev/null ||
   { echo "Ignition needs Rust: https://rustup.rs" >&2; exit 1; }
 # Mods need Node's registerHooks, and the sidecar runs TypeScript directly.
