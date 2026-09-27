@@ -4,7 +4,7 @@
  * Auth prompt and event shapes mirror pi-ai's AuthPrompt / AuthEvent, minus
  * the AbortSignals that can't cross a process boundary.
  */
-import type { AgentMessage, SessionEvent } from "./agentTypes.ts";
+import type { AgentMessage, ImageContent, SessionEvent } from "./agentTypes.ts";
 
 /**
  * pi's providers, plus "claude-code": the user's own Claude Code login, which
@@ -166,7 +166,7 @@ export type HostRequest =
   | { id: number; type: "set_model"; provider: string; modelId: string }
   | { id: number; type: "set_thinking_level"; level: ThinkingLevel }
   /** Resolves once pi has accepted the message; the run streams as events. */
-  | { id: number; type: "prompt"; text: string }
+  | { id: number; type: "prompt"; text: string; images?: ImageContent[] }
   | { id: number; type: "abort" }
   | { id: number; type: "mcp_list" }
   /** Adds a server, or replaces `previousName` (which may differ, to rename). */

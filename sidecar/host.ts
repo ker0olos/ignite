@@ -16,7 +16,11 @@ import {
   type SessionState,
   type ThinkingLevel,
 } from "../shared/hostProtocol.ts";
-import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
+import type {
+  AgentMessage,
+  ImageContent,
+  SessionEvent,
+} from "../shared/agentTypes.ts";
 import type { ClaudeCode } from "./claudeCode.ts";
 import {
   MCP_SIGN_IN_COMMAND,
@@ -348,12 +352,13 @@ export function createHost(
 
   // pi's prompt() resolves when the whole run ends; the app follows the run
   // through events, so only a failure is reported here.
-  function prompt(text: string) {
+  function prompt(text: string, images?: ImageContent[]) {
     const s = current();
     // A message sent mid-run steers the agent rather than waiting for the end.
-    const options = s.isStreaming
-      ? { streamingBehavior: "steer" as const }
-      : {};
+    const options = {
+      ...(s.isStreaming && { streamingBehavior: "steer" as const }),
+      ...(images?.length ? { images } : {}),
+    };
     s.prompt(text, options).catch((error: unknown) =>
       send({ type: "session_error", error: describeError(error) }),
     );
@@ -566,7 +571,7 @@ export function createHost(
         current().setThinkingLevel(request.level, { persist: true });
         return sessionState();
       case "prompt":
-        prompt(request.text);
+        prompt(request.text, request.images);
         return undefined;
       case "abort":
         await current().abort();

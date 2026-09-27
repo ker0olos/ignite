@@ -218,6 +218,19 @@ describe("useAgentSession", () => {
       });
     });
 
+    it("sends images, with or without text", async () => {
+      const { host, result } = await opened();
+      const images = [
+        { type: "image" as const, data: "AA==", mimeType: "image/png" },
+      ];
+      await act(() => result.current.send("", images));
+      expect(host.request).toHaveBeenCalledWith({
+        type: "prompt",
+        text: "",
+        images,
+      });
+    });
+
     it("doesn't send blank messages or before the session opens", async () => {
       const { host, result } = await opened();
       await act(() => result.current.send("  \n "));

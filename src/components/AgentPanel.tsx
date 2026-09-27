@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
-import { Check } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
+import type { ImageContent } from "../../shared/agentTypes";
 import type { ModelInfo } from "../../shared/hostProtocol";
 import { Conversation } from "@/components/Conversation";
 import { EffortSlider } from "@/components/EffortSlider";
@@ -26,6 +27,7 @@ import {
   same,
   type MenuGroup,
 } from "@/lib/modelMenu";
+import { imageUrl, pastedImages, pickImages } from "@/lib/images";
 import { basename } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 import type { Settings } from "@/lib/settings";
@@ -49,16 +51,20 @@ export function AgentPanel({
 }) {
   const { state, transcript } = session;
   const [text, setText] = useState("");
+  const [images, setImages] = useState<ImageContent[]>([]);
   const mainRef = useRef<HTMLElement>(null);
   const running = transcript?.running ?? false;
   const loading = !state && !session.error;
 
+  const canSend = !!state && (!!text.trim() || images.length > 0);
   const handleSend = () => {
-    if (!state || !text.trim()) return;
-    const value = text;
+    if (!canSend) return;
     setText("");
-    void session.send(value);
+    setImages([]);
+    void session.send(text, images);
   };
+  const attach = (added: ImageContent[]) =>
+    setImages((current) => [...current, ...added]);
 
   return (
     <>
@@ -95,9 +101,38 @@ export function AgentPanel({
         }}
       >
         <div className="group border-t transition-colors focus-within:border-foreground/35">
+          {images.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-0.5 pt-3">
+              {images.map((image, i) => (
+                <div key={i} className="group/image relative">
+                  <img
+                    src={imageUrl(image)}
+                    alt=""
+                    className="size-14 rounded-md border object-cover"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remove image"
+                    className="absolute -top-1.5 -right-1.5 hidden size-4 items-center justify-center rounded-full bg-foreground text-background group-hover/image:flex"
+                    onClick={() =>
+                      setImages((current) => current.filter((_, j) => j !== i))
+                    }
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onPaste={(e) => {
+              const { clipboardData } = e;
+              if (clipboardData.files.length === 0) return;
+              e.preventDefault();
+              void pastedImages(clipboardData).then(attach);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Escape" && running) {
                 e.preventDefault();
@@ -118,6 +153,14 @@ export function AgentPanel({
             className="max-h-[calc(5lh+1.5rem)] min-h-0 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0.5 pt-4 pb-2 shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0 dark:bg-transparent"
           />
           <div className="flex h-6 items-center gap-3.5 px-0.5">
+            <button
+              type="button"
+              aria-label="Attach images"
+              className={MENU_TRIGGER}
+              onClick={() => void pickImages().then(attach)}
+            >
+              <Plus className="size-3.5" />
+            </button>
             {loading && (
               <>
                 <Skeleton className="h-3 w-14" />
@@ -147,8 +190,8 @@ export function AgentPanel({
             ) : (
               <button
                 type="submit"
-                className={cn(ACTION, !text.trim() && "invisible")}
-                disabled={!state || !text.trim()}
+                className={cn(ACTION, !canSend && "invisible")}
+                disabled={!canSend}
               >
                 Send <Kbd>↵</Kbd>
               </button>

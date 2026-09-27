@@ -859,6 +859,17 @@ describe("sessions", () => {
     });
   });
 
+  it("sends attached images with a prompt", async () => {
+    const session = fakeSession();
+    const { request } = setup(fakeRuntime().runtime, async () => session);
+    const images = [
+      { type: "image" as const, data: "AA==", mimeType: "image/png" },
+    ];
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "prompt", text: "What's this?", images });
+    expect(session.prompt).toHaveBeenCalledWith("What's this?", { images });
+  });
+
   it("reports a run pi couldn't carry out", async () => {
     const session = fakeSession();
     session.prompt.mockRejectedValue(new Error("No model selected."));

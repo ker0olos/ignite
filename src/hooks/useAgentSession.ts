@@ -5,6 +5,7 @@ import type {
   SessionState,
   ThinkingLevel,
 } from "../../shared/hostProtocol";
+import type { ImageContent } from "../../shared/agentTypes";
 import type { HostClient } from "@/lib/piHost";
 import {
   applyError,
@@ -89,11 +90,15 @@ export function useAgentSession(
   }, [opened]);
 
   const send = useCallback(
-    async (text: string) => {
-      if (!opened || !text.trim()) return;
+    async (text: string, images: ImageContent[] = []) => {
+      if (!opened || (!text.trim() && !images.length)) return;
       setError(null);
       try {
-        await opened.request({ type: "prompt", text });
+        await opened.request({
+          type: "prompt",
+          text,
+          ...(images.length > 0 && { images }),
+        });
       } catch (e) {
         setError((e as Error).message);
       }
