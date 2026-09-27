@@ -3,7 +3,11 @@
  * for dangerous shell commands and for anything outside the open folder.
  */
 import type { ApprovalMode } from "../../shared/hostProtocol.ts";
-import { dangerousCommand } from "./dangerousCommands.ts";
+import {
+  dangerousCommand,
+  type ParseBash,
+  type Pipeline,
+} from "./dangerousCommands.ts";
 import { tildify } from "./paths.ts";
 
 /** Where the session runs; both absolute. */
@@ -43,11 +47,26 @@ export function isInside(path: string, folder: string): boolean {
 // climbing out with `..`. `--out=/x` counts too.
 const PATH_LIKE = /^(?:\/|~|\$\{?HOME\b)|(?:^|\/)\.\.(?:\/|$)/;
 
-/** Paths in a shell command that point outside the open folder. */
-export function outsidePaths(command: string, place: Place): string[] {
-  const words = command
-    .replace(/["'\\]/g, "")
-    .split(/[\s;&|()<>`]+/)
+/** A command's words and redirect targets, from its pipelines or its raw text. */
+function wordsOf(command: string, pipelines?: Pipeline[] | null): string[] {
+  if (!pipelines) {
+    return command.replace(/["'\\]/g, "").split(/[\s;&|()<>`]+/);
+  }
+  return pipelines
+    .flat()
+    .flatMap(({ words, redirects }) => [
+      ...words,
+      ...redirects.map((r) => r.target),
+    ]);
+}
+
+/** Paths in a shell command (parsed into `pipelines` if given) that point outside the open folder. */
+export function outsidePaths(
+  command: string,
+  place: Place,
+  pipelines?: Pipeline[] | null,
+): string[] {
+  const words = wordsOf(command, pipelines)
     .map((word) => word.replace(/^[^=/~$.]*=/, ""))
     .filter((word) => PATH_LIKE.test(word));
   return words.filter((word) => {
@@ -66,11 +85,13 @@ function autoReason(
   toolName: string,
   input: Record<string, unknown>,
   place: Place,
+  parse?: ParseBash,
 ): string | null {
   if (toolName === "bash" && typeof input.command === "string") {
-    const danger = dangerousCommand(input.command);
+    const pipelines = parse?.(input.command);
+    const danger = dangerousCommand(input.command, pipelines);
     if (danger) return danger;
-    const [outside] = outsidePaths(input.command, place);
+    const [outside] = outsidePaths(input.command, place, pipelines);
     return outside ? outsideReason(outside, place) : null;
   }
   if (FILE_TOOLS.has(toolName) && typeof input.path === "string") {
@@ -82,16 +103,18 @@ function autoReason(
 
 /**
  * Whether a tool call must wait for the user, with the reason to show.
- * Null lets it run.
+ * Null lets it run. `parse` splits shell commands for a precise check;
+ * without it they are checked as raw text.
  */
 export function approvalFor(
   mode: ApprovalMode,
   toolName: string,
   input: Record<string, unknown>,
   place: Place,
+  parse?: ParseBash,
 ): { reason?: string } | null {
   if (mode === "manual") return {};
-  const reason = autoReason(toolName, input, place);
+  const reason = autoReason(toolName, input, place, parse);
   return reason === null ? null : { reason };
 }
 

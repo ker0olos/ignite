@@ -28,6 +28,7 @@ const cmd = (name: string, rest = "") =>
 export const DANGEROUS_COMMANDS: readonly {
   pattern: RegExp;
   reason: string;
+  rawText?: boolean;
 }[] = [
   {
     pattern: cmd(String.raw`rm\b`, `${RECURSIVE}${ARGS}\\s${BROAD}${END}`),
@@ -82,6 +83,8 @@ export const DANGEROUS_COMMANDS: readonly {
   {
     pattern: /(\w+|:)\s*\(\)\s*\{[^}]*\1\s*\|\s*\1\s*&/,
     reason: "Fork bomb",
+    // Parsing splits the function from its body, so match the whole text.
+    rawText: true,
   },
   {
     pattern: cmd(
@@ -217,6 +220,19 @@ export const DANGEROUS_COMMANDS: readonly {
 ];
 
 /**
+ * One command as the shell runs it: its words with quoting removed (quoted
+ * `; & | < >` become spaces) and its file redirects.
+ */
+export type SimpleCommand = {
+  words: string[];
+  redirects: { operator: string; target: string }[];
+};
+/** Commands joined by `|`; a lone command is a pipeline of one. */
+export type Pipeline = SimpleCommand[];
+/** Splits a command line into pipelines, or null when it can't be parsed. */
+export type ParseBash = (command: string) => Pipeline[] | null;
+
+/**
  * Removes the quoting tricks that hide a command from a pattern: `r''m`,
  * `"rm"` and `\rm` all run rm.
  */
@@ -224,11 +240,28 @@ function unquote(command: string): string {
   return command.replace(/\\(?=[^\n])/g, "").replace(/["']/g, "");
 }
 
-/** Why `command` needs approval under Auto, or null when it may run. */
-export function dangerousCommand(command: string): string | null {
-  const plain = unquote(command);
-  return (
-    DANGEROUS_COMMANDS.find(({ pattern }) => pattern.test(plain))?.reason ??
-    null
+const render = (pipeline: Pipeline) =>
+  pipeline
+    .map(({ words, redirects }) =>
+      [...words, ...redirects.map((r) => `${r.operator} ${r.target}`)].join(
+        " ",
+      ),
+    )
+    .join(" | ");
+
+/**
+ * Why `command` needs approval under Auto, or null when it may run. With
+ * `pipelines` (the parsed command) the rules check each pipeline, so quoted
+ * text and heredocs aren't mistaken for commands; without, the raw text.
+ */
+export function dangerousCommand(
+  command: string,
+  pipelines?: Pipeline[] | null,
+): string | null {
+  const raw = unquote(command);
+  const texts = pipelines ? pipelines.map(render) : [raw];
+  const rule = DANGEROUS_COMMANDS.find(({ pattern, rawText }) =>
+    (rawText ? [raw] : texts).some((text) => pattern.test(text)),
   );
+  return rule?.reason ?? null;
 }

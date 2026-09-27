@@ -12,6 +12,13 @@ import { parse as parseToml } from "smol-toml";
 import type { ApprovalMode, ApprovalRequest } from "../shared/hostProtocol.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { approvalFor, resolvePath } from "../src/lib/approvalPolicy.ts";
+import { loadBashParser } from "./bashParser.ts";
+
+// Without the grammar, commands are still checked, as raw text.
+const bashParser = loadBashParser().catch((error: unknown) => {
+  process.stderr.write(`pi-host: bash parser unavailable: ${error}\n`);
+  return undefined;
+});
 
 /** pi event bus channel carrying an ApprovalAsk to the host. */
 export const APPROVAL_EVENT = "app/approval";
@@ -64,7 +71,8 @@ export default function approval(pi: ExtensionAPI) {
   pi.on("tool_call", async (event, ctx) => {
     const { input, place } = await judged(event.input, ctx.cwd);
     const mode = await approvalMode();
-    const needed = approvalFor(mode, event.toolName, input, place);
+    const parse = await bashParser;
+    const needed = approvalFor(mode, event.toolName, input, place, parse);
     if (!needed) return;
     const approved = await new Promise<boolean>((resolve) => {
       // Stopping the run denies it.

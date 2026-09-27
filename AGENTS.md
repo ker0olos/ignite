@@ -64,7 +64,7 @@ src/                     React frontend (almost all logic lives here)
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
     utils.ts             `cn` class-name helper (shadcn)
-  test/                  Test setup and fake Tauri backends (fakeFs, fakeStore)
+  test/                  Test setup, fake Tauri backends (fakeFs, fakeStore), shared shell command cases
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
   main.ts                stdio wiring; pi's files live in ~/.ignition/pi
   host.ts                Request dispatch; createHost builds the handler
@@ -75,6 +75,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
+  bashParser.ts          Parses bash (tree-sitter) into pipelines for the approval rules
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
   hostMcpCatalog.ts      MCP presets and imports (toServerName, target, mcpCatalog, addPreset, importServers)
   hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, usableServer, copySignIn)
@@ -159,8 +160,13 @@ folder denies what's waiting. **Manual** asks for every tool call (built-in,
 MCP, everything). **Auto** asks only for bash commands on the denylist in
 `lib/dangerousCommands.ts` and for anything outside the open folder: file
 tools whose resolved path (symlinks followed) is outside it, and bash
-commands naming absolute, `~` or `..` paths outside it. The denylist is a
-guard against mistakes, not a sandbox; shell tricks can get past it.
+commands naming absolute, `~` or `..` paths outside it. Bash commands are
+parsed first (`sidecar/bashParser.ts`, tree-sitter's bash grammar): the
+rules check each pipeline's real words and redirects, including code run by
+`bash -c`, `eval`, `$(…)` or a heredoc fed to a shell, so quoted text and
+other heredocs aren't mistaken for commands. A line that doesn't parse is
+checked as raw text. The denylist is a guard against mistakes, not a
+sandbox; variables and scripts the agent writes can still get past it.
 
 Sessions open with the project untrusted, so a folder's own `.pi/`
 extensions, skills and settings never load unasked. When a folder has some
