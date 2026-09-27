@@ -27,6 +27,7 @@ import {
   type Session,
 } from "./host.ts";
 import { createLineSplitter } from "./lines.ts";
+import { findImports, PRESETS } from "./mcpCatalog.ts";
 import { createMcpStore } from "./mcpConfig.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
@@ -135,6 +136,7 @@ const host = createHost(
   openSession,
   { claudeCode: createClaudeCode(), usesCodexLogin: logins.usesCodex },
   createMcpStore(join(agentDir, "mcp.json")),
+  { presets: PRESETS, findImports: (cwd) => findImports(homedir(), cwd) },
 );
 
 const inFlight = new Set<Promise<void>>();

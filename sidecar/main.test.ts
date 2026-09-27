@@ -10,6 +10,7 @@ import type {
   McpServer,
   SessionState,
 } from "../shared/hostProtocol.ts";
+import { APP_NAME } from "../src/lib/app.ts";
 
 // Starts the real sidecar (real pi, real process) with a throwaway home
 // folder, so nothing touches the user's credentials.
@@ -219,7 +220,7 @@ describe("MCP servers in the sidecar", () => {
     await sidecar.stop();
 
     const saved = JSON.parse(
-      await readFile(join(home, ".unnamed-harness", "pi", "mcp.json"), "utf8"),
+      await readFile(join(home, `.${APP_NAME}`, "pi", "mcp.json"), "utf8"),
     );
     expect(saved.mcpServers.echo).toMatchObject({ disabled: true });
     expect(existsSync(marker)).toBe(false);

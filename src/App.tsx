@@ -37,7 +37,7 @@ export default function App() {
   const providers = useProviders();
   const connectScreen = useConnectScreen(providers.statuses);
   const session = useAgentSession(providers.host, current, providers.statuses);
-  const mcp = useMcpServers(providers.host);
+  const mcp = useMcpServers(providers.host, current);
   const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
   const [home, setHome] = useState("");

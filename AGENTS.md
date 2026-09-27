@@ -60,13 +60,14 @@ src/                     React frontend (almost all logic lives here)
     utils.ts             `cn` class-name helper (shadcn)
   test/                  Test setup and fake Tauri backends (fakeFs, fakeStore)
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
-  main.ts                stdio wiring; pi's files live in ~/.unnamed-harness/pi
+  main.ts                stdio wiring; pi's files live in ~/.ignition/pi
   host.ts                Handles requests against pi's ModelRuntime and AgentSession (tested with fakes)
   claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
   mcpConfig.ts           pi-mcp-adapter's mcp.json: read, edit servers, cached tool names
   mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
+  mcpCatalog.ts          One-click MCP presets, and other apps' MCP servers to import
   testMcpServer.ts       A one-tool stdio MCP server for tests
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
@@ -75,6 +76,8 @@ shared/agentTypes.ts     pi's messages and session events as they cross the wire
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
   dev-runner.sh          Runs `tauri dev` from a .app so Stage Manager shows the icon
+  icons/icon.svg         App icon source; after editing run `npx tauri icon src-tauri/icons/icon.svg`
+                         and delete the android/, ios/ and 64x64.png it also writes
   capabilities/          Permissions the frontend may use
   tests/config.rs        Guards on the config (write scope, hidden window)
 .github/workflows/ci.yml Build, typecheck, lint, format check, tests on macOS
@@ -82,12 +85,12 @@ src-tauri/               Rust shell: registers plugins, nothing else
 
 Two places hold persisted data:
 
-- **User settings** in `~/.unnamed-harness/settings.toml` (`lib/settings.ts`).
+- **User settings** in `~/.ignition/settings.toml` (`lib/settings.ts`).
   Human-editable; add new options to the `Settings` type and `DEFAULT_SETTINGS`.
 - **Themes:** the `theme` setting is `"system"` (GitHub Light/Dark following
   macOS) or a theme id. The chosen theme colours code and decides light or dark
   mode. Themes come from Shiki, from extensions installed in VS Code, VSCodium,
-  Cursor or Windsurf, or from `~/.unnamed-harness/themes/*.json`. Picking an
+  Cursor or Windsurf, or from `~/.ignition/themes/*.json`. Picking an
   editor theme copies it (includes merged) into that folder and saves the
   copy's id, so uninstalling the editor later can't break it; the copy records
   `importedFrom`, and the picker lists it once. Never read other editors'
@@ -95,7 +98,7 @@ Two places hold persisted data:
 - **Editor settings** (`[editor]` in settings.toml): `font_family` (CSS list,
   default Menlo) and `word_wrap` for the file viewer.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
-- **pi's own files** in `~/.unnamed-harness/pi`: credentials (`auth.json`),
+- **pi's own files** in `~/.ignition/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
   default for new sessions, and `sessions/`, one JSONL conversation per
   folder that reopening the folder continues. The model list and each model's effort levels
@@ -128,6 +131,10 @@ a project's `.mcp.json` or other apps' MCP configs. Servers connect on first
 use; the model reaches them through the adapter's `mcp` and `mcp__<server>`
 tools. Saving a change reloads the session (after the current run). Status
 comes from the adapter's event-bus channel; see the skill's mcp.md.
+Settings offers presets (the adapter's list plus a few of ours) and imports
+servers already set up in Claude Code (user, this folder's local scope,
+`.mcp.json`), Cursor, Codex and Claude Desktop. Those files are only read,
+when the MCP settings load; importing copies the entry into the app's mcp.json.
 
 Claude subscriptions run through the user's own Claude Code via the
 `pi-claude-bridge` extension (pi provider `claude-bridge`), because Anthropic

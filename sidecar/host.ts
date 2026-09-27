@@ -6,6 +6,7 @@ import {
   type AuthPromptData,
   type HostMessage,
   type HostRequest,
+  type McpCatalog,
   type McpServer,
   type McpServerStatus,
   type ModelInfo,
@@ -17,7 +18,20 @@ import {
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import type { ClaudeCode } from "./claudeCode.ts";
-import type { McpStore } from "./mcpConfig.ts";
+import type { McpEntry, McpStore } from "./mcpConfig.ts";
+import { needsSignIn, type ImportSource, type Preset } from "./mcpCatalog.ts";
+
+/** What the MCP settings offer to add in one click. */
+export type McpCatalogSource = {
+  presets: readonly Preset[];
+  /** Other apps' servers, including the open folder's when `cwd` is set. */
+  findImports(cwd: string | undefined): Promise<ImportSource[]>;
+};
+
+// Server names end up in tool names (mcp__<server>), so keep them simple.
+const toServerName = (name: string) => name.replace(/[^A-Za-z0-9_-]+/g, "-");
+const target = (e: McpEntry) =>
+  typeof e.url === "string" ? e.url : [e.command, ...(e.args ?? [])].join(" ");
 
 /** Sign-ins the app borrows from other tools on this Mac. */
 export type LocalLogins = {
@@ -126,6 +140,7 @@ export function createHost(
   openSession: OpenSession,
   local: LocalLogins,
   mcpStore: McpStore,
+  catalog: McpCatalogSource,
 ) {
   const { claudeCode } = local;
   let activeLogin: AbortController | null = null;
@@ -353,6 +368,51 @@ export function createHost(
     return mcpServers();
   }
 
+  async function mcpCatalog(cwd?: string): Promise<McpCatalog> {
+    const taken = new Set((await mcpStore.list()).map((m) => m.name));
+    const sources = await catalog.findImports(cwd);
+    return {
+      presets: catalog.presets.map((p) => ({
+        id: p.id,
+        name: p.name,
+        summary: p.summary,
+        signIn: needsSignIn(p.entry),
+        added: taken.has(p.id),
+      })),
+      sources: sources.map(({ id, app, scope, servers }) => ({
+        id,
+        app,
+        scope,
+        servers: Object.entries(servers).map(([name, entry]) => ({
+          name,
+          target: target(entry),
+          added: taken.has(toServerName(name)),
+        })),
+      })),
+    };
+  }
+
+  function addPreset(id: string) {
+    const preset = catalog.presets.find((p) => p.id === id);
+    if (!preset) throw new Error(`There is no preset named ${id}.`);
+    return changeMcp(() => mcpStore.add({ [preset.id]: preset.entry }));
+  }
+
+  async function importServers(
+    sourceId: string,
+    names: string[],
+    cwd?: string,
+  ) {
+    const source = (await catalog.findImports(cwd)).find(
+      (s) => s.id === sourceId,
+    );
+    if (!source) throw new Error("Those servers are no longer there.");
+    const entries = Object.entries(source.servers)
+      .filter(([name]) => names.includes(name))
+      .map(([name, entry]) => [toServerName(name), entry]);
+    return changeMcp(() => mcpStore.add(Object.fromEntries(entries)));
+  }
+
   async function reconnect(name: string) {
     const s = current();
     const server = (await mcpStore.list()).find((m) => m.name === name);
@@ -412,6 +472,12 @@ export function createHost(
         );
       case "mcp_reconnect":
         return reconnect(request.name);
+      case "mcp_catalog":
+        return mcpCatalog(request.cwd);
+      case "mcp_add_preset":
+        return addPreset(request.preset);
+      case "mcp_import":
+        return importServers(request.source, request.names, request.cwd);
     }
   }
 

@@ -18,7 +18,7 @@ export type McpForm = {
 
 export const EMPTY_FORM: McpForm = {
   name: "",
-  type: "stdio",
+  type: "http",
   command: "",
   args: "",
   env: "",
@@ -37,6 +37,7 @@ export function toForm({ name, config }: McpServer): McpForm {
     ? {
         ...EMPTY_FORM,
         name,
+        type: "stdio",
         command: config.command,
         args: config.args.join("\n"),
         env: formatPairs(config.env, "="),
@@ -44,7 +45,6 @@ export function toForm({ name, config }: McpServer): McpForm {
     : {
         ...EMPTY_FORM,
         name,
-        type: "http",
         url: config.url,
         headers: formatPairs(config.headers, ": "),
       };

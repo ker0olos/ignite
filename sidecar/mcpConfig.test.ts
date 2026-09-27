@@ -188,6 +188,18 @@ describe("createMcpStore", () => {
     expect(await createMcpStore(path).list()).toEqual([]);
   });
 
+  it("adds entries as they are, after the others, skipping taken names", async () => {
+    await writeMcpFile(path, { mcpServers: { a: { command: "old" } } });
+    await createMcpStore(path).add({
+      a: { command: "new" },
+      b: { url: "https://b", auth: "oauth" },
+    });
+    expect((await readMcpFile(path)).mcpServers).toEqual({
+      a: { command: "old" },
+      b: { url: "https://b", auth: "oauth" },
+    });
+  });
+
   it("lists servers with the tools cached for their current config", async () => {
     const docs = { command: "npx" };
     await writeMcpFile(path, {

@@ -9,7 +9,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { McpServer, ProviderStatus } from "../../shared/hostProtocol";
-import { McpServerControls, McpServerDialog } from "@/components/McpServers";
+import {
+  McpImportSources,
+  McpQuickAdd,
+  McpServerControls,
+  McpServerDialog,
+} from "@/components/McpServers";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -31,7 +36,6 @@ import {
   type CodeTheme,
 } from "@/lib/codeThemes";
 import type { useMcpServers } from "@/hooks/useMcpServers";
-import { APP_NAME } from "@/lib/app";
 import { describeServer, toolSummary } from "@/lib/mcpServers";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings";
 import { PROVIDER_GROUPS, groupConnection } from "@/lib/providerGroups";
@@ -39,7 +43,7 @@ import { cn } from "@/lib/utils";
 
 const SECTIONS = {
   Providers: { icon: Plug, blurb: "Accounts the agent signs in with." },
-  "MCP servers": {
+  MCP: {
     icon: Server,
     blurb: "Tools the agent can use from other apps and services.",
   },
@@ -125,14 +129,14 @@ export function SettingsDialog({
     ...(mcp.error
       ? [
           {
-            section: "MCP servers" as const,
+            section: "MCP" as const,
             title: "Something went wrong",
             description: mcp.error,
           },
         ]
       : []),
     ...(mcp.servers ?? []).map((server) => ({
-      section: "MCP servers" as const,
+      section: "MCP" as const,
       title: server.name,
       description: `${describeServer(server)} · ${toolSummary(server.tools)}`,
       keywords: `mcp server tool ${server.tools.join(" ")}`,
@@ -147,10 +151,11 @@ export function SettingsDialog({
       ),
     })),
     {
-      section: "MCP servers",
-      title: "Add a server",
-      description: `A local command or a remote URL. Saved in ~/.${APP_NAME}/pi/mcp.json.`,
-      keywords: "mcp server tool add new",
+      section: "MCP",
+      title: "Add a custom server",
+      description:
+        "Connect any MCP server by its URL, or run one as a local command.",
+      keywords: "mcp server tool add new import preset claude cursor codex",
       control: (
         <Button variant="outline" size="sm" onClick={() => setEditing("new")}>
           Add…
@@ -314,6 +319,28 @@ export function SettingsDialog({
                   <Row key={i.title} item={i} />
                 ))}
               </div>
+              {s === "MCP" && !!mcp.catalog?.sources.length && (
+                <div className="mt-4">
+                  <h3 className="mb-2 text-xs font-medium text-muted-foreground">
+                    Import from other apps
+                  </h3>
+                  <McpImportSources
+                    sources={mcp.catalog.sources}
+                    onImport={mcp.importServers}
+                  />
+                </div>
+              )}
+              {s === "MCP" && !!mcp.catalog?.presets.length && (
+                <div className="mt-4">
+                  <h3 className="mb-2 text-xs font-medium text-muted-foreground">
+                    Quick add
+                  </h3>
+                  <McpQuickAdd
+                    presets={mcp.catalog.presets}
+                    onAdd={mcp.addPreset}
+                  />
+                </div>
+              )}
             </section>
           ))}
         </div>

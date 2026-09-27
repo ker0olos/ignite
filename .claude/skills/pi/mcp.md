@@ -97,3 +97,22 @@ or `bearerToken` runs a shell command. Other per-server fields (`lifecycle`,
 6. **Its TypeScript fails strict `tsc`** (parameter properties, unused
    imports). `tsconfig.sidecar.json` maps `pi-mcp-adapter` to
    `sidecar/types/pi-mcp-adapter.d.ts`; update the shim on upgrades.
+
+## Presets and imports (`sidecar/mcpCatalog.ts`)
+
+- Presets: `KNOWN_SERVER_PRESETS` from `pi-mcp-adapter/config` (public
+  subpath) plus our own few (Playwright pinned, Sentry, Supabase, Linear with
+  `auth: "oauth"`). OAuth presets add fine but show "Needs sign-in" until MCP
+  sign-in exists (.todo).
+- Imports: the adapter's own import readers (`extractServers`, `IMPORT_PATHS`)
+  aren't exported and skip Claude Code's per-folder servers, so the app reads
+  the files itself: `~/.claude.json` (`mcpServers` and
+  `projects[<cwd>].mcpServers`), `<cwd>/.mcp.json`, `~/.cursor/mcp.json`,
+  `<cwd>/.cursor/mcp.json`, `~/.codex/config.toml` (`[mcp_servers.*]`,
+  `http_headers`), Claude Desktop's config. Only command/args/env or
+  url/headers are kept; the adapter's `url` covers both Streamable HTTP and
+  SSE, so Claude Code's `type` is dropped. Names are made safe for tool names
+  (`[A-Za-z0-9_-]`) on import.
+- The app passes the open folder as `cwd` with `mcp_catalog` / `mcp_import`
+  rather than relying on the session, so the answer never races a folder
+  switch.

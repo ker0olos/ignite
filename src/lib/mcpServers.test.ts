@@ -36,6 +36,7 @@ describe("toForm and readForm", () => {
     const form = toForm(local);
     expect(form).toEqual({
       ...EMPTY_FORM,
+      type: "stdio" as const,
       name: "files",
       command: "npx",
       args: "-y\n@mcp/files\n/tmp/a b",
@@ -61,6 +62,7 @@ describe("toForm and readForm", () => {
       readForm(
         {
           ...EMPTY_FORM,
+          type: "stdio" as const,
           name: " files ",
           command: " node ",
           args: " server.js \n\n --stdio",
@@ -81,7 +83,16 @@ describe("toForm and readForm", () => {
 
   it("ignores the other transport's fields", () => {
     expect(
-      readForm({ ...EMPTY_FORM, name: "x", command: "node", url: "?" }, []),
+      readForm(
+        {
+          ...EMPTY_FORM,
+          type: "stdio" as const,
+          name: "x",
+          command: "node",
+          url: "?",
+        },
+        [],
+      ),
     ).toMatchObject({ config: { type: "stdio" } });
   });
 
@@ -95,7 +106,13 @@ describe("toForm and readForm", () => {
     [{ command: "" }, "Enter a command."],
     [{ name: "files" }, "There is already a server named files."],
   ] as const)("reports %j", (fields, problem) => {
-    const form = { ...EMPTY_FORM, name: "x", command: "node", ...fields };
+    const form = {
+      ...EMPTY_FORM,
+      type: "stdio" as const,
+      name: "x",
+      command: "node",
+      ...fields,
+    };
     expect(readForm(form, ["files"])).toEqual({ problem });
   });
 });

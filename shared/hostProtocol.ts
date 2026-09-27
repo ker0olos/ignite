@@ -115,6 +115,32 @@ export type McpServer = {
   tools: string[];
 };
 
+/** Servers the MCP settings offer to add in one click. */
+export type McpCatalog = {
+  presets: {
+    id: string;
+    name: string;
+    summary: string;
+    /** Signs in with OAuth, which the app can't do yet. */
+    signIn: boolean;
+    /** A server with this name is already saved. */
+    added: boolean;
+  }[];
+  /** Other apps' servers found on this Mac. */
+  sources: {
+    id: string;
+    app: string;
+    /** "project": set up in that app for the open folder only. */
+    scope: "user" | "project";
+    servers: {
+      name: string;
+      /** The command or URL, to recognise it by. */
+      target: string;
+      added: boolean;
+    }[];
+  }[];
+};
+
 /** Messages the app sends. Those with an `id` get exactly one `response`. */
 export type HostRequest =
   | { id: number; type: "status" }
@@ -148,6 +174,17 @@ export type HostRequest =
   | { id: number; type: "mcp_remove"; name: string }
   | { id: number; type: "mcp_set_enabled"; name: string; enabled: boolean }
   | { id: number; type: "mcp_reconnect"; name: string }
+  /** `cwd`: the open folder, whose project servers other apps may have. */
+  | { id: number; type: "mcp_catalog"; cwd?: string }
+  | { id: number; type: "mcp_add_preset"; preset: string }
+  /** Copies servers from another app's config (see McpCatalog.sources). */
+  | {
+      id: number;
+      type: "mcp_import";
+      source: string;
+      names: string[];
+      cwd?: string;
+    }
   | { type: "prompt_answer"; promptId: number; value: string }
   | { type: "prompt_cancel"; promptId: number };
 
@@ -168,6 +205,9 @@ export type HostResponses = {
   mcp_remove: McpServer[];
   mcp_set_enabled: McpServer[];
   mcp_reconnect: McpServer[];
+  mcp_catalog: McpCatalog;
+  mcp_add_preset: McpServer[];
+  mcp_import: McpServer[];
 };
 
 /** Messages the sidecar sends. */

@@ -185,6 +185,16 @@ export function createMcpStore(path: string) {
       });
     },
 
+    /** Adds entries as they are, skipping names that are already taken. */
+    add(entries: Record<string, McpEntry>) {
+      return change((servers) => ({
+        ...servers,
+        ...Object.fromEntries(
+          Object.entries(entries).filter(([name]) => !(name in servers)),
+        ),
+      }));
+    },
+
     remove(name: string) {
       return change((servers) => {
         existing(servers, name);

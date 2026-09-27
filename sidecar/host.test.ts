@@ -14,13 +14,14 @@ import {
   createHost,
   describeError,
   toWireEvent,
+  type McpCatalogSource,
   type McpStatusSnapshot,
   type OpenSession,
   type Runtime,
   type Session,
 } from "./host.ts";
 import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
-import type { McpStore } from "./mcpConfig.ts";
+import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
 
 type Interaction = Parameters<Runtime["login"]>[2];
 
@@ -115,6 +116,18 @@ function fakeMcpStore(servers: SavedServer[] = []) {
         m.name === name ? { ...m, enabled } : m,
       );
     }),
+    add: vi.fn(async (entries: Record<string, McpEntry>) => {
+      const taken = store.servers.map((m) => m.name);
+      const added = Object.entries(entries)
+        .filter(([name]) => !taken.includes(name))
+        .map(([name, entry]) => ({
+          name,
+          enabled: true,
+          config: toConfig(entry),
+          tools: [],
+        }));
+      store.servers = [...store.servers, ...added];
+    }),
   };
   return store satisfies McpStore;
 }
@@ -134,6 +147,7 @@ function setup(
   claudeCode: ClaudeCode = fakeClaudeCode(),
   usesCodexLogin = async () => false,
   mcpStore: McpStore = fakeMcpStore(),
+  catalog: McpCatalogSource = { presets: [], findImports: async () => [] },
 ) {
   const sent: HostMessage[] = [];
   const host = createHost(
@@ -142,6 +156,7 @@ function setup(
     openSession,
     { claudeCode, usesCodexLogin },
     mcpStore,
+    catalog,
   );
   const responses = () => sent.filter((m) => m.type === "response");
   const request = async (r: HostRequest) => host.handle(r);
@@ -1149,5 +1164,153 @@ describe("toWireEvent", () => {
   it("leaves events other than message_update alone", () => {
     const event = { type: "message_end", message: { role: "user" } };
     expect(toWireEvent(event as SessionEvent)).toBe(event);
+  });
+});
+
+describe("MCP catalog", () => {
+  const stdio = { command: "npx", args: ["-y", "pkg"] };
+  const presets = [
+    {
+      id: "context7",
+      name: "Context7",
+      summary: "Docs.",
+      entry: { url: "https://c7" },
+    },
+    {
+      id: "sentry",
+      name: "Sentry",
+      summary: "Errors.",
+      entry: { url: "https://sentry", auth: "oauth" },
+    },
+  ];
+  const sources = [
+    {
+      id: "claude-code",
+      app: "Claude Code",
+      scope: "user" as const,
+      servers: {
+        "my docs": { url: "https://docs" },
+        blender: stdio,
+        bare: { command: "uvx" },
+      },
+    },
+  ];
+
+  function withCatalog() {
+    const store = fakeMcpStore([
+      {
+        name: "context7",
+        enabled: true,
+        config: toConfig({ url: "https://c7" }),
+        tools: [],
+      },
+    ]);
+    const cwds: (string | undefined)[] = [];
+    const ctx = setup(
+      fakeRuntime().runtime,
+      undefined,
+      undefined,
+      undefined,
+      store,
+      {
+        presets,
+        findImports: async (cwd) => {
+          cwds.push(cwd);
+          return sources;
+        },
+      },
+    );
+    return { ...ctx, store, cwds };
+  }
+
+  const data = <T>(r: HostMessage) => (r as { data: T }).data;
+
+  it("lists presets and other apps' servers, marking what's already added", async () => {
+    const { request, responses, cwds } = withCatalog();
+    await request({ id: 1, type: "mcp_catalog" });
+    expect(data(responses()[0])).toEqual({
+      presets: [
+        {
+          id: "context7",
+          name: "Context7",
+          summary: "Docs.",
+          signIn: false,
+          added: true,
+        },
+        {
+          id: "sentry",
+          name: "Sentry",
+          summary: "Errors.",
+          signIn: true,
+          added: false,
+        },
+      ],
+      sources: [
+        {
+          id: "claude-code",
+          app: "Claude Code",
+          scope: "user",
+          servers: [
+            { name: "my docs", target: "https://docs", added: false },
+            { name: "blender", target: "npx -y pkg", added: false },
+            { name: "bare", target: "uvx", added: false },
+          ],
+        },
+      ],
+    });
+    expect(cwds).toEqual([undefined]);
+  });
+
+  it("looks for project servers in the given folder", async () => {
+    const { request, cwds } = withCatalog();
+    await request({ id: 1, type: "mcp_catalog", cwd: "/work" });
+    await request({
+      id: 2,
+      type: "mcp_import",
+      source: "claude-code",
+      names: [],
+      cwd: "/work",
+    });
+    expect(cwds).toEqual(["/work", "/work"]);
+  });
+
+  it("adds a preset under its id", async () => {
+    const { request, responses, store } = withCatalog();
+    await request({ id: 1, type: "mcp_add_preset", preset: "sentry" });
+    expect(store.add).toHaveBeenCalledWith({ sentry: presets[1].entry });
+    expect(data<{ name: string }[]>(responses()[0]).map((s) => s.name)).toEqual(
+      ["context7", "sentry"],
+    );
+  });
+
+  it("refuses an unknown preset", async () => {
+    const { request, responses } = withCatalog();
+    await request({ id: 1, type: "mcp_add_preset", preset: "nope" });
+    expect(responses()[0]).toMatchObject({
+      ok: false,
+      error: "There is no preset named nope.",
+    });
+  });
+
+  it("imports the chosen servers, making their names safe for tool names", async () => {
+    const { request, store } = withCatalog();
+    await request({
+      id: 1,
+      type: "mcp_import",
+      source: "claude-code",
+      names: ["my docs"],
+    });
+    expect(store.add).toHaveBeenCalledWith({
+      "my-docs": { url: "https://docs" },
+    });
+  });
+
+  it("refuses an import from a source that's gone", async () => {
+    const { request, responses } = withCatalog();
+    await request({ id: 1, type: "mcp_import", source: "cursor", names: [] });
+    expect(responses()[0]).toMatchObject({
+      ok: false,
+      error: "Those servers are no longer there.",
+    });
   });
 });
