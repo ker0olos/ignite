@@ -87,6 +87,60 @@ export type OpenedSession = SessionState & {
   running: boolean;
 };
 
+/** How to reach an MCP server: a local command (stdio) or a URL (HTTP). */
+export type McpServerConfig =
+  | {
+      type: "stdio";
+      command: string;
+      args: string[];
+      env: Record<string, string>;
+    }
+  | { type: "http"; url: string; headers: Record<string, string> };
+
+/**
+ * A server in the open folder's session. pi-mcp-adapter connects servers on
+ * first use, so "idle" is the normal state of a working server.
+ */
+export type McpServerStatus =
+  "connected" | "idle" | "failed" | "needs-auth" | "disabled";
+
+/** A server saved in pi's mcp.json, with what the session knows about it. */
+export type McpServer = {
+  name: string;
+  enabled: boolean;
+  config: McpServerConfig;
+  /** Unset while no folder is open: servers only run inside a session. */
+  status?: McpServerStatus;
+  /** Tool names from its last connection; empty until it has connected once. */
+  tools: string[];
+};
+
+/** Servers the MCP settings offer to add in one click. */
+export type McpCatalog = {
+  presets: {
+    id: string;
+    name: string;
+    summary: string;
+    /** Signs in with OAuth, which the app can't do yet. */
+    signIn: boolean;
+    /** A server with this name is already saved. */
+    added: boolean;
+  }[];
+  /** Other apps' servers found on this Mac. */
+  sources: {
+    id: string;
+    app: string;
+    /** "project": set up in that app for the open folder only. */
+    scope: "user" | "project";
+    servers: {
+      name: string;
+      /** The command or URL, to recognise it by. */
+      target: string;
+      added: boolean;
+    }[];
+  }[];
+};
+
 /** Messages the app sends. Those with an `id` get exactly one `response`. */
 export type HostRequest =
   | { id: number; type: "status" }
@@ -108,6 +162,29 @@ export type HostRequest =
   /** Resolves once pi has accepted the message; the run streams as events. */
   | { id: number; type: "prompt"; text: string }
   | { id: number; type: "abort" }
+  | { id: number; type: "mcp_list" }
+  /** Adds a server, or replaces `previousName` (which may differ, to rename). */
+  | {
+      id: number;
+      type: "mcp_save";
+      name: string;
+      config: McpServerConfig;
+      previousName?: string;
+    }
+  | { id: number; type: "mcp_remove"; name: string }
+  | { id: number; type: "mcp_set_enabled"; name: string; enabled: boolean }
+  | { id: number; type: "mcp_reconnect"; name: string }
+  /** `cwd`: the open folder, whose project servers other apps may have. */
+  | { id: number; type: "mcp_catalog"; cwd?: string }
+  | { id: number; type: "mcp_add_preset"; preset: string }
+  /** Copies servers from another app's config (see McpCatalog.sources). */
+  | {
+      id: number;
+      type: "mcp_import";
+      source: string;
+      names: string[];
+      cwd?: string;
+    }
   | { type: "prompt_answer"; promptId: number; value: string }
   | { type: "prompt_cancel"; promptId: number };
 
@@ -123,6 +200,14 @@ export type HostResponses = {
   set_thinking_level: SessionState;
   prompt: undefined;
   abort: undefined;
+  mcp_list: McpServer[];
+  mcp_save: McpServer[];
+  mcp_remove: McpServer[];
+  mcp_set_enabled: McpServer[];
+  mcp_reconnect: McpServer[];
+  mcp_catalog: McpCatalog;
+  mcp_add_preset: McpServer[];
+  mcp_import: McpServer[];
 };
 
 /** Messages the sidecar sends. */
@@ -136,7 +221,9 @@ export type HostMessage =
   | { type: "auth_prompt_closed"; promptId: number }
   | { type: "session_event"; event: SessionEvent }
   /** A run pi accepted but couldn't carry out (e.g. no model or credentials). */
-  | { type: "session_error"; error: string };
+  | { type: "session_error"; error: string }
+  /** The MCP servers changed (a status, or a saved change). */
+  | { type: "mcp_servers"; servers: McpServer[] };
 
 /**
  * pi interprets stored keys: a leading `!` runs a shell command and `$NAME`
@@ -151,4 +238,28 @@ export function apiKeyProblem(key: string): string | null {
   }
   if (/\s/.test(trimmed)) return "API keys can't contain spaces.";
   return null;
+}
+
+/**
+ * Checks a server before it is saved; `taken` holds the other servers' names.
+ * Names become part of tool names, so they stay simple. Returns a message, or
+ * null.
+ */
+export function mcpServerProblem(
+  name: string,
+  config: McpServerConfig,
+  taken: readonly string[],
+): string | null {
+  if (!name) return "Enter a name.";
+  if (!/^[A-Za-z0-9_-]+$/.test(name)) {
+    return "Use only letters, numbers, - and _ in the name.";
+  }
+  if (taken.includes(name)) return `There is already a server named ${name}.`;
+  if (config.type === "stdio") {
+    return config.command.trim() ? null : "Enter a command.";
+  }
+  return URL.canParse(config.url) &&
+    ["http:", "https:"].includes(new URL(config.url).protocol)
+    ? null
+    : "Enter an http:// or https:// URL.";
 }

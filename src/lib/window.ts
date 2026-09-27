@@ -5,7 +5,7 @@ import {
   LogicalSize,
 } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { APP_NAME } from "./app";
+import { APP_TITLE } from "./app";
 
 // ponytail: 160pt gutter for Stage Manager's strip, macOS exposes no API for its width
 const STAGE_MANAGER_STRIP = 160;
@@ -36,7 +36,7 @@ export async function fitToScreenAndShow() {
  * window.test.ts fails if they drift apart.
  */
 export const NEW_WINDOW_OPTIONS = {
-  title: APP_NAME,
+  title: APP_TITLE,
   width: 900,
   height: 600,
   minWidth: 720,

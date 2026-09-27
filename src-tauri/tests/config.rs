@@ -35,7 +35,8 @@ fn product_name() -> String {
 #[test]
 fn frontend_can_only_write_inside_the_settings_folder() {
     let capability = read_json("capabilities/default.json");
-    let settings_dir = format!("$HOME/.{}", product_name());
+    // The folder is the lowercase app name; productName is its display title.
+    let settings_dir = format!("$HOME/.{}", product_name().to_lowercase());
     for needle in ["write", "mkdir", "remove", "rename", "copy", "truncate"] {
         for path in scoped_paths(&capability, needle) {
             assert!(

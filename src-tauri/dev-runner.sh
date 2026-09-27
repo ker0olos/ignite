@@ -12,8 +12,9 @@ while [ $# -gt 0 ] && [ "$1" != -- ]; do cargo_args+=("$1"); shift; done
 cargo build "${cargo_args[@]}"
 
 name=$(sed -n 's/^name = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+title=$(sed -n 's/^  "productName": "\(.*\)",$/\1/p' tauri.conf.json)
 target=${CARGO_TARGET_DIR:-target}/debug
-app="$target/$name.app/Contents"
+app="$target/$title.app/Contents"
 mkdir -p "$app/MacOS" "$app/Resources"
 cp -f icons/icon.icns "$app/Resources/icon.icns"
 cp -f "$target/$name" "$app/MacOS/$name"
@@ -24,7 +25,7 @@ cat > "$app/Info.plist" <<EOF
 <dict>
   <key>CFBundleExecutable</key><string>$name</string>
   <key>CFBundleIdentifier</key><string>dev.$name</string>
-  <key>CFBundleName</key><string>$name</string>
+  <key>CFBundleName</key><string>$title</string>
   <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>NSHighResolutionCapable</key><true/>

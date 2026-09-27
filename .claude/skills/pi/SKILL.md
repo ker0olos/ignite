@@ -1,6 +1,6 @@
 ---
 name: pi
-description: How this app embeds and drives the pi coding agent (@earendil-works/pi-coding-agent 0.87.x) — auth and provider login (Claude Pro/Max, ChatGPT/Codex, API keys) via ModelRuntime, running pi as a Node sidecar over RPC, sessions, events, tools, permissions and project trust. Use before writing or reviewing any code that talks to pi, adds agent features, or touches provider credentials.
+description: How this app embeds and drives the pi coding agent (@earendil-works/pi-coding-agent 0.87.x) — auth and provider login (Claude Pro/Max, ChatGPT/Codex, API keys) via ModelRuntime, running pi as a Node sidecar over RPC, sessions, events, tools, permissions and project trust, MCP servers (pi-mcp-adapter). Use before writing or reviewing any code that talks to pi, adds agent features, or touches provider credentials.
 ---
 
 # pi in this app
@@ -40,6 +40,9 @@ filesystem and shell). The app talks to the sidecar; the sidecar uses pi.
   events, extension UI dialogs, the SDK alternative, packaging, network.
 - [sessions.md](sessions.md) — sessions, agent dir, tools, permissions,
   project trust, context files, compaction.
+- [mcp.md](mcp.md): MCP servers through pi-mcp-adapter: isolated config,
+  status channel, reconnect, and extension lifecycle traps (bindExtensions,
+  session_shutdown).
 
 ## Traps (each has bitten someone)
 
@@ -63,3 +66,6 @@ filesystem and shell). The app talks to the sidecar; the sidecar uses pi.
     `${VAR}` interpolate. Store user-typed keys so they stay literal.
 11. **The `tools` option is a name allowlist** (`string[]`), not tool objects,
     whatever older examples show.
+12. **SDK sessions don't start extensions by themselves.** Call
+    `session.bindExtensions({...})` for `session_start`, and emit
+    `session_shutdown` before `dispose()` (see mcp.md).

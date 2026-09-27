@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   HostMessage,
   HostRequest,
+  McpServer,
+  McpServerConfig,
   ModelInfo,
   ProviderStatus,
   ThinkingLevel,
@@ -12,10 +14,14 @@ import {
   createHost,
   describeError,
   toWireEvent,
+  type McpCatalogSource,
+  type McpStatusSnapshot,
+  type OpenSession,
   type Runtime,
   type Session,
 } from "./host.ts";
 import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
+import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
 
 type Interaction = Parameters<Runtime["login"]>[2];
 
@@ -77,9 +83,53 @@ function fakeSession() {
     emit: (e: SessionEvent) => session.listeners.forEach((cb) => cb(e)),
     prompt: vi.fn(async () => {}),
     abort: vi.fn(async () => {}),
+    reload: vi.fn(async () => {}),
+    extensionRunner: {
+      emit: vi.fn(async () => {}),
+      getCommand: vi.fn((name: string): unknown => name === "mcp" || undefined),
+    },
     dispose: vi.fn(),
   };
   return session satisfies Session;
+}
+
+type SavedServer = Omit<McpServer, "status">;
+
+/** A fake mcp.json: servers in memory. */
+function fakeMcpStore(servers: SavedServer[] = []) {
+  const store = {
+    servers,
+    list: vi.fn(async () => store.servers),
+    save: vi.fn(
+      async (name: string, config: McpServerConfig, previousName?: string) => {
+        const others = store.servers.filter(
+          (m) => m.name !== (previousName ?? name),
+        );
+        store.servers = [...others, { name, enabled: true, config, tools: [] }];
+      },
+    ),
+    remove: vi.fn(async (name: string) => {
+      store.servers = store.servers.filter((m) => m.name !== name);
+    }),
+    setEnabled: vi.fn(async (name: string, enabled: boolean) => {
+      store.servers = store.servers.map((m) =>
+        m.name === name ? { ...m, enabled } : m,
+      );
+    }),
+    add: vi.fn(async (entries: Record<string, McpEntry>) => {
+      const taken = store.servers.map((m) => m.name);
+      const added = Object.entries(entries)
+        .filter(([name]) => !taken.includes(name))
+        .map(([name, entry]) => ({
+          name,
+          enabled: true,
+          config: toConfig(entry),
+          tools: [],
+        }));
+      store.servers = [...store.servers, ...added];
+    }),
+  };
+  return store satisfies McpStore;
 }
 
 /** A fake Claude Code install; signed out unless told otherwise. */
@@ -93,15 +143,21 @@ function fakeClaudeCode(
 /** Wires a host to a fake runtime and records everything it sends. */
 function setup(
   runtime: Runtime,
-  openSession: (cwd: string) => Promise<Session> = async () => fakeSession(),
+  openSession: OpenSession = async () => fakeSession(),
   claudeCode: ClaudeCode = fakeClaudeCode(),
   usesCodexLogin = async () => false,
+  mcpStore: McpStore = fakeMcpStore(),
+  catalog: McpCatalogSource = { presets: [], findImports: async () => [] },
 ) {
   const sent: HostMessage[] = [];
-  const host = createHost(runtime, (m) => sent.push(m), openSession, {
-    claudeCode,
-    usesCodexLogin,
-  });
+  const host = createHost(
+    runtime,
+    (m) => sent.push(m),
+    openSession,
+    { claudeCode, usesCodexLogin },
+    mcpStore,
+    catalog,
+  );
   const responses = () => sent.filter((m) => m.type === "response");
   const request = async (r: HostRequest) => host.handle(r);
   return { host, sent, responses, request };
@@ -601,7 +657,7 @@ describe("sessions", () => {
     const openSession = vi.fn(async () => fakeSession());
     const { request, responses } = setup(fakeRuntime().runtime, openSession);
     await request({ id: 1, type: "open_session", cwd: "/work" });
-    expect(openSession).toHaveBeenCalledWith("/work");
+    expect(openSession).toHaveBeenCalledWith("/work", expect.any(Function));
     expect(responses()[0]).toEqual({
       type: "response",
       id: 1,
@@ -642,15 +698,24 @@ describe("sessions", () => {
     expect(data.model).toBeUndefined();
   });
 
-  it("disposes the previous session when another folder opens", async () => {
+  it("shuts the previous session's extensions down when another folder opens", async () => {
     const first = fakeSession();
+    const order: string[] = [];
+    first.extensionRunner.emit.mockImplementation(async () => {
+      order.push("shutdown");
+    });
+    first.dispose.mockImplementation(() => order.push("dispose"));
     const sessions = [first, fakeSession()];
     const { request } = setup(fakeRuntime().runtime, async () =>
       sessions.shift()!,
     );
     await request({ id: 1, type: "open_session", cwd: "/a" });
     await request({ id: 2, type: "open_session", cwd: "/b" });
-    expect(first.dispose).toHaveBeenCalled();
+    expect(first.extensionRunner.emit).toHaveBeenCalledWith({
+      type: "session_shutdown",
+      reason: "quit",
+    });
+    expect(order).toEqual(["shutdown", "dispose"]);
   });
 
   it("switches model through pi, keeping it for the next session", async () => {
@@ -819,9 +884,433 @@ describe("sessions", () => {
   });
 });
 
+describe("MCP servers", () => {
+  const stdio: McpServerConfig = {
+    type: "stdio",
+    command: "npx",
+    args: ["-y", "docs-mcp"],
+    env: {},
+  };
+  const docs = {
+    name: "docs",
+    enabled: true,
+    config: stdio,
+    tools: ["search"],
+  };
+  const off = { name: "off", enabled: false, config: stdio, tools: [] };
+
+  /**
+   * A host with a folder open. `status` sends the first session's adapter
+   * status; `sent` starts empty once the host has settled.
+   */
+  async function withSession(servers: SavedServer[] = [docs, off]) {
+    const session = fakeSession();
+    const store = fakeMcpStore(servers);
+    const listeners: ((snapshot: McpStatusSnapshot) => void)[] = [];
+    const openSession: OpenSession = async (_cwd, onMcpStatus) => {
+      listeners.push(onMcpStatus);
+      return listeners.length === 1 ? session : fakeSession();
+    };
+    const ctx = setup(
+      fakeRuntime().runtime,
+      openSession,
+      fakeClaudeCode(),
+      async () => false,
+      store,
+    );
+    await ctx.request({ id: 1, type: "open_session", cwd: "/work" });
+    await settle();
+    ctx.sent.splice(0);
+    const status = (s: McpStatusSnapshot) => listeners[0](s);
+    return { ...ctx, session, store, status };
+  }
+
+  const settle = () => new Promise((r) => setTimeout(r));
+
+  it("lists saved servers without a status while no folder is open", async () => {
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      undefined,
+      undefined,
+      undefined,
+      fakeMcpStore([docs]),
+    );
+    await request({ id: 1, type: "mcp_list" });
+    expect(responses()[0]).toEqual({
+      type: "response",
+      id: 1,
+      ok: true,
+      data: [docs],
+    });
+  });
+
+  it("shows servers the adapter hasn't reported as idle, and disabled ones as off", async () => {
+    const { request, responses } = await withSession();
+    await request({ id: 2, type: "mcp_list" });
+    expect(responses()[0]).toMatchObject({
+      data: [
+        { name: "docs", status: "idle" },
+        { name: "off", status: "disabled" },
+      ],
+    });
+  });
+
+  it.each([
+    ["connected", "connected"],
+    ["cached", "idle"],
+    ["not-connected", "idle"],
+    ["failed", "failed"],
+    ["needs-auth", "needs-auth"],
+    ["disabled", "disabled"],
+    ["something-new", "idle"],
+  ])("pushes the adapter's %s status as %s", async (adapter, shown) => {
+    const { sent, status } = await withSession([docs]);
+    status({ servers: [{ name: "docs", status: adapter }] });
+    expect(await waitFor(sent, "mcp_servers")).toEqual({
+      type: "mcp_servers",
+      servers: [{ ...docs, status: shown }],
+    });
+  });
+
+  it("pushes the servers' status once a folder opens", async () => {
+    const { request, sent } = setup(
+      fakeRuntime().runtime,
+      undefined,
+      undefined,
+      undefined,
+      fakeMcpStore([docs, off]),
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    expect(await waitFor(sent, "mcp_servers")).toMatchObject({
+      servers: [{ status: "idle" }, { status: "disabled" }],
+    });
+  });
+
+  it("keeps status the adapter reports while the session is opening", async () => {
+    const openSession: OpenSession = async (_cwd, onMcpStatus) => {
+      onMcpStatus({ servers: [{ name: "docs", status: "connected" }] });
+      return fakeSession();
+    };
+    const { request, sent } = setup(
+      fakeRuntime().runtime,
+      openSession,
+      undefined,
+      undefined,
+      fakeMcpStore([docs]),
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await settle();
+    expect(sent.filter((m) => m.type === "mcp_servers")).toEqual([
+      { type: "mcp_servers", servers: [{ ...docs, status: "connected" }] },
+    ]);
+  });
+
+  it("ignores status from a session that was replaced", async () => {
+    const { request, sent, status } = await withSession();
+    await request({ id: 2, type: "open_session", cwd: "/other" });
+    await settle();
+    sent.splice(0);
+    status({ servers: [{ name: "docs", status: "connected" }] });
+    await settle();
+    expect(sent).toEqual([]);
+  });
+
+  it("pushes nothing when mcp.json can't be read", async () => {
+    const { sent, status, store } = await withSession();
+    store.list.mockRejectedValue(new Error("bad json"));
+    status({ servers: [] });
+    await settle();
+    expect(sent).toEqual([]);
+  });
+
+  it("saves a server and reloads the session so it applies", async () => {
+    const { request, responses, session, store } = await withSession([]);
+    await request({ id: 2, type: "mcp_save", name: "docs", config: stdio });
+    expect(store.save).toHaveBeenCalledWith("docs", stdio, undefined);
+    expect(session.reload).toHaveBeenCalled();
+    expect(responses()[0]).toMatchObject({
+      ok: true,
+      data: [{ name: "docs", status: "idle" }],
+    });
+  });
+
+  it("passes the old name when renaming", async () => {
+    const { request, store } = await withSession();
+    await request({
+      id: 2,
+      type: "mcp_save",
+      name: "docs2",
+      config: stdio,
+      previousName: "docs",
+    });
+    expect(store.save).toHaveBeenCalledWith("docs2", stdio, "docs");
+  });
+
+  it("saves without a session and reloads nothing", async () => {
+    const store = fakeMcpStore();
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      undefined,
+      undefined,
+      undefined,
+      store,
+    );
+    await request({ id: 1, type: "mcp_save", name: "docs", config: stdio });
+    expect(responses()[0]).toMatchObject({
+      ok: true,
+      data: [{ name: "docs", enabled: true }],
+    });
+  });
+
+  it("waits for the run to end before reloading", async () => {
+    const { request, session } = await withSession();
+    session.isStreaming = true;
+    await request({ id: 2, type: "mcp_remove", name: "docs" });
+    expect(session.reload).not.toHaveBeenCalled();
+    session.emit({ type: "agent_settled" } as SessionEvent);
+    expect(session.reload).toHaveBeenCalledTimes(1);
+    session.emit({ type: "agent_settled" } as SessionEvent);
+    expect(session.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a reload that fails after the run", async () => {
+    const { request, session, sent } = await withSession();
+    session.isStreaming = true;
+    session.reload.mockRejectedValue(new Error("extension broke"));
+    await request({
+      id: 2,
+      type: "mcp_set_enabled",
+      name: "docs",
+      enabled: false,
+    });
+    session.emit({ type: "agent_settled" } as SessionEvent);
+    expect(await waitFor(sent, "session_error")).toEqual({
+      type: "session_error",
+      error: "extension broke",
+    });
+  });
+
+  it("turns a server off and on", async () => {
+    const { request, responses, store } = await withSession();
+    await request({
+      id: 2,
+      type: "mcp_set_enabled",
+      name: "docs",
+      enabled: false,
+    });
+    expect(store.setEnabled).toHaveBeenCalledWith("docs", false);
+    expect(responses()[0]).toMatchObject({
+      data: [{ name: "docs", enabled: false, status: "disabled" }, off],
+    });
+  });
+
+  it("removes a server", async () => {
+    const { request, responses, store } = await withSession();
+    await request({ id: 2, type: "mcp_remove", name: "off" });
+    expect(store.remove).toHaveBeenCalledWith("off");
+    expect(responses()[0]).toMatchObject({ data: [{ name: "docs" }] });
+  });
+
+  it("reports a change mcp.json refused", async () => {
+    const { request, responses, session, store } = await withSession();
+    store.save.mockRejectedValue(new Error("Enter a command."));
+    await request({ id: 2, type: "mcp_save", name: "x", config: stdio });
+    expect(responses()[0]).toMatchObject({
+      ok: false,
+      error: "Enter a command.",
+    });
+    expect(session.reload).not.toHaveBeenCalled();
+  });
+
+  it("reconnects a server with the adapter's command", async () => {
+    const { request, responses, session } = await withSession();
+    await request({ id: 2, type: "mcp_reconnect", name: "docs" });
+    expect(session.prompt).toHaveBeenCalledWith("/mcp reconnect docs", {});
+    expect(responses()[0]).toMatchObject({ ok: true });
+  });
+
+  it.each([
+    ["missing", "There is no server named missing."],
+    ["off", "Turn off on first."],
+  ])("won't reconnect %s", async (name, error) => {
+    const { request, responses, session } = await withSession();
+    await request({ id: 2, type: "mcp_reconnect", name });
+    expect(responses()[0]).toMatchObject({ ok: false, error });
+    expect(session.prompt).not.toHaveBeenCalled();
+  });
+
+  it("won't send the command to the model when the adapter isn't loaded", async () => {
+    const { request, responses, session } = await withSession();
+    session.extensionRunner.getCommand.mockReturnValue(undefined);
+    await request({ id: 2, type: "mcp_reconnect", name: "docs" });
+    expect(responses()[0]).toMatchObject({
+      ok: false,
+      error: "MCP isn't running in this session. Check mcp.json.",
+    });
+    expect(session.prompt).not.toHaveBeenCalled();
+  });
+
+  it("can't reconnect before a folder is open", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime);
+    await request({ id: 1, type: "mcp_reconnect", name: "docs" });
+    expect(responses()[0]).toMatchObject({
+      ok: false,
+      error: "No folder is open.",
+    });
+  });
+});
+
 describe("toWireEvent", () => {
   it("leaves events other than message_update alone", () => {
     const event = { type: "message_end", message: { role: "user" } };
     expect(toWireEvent(event as SessionEvent)).toBe(event);
+  });
+});
+
+describe("MCP catalog", () => {
+  const stdio = { command: "npx", args: ["-y", "pkg"] };
+  const presets = [
+    {
+      id: "context7",
+      name: "Context7",
+      summary: "Docs.",
+      entry: { url: "https://c7" },
+    },
+    {
+      id: "sentry",
+      name: "Sentry",
+      summary: "Errors.",
+      entry: { url: "https://sentry", auth: "oauth" },
+    },
+  ];
+  const sources = [
+    {
+      id: "claude-code",
+      app: "Claude Code",
+      scope: "user" as const,
+      servers: {
+        "my docs": { url: "https://docs" },
+        blender: stdio,
+        bare: { command: "uvx" },
+      },
+    },
+  ];
+
+  function withCatalog() {
+    const store = fakeMcpStore([
+      {
+        name: "context7",
+        enabled: true,
+        config: toConfig({ url: "https://c7" }),
+        tools: [],
+      },
+    ]);
+    const cwds: (string | undefined)[] = [];
+    const ctx = setup(
+      fakeRuntime().runtime,
+      undefined,
+      undefined,
+      undefined,
+      store,
+      {
+        presets,
+        findImports: async (cwd) => {
+          cwds.push(cwd);
+          return sources;
+        },
+      },
+    );
+    return { ...ctx, store, cwds };
+  }
+
+  const data = <T>(r: HostMessage) => (r as { data: T }).data;
+
+  it("lists presets and other apps' servers, marking what's already added", async () => {
+    const { request, responses, cwds } = withCatalog();
+    await request({ id: 1, type: "mcp_catalog" });
+    expect(data(responses()[0])).toEqual({
+      presets: [
+        {
+          id: "context7",
+          name: "Context7",
+          summary: "Docs.",
+          signIn: false,
+          added: true,
+        },
+        {
+          id: "sentry",
+          name: "Sentry",
+          summary: "Errors.",
+          signIn: true,
+          added: false,
+        },
+      ],
+      sources: [
+        {
+          id: "claude-code",
+          app: "Claude Code",
+          scope: "user",
+          servers: [
+            { name: "my docs", target: "https://docs", added: false },
+            { name: "blender", target: "npx -y pkg", added: false },
+            { name: "bare", target: "uvx", added: false },
+          ],
+        },
+      ],
+    });
+    expect(cwds).toEqual([undefined]);
+  });
+
+  it("looks for project servers in the given folder", async () => {
+    const { request, cwds } = withCatalog();
+    await request({ id: 1, type: "mcp_catalog", cwd: "/work" });
+    await request({
+      id: 2,
+      type: "mcp_import",
+      source: "claude-code",
+      names: [],
+      cwd: "/work",
+    });
+    expect(cwds).toEqual(["/work", "/work"]);
+  });
+
+  it("adds a preset under its id", async () => {
+    const { request, responses, store } = withCatalog();
+    await request({ id: 1, type: "mcp_add_preset", preset: "sentry" });
+    expect(store.add).toHaveBeenCalledWith({ sentry: presets[1].entry });
+    expect(data<{ name: string }[]>(responses()[0]).map((s) => s.name)).toEqual(
+      ["context7", "sentry"],
+    );
+  });
+
+  it("refuses an unknown preset", async () => {
+    const { request, responses } = withCatalog();
+    await request({ id: 1, type: "mcp_add_preset", preset: "nope" });
+    expect(responses()[0]).toMatchObject({
+      ok: false,
+      error: "There is no preset named nope.",
+    });
+  });
+
+  it("imports the chosen servers, making their names safe for tool names", async () => {
+    const { request, store } = withCatalog();
+    await request({
+      id: 1,
+      type: "mcp_import",
+      source: "claude-code",
+      names: ["my docs"],
+    });
+    expect(store.add).toHaveBeenCalledWith({
+      "my-docs": { url: "https://docs" },
+    });
+  });
+
+  it("refuses an import from a source that's gone", async () => {
+    const { request, responses } = withCatalog();
+    await request({ id: 1, type: "mcp_import", source: "cursor", names: [] });
+    expect(responses()[0]).toMatchObject({
+      ok: false,
+      error: "Those servers are no longer there.",
+    });
   });
 });

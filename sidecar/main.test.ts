@@ -1,10 +1,16 @@
 // @vitest-environment node
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { HostMessage, SessionState } from "../shared/hostProtocol.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  HostMessage,
+  McpServer,
+  SessionState,
+} from "../shared/hostProtocol.ts";
+import { APP_NAME } from "../src/lib/app.ts";
 
 // Starts the real sidecar (real pi, real process) with a throwaway home
 // folder, so nothing touches the user's credentials.
@@ -102,4 +108,121 @@ describe("sidecar process", () => {
     expect(state.model?.provider).toBe("openai");
     expect(state.thinkingLevels).toContain(state.thinkingLevel);
   }, 30_000);
+});
+
+/** A sidecar kept running, for conversations that wait on events. */
+function start() {
+  const child = spawn(process.execPath, [join(__dirname, "main.ts")], {
+    env: {
+      ...process.env,
+      HOME: home,
+      PATH: dirname(process.execPath),
+      PI_OFFLINE: "1",
+    },
+  });
+  const messages: HostMessage[] = [];
+  let out = "";
+  child.stdout.on("data", (chunk) => {
+    out += chunk;
+    const lines = out.split("\n");
+    out = lines.pop()!;
+    messages.push(...lines.filter(Boolean).map((l) => JSON.parse(l)));
+  });
+  return {
+    send: (request: object) =>
+      child.stdin.write(JSON.stringify(request) + "\n"),
+    /** Resolves with the first message (seen so far or later) that matches. */
+    next: <T extends HostMessage>(match: (m: HostMessage) => m is T) =>
+      vi.waitFor(
+        () => {
+          const found = messages.find(match);
+          if (!found) throw new Error("not yet");
+          return found;
+        },
+        { timeout: 20_000, interval: 50 },
+      ),
+    stop: () =>
+      new Promise((resolve) => {
+        child.on("close", resolve);
+        child.stdin.end();
+      }),
+  };
+}
+
+describe("MCP servers in the sidecar", () => {
+  it("connects the app's servers through pi-mcp-adapter and nothing else", async () => {
+    const server = join(__dirname, "testMcpServer.ts");
+    const marker = join(home, "started");
+    const decoy = {
+      command: process.execPath,
+      args: [server, "--touch", marker],
+    };
+    // Shared and project configs the adapter reads by default; never here.
+    await mkdir(join(home, ".config", "mcp"), { recursive: true });
+    await writeFile(
+      join(home, ".config", "mcp", "mcp.json"),
+      JSON.stringify({ mcpServers: { shared: decoy } }),
+    );
+    await writeFile(
+      join(home, ".mcp.json"),
+      JSON.stringify({ mcpServers: { project: decoy } }),
+    );
+
+    const sidecar = start();
+    sidecar.send({
+      id: 1,
+      type: "mcp_save",
+      name: "echo",
+      config: {
+        type: "stdio",
+        command: process.execPath,
+        args: [server],
+        env: {},
+      },
+    });
+    await sidecar.next(
+      (m): m is HostMessage => m.type === "response" && m.id === 1,
+    );
+    sidecar.send({ id: 2, type: "open_session", cwd: home });
+    const pushed = await sidecar.next(
+      (m): m is Extract<HostMessage, { type: "mcp_servers" }> =>
+        m.type === "mcp_servers" && m.servers[0]?.status === "connected",
+    );
+    expect(pushed.servers).toEqual([
+      {
+        name: "echo",
+        enabled: true,
+        config: {
+          type: "stdio",
+          command: process.execPath,
+          args: [server],
+          env: {},
+        },
+        status: "connected",
+        tools: ["echo"],
+      } satisfies McpServer,
+    ]);
+
+    sidecar.send({
+      id: 3,
+      type: "mcp_set_enabled",
+      name: "echo",
+      enabled: false,
+    });
+    const off = await sidecar.next(
+      (m): m is Extract<HostMessage, { type: "response" }> =>
+        m.type === "response" && m.id === 3,
+    );
+    expect(off).toMatchObject({
+      ok: true,
+      data: [{ name: "echo", enabled: false, status: "disabled", tools: [] }],
+    });
+    await sidecar.stop();
+
+    const saved = JSON.parse(
+      await readFile(join(home, `.${APP_NAME}`, "pi", "mcp.json"), "utf8"),
+    );
+    expect(saved.mcpServers.echo).toMatchObject({ disabled: true });
+    expect(existsSync(marker)).toBe(false);
+  }, 60_000);
 });

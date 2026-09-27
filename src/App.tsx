@@ -11,6 +11,7 @@ import { useFolderDrop } from "@/hooks/useFolderDrop";
 import { useAgentSession } from "@/hooks/useAgentSession";
 import { useConnectScreen } from "@/hooks/useConnectScreen";
 import { useFolders } from "@/hooks/useFolders";
+import { useMcpServers } from "@/hooks/useMcpServers";
 import { useProviders } from "@/hooks/useProviders";
 import { useSettings } from "@/hooks/useSettings";
 import { useTabs } from "@/hooks/useTabs";
@@ -36,6 +37,7 @@ export default function App() {
   const providers = useProviders();
   const connectScreen = useConnectScreen(providers.statuses);
   const session = useAgentSession(providers.host, current, providers.statuses);
+  const mcp = useMcpServers(providers.host, current);
   const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
   const [home, setHome] = useState("");
@@ -146,6 +148,7 @@ export default function App() {
         onChange={setSettings}
         providers={providers.statuses}
         providersError={providers.hostError}
+        mcp={mcp}
         onManageProviders={() => {
           setSettingsOpen(false);
           connectScreen.show();

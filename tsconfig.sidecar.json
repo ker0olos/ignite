@@ -13,7 +13,8 @@
     "noEmit": true,
     "strict": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "paths": { "pi-mcp-adapter": ["./sidecar/types/pi-mcp-adapter.d.ts"] }
   },
   "include": ["sidecar", "shared"]
 }

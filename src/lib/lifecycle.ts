@@ -1,11 +1,11 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { exit } from "@tauri-apps/plugin-process";
-import { APP_NAME } from "./app";
+import { APP_TITLE } from "./app";
 
 /** Asks before quitting, and quits the whole app only if confirmed. */
 export async function confirmQuit() {
-  const ok = await ask(`Quit ${APP_NAME}?`, {
+  const ok = await ask(`Quit ${APP_TITLE}?`, {
     kind: "warning",
     okLabel: "Quit",
     cancelLabel: "Cancel",

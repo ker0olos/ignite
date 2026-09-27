@@ -5,9 +5,16 @@ import {
   Palette,
   Plug,
   Search,
+  Server,
   type LucideIcon,
 } from "lucide-react";
-import type { ProviderStatus } from "../../shared/hostProtocol";
+import type { McpServer, ProviderStatus } from "../../shared/hostProtocol";
+import {
+  McpImportSources,
+  McpQuickAdd,
+  McpServerControls,
+  McpServerDialog,
+} from "@/components/McpServers";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -28,12 +35,18 @@ import {
   themeGroups,
   type CodeTheme,
 } from "@/lib/codeThemes";
+import type { useMcpServers } from "@/hooks/useMcpServers";
+import { describeServer, toolSummary } from "@/lib/mcpServers";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings";
 import { PROVIDER_GROUPS, groupConnection } from "@/lib/providerGroups";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = {
   Providers: { icon: Plug, blurb: "Accounts the agent signs in with." },
+  MCP: {
+    icon: Server,
+    blurb: "Tools the agent can use from other apps and services.",
+  },
   Appearance: { icon: Palette, blurb: "Colors for the app and code." },
   Editor: { icon: Code, blurb: "How files look in the viewer." },
   Files: { icon: FolderTree, blurb: "What the file tree shows." },
@@ -59,6 +72,7 @@ export function SettingsDialog({
   providers,
   providersError,
   onManageProviders,
+  mcp,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -68,8 +82,11 @@ export function SettingsDialog({
   providers: ProviderStatus[] | null;
   providersError: string | null;
   onManageProviders: () => void;
+  mcp: ReturnType<typeof useMcpServers>;
 }) {
   const [section, setSection] = useState<Section>("Providers");
+  // The server being edited, "new" while adding one.
+  const [editing, setEditing] = useState<McpServer | "new" | null>(null);
   const [query, setQuery] = useState("");
   const [themes, setThemes] = useState<CodeTheme[]>([]);
   const search = useRef<HTMLInputElement>(null);
@@ -106,6 +123,42 @@ export function SettingsDialog({
       control: (
         <Button variant="outline" size="sm" onClick={onManageProviders}>
           Manage…
+        </Button>
+      ),
+    },
+    ...(mcp.error
+      ? [
+          {
+            section: "MCP" as const,
+            title: "Something went wrong",
+            description: mcp.error,
+          },
+        ]
+      : []),
+    ...(mcp.servers ?? []).map((server) => ({
+      section: "MCP" as const,
+      title: server.name,
+      description: `${describeServer(server)} · ${toolSummary(server.tools)}`,
+      keywords: `mcp server tool ${server.tools.join(" ")}`,
+      control: (
+        <McpServerControls
+          server={server}
+          onEdit={() => setEditing(server)}
+          onEnabledChange={(enabled) => mcp.setEnabled(server.name, enabled)}
+          onReconnect={() => mcp.reconnect(server.name)}
+          onRemove={() => mcp.remove(server.name)}
+        />
+      ),
+    })),
+    {
+      section: "MCP",
+      title: "Add a custom server",
+      description:
+        "Connect any MCP server by its URL, or run one as a local command.",
+      keywords: "mcp server tool add new import preset claude cursor codex",
+      control: (
+        <Button variant="outline" size="sm" onClick={() => setEditing("new")}>
+          Add…
         </Button>
       ),
     },
@@ -266,9 +319,40 @@ export function SettingsDialog({
                   <Row key={i.title} item={i} />
                 ))}
               </div>
+              {s === "MCP" && !!mcp.catalog?.sources.length && (
+                <div className="mt-4">
+                  <h3 className="mb-2 text-xs font-medium text-muted-foreground">
+                    Import from other apps
+                  </h3>
+                  <McpImportSources
+                    sources={mcp.catalog.sources}
+                    onImport={mcp.importServers}
+                  />
+                </div>
+              )}
+              {s === "MCP" && !!mcp.catalog?.presets.length && (
+                <div className="mt-4">
+                  <h3 className="mb-2 text-xs font-medium text-muted-foreground">
+                    Quick add
+                  </h3>
+                  <McpQuickAdd
+                    presets={mcp.catalog.presets}
+                    onAdd={mcp.addPreset}
+                  />
+                </div>
+              )}
             </section>
           ))}
         </div>
+        <McpServerDialog
+          open={editing !== null}
+          onOpenChange={(next) => !next && setEditing(null)}
+          server={editing === "new" ? null : editing}
+          taken={(mcp.servers ?? [])
+            .map((m) => m.name)
+            .filter((n) => editing === "new" || n !== editing?.name)}
+          onSave={mcp.save}
+        />
       </DialogContent>
     </Dialog>
   );

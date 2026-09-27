@@ -51,7 +51,7 @@
       "identifier": "fs:allow-write-text-file",
       "allow": [
         {
-          "path": "$HOME/.unnamed-harness/**"
+          "path": "$HOME/.ignition/**"
         }
       ]
     },
@@ -59,10 +59,10 @@
       "identifier": "fs:allow-mkdir",
       "allow": [
         {
-          "path": "$HOME/.unnamed-harness"
+          "path": "$HOME/.ignition"
         },
         {
-          "path": "$HOME/.unnamed-harness/**"
+          "path": "$HOME/.ignition/**"
         }
       ]
     },
