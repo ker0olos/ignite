@@ -1,22 +1,21 @@
-import { useRef, useState } from "react";
-import { ArrowUp, Check, ChevronDown, Square } from "lucide-react";
-import type { ModelInfo, ThinkingLevel } from "../../shared/hostProtocol";
-import { Button } from "@/components/ui/button";
+import { useRef, useState, type ReactNode } from "react";
+import { Check } from "lucide-react";
+import type { ModelInfo } from "../../shared/hostProtocol";
 import { Conversation } from "@/components/Conversation";
+import { EffortSlider } from "@/components/EffortSlider";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -28,6 +27,7 @@ import {
   type MenuGroup,
 } from "@/lib/modelMenu";
 import { basename } from "@/lib/paths";
+import { cn } from "@/lib/utils";
 import type { Settings } from "@/lib/settings";
 
 type Session = ReturnType<typeof useAgentSession>;
@@ -49,9 +49,10 @@ export function AgentPanel({
   const [text, setText] = useState("");
   const mainRef = useRef<HTMLElement>(null);
   const running = transcript?.running ?? false;
+  const loading = !state && !session.error;
 
   const handleSend = () => {
-    if (!text.trim()) return;
+    if (!state || !text.trim()) return;
     const value = text;
     setText("");
     void session.send(value);
@@ -63,7 +64,9 @@ export function AgentPanel({
         ref={mainRef}
         className="min-h-0 flex-1 overscroll-contain overflow-y-auto"
       >
-        {transcript && transcript.items.length > 0 ? (
+        {loading ? (
+          <ConversationSkeleton />
+        ) : transcript && transcript.items.length > 0 ? (
           <Conversation
             transcript={transcript}
             folder={folder}
@@ -82,17 +85,22 @@ export function AgentPanel({
         )}
       </main>
       <form
-        className="p-4"
+        className="mx-auto w-full max-w-3xl px-4 pb-4"
         onSubmit={(e) => {
           e.preventDefault();
           handleSend();
         }}
       >
-        <div className="rounded-lg border bg-background focus-within:ring-3 focus-within:ring-ring/50 dark:bg-input/30">
+        <div className="group border-t transition-colors focus-within:border-foreground/35">
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
+              if (e.key === "Escape" && running) {
+                e.preventDefault();
+                void session.stop();
+                return;
+              }
               if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing)
                 return;
               e.preventDefault();
@@ -104,9 +112,15 @@ export function AgentPanel({
             autoComplete="off"
             spellCheck={false}
             rows={1}
-            className="max-h-[calc(5lh+1rem)] min-h-0 resize-none overflow-y-auto border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+            className="max-h-[calc(5lh+1.5rem)] min-h-0 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0.5 pt-4 pb-2 shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0 dark:bg-transparent"
           />
-          <div className="flex items-center gap-1 px-2 pb-2">
+          <div className="flex h-6 items-center gap-3.5 px-0.5">
+            {loading && (
+              <>
+                <Skeleton className="h-3 w-14" />
+                <Skeleton className="h-3 w-8" />
+              </>
+            )}
             {state && state.models.length > 0 && (
               <ModelMenu state={state} session={session} />
             )}
@@ -120,28 +134,61 @@ export function AgentPanel({
               </span>
             )}
             {running ? (
-              <Button
+              <button
                 type="button"
-                size="icon-sm"
-                className="ml-auto"
+                className={ACTION}
                 onClick={() => void session.stop()}
               >
-                <Square />
-              </Button>
+                Stop <Kbd>esc</Kbd>
+              </button>
             ) : (
-              <Button
+              <button
                 type="submit"
-                size="icon-sm"
-                className="ml-auto"
-                disabled={!text.trim()}
+                className={cn(ACTION, !text.trim() && "invisible")}
+                disabled={!state || !text.trim()}
               >
-                <ArrowUp />
-              </Button>
+                Send <Kbd>↵</Kbd>
+              </button>
             )}
           </div>
         </div>
       </form>
     </>
+  );
+}
+
+const MENU_TRIGGER =
+  "flex h-6 items-center text-xs text-muted-foreground/70 outline-none group-focus-within:text-muted-foreground hover:text-foreground focus-visible:text-foreground";
+const ACTION =
+  "ml-auto flex h-6 items-center gap-2 text-xs text-foreground outline-none hover:opacity-80 focus-visible:underline";
+
+function Kbd({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border px-1 font-sans text-[11px] text-muted-foreground">
+      {children}
+    </kbd>
+  );
+}
+
+/** Placeholder turns while the session opens, laid out like Conversation. */
+function ConversationSkeleton() {
+  return (
+    <div
+      data-tauri-drag-region
+      className="mx-auto max-w-3xl space-y-6 px-4 py-6"
+    >
+      <Skeleton className="ml-auto h-9 w-2/5 rounded-2xl" />
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-11/12" />
+        <Skeleton className="h-4 w-3/5" />
+      </div>
+      <Skeleton className="ml-auto h-9 w-1/3 rounded-2xl" />
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-4/5" />
+      </div>
+    </div>
   );
 }
 
@@ -156,9 +203,8 @@ function ModelMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground">
+      <DropdownMenuTrigger className={MENU_TRIGGER}>
         {state.model ? modelLabel(state.model) : "Choose a model"}
-        <ChevronDown className="size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top" className="w-72">
         <ModelGroups
@@ -195,26 +241,15 @@ function EffortMenu({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground">
+      <DropdownMenuTrigger className={MENU_TRIGGER}>
         {EFFORT_LABELS[state.thinkingLevel]}
-        <ChevronDown className="size-3.5" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="top" className="w-40">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Effort</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={state.thinkingLevel}
-            onValueChange={(level: ThinkingLevel) =>
-              void session.setThinkingLevel(level)
-            }
-          >
-            {state.thinkingLevels.map((level) => (
-              <DropdownMenuRadioItem key={level} value={level}>
-                {EFFORT_LABELS[level]}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
+      <DropdownMenuContent align="start" side="top" className="w-auto">
+        <EffortSlider
+          levels={state.thinkingLevels}
+          value={state.thinkingLevel}
+          onChange={(level) => void session.setThinkingLevel(level)}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -38,7 +38,9 @@ export default function App() {
   const [settings, setSettings] = useSettings();
   const providers = useProviders();
   const connectScreen = useConnectScreen(providers.statuses);
-  const session = useAgentSession(providers.host, current, providers.statuses);
+  const agent = useAgentSession(providers.host, current, providers.statuses);
+  // Without a host the session never opens; show why instead of loading.
+  const session = { ...agent, error: agent.error ?? providers.hostError };
   const mcp = useMcpServers(providers.host, current);
   const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
