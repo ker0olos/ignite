@@ -10,23 +10,40 @@ export type ClaudeCode = {
 };
 
 /** Talks to the `claude` command; tests pass a stand-in script. */
-export function createClaudeCode(command = "claude"): ClaudeCode {
+export function createClaudeCode(
+  command = "claude",
+  timeoutMs = 10_000,
+): ClaudeCode {
   return {
+    // A `claude` that waits on a prompt would otherwise hang app startup.
     status: () =>
       new Promise((resolve) =>
-        execFile(command, ["auth", "status"], (error, stdout) => {
-          if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") {
-            return resolve({ installed: false, loggedIn: false });
-          }
-          try {
-            resolve({
-              installed: true,
-              loggedIn: !!JSON.parse(stdout).loggedIn,
-            });
-          } catch {
-            resolve({ installed: true, loggedIn: false });
-          }
-        }),
+        execFile(
+          command,
+          ["auth", "status"],
+          { timeout: timeoutMs },
+          (error, stdout, stderr) => {
+            if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") {
+              return resolve({ installed: false, loggedIn: false });
+            }
+            if (error) {
+              const why = error.killed
+                ? `timed out after ${timeoutMs}ms`
+                : error.message;
+              process.stderr.write(
+                `pi-host: claude auth status ${why}: ${stderr.trim()}\n`,
+              );
+            }
+            try {
+              resolve({
+                installed: true,
+                loggedIn: !!JSON.parse(stdout).loggedIn,
+              });
+            } catch {
+              resolve({ installed: true, loggedIn: false });
+            }
+          },
+        ),
       ),
 
     // ponytail: not tried against a real signed-out Claude Code; if it hangs

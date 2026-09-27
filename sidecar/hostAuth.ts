@@ -27,6 +27,30 @@ export async function status(
   return { id, connected: true, method: auth.type };
 }
 
+/** Like status, but reports disconnected if the check takes longer than `ms`. */
+export async function statusWithin(
+  ctx: HostContext,
+  id: ProviderId,
+  ms = 10_000,
+): Promise<ProviderStatus> {
+  const started = Date.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<ProviderStatus>((resolve) => {
+    timer = setTimeout(() => {
+      process.stderr.write(`pi-host: ${id} status timed out after ${ms}ms\n`);
+      resolve({ id, connected: false });
+    }, ms);
+  });
+  try {
+    return await Promise.race([status(ctx, id), timedOut]);
+  } finally {
+    clearTimeout(timer);
+    process.stderr.write(
+      `pi-host: ${id} status took ${Date.now() - started}ms\n`,
+    );
+  }
+}
+
 function interaction(ctx: HostContext, signal: AbortSignal, apiKey?: string) {
   return {
     signal,

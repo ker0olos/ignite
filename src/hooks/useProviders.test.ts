@@ -89,6 +89,16 @@ describe("useProviders", () => {
     );
   });
 
+  it("reports a sidecar that never answers instead of loading forever", async () => {
+    const { client } = fakeClient();
+    const silent = { ...client, request: () => new Promise(() => {}) };
+    const open = async () => silent as HostClient;
+    const { result } = renderHook(() => useProviders(open, 50));
+    await waitFor(() =>
+      expect(result.current.hostError).toMatch(/didn't answer within 0.05 s/),
+    );
+  });
+
   it("stops the sidecar on unmount", async () => {
     const { unmount, client } = await setup();
     unmount();

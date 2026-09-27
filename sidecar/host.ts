@@ -12,7 +12,7 @@ import {
   type McpCatalogSource,
 } from "./hostTypes.ts";
 import type { McpStore } from "./mcpConfig.ts";
-import { status, login } from "./hostAuth.ts";
+import { status, statusWithin, login } from "./hostAuth.ts";
 import { sessionState, setModel, open, prompt } from "./hostSession.ts";
 import { mcpServers, changeMcp } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
@@ -30,7 +30,7 @@ type Handler<K extends IdRequest["type"]> = (
 ) => unknown;
 
 const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
-  status: (ctx) => Promise.all(PROVIDERS.map((id) => status(ctx, id))),
+  status: (ctx) => Promise.all(PROVIDERS.map((id) => statusWithin(ctx, id))),
   login: (ctx, r) => login(ctx, r.provider, r.method, r.apiKey),
   cancel_login: (ctx) => {
     ctx.activeLogin?.abort();
