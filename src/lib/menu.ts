@@ -1,6 +1,5 @@
 import { Menu, type MenuOptions } from "@tauri-apps/api/menu";
 import { APP_TITLE } from "./app";
-import { reloadWindow } from "./piHost";
 import { openNewWindow } from "./window";
 
 export type MenuHandlers = {
@@ -117,7 +116,11 @@ export function menuItems({
     {
       text: "View",
       items: [
-        { text: "Reload", accelerator: "CmdOrCtrl+R", action: reloadWindow },
+        {
+          text: "Reload",
+          accelerator: "CmdOrCtrl+R",
+          action: () => location.reload(),
+        },
         { item: "Separator" },
         { item: "Fullscreen" },
       ],

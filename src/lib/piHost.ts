@@ -1,4 +1,4 @@
-import { Command } from "@tauri-apps/plugin-shell";
+import { Child, Command } from "@tauri-apps/plugin-shell";
 import type {
   HostMessage,
   HostRequest,
@@ -121,29 +121,50 @@ export async function spawnSidecar(): Promise<Transport> {
     onClose(`The agent host failed: ${error}`),
   );
 
+  await killLeftovers();
   const child = await command.spawn();
-  live.add(child);
+  setLivePids([...livePids(), child.pid]);
   return {
     write: (line) => child.write(line),
     onLine: (cb) => void lineListeners.push(cb),
     onClose: (cb) => void (onClose = cb),
     kill: () => {
-      live.delete(child);
+      setLivePids(livePids().filter((pid) => pid !== child.pid));
       return child.kill();
     },
   };
 }
 
-const live = new Set<{ kill(): Promise<void> }>();
+// sessionStorage survives a reload of this window, unlike module state.
+const PIDS_KEY = "pi-host-pids";
+
+function livePids(): number[] {
+  try {
+    return JSON.parse(sessionStorage.getItem(PIDS_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function setLivePids(pids: number[]) {
+  try {
+    sessionStorage.setItem(PIDS_KEY, JSON.stringify(pids));
+  } catch {
+    // Without storage, leftovers live until the app quits.
+  }
+}
+
+let leftovers: Promise<void> | null = null;
 
 /**
- * Reloads the page. React doesn't unmount on reload, so this window's
- * sidecars are killed first or they'd outlive it.
+ * Kills sidecars an earlier load of this window left running: a reload (⌘R or
+ * Vite's) skips React's cleanup. The shell plugin only kills its own children.
  */
-export async function reloadWindow() {
-  await Promise.allSettled([...live].map((child) => child.kill()));
-  live.clear();
-  location.reload();
+function killLeftovers() {
+  leftovers ??= Promise.allSettled(
+    livePids().map((pid) => new Child(pid).kill()),
+  ).then(() => setLivePids([]));
+  return leftovers;
 }
 
 /** Starts the sidecar and returns a client for it. */

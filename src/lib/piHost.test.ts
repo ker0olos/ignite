@@ -4,7 +4,6 @@ import type { HostMessage } from "../../shared/hostProtocol";
 import {
   createHostClient,
   openPiHost,
-  reloadWindow,
   spawnSidecar,
   type Transport,
 } from "./piHost";
@@ -226,20 +225,46 @@ describe("spawnSidecar", () => {
     ]);
   });
 
-  it("kills only live sidecars before reloading", async () => {
+  it("forgets a sidecar once it's killed", async () => {
+    fakeShell();
+    sessionStorage.clear();
+    const transport = await spawnSidecar();
+    expect(sessionStorage.getItem("pi-host-pids")).toBe("[4242]");
+    await transport.kill();
+    expect(sessionStorage.getItem("pi-host-pids")).toBe("[]");
+  });
+
+  it("kills sidecars an earlier load left running, once per load", async () => {
     const shell = fakeShell();
-    const reload = vi.fn();
-    vi.stubGlobal("location", { reload });
-    await reloadWindow(); // drops sidecars left by earlier tests
-    const closed = await spawnSidecar();
-    await spawnSidecar();
-    await closed.kill();
-    shell.calls.length = 0;
-    await reloadWindow();
-    expect(shell.calls).toEqual([
-      { cmd: "plugin:shell|kill", args: { cmd: "killChild", pid: 4242 } },
+    sessionStorage.setItem("pi-host-pids", "[7,8]");
+    vi.resetModules();
+    const fresh = await import("./piHost");
+    await fresh.spawnSidecar();
+    await fresh.spawnSidecar();
+    expect(shell.calls.map((c) => [c.cmd, c.args.pid])).toEqual([
+      ["plugin:shell|kill", 7],
+      ["plugin:shell|kill", 8],
+      ["plugin:shell|spawn", undefined],
+      ["plugin:shell|spawn", undefined],
     ]);
-    expect(reload).toHaveBeenCalledTimes(2);
-    vi.unstubAllGlobals();
+    expect(sessionStorage.getItem("pi-host-pids")).toBe("[4242,4242]");
+  });
+
+  it("still spawns when storage is unavailable", async () => {
+    const shell = fakeShell();
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("denied");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("denied");
+    });
+    vi.resetModules();
+    const fresh = await import("./piHost");
+    await (await fresh.spawnSidecar()).kill();
+    expect(shell.calls.map((c) => c.cmd)).toEqual([
+      "plugin:shell|spawn",
+      "plugin:shell|kill",
+    ]);
+    vi.restoreAllMocks();
   });
 });
