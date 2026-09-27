@@ -5,6 +5,7 @@
  */
 import { overlayFromEnv } from "../shared/modsOverlay.ts";
 
+process.stderr.write("pi-host: starting\n");
 const overlay = overlayFromEnv(new URL("..", import.meta.url).pathname);
 if (overlay) (await import("./modsHooks.ts")).registerModsHooks(overlay);
 await import("./start.ts");

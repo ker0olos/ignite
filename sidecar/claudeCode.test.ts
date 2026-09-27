@@ -41,6 +41,14 @@ describe("status", () => {
     });
   });
 
+  it("gives up on a claude that hangs, as signed out", async () => {
+    const path = join(dir, "claude");
+    await writeFile(path, "#!/bin/sh\nsleep 5\n");
+    await chmod(path, 0o755);
+    const claude = createClaudeCode(path, 200);
+    expect(await claude.status()).toEqual({ installed: true, loggedIn: false });
+  });
+
   it("treats output it can't read as signed out", async () => {
     const claude = await fakeClaude(`echo "Not logged in"`);
     expect(await claude.status()).toEqual({ installed: true, loggedIn: false });

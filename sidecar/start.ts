@@ -31,6 +31,12 @@ import { createTrustStore } from "./trust.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
 // own ~/.pi/agent, so signing in or out here doesn't affect it.
+const log = (message: string) =>
+  process.stderr.write(
+    `pi-host: ${message} (${Math.round(process.uptime() * 1000)}ms)\n`,
+  );
+log(`loaded, Node ${process.version}`);
+
 const agentDir = join(homedir(), `.${APP_NAME}`, "pi");
 process.env.PI_CODING_AGENT_DIR = agentDir;
 process.env.PI_TELEMETRY = "0";
@@ -52,6 +58,7 @@ const runtime = await ModelRuntime.create({
   credentials: logins.store,
   modelsPath: null,
 });
+log("model runtime created");
 
 // Stdout carries protocol messages only; extensions' console output (e.g.
 // pi-mcp-adapter's "Removed credentials") goes to stderr with the rest.
@@ -221,7 +228,17 @@ const lines = createLineSplitter((line) => {
     process.stderr.write(`pi-host: ignoring a line that isn't JSON\n`);
     return;
   }
-  const handled = host.handle(request);
+  // Slow requests are logged, so a stuck one shows up in the app's terminal.
+  const started = Date.now();
+  const stuck = setTimeout(
+    () => log(`${request.type} still running after 15s`),
+    15_000,
+  );
+  const handled = host.handle(request).finally(() => {
+    clearTimeout(stuck);
+    const took = Date.now() - started;
+    if (took > 1000) log(`${request.type} took ${took}ms`);
+  });
   inFlight.add(handled);
   void handled.finally(() => inFlight.delete(handled));
 });
@@ -235,3 +252,4 @@ process.stdin.on("end", async () => {
 });
 
 send({ type: "ready" });
+log("ready");

@@ -19,12 +19,31 @@ export type LoginState = {
 
 const CANCELLED = "Sign-in cancelled.";
 
+/** Rejects if the sidecar hasn't answered in `ms`, instead of loading forever. */
+function answerWithin<T>(answer: Promise<T>, ms: number): Promise<T> {
+  const late = new Promise<never>((_, reject) =>
+    setTimeout(
+      () =>
+        reject(
+          new Error(
+            `it didn't answer within ${ms / 1000} seconds; its log is in the terminal running the app`,
+          ),
+        ),
+      ms,
+    ),
+  );
+  return Promise.race([answer, late]);
+}
+
 /**
  * Provider connections, through the pi host sidecar: status per provider,
  * one sign-in at a time, and disconnecting. `open` starts the sidecar; tests
  * pass a fake.
  */
-export function useProviders(open: () => Promise<HostClient> = openPiHost) {
+export function useProviders(
+  open: () => Promise<HostClient> = openPiHost,
+  answerMs = 20_000,
+) {
   const [statuses, setStatuses] = useState<ProviderStatus[] | null>(null);
   const [hostError, setHostError] = useState<string | null>(null);
   const [login, setLogin] = useState<LoginState | null>(null);
@@ -66,7 +85,9 @@ export function useProviders(open: () => Promise<HostClient> = openPiHost) {
         client.current = c;
         setHost(c);
         unsubscribe = c.subscribe(onMessage);
-        setStatuses(await c.request({ type: "status" }));
+        setStatuses(
+          await answerWithin(c.request({ type: "status" }), answerMs),
+        );
         void reportHealthy();
       })
       .catch((e: Error) => !cancelled && setHostError(e.message));
@@ -77,7 +98,7 @@ export function useProviders(open: () => Promise<HostClient> = openPiHost) {
       client.current = null;
       void started?.close();
     };
-  }, [open]);
+  }, [open, answerMs]);
 
   /** Signs in; resolves true on success. Errors land in `error`, cancels don't. */
   const connect = useCallback(
