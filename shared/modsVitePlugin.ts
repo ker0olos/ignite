@@ -31,14 +31,13 @@ export function modsVitePlugin(overlay: Overlay): Plugin {
     },
     configureServer(server) {
       server.watcher.add(overlay.mods);
-      // A new or deleted override changes what imports resolve to.
-      const reload = (file: string) => {
-        if (!originalOf(overlay, file)) return;
-        server.moduleGraph.invalidateAll();
-        server.ws.send({ type: "full-reload" });
+      // A new or deleted override changes what URLs resolve to, which Vite
+      // caches until it restarts; the page reloads when it reconnects.
+      const restart = (file: string) => {
+        if (originalOf(overlay, file)) void server.restart();
       };
-      server.watcher.on("add", reload);
-      server.watcher.on("unlink", reload);
+      server.watcher.on("add", restart);
+      server.watcher.on("unlink", restart);
     },
   };
 }

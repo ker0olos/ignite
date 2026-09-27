@@ -119,4 +119,26 @@ describe("modsVitePlugin", () => {
     );
     expect(transform("a{}", "/repo/src/other.css")).toBeNull();
   });
+
+  it("restarts the dev server when a mods/ file is added or deleted", () => {
+    const handlers: Record<string, (file: string) => void> = {};
+    const server = {
+      restart: vi.fn(async () => {}),
+      watcher: {
+        add: vi.fn(),
+        on: (event: string, cb: (file: string) => void) =>
+          void (handlers[event] = cb),
+      },
+    };
+    const { configureServer } = modsVitePlugin(overlay) as {
+      configureServer: (s: typeof server) => void;
+    };
+    configureServer(server);
+    expect(server.watcher.add).toHaveBeenCalledWith(overlay.mods);
+    handlers.add(join(overlay.root, "src/a.ts"));
+    expect(server.restart).not.toHaveBeenCalled();
+    handlers.add(join(overlay.mods, "src/a.ts"));
+    handlers.unlink(join(overlay.mods, "src/a.ts"));
+    expect(server.restart).toHaveBeenCalledTimes(2);
+  });
 });
