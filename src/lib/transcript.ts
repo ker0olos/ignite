@@ -35,6 +35,66 @@ export function fromHistory(
   });
 }
 
+type ToolExecutionEvent = Extract<
+  SessionEvent,
+  {
+    type:
+      "tool_execution_start" | "tool_execution_update" | "tool_execution_end";
+  }
+>;
+
+function applyToolExecutionEvent(
+  t: Transcript,
+  event: ToolExecutionEvent,
+): Transcript {
+  switch (event.type) {
+    case "tool_execution_start":
+      return setTool(t, event.toolCallId, { status: "running" });
+    case "tool_execution_update":
+      return setTool(t, event.toolCallId, {
+        status: "running",
+        result: event.partialResult,
+      });
+    case "tool_execution_end":
+      return setTool(t, event.toolCallId, {
+        status: event.isError ? "error" : "done",
+        result: event.result,
+      });
+  }
+}
+
+type RetryEvent = Extract<
+  SessionEvent,
+  { type: "auto_retry_start" | "auto_retry_end" }
+>;
+
+function applyRetryEvent(t: Transcript, event: RetryEvent): Transcript {
+  if (event.type === "auto_retry_start") {
+    return notice(
+      t,
+      `Retrying (${event.attempt}/${event.maxAttempts}): ${event.errorMessage}`,
+    );
+  }
+  return event.success
+    ? t
+    : notice(t, event.finalError ?? "The request failed.", true);
+}
+
+type CompactionEvent = Extract<
+  SessionEvent,
+  { type: "compaction_start" | "compaction_end" }
+>;
+
+function applyCompactionEvent(
+  t: Transcript,
+  event: CompactionEvent,
+): Transcript {
+  if (event.type === "compaction_start") {
+    return notice(t, "Compacting the conversation…");
+  }
+  return event.errorMessage ? notice(t, event.errorMessage, true) : t;
+}
+
 /**
  * Applies one pi session event, following pi's streaming rules
  * (docs/json.md): deltas build a block, `*_end` and `message_end` replace
@@ -53,30 +113,15 @@ export function applyEvent(t: Transcript, event: SessionEvent): Transcript {
     case "message_update":
       return updateStreaming(t, event.assistantMessageEvent);
     case "tool_execution_start":
-      return setTool(t, event.toolCallId, { status: "running" });
     case "tool_execution_update":
-      return setTool(t, event.toolCallId, {
-        status: "running",
-        result: event.partialResult,
-      });
     case "tool_execution_end":
-      return setTool(t, event.toolCallId, {
-        status: event.isError ? "error" : "done",
-        result: event.result,
-      });
+      return applyToolExecutionEvent(t, event);
     case "auto_retry_start":
-      return notice(
-        t,
-        `Retrying (${event.attempt}/${event.maxAttempts}): ${event.errorMessage}`,
-      );
     case "auto_retry_end":
-      return event.success
-        ? t
-        : notice(t, event.finalError ?? "The request failed.", true);
+      return applyRetryEvent(t, event);
     case "compaction_start":
-      return notice(t, "Compacting the conversation…");
     case "compaction_end":
-      return event.errorMessage ? notice(t, event.errorMessage, true) : t;
+      return applyCompactionEvent(t, event);
     default:
       return t;
   }

@@ -4,7 +4,8 @@ import {
   codeToTokens,
   type BundledLanguage,
 } from "shiki";
-import { resolveTheme, type CodeThemes } from "./codeThemes";
+import type { CodeThemes } from "./codeThemes";
+import { resolveTheme } from "./codeThemeLoad";
 import { basename } from "./paths";
 
 // Beyond this, highlighting gets slow enough to notice; show plain text instead.

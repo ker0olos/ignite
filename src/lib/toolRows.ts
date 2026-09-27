@@ -18,6 +18,28 @@ export type Row =
 // Look-around tools that fold into one summary line, as in Claude Code.
 const QUIET = new Set(["read", "grep", "find", "ls", "bash"]);
 
+type Block = AssistantMessage["content"][number];
+
+/** Adds one assistant content block to `rows`, folding it into a quiet group if it qualifies. */
+function pushBlock(rows: Row[], block: Block, showThinking: boolean) {
+  if (block.type === "text") {
+    if (block.text) rows.push({ kind: "text", text: block.text });
+  } else if (block.type === "thinking") {
+    if (showThinking && (block.thinking || !block.redacted)) {
+      rows.push({ kind: "thinking", thinking: block.thinking });
+    }
+  } else if (QUIET.has(block.name)) {
+    const last = rows.at(-1);
+    if (last?.kind === "group") last.calls.push(block);
+    else rows.push({ kind: "group", calls: [block] });
+  } else {
+    rows.push({ kind: "tool", call: block });
+  }
+}
+
+const isEndOfRun = (assistant: AssistantMessage) =>
+  assistant.stopReason === "error" || assistant.stopReason === "aborted";
+
 /** Flattens the transcript into rows, folding consecutive quiet tool calls. */
 export function toRows(items: Item[], showThinking = false): Row[] {
   const rows: Row[] = [];
@@ -33,24 +55,9 @@ export function toRows(items: Item[], showThinking = false): Row[] {
     if (message.role !== "assistant") continue;
     const assistant = message as AssistantMessage;
     for (const block of assistant.content) {
-      if (block.type === "text") {
-        if (block.text) rows.push({ kind: "text", text: block.text });
-      } else if (block.type === "thinking") {
-        if (showThinking && (block.thinking || !block.redacted)) {
-          rows.push({ kind: "thinking", thinking: block.thinking });
-        }
-      } else if (QUIET.has(block.name)) {
-        const last = rows.at(-1);
-        if (last?.kind === "group") last.calls.push(block);
-        else rows.push({ kind: "group", calls: [block] });
-      } else {
-        rows.push({ kind: "tool", call: block });
-      }
+      pushBlock(rows, block, showThinking);
     }
-    if (
-      assistant.stopReason === "error" ||
-      assistant.stopReason === "aborted"
-    ) {
+    if (isEndOfRun(assistant)) {
       rows.push({ kind: "end", message: assistant });
     }
   }

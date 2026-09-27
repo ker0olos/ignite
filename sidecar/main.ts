@@ -21,12 +21,8 @@ import type { HostMessage, HostRequest } from "../shared/hostProtocol.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { createClaudeCode } from "./claudeCode.ts";
 import { codexBackend, withCodexLogin } from "./credentials.ts";
-import {
-  createHost,
-  type McpStatusSnapshot,
-  type Runtime,
-  type Session,
-} from "./host.ts";
+import { createHost } from "./host.ts";
+import type { McpStatusSnapshot, Runtime, Session } from "./hostTypes.ts";
 import { createLineSplitter } from "./lines.ts";
 import { findImports, PRESETS } from "./mcpCatalog.ts";
 import { createMcpStore, MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";

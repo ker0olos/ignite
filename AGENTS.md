@@ -14,21 +14,16 @@ src/                     React frontend (almost all logic lives here)
   main.tsx               Entry: sizes and shows the window, renders <App>
   App.tsx                Composes hooks, picks Welcome vs Workspace
   index.css              Tailwind + shadcn theme tokens, code-view styles
-  components/            UI only; logic worth testing lives in lib/ or hooks/
+  components/            UI only, one component per file; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
-    Welcome.tsx          Screen when no folder is open
-    Workspace.tsx        Open-folder layout: resizable sidebar, agent panel, file tabs
-    Sidebar.tsx          Title-bar strip + file tree
-    FileTree.tsx         Lazy directory tree
-    FileView.tsx         Read-only, syntax-highlighted file
-    AgentPanel.tsx       Conversation + task composer
-    Conversation.tsx     Renders the transcript: messages, thinking, tool rows
-    SettingsDialog.tsx   Settings modal
-    McpServers.tsx       MCP server rows (status, switch, remove) and the add/edit form
-    McpIcons.tsx         Brand marks for MCP presets and the apps servers import from
-    SignInBanner.tsx     Sidebar warning when an MCP server in use needs sign-in
-    ConnectProviders.tsx Full-window screen to connect Claude / ChatGPT
-    ProviderLogos.tsx    Claude and OpenAI marks (LobeHub Icons, MIT)
+    app/                 Welcome screen, Workspace layout, file tabs, pane handle
+    sidebar/             Title-bar strip + file tree, MCP sign-in warning banner
+    files/               Lazy directory tree, read-only syntax-highlighted file view
+    agent/               Conversation area wiring, task composer, model/effort menus
+    conversation/        Transcript rendering: messages, thinking, tool rows and their pieces
+    settings/            Settings dialog shell, its rows, and one items file per section
+    mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
+    providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos
   hooks/
     useFolders.ts        Recent folders + this window's open folder
     useSettings.ts       settings.toml, synced across windows; applies theme
@@ -45,7 +40,9 @@ src/                     React frontend (almost all logic lives here)
     files.ts             Directory listing and reading files for the viewer
     gitignore.ts         .gitignore matching for the file tree
     highlight.ts         Shiki highlighting with the chosen theme(s)
-    codeThemes.ts        Theme discovery (Shiki, VS Code-family editors, custom files) and loading
+    codeThemes.ts        Theme types, built-ins, and grouping for the picker
+    codeThemeDiscovery.ts Finds themes: Shiki bundle, VS Code-family editors, custom files
+    codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     tabs.ts              Open/close logic for file tabs
     recent.ts            Recent-folders list logic
     fileIcons.ts         Extension → monochrome icon
@@ -64,7 +61,14 @@ src/                     React frontend (almost all logic lives here)
   test/                  Test setup and fake Tauri backends (fakeFs, fakeStore)
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
   main.ts                stdio wiring; pi's files live in ~/.ignition/pi
-  host.ts                Handles requests against pi's ModelRuntime and AgentSession (tested with fakes)
+  host.ts                Request dispatch; createHost builds the handler
+  hostTypes.ts           Shared types and HostContext; per-function context instead of closures
+  hostAuth.ts            Provider sign-in (status, interaction, login)
+  hostSession.ts         The open folder's session (sessionState, setModel, open, prompt)
+  hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
+  hostMcpCatalog.ts      MCP presets and imports (toServerName, target, mcpCatalog, addPreset, importServers)
+  hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, usableServer, copySignIn)
+  wire.ts                Session event wire form (toWireEvent, describeError)
   claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
@@ -191,6 +195,17 @@ has none of its own; token refreshes are written back to that file.
 - **Layout of `src/`:** screens and pieces in `components/`, stateful logic in
   `hooks/`, non-React helpers in `lib/`. Do not hand-edit `components/ui/`
   beyond small fixes; it is shadcn-generated.
+- **One UI component per file, grouped by feature.** Every distinct piece of
+  UI (chat box, model menu, file tree, a settings section, a tool row…) is its
+  own component in its own file under `components/<feature>/`, so it can be
+  edited without touching its neighbours. A parent composes children and
+  passes props; it never inlines a child's markup. No private helper
+  components either: every component gets its own file. New features follow
+  this from the start.
+- **Size limits are enforced** by oxlint (`.oxlintrc.json`, part of `npm run
+lint`): one component per file, files ≤250 lines, functions ≤120 lines,
+  complexity ≤15, nesting ≤4. Split code instead of raising a limit or adding
+  to the exemption list.
 - **Menus are shadcn.** Every menu, picker and dropdown uses a shadcn component
   (`Select`, `DropdownMenu`, …; add missing ones with `npx shadcn@latest add`).
   Never a native `<select>` or a hand-rolled popup.

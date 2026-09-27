@@ -10,16 +10,15 @@ import type {
   ThinkingLevel,
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
-import {
-  createHost,
-  describeError,
-  toWireEvent,
-  type McpCatalogSource,
-  type McpStatusSnapshot,
-  type OpenSession,
-  type Runtime,
-  type Session,
-} from "./host.ts";
+import { createHost } from "./host.ts";
+import { describeError, toWireEvent } from "./wire.ts";
+import type {
+  McpCatalogSource,
+  McpStatusSnapshot,
+  OpenSession,
+  Runtime,
+  Session,
+} from "./hostTypes.ts";
 import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
 import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
 

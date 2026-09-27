@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { importTheme, themeKind, type ThemeKind } from "@/lib/codeThemes";
+import type { ThemeKind } from "@/lib/codeThemes";
+import { importTheme, themeKind } from "@/lib/codeThemeLoad";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
