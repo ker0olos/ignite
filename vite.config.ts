@@ -38,6 +38,9 @@ export default defineConfig(() => ({
   server: {
     port: 1420,
     strictPort: true,
+    // Shows the app's warnings and errors, including the sidecar's log, in the
+    // terminal; Vite only does this by default when an AI agent runs it.
+    forwardConsole: true,
     host: host || false,
     hmr: host
       ? {
