@@ -1,5 +1,6 @@
 import { EditToolBody } from "@/components/conversation/EditToolBody";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
+import { ReadToolBody } from "@/components/conversation/ReadToolBody";
 import type { ToolProps } from "@/components/conversation/shared";
 import { WriteToolBody } from "@/components/conversation/WriteToolBody";
 import type { ToolRun } from "@/lib/transcript";
@@ -40,14 +41,7 @@ export function ToolBody({
   }
 
   if (call.name === "read") {
-    if (running) return null;
-    const count = text ? text.split("\n").length : 0;
-    return (
-      <p>
-        Read <span className="font-medium text-foreground">{count}</span>{" "}
-        {count === 1 ? "line" : "lines"}
-      </p>
-    );
+    return <ReadToolBody running={running} text={text} />;
   }
 
   if (!text) return running ? null : <p>(No output)</p>;

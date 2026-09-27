@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+  type AgentSession,
   createAgentSession,
   createEventBus,
   DefaultResourceLoader,
@@ -120,6 +121,31 @@ const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
 // pi-mcp-adapter throws on reload if none is set.
 initTheme("dark");
 
+function sameModel(
+  a: { provider: string; id: string } | undefined,
+  b: { provider: string; id: string },
+): boolean {
+  return !!a && a.provider === b.provider && a.id === b.id;
+}
+
+// pi picks the model before extensions register their providers, so a saved
+// claude-bridge model isn't found yet; pick it again now that it is.
+async function reselectModel(
+  runtime: ModelRuntime,
+  sessionManager: SessionManager,
+  settingsManager: SettingsManager,
+  session: AgentSession,
+): Promise<void> {
+  const saved = sessionManager.buildSessionContext().model;
+  const provider = saved?.provider ?? settingsManager.getDefaultProvider();
+  const id = saved?.modelId ?? settingsManager.getDefaultModel();
+  if (!provider || !id) return;
+  const wanted = runtime.getModel(provider, id);
+  if (!wanted || sameModel(session.model, wanted)) return;
+  if (!(await runtime.checkAuth(wanted.provider))) return;
+  await session.setModel(wanted);
+}
+
 async function openSession(
   cwd: string,
   onMcpStatus: (snapshot: McpStatusSnapshot) => void,
@@ -155,20 +181,7 @@ async function openSession(
     settingsManager,
     resourceLoader,
   });
-  // pi picks the model before extensions register their providers, so a
-  // saved claude-bridge model isn't found yet; pick it again now that it is.
-  const saved = sessionManager.buildSessionContext().model;
-  const provider = saved?.provider ?? settingsManager.getDefaultProvider();
-  const id = saved?.modelId ?? settingsManager.getDefaultModel();
-  const wanted = provider && id ? runtime.getModel(provider, id) : undefined;
-  if (
-    wanted &&
-    (wanted.provider !== session.model?.provider ||
-      wanted.id !== session.model?.id) &&
-    (await runtime.checkAuth(wanted.provider))
-  ) {
-    await session.setModel(wanted);
-  }
+  await reselectModel(runtime, sessionManager, settingsManager, session);
   // Starts extensions (session_start), as pi's own modes do; the error
   // listener also makes a reload start them again.
   await session.bindExtensions({

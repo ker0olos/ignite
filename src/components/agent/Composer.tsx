@@ -1,16 +1,12 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import type { ImageContent } from "../../../shared/agentTypes";
-import { EffortMenu } from "@/components/agent/EffortMenu";
+import { ComposerToolbar } from "@/components/agent/ComposerToolbar";
 import { ImageAttachments } from "@/components/agent/ImageAttachments";
-import { Kbd } from "@/components/agent/Kbd";
-import { ModelMenu } from "@/components/agent/ModelMenu";
-import { ACTION, MENU_TRIGGER } from "@/components/agent/styles";
-import { Skeleton } from "@/components/ui/skeleton";
+import { MENU_TRIGGER } from "@/components/agent/styles";
 import { Textarea } from "@/components/ui/textarea";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import { pastedImages, pickImages } from "@/lib/images";
-import { cn } from "@/lib/utils";
 
 type Session = ReturnType<typeof useAgentSession>;
 
@@ -90,41 +86,12 @@ export function Composer({
           >
             <Plus className="size-3.5" />
           </button>
-          {loading && (
-            <>
-              <Skeleton className="h-3 w-14" />
-              <Skeleton className="h-3 w-8" />
-            </>
-          )}
-          {state && state.models.length > 0 && (
-            <ModelMenu state={state} session={session} />
-          )}
-          {/* pi offers only "off" for models that can't reason. */}
-          {state && state.thinkingLevels.length > 1 && (
-            <EffortMenu state={state} session={session} />
-          )}
-          {session.error && (
-            <span className="truncate text-xs text-destructive">
-              {session.error}
-            </span>
-          )}
-          {running ? (
-            <button
-              type="button"
-              className={ACTION}
-              onClick={() => void session.stop()}
-            >
-              Stop <Kbd>esc</Kbd>
-            </button>
-          ) : (
-            <button
-              type="submit"
-              className={cn(ACTION, !canSend && "invisible")}
-              disabled={!canSend}
-            >
-              Send <Kbd>↵</Kbd>
-            </button>
-          )}
+          <ComposerToolbar
+            session={session}
+            loading={loading}
+            running={running}
+            canSend={canSend}
+          />
         </div>
       </div>
     </form>

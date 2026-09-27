@@ -58,6 +58,26 @@ function toPi(codex: CodexAuth | undefined): string {
   });
 }
 
+// Codex's tokens with pi's refreshed ones merged in, or undefined if unchanged.
+function rotatedTokens(
+  credential: Credential | undefined,
+  codex: CodexAuth | undefined,
+): CodexAuth["tokens"] | undefined {
+  if (credential?.type !== "oauth" || !codex) return undefined;
+  const tokens = codex.tokens ?? {};
+  const changed =
+    credential.access !== tokens.access_token ||
+    credential.refresh !== tokens.refresh_token;
+  if (!changed) return undefined;
+  return {
+    ...tokens,
+    access_token: credential.access,
+    refresh_token: credential.refresh,
+    account_id:
+      (credential.accountId as string | undefined) ?? tokens.account_id,
+  };
+}
+
 /**
  * Lets pi use the Codex CLI's ChatGPT login in ~/.codex/auth.json as its
  * openai-codex credential. A refresh rotates the refresh token, so pi's new
@@ -72,17 +92,8 @@ export function codexBackend(path: string): AuthBackend {
       ? (JSON.parse(next) as Record<string, Credential>)[CODEX]
       : undefined;
     const codex = readCodex(path);
-    const changed =
-      credential?.type === "oauth" &&
-      (credential.access !== codex?.tokens?.access_token ||
-        credential.refresh !== codex?.tokens?.refresh_token);
-    if (changed && codex) {
-      const tokens = {
-        ...codex.tokens,
-        access_token: credential.access,
-        refresh_token: credential.refresh,
-        account_id: credential.accountId ?? codex.tokens?.account_id,
-      };
+    const tokens = rotatedTokens(credential, codex);
+    if (tokens && codex) {
       writeFileSync(
         path,
         JSON.stringify(

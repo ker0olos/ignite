@@ -27,6 +27,36 @@ type Json = Record<string, unknown>;
 const text = (value: unknown) =>
   typeof value === "string" && value ? value : undefined;
 
+function buildTokens(best: Json, issuer?: string): AdapterAuth["tokens"] {
+  return {
+    accessToken: best.accessToken as string,
+    ...(text(best.refreshToken) && { refreshToken: text(best.refreshToken) }),
+    // Claude Code saves milliseconds, the adapter seconds.
+    ...(typeof best.expiresAt === "number" && {
+      expiresAt: Math.floor(best.expiresAt / 1000),
+    }),
+    ...(text(best.scope) && { scope: text(best.scope) }),
+    ...(issuer && { issuer }),
+  };
+}
+
+function buildClientInfo(
+  best: Json,
+  issuer?: string,
+): AdapterAuth["clientInfo"] | undefined {
+  const clientId = text(best.clientId);
+  if (!clientId) return undefined;
+  const redirectUri = text(best.redirectUri);
+  const clientSecret = text(best.clientSecret);
+  return {
+    clientId,
+    ...(clientSecret && { clientSecret }),
+    // Without these the adapter takes the client for a config stub and drops it.
+    ...(redirectUri && { redirectUris: [redirectUri] }),
+    ...(issuer && { issuer }),
+  };
+}
+
 /**
  * The sign-in Claude Code saved for `url`, from its keychain item's JSON:
  * the freshest one with a token, since a URL can be signed in more than once.
@@ -50,30 +80,11 @@ export function signInFor(
     .sort((a, b) => expiry(b) - expiry(a));
   if (!best) return undefined;
   const issuer = text(best.issuer);
-  const clientId = text(best.clientId);
-  const redirectUri = text(best.redirectUri);
-  const clientSecret = text(best.clientSecret);
+  const clientInfo = buildClientInfo(best, issuer);
   return {
     serverUrl: url,
-    tokens: {
-      accessToken: best.accessToken as string,
-      ...(text(best.refreshToken) && { refreshToken: text(best.refreshToken) }),
-      // Claude Code saves milliseconds, the adapter seconds.
-      ...(typeof best.expiresAt === "number" && {
-        expiresAt: Math.floor(best.expiresAt / 1000),
-      }),
-      ...(text(best.scope) && { scope: text(best.scope) }),
-      ...(issuer && { issuer }),
-    },
-    ...(clientId && {
-      clientInfo: {
-        clientId,
-        ...(clientSecret && { clientSecret }),
-        // Without these the adapter takes the client for a config stub and drops it.
-        ...(redirectUri && { redirectUris: [redirectUri] }),
-        ...(issuer && { issuer }),
-      },
-    }),
+    tokens: buildTokens(best, issuer),
+    ...(clientInfo && { clientInfo }),
   };
 }
 

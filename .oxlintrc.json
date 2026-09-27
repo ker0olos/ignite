@@ -13,7 +13,7 @@
       "error",
       { "max": 120, "skipBlankLines": true, "skipComments": true }
     ],
-    "complexity": ["error", 15],
+    "complexity": ["error", 10],
     "max-depth": ["error", 4]
   },
   "overrides": [

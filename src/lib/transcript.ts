@@ -112,6 +112,13 @@ export function applyEvent(t: Transcript, event: SessionEvent): Transcript {
       return finishMessage(t, event.message);
     case "message_update":
       return updateStreaming(t, event.assistantMessageEvent);
+    default:
+      return applyBackgroundEvent(t, event);
+  }
+}
+
+function applyBackgroundEvent(t: Transcript, event: SessionEvent): Transcript {
+  switch (event.type) {
     case "tool_execution_start":
     case "tool_execution_update":
     case "tool_execution_end":
@@ -168,13 +175,56 @@ function setTool(t: Transcript, id: string, run: ToolRun): Transcript {
   return { ...t, tools: { ...t.tools, [id]: { ...t.tools[id], ...run } } };
 }
 
-function updateStreaming(
-  t: Transcript,
-  update: Extract<
-    SessionEvent,
-    { type: "message_update" }
-  >["assistantMessageEvent"],
-): Transcript {
+type StreamUpdate = Extract<
+  SessionEvent,
+  { type: "message_update" }
+>["assistantMessageEvent"];
+type ContentBlock = AssistantMessage["content"][number];
+
+function startOrEndBlock(update: StreamUpdate): ContentBlock | undefined {
+  switch (update.type) {
+    case "text_start":
+      return { type: "text", text: "" };
+    case "thinking_start":
+      return { type: "thinking", thinking: "" };
+    case "toolcall_start":
+      return {
+        type: "toolCall",
+        id: update.id,
+        name: update.toolName,
+        arguments: {},
+      };
+    case "text_end":
+      return { type: "text", text: update.content };
+    case "thinking_end":
+      return { type: "thinking", thinking: update.content };
+    case "toolcall_end":
+      return update.toolCall;
+    default:
+      return undefined;
+  }
+}
+
+function deltaBlock(
+  update: StreamUpdate,
+  block: ContentBlock | undefined,
+): ContentBlock | undefined {
+  switch (update.type) {
+    case "text_delta":
+      return block?.type === "text"
+        ? { ...block, text: block.text + update.delta }
+        : undefined;
+    case "thinking_delta":
+      return block?.type === "thinking"
+        ? { ...block, thinking: block.thinking + update.delta }
+        : undefined;
+    default:
+      // toolcall_delta streams partial JSON; the call shows once it ends.
+      return undefined;
+  }
+}
+
+function updateStreaming(t: Transcript, update: StreamUpdate): Transcript {
   const i = t.items.findLastIndex(
     (item) => item.kind === "message" && item.message.role === "assistant",
   );
@@ -182,44 +232,9 @@ function updateStreaming(
   const message = (t.items[i] as { message: AssistantMessage }).message;
   const content = message.content.slice();
   const at = update.contentIndex;
-  const block = content[at];
-
-  switch (update.type) {
-    case "text_start":
-      content[at] = { type: "text", text: "" };
-      break;
-    case "thinking_start":
-      content[at] = { type: "thinking", thinking: "" };
-      break;
-    case "toolcall_start":
-      content[at] = {
-        type: "toolCall",
-        id: update.id,
-        name: update.toolName,
-        arguments: {},
-      };
-      break;
-    case "text_delta":
-      if (block?.type !== "text") return t;
-      content[at] = { ...block, text: block.text + update.delta };
-      break;
-    case "thinking_delta":
-      if (block?.type !== "thinking") return t;
-      content[at] = { ...block, thinking: block.thinking + update.delta };
-      break;
-    case "text_end":
-      content[at] = { type: "text", text: update.content };
-      break;
-    case "thinking_end":
-      content[at] = { type: "thinking", thinking: update.content };
-      break;
-    case "toolcall_end":
-      content[at] = update.toolCall;
-      break;
-    default:
-      // toolcall_delta streams partial JSON; the call shows once it ends.
-      return t;
-  }
+  const next = startOrEndBlock(update) ?? deltaBlock(update, content[at]);
+  if (!next) return t;
+  content[at] = next;
   const items = t.items.slice();
   items[i] = { kind: "message", message: { ...message, content } };
   return { ...t, items };

@@ -204,7 +204,7 @@ has none of its own; token refreshes are written back to that file.
   this from the start.
 - **Size limits are enforced** by oxlint (`.oxlintrc.json`, part of `npm run
 lint`): one component per file, files ≤250 lines, functions ≤120 lines,
-  complexity ≤15, nesting ≤4. Split code instead of raising a limit or adding
+  complexity ≤10, nesting ≤4. Split code instead of raising a limit or adding
   to the exemption list.
 - **Menus are shadcn.** Every menu, picker and dropdown uses a shadcn component
   (`Select`, `DropdownMenu`, …; add missing ones with `npx shadcn@latest add`).

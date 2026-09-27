@@ -86,25 +86,29 @@ const strings = (v: unknown): Record<string, string> | undefined => {
  * apps' extra fields (Claude Code's `type`, Codex's timeouts) are dropped. The
  * adapter's `url` covers Streamable HTTP and SSE. Returns undefined if unusable.
  */
+function urlEntry(raw: Json): McpEntry {
+  const headers = strings(raw.headers) ?? strings(raw.http_headers);
+  return { url: raw.url as string, ...(headers && { headers }) };
+}
+
+function commandEntry(raw: Json): McpEntry {
+  const args = Array.isArray(raw.args)
+    ? raw.args.filter((a): a is string => typeof a === "string")
+    : [];
+  const env = strings(raw.env);
+  return {
+    command: raw.command as string,
+    ...(args.length && { args }),
+    ...(env && { env }),
+  };
+}
+
 export function toAdapterEntry(raw: unknown): McpEntry | undefined {
   if (!isObject(raw) || raw.disabled === true || raw.enabled === false) {
     return undefined;
   }
-  if (typeof raw.url === "string") {
-    const headers = strings(raw.headers) ?? strings(raw.http_headers);
-    return { url: raw.url, ...(headers && { headers }) };
-  }
-  if (typeof raw.command === "string" && raw.command) {
-    const args = Array.isArray(raw.args)
-      ? raw.args.filter((a): a is string => typeof a === "string")
-      : [];
-    const env = strings(raw.env);
-    return {
-      command: raw.command,
-      ...(args.length && { args }),
-      ...(env && { env }),
-    };
-  }
+  if (typeof raw.url === "string") return urlEntry(raw);
+  if (typeof raw.command === "string" && raw.command) return commandEntry(raw);
   return undefined;
 }
 
@@ -135,38 +139,48 @@ async function readToml(path: string): Promise<Json | undefined> {
   }
 }
 
-/**
- * Every other app's MCP servers found in `home`, and for the open folder
- * `cwd` if any. Sources with no usable servers are left out.
- */
-export async function findImports(
+async function claudeCodeSources(
   home: string,
   cwd: string | undefined,
 ): Promise<ImportSource[]> {
   const claude = await readJson(join(home, ".claude.json"));
   const claudeProject =
     cwd && isObject(claude?.projects) ? claude.projects[cwd] : undefined;
-  const sources: (ImportSource | false | undefined)[] = [
+  const projectSources: ImportSource[] = [];
+  if (cwd) {
+    projectSources.push(
+      // Claude Code's "local" scope: this folder, kept in ~/.claude.json.
+      {
+        id: "claude-code-local",
+        app: "Claude Code",
+        scope: "project",
+        servers: servers(isObject(claudeProject) && claudeProject.mcpServers),
+      },
+      // Claude Code's "project" scope, shared with the repo.
+      {
+        id: "project-mcp-json",
+        app: "Claude Code",
+        scope: "project",
+        servers: servers((await readJson(join(cwd, ".mcp.json")))?.mcpServers),
+      },
+    );
+  }
+  return [
     {
       id: "claude-code",
       app: "Claude Code",
       scope: "user",
       servers: servers(claude?.mcpServers),
     },
-    // Claude Code's "local" scope: this folder, kept in ~/.claude.json.
-    !!cwd && {
-      id: "claude-code-local",
-      app: "Claude Code",
-      scope: "project",
-      servers: servers(isObject(claudeProject) && claudeProject.mcpServers),
-    },
-    // Claude Code's "project" scope, shared with the repo.
-    !!cwd && {
-      id: "project-mcp-json",
-      app: "Claude Code",
-      scope: "project",
-      servers: servers((await readJson(join(cwd, ".mcp.json")))?.mcpServers),
-    },
+    ...projectSources,
+  ];
+}
+
+async function cursorSources(
+  home: string,
+  cwd: string | undefined,
+): Promise<ImportSource[]> {
+  const sources: ImportSource[] = [
     {
       id: "cursor",
       app: "Cursor",
@@ -175,42 +189,60 @@ export async function findImports(
         (await readJson(join(home, ".cursor", "mcp.json")))?.mcpServers,
       ),
     },
-    !!cwd && {
+  ];
+  if (cwd) {
+    sources.push({
       id: "cursor-project",
       app: "Cursor",
       scope: "project",
       servers: servers(
         (await readJson(join(cwd, ".cursor", "mcp.json")))?.mcpServers,
       ),
-    },
-    {
-      id: "codex",
-      app: "Codex",
-      scope: "user",
-      servers: servers(
-        (await readToml(join(home, ".codex", "config.toml")))?.mcp_servers,
-      ),
-    },
-    {
-      id: "claude-desktop",
-      app: "Claude Desktop",
-      scope: "user",
-      servers: servers(
-        (
-          await readJson(
-            join(
-              home,
-              "Library",
-              "Application Support",
-              "Claude",
-              "claude_desktop_config.json",
-            ),
-          )
-        )?.mcpServers,
-      ),
-    },
-  ];
-  return sources.filter(
-    (s): s is ImportSource => !!s && Object.keys(s.servers).length > 0,
+    });
+  }
+  return sources;
+}
+
+async function codexSource(home: string): Promise<ImportSource> {
+  return {
+    id: "codex",
+    app: "Codex",
+    scope: "user",
+    servers: servers(
+      (await readToml(join(home, ".codex", "config.toml")))?.mcp_servers,
+    ),
+  };
+}
+
+async function claudeDesktopSource(home: string): Promise<ImportSource> {
+  const configPath = join(
+    home,
+    "Library",
+    "Application Support",
+    "Claude",
+    "claude_desktop_config.json",
   );
+  return {
+    id: "claude-desktop",
+    app: "Claude Desktop",
+    scope: "user",
+    servers: servers((await readJson(configPath))?.mcpServers),
+  };
+}
+
+/**
+ * Every other app's MCP servers found in `home`, and for the open folder
+ * `cwd` if any. Sources with no usable servers are left out.
+ */
+export async function findImports(
+  home: string,
+  cwd: string | undefined,
+): Promise<ImportSource[]> {
+  const sources = [
+    ...(await claudeCodeSources(home, cwd)),
+    ...(await cursorSources(home, cwd)),
+    await codexSource(home),
+    await claudeDesktopSource(home),
+  ];
+  return sources.filter((s) => Object.keys(s.servers).length > 0);
 }
