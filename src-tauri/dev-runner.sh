@@ -17,7 +17,10 @@ target=${CARGO_TARGET_DIR:-target}/debug
 app="$target/$title.app/Contents"
 mkdir -p "$app/MacOS" "$app/Resources"
 cp -f icons/icon.icns "$app/Resources/icon.icns"
-cp -f "$target/$name" "$app/MacOS/$name"
+# A new file, not an overwrite: macOS caches a file's signature, and a stale
+# one gets the rebuilt binary killed at launch (Code Signature Invalid).
+rm -f "$app/MacOS/$name"
+cp "$target/$name" "$app/MacOS/$name"
 cat > "$app/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
