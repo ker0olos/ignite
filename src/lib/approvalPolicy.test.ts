@@ -105,6 +105,20 @@ describe("approvalFor", () => {
     });
   });
 
+  it("leaves paths to the sandbox when commands run in it, but not dangers", () => {
+    const sandboxed = { sandboxed: true };
+    const bash = (command: string) =>
+      approvalFor("auto", "bash", { command }, place, sandboxed);
+    expect(bash("cat /etc/hosts")).toBeNull();
+    expect(bash("git push --force")).toEqual({
+      reason: "Rewrites or deletes history on the remote",
+    });
+    // File tools don't run in the sandbox.
+    expect(
+      approvalFor("auto", "write", { path: "~/.zshrc" }, place, sandboxed),
+    ).toEqual({ reason: "Outside the project: ~/.zshrc" });
+  });
+
   it("ignores arguments of the wrong type", () => {
     expect(approvalFor("auto", "bash", { command: 1 }, place)).toBeNull();
     expect(approvalFor("auto", "read", { path: null }, place)).toBeNull();

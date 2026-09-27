@@ -80,17 +80,25 @@ export function outsidePaths(
 const outsideReason = (path: string, place: Place) =>
   `Outside the project: ${tildify(path, place.home)}`;
 
+/** How shell commands are judged under Auto. */
+export type BashCheck = {
+  /** Splits commands for a precise check; without it, the raw text is checked. */
+  parse?: ParseBash;
+  /** Commands run in the OS sandbox, which keeps them in the folder itself. */
+  sandboxed?: boolean;
+};
+
 /** Why a call needs approval under Auto, or null when it may run. */
 function autoReason(
   toolName: string,
   input: Record<string, unknown>,
   place: Place,
-  parse?: ParseBash,
+  { parse, sandboxed }: BashCheck,
 ): string | null {
   if (toolName === "bash" && typeof input.command === "string") {
     const pipelines = parse?.(input.command);
     const danger = dangerousCommand(input.command, pipelines);
-    if (danger) return danger;
+    if (danger || sandboxed) return danger;
     const [outside] = outsidePaths(input.command, place, pipelines);
     return outside ? outsideReason(outside, place) : null;
   }
@@ -103,18 +111,17 @@ function autoReason(
 
 /**
  * Whether a tool call must wait for the user, with the reason to show.
- * Null lets it run. `parse` splits shell commands for a precise check;
- * without it they are checked as raw text.
+ * Null lets it run.
  */
 export function approvalFor(
   mode: ApprovalMode,
   toolName: string,
   input: Record<string, unknown>,
   place: Place,
-  parse?: ParseBash,
+  bash: BashCheck = {},
 ): { reason?: string } | null {
   if (mode === "manual") return {};
-  const reason = autoReason(toolName, input, place, parse);
+  const reason = autoReason(toolName, input, place, bash);
   return reason === null ? null : { reason };
 }
 

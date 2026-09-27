@@ -3,20 +3,32 @@
  * (src/lib/approvalPolicy.ts). The question goes to the host over pi's event
  * bus; a denied call is blocked with a reason the model sees. The mode is
  * read from settings.toml on every call, so switching applies at once.
+ * In Auto, shell commands that run without asking run in the OS sandbox
+ * (sandbox.ts); one the sandbox blocked asks to run outside it when retried.
  */
 import { readFile, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  ToolCallEvent,
+} from "@earendil-works/pi-coding-agent";
 import { parse as parseToml } from "smol-toml";
 import type { ApprovalMode, ApprovalRequest } from "../shared/hostProtocol.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { approvalFor, resolvePath } from "../src/lib/approvalPolicy.ts";
 import { loadBashParser } from "./bashParser.ts";
+import { blockedSummary, createSandbox, type Sandbox } from "./sandbox.ts";
 
-// Without the grammar, commands are still checked, as raw text.
+// Without these, commands are still checked: as raw text, and for paths
+// outside the folder instead of in the sandbox.
 const bashParser = loadBashParser().catch((error: unknown) => {
   process.stderr.write(`pi-host: bash parser unavailable: ${error}\n`);
+  return undefined;
+});
+const sandbox = createSandbox().catch((error: unknown) => {
+  process.stderr.write(`pi-host: sandbox unavailable: ${error}\n`);
   return undefined;
 });
 
@@ -30,6 +42,9 @@ export type ApprovalAsk = {
 };
 
 export const DENIED = "The user denied this tool call.";
+export const RETRY_HINT =
+  "The sandbox blocked this command. If it must run outside the sandbox, " +
+  "run exactly the same command again; the user will be asked to approve it.";
 
 /** The composer's approval mode (`[approval] mode`); Auto unless set to manual. */
 export async function approvalMode(
@@ -67,21 +82,82 @@ async function judged(input: Record<string, unknown>, cwd: string) {
   return { input: { ...input, path }, place };
 }
 
+function commandOf(event: ToolCallEvent): string | undefined {
+  const { command } = event.input as Record<string, unknown>;
+  return event.toolName === "bash" && typeof command === "string"
+    ? command
+    : undefined;
+}
+
 export default function approval(pi: ExtensionAPI) {
-  pi.on("tool_call", async (event, ctx) => {
-    const { input, place } = await judged(event.input, ctx.cwd);
-    const mode = await approvalMode();
-    const parse = await bashParser;
-    const needed = approvalFor(mode, event.toolName, input, place, parse);
-    if (!needed) return;
-    const approved = await new Promise<boolean>((resolve) => {
+  // Commands the sandbox blocked, with what it blocked; retrying one asks.
+  const blocked = new Map<string, string>();
+  // Sandboxed runs in progress: tool call id → the command as written.
+  const sandboxed = new Map<string, string>();
+
+  const ask = (request: ApprovalRequest, ctx: ExtensionContext) =>
+    new Promise<boolean>((resolve) => {
       // Stopping the run denies it.
       ctx.signal?.addEventListener("abort", () => resolve(false));
       pi.events.emit(APPROVAL_EVENT, {
-        request: { toolCallId: event.toolCallId, ...needed },
+        request,
         answer: resolve,
       } satisfies ApprovalAsk);
     });
-    return approved ? undefined : { block: true, reason: DENIED };
+
+  /** Why the call waits for the user, or null to let it run. */
+  async function needed(
+    event: ToolCallEvent,
+    ctx: ExtensionContext,
+    mode: ApprovalMode,
+    box: Sandbox | undefined,
+  ) {
+    const command = commandOf(event);
+    const was = command === undefined ? undefined : blocked.get(command);
+    if (box && was) {
+      return { reason: `The sandbox blocked it (${was}); run it outside?` };
+    }
+    const { input, place } = await judged(event.input, ctx.cwd);
+    const parse = await bashParser;
+    return approvalFor(mode, event.toolName, input, place, {
+      parse,
+      sandboxed: !!box,
+    });
+  }
+
+  pi.on("tool_call", async (event, ctx) => {
+    const mode = await approvalMode();
+    const box = mode === "auto" ? await sandbox : undefined;
+    const command = commandOf(event);
+    const wait = await needed(event, ctx, mode, box);
+    if (wait) {
+      const request = { toolCallId: event.toolCallId, ...wait };
+      if (!(await ask(request, ctx))) return { block: true, reason: DENIED };
+      // An approved command runs as is, outside the sandbox.
+      if (command !== undefined) blocked.delete(command);
+      return;
+    }
+    if (!box || command === undefined) return;
+    sandboxed.set(event.toolCallId, command);
+    const input = event.input as { command: string };
+    input.command = await box.wrap(command, ctx.cwd, event.toolCallId);
+  });
+
+  pi.on("tool_result", async (event) => {
+    const command = sandboxed.get(event.toolCallId);
+    const box = await sandbox;
+    if (command === undefined || !box) return;
+    sandboxed.delete(event.toolCallId);
+    const text = event.content
+      .flatMap((c) => (c.type === "text" ? [c.text] : []))
+      .join("\n");
+    const explained = box.explain(event.toolCallId, text);
+    const what = blockedSummary(explained);
+    // A command that succeeded wasn't stopped, whatever else macOS logged.
+    if (!event.isError || !what) return;
+    blocked.set(command, what);
+    return {
+      content: [{ type: "text", text: `${explained}\n\n${RETRY_HINT}` }],
+    };
   });
 }

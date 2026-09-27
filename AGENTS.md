@@ -76,6 +76,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
   bashParser.ts          Parses bash (tree-sitter) into pipelines for the approval rules
+  sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
   hostMcpCatalog.ts      MCP presets and imports (toServerName, target, mcpCatalog, addPreset, importServers)
   hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, usableServer, copySignIn)
@@ -157,16 +158,26 @@ whether the call waits, the question goes to the host over pi's event bus
 shows Approve / Deny, answered with `approval_answer`. A denied call returns
 `{ block: true, reason }` to the model; stopping the run or opening another
 folder denies what's waiting. **Manual** asks for every tool call (built-in,
-MCP, everything). **Auto** asks only for bash commands on the denylist in
-`lib/dangerousCommands.ts` and for anything outside the open folder: file
-tools whose resolved path (symlinks followed) is outside it, and bash
-commands naming absolute, `~` or `..` paths outside it. Bash commands are
-parsed first (`sidecar/bashParser.ts`, tree-sitter's bash grammar): the
-rules check each pipeline's real words and redirects, including code run by
-`bash -c`, `eval`, `$(…)` or a heredoc fed to a shell, so quoted text and
-other heredocs aren't mistaken for commands. A line that doesn't parse is
-checked as raw text. The denylist is a guard against mistakes, not a
-sandbox; variables and scripts the agent writes can still get past it.
+MCP, everything); approved commands run as is. **Auto** asks for bash
+commands on the denylist in `lib/dangerousCommands.ts` and for file tools
+whose resolved path (symlinks followed) is outside the open folder. Every
+other bash command runs without asking inside an OS sandbox
+(`sidecar/sandbox.ts`, Anthropic's `@anthropic-ai/sandbox-runtime`: Seatbelt
+on macOS, bubblewrap on Linux). It may write only in the folder, temp
+folders and package caches, can't read credentials (`~/.ssh`, `~/.aws`,
+keychains, auth files) and reaches only package registries and git hosts
+through the runtime's proxy, which runs in the sidecar. When a failed command
+was blocked, the extension appends the sandbox's report and tells the model
+to rerun it unchanged; the rerun asks the user, and if approved runs outside
+the sandbox. Approving a denylisted command also runs it outside. Where the
+sandbox can't start, Auto instead asks for bash commands naming absolute, `~`
+or `..` paths outside the folder. Bash commands are parsed first
+(`sidecar/bashParser.ts`, tree-sitter's bash grammar): the rules check each
+pipeline's real words and redirects, including code run by `bash -c`,
+`eval`, `$(…)` or a heredoc fed to a shell, so quoted text and other heredocs
+aren't mistaken for commands. A line that doesn't parse is checked as raw
+text. The denylist is a guard against mistakes; the sandbox is the boundary,
+and it covers bash only (file tools and MCP servers run unsandboxed).
 
 Sessions open with the project untrusted, so a folder's own `.pi/`
 extensions, skills and settings never load unasked. When a folder has some

@@ -1,0 +1,140 @@
+/**
+ * Runs Auto mode's shell commands inside an OS sandbox (Seatbelt on macOS,
+ * bubblewrap on Linux) through Anthropic's sandbox-runtime: writes only in the
+ * project, temp folders and package caches, no reading credentials, network
+ * only to package registries and git hosts.
+ */
+import {
+  SandboxManager,
+  type SandboxRuntimeConfig,
+} from "@anthropic-ai/sandbox-runtime";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
+import { APP_NAME } from "../src/lib/app.ts";
+
+// ponytail: fixed lists; make them settings once someone needs another host
+// or cache.
+/** Hosts sandboxed commands may reach: package registries and git hosts. */
+export const ALLOWED_DOMAINS = [
+  "registry.npmjs.org",
+  "registry.yarnpkg.com",
+  "jsr.io",
+  "pypi.org",
+  "files.pythonhosted.org",
+  "crates.io",
+  "index.crates.io",
+  "static.crates.io",
+  "proxy.golang.org",
+  "sum.golang.org",
+  "rubygems.org",
+  "index.rubygems.org",
+  "github.com",
+  "*.github.com",
+  "*.githubusercontent.com",
+  "gitlab.com",
+  "bitbucket.org",
+];
+
+/** Secrets under the home folder that sandboxed commands can't read. */
+export const CREDENTIALS = [
+  ".ssh",
+  ".aws",
+  ".gnupg",
+  ".kube",
+  ".azure",
+  ".config/gcloud",
+  ".config/gh",
+  ".docker/config.json",
+  ".netrc",
+  ".git-credentials",
+  ".pypirc",
+  "Library/Keychains",
+  ".codex/auth.json",
+  ".claude/.credentials.json",
+  `.${APP_NAME}/pi/auth.json`,
+];
+
+/** Package manager caches under the home folder, which installs write to. */
+export const CACHES = [
+  ".npm",
+  ".cache",
+  "Library/Caches",
+  ".cargo/registry",
+  ".cargo/git",
+  "go/pkg/mod",
+  ".bun/install/cache",
+  ".pnpm-store",
+  "Library/pnpm",
+  ".yarn",
+  ".gradle/caches",
+  ".m2/repository",
+];
+
+/** The sandbox for commands run in `cwd`. */
+export function sandboxConfig(cwd: string, home: string): SandboxRuntimeConfig {
+  const temp = [...new Set([tmpdir(), "/tmp", "/private/tmp"])];
+  return {
+    network: { allowedDomains: ALLOWED_DOMAINS, deniedDomains: [] },
+    filesystem: {
+      denyRead: CREDENTIALS.map((p) => join(home, p)),
+      allowWrite: [cwd, ...temp, ...CACHES.map((p) => join(home, p))],
+      denyWrite: [],
+    },
+    // macOS denies this to every sandboxed process; it breaks nothing.
+    ignoreViolations: { "*": ["kern.iossupportversion"] },
+  };
+}
+
+/** What the sandbox blocked, from output `explain` annotated; null if nothing. */
+export function blockedSummary(output: string): string | null {
+  const report = /<sandbox_violations>\s*([\s\S]*?)<\/sandbox_violations>/.exec(
+    output,
+  );
+  const lines = report?.[1].split("\n").filter((line) => line.trim()) ?? [];
+  // macOS also logs lookups a blocked tool made on the way (system-info,
+  // mach-lookup); the file or network denial is what stopped it.
+  const first = lines.find((l) => /file-|network/.test(l)) ?? lines[0];
+  // "touch(123) deny(1) file-write-create /path" → "file-write-create /path"
+  return first
+    ? first.replace(/^\S+\(\d+\)\s+deny\(\d+\)\s+/, "").trim()
+    : null;
+}
+
+export type Sandbox = {
+  /** `command` rewritten to run in the sandbox for `cwd`; `id` names this run. */
+  wrap(command: string, cwd: string, id: string): Promise<string>;
+  /** `output` with what the sandbox blocked during run `id` appended, if anything. */
+  explain(id: string, output: string): string;
+};
+
+/**
+ * Starts the sandbox (its network proxy runs in this process). Undefined
+ * where it can't run, e.g. Linux without bubblewrap; commands then run as
+ * before, with approval asked for paths outside the folder instead.
+ */
+export async function createSandbox(
+  home = homedir(),
+): Promise<Sandbox | undefined> {
+  if (!["darwin", "linux"].includes(process.platform)) return undefined;
+  if (!SandboxManager.isSupportedPlatform()) return undefined;
+  const { errors } = SandboxManager.checkDependencies();
+  if (errors.length) throw new Error(errors.join("; "));
+  // Each command gets its folder's rules in wrap(); until then, only temp.
+  await SandboxManager.initialize(
+    sandboxConfig(tmpdir(), home),
+    undefined,
+    true,
+  );
+  return {
+    wrap: (command, cwd, id) =>
+      SandboxManager.wrapWithSandbox(
+        command,
+        undefined,
+        { filesystem: sandboxConfig(cwd, home).filesystem },
+        undefined,
+        { commandId: id },
+      ),
+    explain: (id, output) =>
+      SandboxManager.annotateStderrWithSandboxFailures(id, output),
+  };
+}

@@ -17,11 +17,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import approval, {
   APPROVAL_EVENT,
   DENIED,
+  RETRY_HINT,
   approvalMode,
   realPath,
   type ApprovalAsk,
 } from "./approvalExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
+
+// A fake sandbox: wrapping marks the command, and `violation` is what it
+// reports blocking. The real one is tested in sandbox.test.ts.
+const fake = vi.hoisted(() => ({ violation: "" }));
+vi.mock("./sandbox.ts", async (actual) => ({
+  ...(await actual<typeof import("./sandbox.ts")>()),
+  createSandbox: async () => ({
+    wrap: async (command: string) => `sandboxed ${command}`,
+    explain: (_id: string, output: string) =>
+      fake.violation
+        ? `${output}\n<sandbox_violations>\nsh(1) deny(1) ${fake.violation}\n</sandbox_violations>`
+        : output,
+  }),
+}));
+beforeEach(() => {
+  fake.violation = "";
+});
 
 let home: string;
 let cwd: string;
@@ -68,28 +86,46 @@ describe("realPath", () => {
   });
 });
 
-type Handler = (event: object, ctx: object) => Promise<unknown>;
+type Handler = (event: object, ctx?: object) => Promise<unknown>;
 
-/** Loads the extension with a real event bus; `asks` collects its questions. */
+/**
+ * Loads the extension with a real event bus; `asks` collects its questions.
+ * `call` returns the handler's result, `input` the call's (maybe rewritten)
+ * input, and `result` plays the tool's output back through tool_result.
+ */
 function load() {
   const events = createEventBus();
-  let handler: Handler = async () => undefined;
+  const handlers = new Map<string, Handler>();
   approval({
-    on: (_name: string, h: Handler) => (handler = h),
+    on: (name: string, h: Handler) => handlers.set(name, h),
     events,
   } as unknown as ExtensionAPI);
   const asks: ApprovalAsk[] = [];
   events.on(APPROVAL_EVENT, (data) => void asks.push(data as ApprovalAsk));
+  let input: Record<string, unknown> = {};
+  let id = 0;
   const call = (
     toolName: string,
-    input: Record<string, unknown>,
+    args: Record<string, unknown>,
     signal?: AbortSignal,
-  ) =>
-    handler(
-      { type: "tool_call", toolCallId: "t1", toolName, input },
+  ) => {
+    input = { ...args };
+    const toolCallId = `t${++id}`;
+    return handlers.get("tool_call")!(
+      { type: "tool_call", toolCallId, toolName, input },
       { cwd, signal },
     );
-  return { asks, call };
+  };
+  const result = (text: string, isError: boolean) =>
+    handlers.get("tool_result")!({
+      type: "tool_result",
+      toolCallId: `t${id}`,
+      toolName: "bash",
+      input,
+      content: [{ type: "text", text }],
+      isError,
+    });
+  return { asks, call, result, input: () => input };
 }
 
 describe("tool_call", () => {
@@ -110,6 +146,15 @@ describe("tool_call", () => {
     });
     asks[0].answer(true);
     expect(await result).toBeUndefined();
+  });
+
+  it("runs an approved command as is, outside the sandbox", async () => {
+    const { asks, call, input } = load();
+    const result = call("bash", { command: "git push --force" });
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    asks[0].answer(true);
+    await result;
+    expect(input().command).toBe("git push --force");
   });
 
   it("blocks a denied call with a reason for the model", async () => {
@@ -147,5 +192,71 @@ describe("tool_call", () => {
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     stop.abort();
     expect(await result).toEqual({ block: true, reason: DENIED });
+  });
+});
+
+describe("the sandbox in Auto", () => {
+  it("runs shell commands in the sandbox without asking", async () => {
+    const { asks, call, input } = load();
+    expect(await call("bash", { command: "npm test" })).toBeUndefined();
+    expect(input().command).toBe("sandboxed npm test");
+    // The sandbox, not a prompt, keeps it inside the folder.
+    await call("bash", { command: "cat /etc/hosts" });
+    expect(input().command).toBe("sandboxed cat /etc/hosts");
+    expect(asks).toEqual([]);
+  });
+
+  it("leaves other tools alone", async () => {
+    const { call, input } = load();
+    await call("write", { path: "src/a.ts" });
+    expect(input()).toEqual({ path: "src/a.ts" });
+  });
+
+  it("doesn't sandbox in Manual, where every command is approved", async () => {
+    await settings("[approval]\nmode = 'manual'\n");
+    const { asks, call, input } = load();
+    const result = call("bash", { command: "npm test" });
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    asks[0].answer(true);
+    await result;
+    expect(input().command).toBe("npm test");
+  });
+
+  it("tells the model what was blocked, and asks when it retries", async () => {
+    const { asks, call, result, input } = load();
+    await call("bash", { command: "touch ~/x" });
+    fake.violation = "file-write-create /Users/me/x";
+    const explained = (await result("Operation not permitted", true)) as {
+      content: { text: string }[];
+    };
+    expect(explained.content[0].text).toContain("file-write-create");
+    expect(explained.content[0].text).toContain(RETRY_HINT);
+
+    const retry = call("bash", { command: "touch ~/x" });
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.reason).toBe(
+      "The sandbox blocked it (file-write-create /Users/me/x); run it outside?",
+    );
+    asks[0].answer(true);
+    await retry;
+    expect(input().command).toBe("touch ~/x");
+    // Approved once; the next run is sandboxed again.
+    await call("bash", { command: "touch ~/x" });
+    expect(input().command).toBe("sandboxed touch ~/x");
+  });
+
+  it("ignores what the sandbox logged for a command that succeeded", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "curl https://registry.npmjs.org" });
+    fake.violation = "mach-lookup com.apple.SystemConfiguration.configd";
+    expect(await result("200", false)).toBeUndefined();
+    await call("bash", { command: "curl https://registry.npmjs.org" });
+    expect(asks).toEqual([]);
+  });
+
+  it("leaves results of calls it didn't sandbox alone", async () => {
+    const { result } = load();
+    fake.violation = "file-write-create /x";
+    expect(await result("failed", true)).toBeUndefined();
   });
 });
