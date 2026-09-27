@@ -7,9 +7,11 @@ import type {
   HostMessage,
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
+import type { ApprovalAsk } from "./approvalExtension.ts";
 import type { ClaudeCode } from "./claudeCode.ts";
 import type { McpStore } from "./mcpConfig.ts";
 import type { Preset, ImportSource } from "./mcpCatalog.ts";
+import type { TrustStore } from "./trust.ts";
 
 /** What the MCP settings offer to add in one click. */
 export type McpCatalogSource = {
@@ -60,6 +62,8 @@ export type Session = {
   abort(): Promise<void>;
   /** Reloads extensions, which re-reads mcp.json. */
   reload(): Promise<void>;
+  /** Whether a reload loads the folder's own pi resources. */
+  readonly settingsManager: { setProjectTrusted(trusted: boolean): void };
   readonly extensionRunner: {
     emit(event: { type: "session_shutdown"; reason: "quit" }): Promise<unknown>;
     getCommand(name: string): unknown;
@@ -72,10 +76,14 @@ export type McpStatusSnapshot = {
   servers: readonly { name: string; status: string }[];
 };
 
-/** Opens a folder's session; the adapter's status snapshots go to `onMcpStatus`. */
+/**
+ * Opens a folder's session; the adapter's status snapshots go to
+ * `onMcpStatus`, tool calls waiting for the user to `onApproval`.
+ */
 export type OpenSession = (
   cwd: string,
   onMcpStatus: (snapshot: McpStatusSnapshot) => void,
+  onApproval: (ask: ApprovalAsk) => void,
 ) => Promise<Session>;
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };
@@ -88,10 +96,15 @@ export type HostContext = {
   local: LocalLogins;
   mcpStore: McpStore;
   catalog: McpCatalogSource;
+  trust: TrustStore;
   /** Active sign-in's abort controller, or null. */
   activeLogin: AbortController | null;
   /** Opened session, or null if no folder is open. */
   session: Session | null;
+  /** The open session's folder. */
+  cwd: string | null;
+  /** Answers for tool calls waiting for the user, by tool call id. */
+  approvals: Map<string, (approved: boolean) => void>;
   /** Unsubscribe from the session's events. */
   unsubscribe: () => void;
   /** Adapter status per server name, from the open session's latest snapshot. */

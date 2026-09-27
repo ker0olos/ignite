@@ -21,6 +21,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useTabs } from "@/hooks/useTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
 import { needingSignIn } from "@/lib/mcpServers";
+import { approvalSetting } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -98,6 +99,7 @@ export default function App() {
           editor={settings.editor}
           hideGitIgnored={settings.files.hide_gitignored}
           showThinking={settings.conversation.show_thinking}
+          approval={approvalSetting(settings, setSettings)}
           actions={settingsButton}
           banner={
             <SignInBanner

@@ -1,7 +1,7 @@
 import { type RefObject, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import type { AssistantMessage } from "../../../shared/agentTypes";
-import type { Editor } from "@/components/conversation/shared";
+import type { Editor, ToolProps } from "@/components/conversation/shared";
 import { RowView } from "@/components/conversation/RowView";
 import type { Transcript } from "@/lib/transcript";
 import { toRows } from "@/lib/toolRows";
@@ -15,6 +15,7 @@ export function Conversation({
   codeThemes,
   showThinking,
   scrollRef,
+  onApprove,
 }: {
   transcript: Transcript;
   showThinking: boolean;
@@ -22,6 +23,7 @@ export function Conversation({
   editor: Editor;
   codeThemes: CodeThemes;
   scrollRef: RefObject<HTMLElement | null>;
+  onApprove: ToolProps["onApprove"];
 }) {
   const stuck = useRef(true);
 
@@ -58,6 +60,7 @@ export function Conversation({
           folder={folder}
           editor={editor}
           codeThemes={codeThemes}
+          onApprove={onApprove}
         />
       ))}
       {transcript.running && !lastIsStreamingText && (

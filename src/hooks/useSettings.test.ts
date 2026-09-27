@@ -164,6 +164,7 @@ describe("useSettings", () => {
       files: { hide_gitignored: true },
       conversation: { show_thinking: false },
       memory: { cmem: true },
+      approval: { mode: "auto" },
     };
     act(() => void result.current[1](next));
     expect(result.current[0]).toEqual(next);

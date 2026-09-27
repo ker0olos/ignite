@@ -1,7 +1,14 @@
 // @vitest-environment node
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -224,5 +231,38 @@ describe("MCP servers in the sidecar", () => {
     );
     expect(saved.mcpServers.echo).toMatchObject({ disabled: true });
     expect(existsSync(marker)).toBe(false);
+  }, 60_000);
+});
+
+describe("project trust in the sidecar", () => {
+  it("keeps a folder's own extensions out until the folder is trusted", async () => {
+    const project = join(home, "project");
+    const marker = join(home, "loaded");
+    await mkdir(join(project, ".pi", "extensions"), { recursive: true });
+    await writeFile(
+      join(project, ".pi", "extensions", "marker.ts"),
+      `import { writeFileSync } from "node:fs";\n` +
+        `export default function () { writeFileSync(${JSON.stringify(marker)}, "yes"); }\n`,
+    );
+    const response = (id: number) => (m: HostMessage) =>
+      m.type === "response" && m.id === id;
+
+    const sidecar = start();
+    sidecar.send({ id: 1, type: "open_session", cwd: project });
+    const opened = await sidecar.next((m): m is HostMessage => response(1)(m));
+    expect(opened).toMatchObject({ ok: true, data: { trust: "ask" } });
+    expect(existsSync(marker)).toBe(false);
+
+    sidecar.send({ id: 2, type: "set_trust", cwd: project, trusted: true });
+    const trusted = await sidecar.next((m): m is HostMessage => response(2)(m));
+    expect(trusted).toMatchObject({ ok: true });
+    expect(existsSync(marker)).toBe(true);
+    await sidecar.stop();
+
+    const saved = JSON.parse(
+      await readFile(join(home, `.${APP_NAME}`, "pi", "trust.json"), "utf8"),
+    );
+    // pi saves the real path (macOS's /var is a symlink to /private/var).
+    expect(saved).toEqual({ [await realpath(project)]: true });
   }, 60_000);
 });

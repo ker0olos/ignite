@@ -21,6 +21,8 @@ export function ToolGroup({
   const runs = calls.map((c) => tools[c.id]);
   const running = runs.some((r) => !r || r.status === "running");
   const failed = runs.some((r) => r?.status === "error");
+  // A call waiting for approval must be seen, so the group opens for it.
+  const waiting = runs.some((r) => r?.approval);
   const status: ToolRun | undefined = running
     ? undefined
     : { status: failed ? "error" : "done" };
@@ -38,7 +40,7 @@ export function ToolGroup({
           className={cn("size-3.5 transition-transform", open && "rotate-90")}
         />
       </button>
-      {open && (
+      {(open || waiting) && (
         <div className="space-y-2 border-l pl-3">
           {calls.map((call) => (
             <ToolView

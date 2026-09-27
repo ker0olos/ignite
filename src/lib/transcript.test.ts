@@ -10,6 +10,8 @@ import {
   applyError,
   applyEvent,
   fromHistory,
+  requestApproval,
+  settleApproval,
   type Transcript,
 } from "./transcript";
 
@@ -197,6 +199,53 @@ describe("applyEvent", () => {
         partial,
       ).tools.c1.status,
     ).toBe("error");
+  });
+
+  it("marks a call waiting for approval until it's answered", () => {
+    const started = run([
+      {
+        type: "tool_execution_start",
+        toolCallId: "c1",
+        toolName: "bash",
+        args: {},
+      },
+    ]);
+    const waiting = requestApproval(started, {
+      toolCallId: "c1",
+      reason: "Pipes text into a shell",
+    });
+    expect(waiting.tools.c1).toEqual({
+      status: "running",
+      approval: { reason: "Pipes text into a shell" },
+    });
+    expect(settleApproval(waiting, "c1").tools.c1.approval).toBeUndefined();
+  });
+
+  it("asks without a reason in Manual, even before the call has started", () => {
+    expect(requestApproval(EMPTY, { toolCallId: "c9" }).tools.c9).toEqual({
+      status: "running",
+      approval: {},
+    });
+  });
+
+  it("ignores an answer for a call it doesn't know", () => {
+    expect(settleApproval(EMPTY, "nope")).toBe(EMPTY);
+  });
+
+  it("stops waiting once the call ends (denied or stopped)", () => {
+    const waiting = requestApproval(EMPTY, { toolCallId: "c1" });
+    const ended = run(
+      [
+        {
+          type: "tool_execution_end",
+          toolCallId: "c1",
+          result: output,
+          isError: true,
+        },
+      ],
+      waiting,
+    );
+    expect(ended.tools.c1.approval).toBeUndefined();
   });
 
   it("settles a tool from its result message", () => {

@@ -6,6 +6,7 @@ import type {
   McpServer,
   McpServerConfig,
   ModelInfo,
+  ProjectTrust,
   ProviderStatus,
   ThinkingLevel,
 } from "../shared/hostProtocol.ts";
@@ -22,6 +23,7 @@ import type {
 import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
 import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
 import { memoryStatus } from "./cmem.ts";
+import type { TrustStore } from "./trust.ts";
 
 const MEMORY = { state: "stopped", observations: [] } as const;
 vi.mock("./cmem.ts", () => ({ memoryStatus: vi.fn(async () => MEMORY) }));
@@ -87,6 +89,7 @@ function fakeSession() {
     prompt: vi.fn(async () => {}),
     abort: vi.fn(async () => {}),
     reload: vi.fn(async () => {}),
+    settingsManager: { setProjectTrusted: vi.fn() },
     extensionRunner: {
       emit: vi.fn(async () => {}),
       getCommand: vi.fn(
@@ -158,6 +161,18 @@ function fakeClaudeCode(
   return { status: async () => status, login: vi.fn(login) };
 }
 
+/** A fake trust store: decisions in memory, "untrusted" by default. */
+function fakeTrust(initial: Record<string, ProjectTrust> = {}) {
+  const decisions = new Map(Object.entries(initial));
+  return {
+    decisions,
+    get: vi.fn((cwd: string) => decisions.get(cwd) ?? "untrusted"),
+    set: vi.fn((cwd: string, trusted: boolean) =>
+      decisions.set(cwd, trusted ? "trusted" : "untrusted"),
+    ),
+  };
+}
+
 /** Wires a host to a fake runtime and records everything it sends. */
 function setup(
   runtime: Runtime,
@@ -166,6 +181,7 @@ function setup(
   usesCodexLogin = async () => false,
   mcpStore: McpStore = fakeMcpStore(),
   catalog: McpCatalogSource = { presets: [], findImports: async () => [] },
+  trust: TrustStore = fakeTrust(),
 ) {
   const sent: HostMessage[] = [];
   const host = createHost(
@@ -175,6 +191,7 @@ function setup(
     { claudeCode, usesCodexLogin },
     mcpStore,
     catalog,
+    trust,
   );
   const responses = () => sent.filter((m) => m.type === "response");
   const request = async (r: HostRequest) => host.handle(r);
@@ -675,7 +692,11 @@ describe("sessions", () => {
     const openSession = vi.fn(async () => fakeSession());
     const { request, responses } = setup(fakeRuntime().runtime, openSession);
     await request({ id: 1, type: "open_session", cwd: "/work" });
-    expect(openSession).toHaveBeenCalledWith("/work", expect.any(Function));
+    expect(openSession).toHaveBeenCalledWith(
+      "/work",
+      expect.any(Function),
+      expect.any(Function),
+    );
     expect(responses()[0]).toEqual({
       type: "response",
       id: 1,
@@ -685,6 +706,7 @@ describe("sessions", () => {
         model: opus,
         thinkingLevel: "low",
         thinkingLevels: ["off", "low", "high"],
+        trust: "untrusted",
         messages: [],
         running: false,
       },
@@ -910,6 +932,146 @@ describe("sessions", () => {
       ok: false,
       error: "No folder is open.",
     });
+  });
+});
+
+describe("project trust", () => {
+  it("reports the folder's trust when it opens", async () => {
+    const trust = fakeTrust({ "/work": "ask" });
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      trust,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    expect(responses()[0]).toMatchObject({ data: { trust: "ask" } });
+  });
+
+  const trusting = (session = fakeSession()) => {
+    const trust = fakeTrust({ "/work": "ask" });
+    const host = setup(
+      fakeRuntime().runtime,
+      async () => session,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      trust,
+    );
+    return { ...host, trust, session };
+  };
+
+  it("saves trust and reloads the open folder's session with its resources", async () => {
+    const { request, responses, trust, session } = trusting();
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "set_trust", cwd: "/work", trusted: true });
+    expect(trust.set).toHaveBeenCalledWith("/work", true);
+    expect(session.settingsManager.setProjectTrusted).toHaveBeenCalledWith(
+      true,
+    );
+    expect(session.reload).toHaveBeenCalledOnce();
+    expect(responses()[1]).toMatchObject({ id: 2, ok: true });
+  });
+
+  it("waits for the run to end before reloading", async () => {
+    const { request, session } = trusting();
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    session.isStreaming = true;
+    await request({ id: 2, type: "set_trust", cwd: "/work", trusted: true });
+    expect(session.reload).not.toHaveBeenCalled();
+    session.emit({ type: "agent_settled" } as SessionEvent);
+    expect(session.reload).toHaveBeenCalledOnce();
+  });
+
+  it("saves a refusal without reloading", async () => {
+    const { request, trust, session } = trusting();
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "set_trust", cwd: "/work", trusted: false });
+    expect(trust.set).toHaveBeenCalledWith("/work", false);
+    expect(session.settingsManager.setProjectTrusted).not.toHaveBeenCalled();
+    expect(session.reload).not.toHaveBeenCalled();
+  });
+
+  it("only saves trust for a folder that isn't open", async () => {
+    const { request, trust, session } = trusting();
+    await request({ id: 1, type: "set_trust", cwd: "/other", trusted: true });
+    await request({ id: 2, type: "open_session", cwd: "/work" });
+    await request({ id: 3, type: "set_trust", cwd: "/other", trusted: true });
+    expect(trust.set).toHaveBeenCalledTimes(2);
+    expect(session.reload).not.toHaveBeenCalled();
+  });
+});
+
+describe("tool approval", () => {
+  type Ask = Parameters<Parameters<OpenSession>[2]>[0];
+  /** Opens a session and returns a way to ask as the extension does. */
+  const opened = async () => {
+    let onApproval: (ask: Ask) => void = () => {};
+    const session = fakeSession();
+    const host = setup(fakeRuntime().runtime, async (_cwd, _status, ask) => {
+      onApproval = ask;
+      return session;
+    });
+    await host.request({ id: 1, type: "open_session", cwd: "/work" });
+    const ask = (toolCallId: string, reason?: string) => {
+      const answer = vi.fn();
+      onApproval({ request: { toolCallId, reason }, answer });
+      return answer;
+    };
+    return { ...host, session, ask, reopen: () => onApproval };
+  };
+
+  it("forwards the question and passes the user's answer back", async () => {
+    const { ask, sent, request } = await opened();
+    const answer = ask("t1", "Pipes text into a shell");
+    expect(sent).toContainEqual({
+      type: "approval_request",
+      request: { toolCallId: "t1", reason: "Pipes text into a shell" },
+    });
+    await request({
+      type: "approval_answer",
+      toolCallId: "t1",
+      approved: true,
+    });
+    expect(answer).toHaveBeenCalledWith(true);
+    // Answered once; a second answer finds nothing waiting.
+    await request({
+      type: "approval_answer",
+      toolCallId: "t1",
+      approved: false,
+    });
+    expect(answer).toHaveBeenCalledOnce();
+  });
+
+  it("denies waiting calls when the run is stopped", async () => {
+    const { ask, request, session } = await opened();
+    const answer = ask("t1");
+    await request({ id: 2, type: "abort" });
+    expect(answer).toHaveBeenCalledWith(false);
+    expect(session.abort).toHaveBeenCalled();
+  });
+
+  it("denies waiting calls when another folder opens", async () => {
+    const { ask, request } = await opened();
+    const answer = ask("t1");
+    await request({ id: 2, type: "open_session", cwd: "/other" });
+    expect(answer).toHaveBeenCalledWith(false);
+  });
+
+  it("denies a question from a session that was replaced", async () => {
+    const { reopen, request, sent } = await opened();
+    const stale = reopen();
+    await request({ id: 2, type: "open_session", cwd: "/other" });
+    const answer = vi.fn();
+    stale({ request: { toolCallId: "old" }, answer });
+    expect(answer).toHaveBeenCalledWith(false);
+    expect(sent).not.toContainEqual(
+      expect.objectContaining({ type: "approval_request" }),
+    );
   });
 });
 

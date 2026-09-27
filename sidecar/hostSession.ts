@@ -10,8 +10,10 @@ import {
   type McpStatusSnapshot,
 } from "./hostTypes.ts";
 import { describeError, toWireEvent } from "./wire.ts";
+import type { ApprovalAsk } from "./approvalExtension.ts";
 import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
 import { signOut } from "./hostMcpSignIn.ts";
+import { askApproval, denyAll } from "./hostApproval.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -65,7 +67,9 @@ export async function open(
   const previous = ctx.session;
   ctx.unsubscribe();
   ctx.session = null;
+  ctx.cwd = null;
   ctx.reloadWhenSettled = false;
+  denyAll(ctx);
   ctx.mcpStatus = new Map();
   ctx.checking.clear();
   if (previous) {
@@ -78,15 +82,20 @@ export async function open(
   }
   // Status can arrive while the session is still opening; it's kept, and
   // pushed with the servers once the session is open.
-  const s = await ctx.openSession(cwd, async (snapshot: McpStatusSnapshot) => {
+  const onMcpStatus = async (snapshot: McpStatusSnapshot) => {
     if (opened !== ctx.opens) return;
     ctx.mcpStatus = new Map(snapshot.servers.map((m) => [m.name, m.status]));
     // While the session is still opening, open() pushes once it's done.
     const push = !!ctx.session;
     await rememberSignIns(ctx, snapshot);
     if (push) await pushMcpServers(ctx);
-  });
+  };
+  // A replaced session's tool calls can't be answered any more.
+  const onApproval = (ask: ApprovalAsk) =>
+    opened === ctx.opens ? askApproval(ctx, ask) : ask.answer(false);
+  const s = await ctx.openSession(cwd, onMcpStatus, onApproval);
   ctx.session = s;
+  ctx.cwd = cwd;
   // ponytail: kept in memory; a sidecar restart before a folder opens drops them.
   for (const name of [...ctx.pendingSignOuts]) {
     ctx.pendingSignOuts.delete(name);
@@ -105,6 +114,7 @@ export async function open(
   await pushMcpServers(ctx);
   return {
     ...(await sessionState(ctx)),
+    trust: ctx.trust.get(cwd),
     messages: s.messages,
     running: s.isStreaming,
   };

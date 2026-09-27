@@ -19,8 +19,8 @@ src/                     React frontend (almost all logic lives here)
     app/                 Welcome screen, Workspace layout, file tabs, pane handle
     sidebar/             Title-bar strip + file tree, MCP sign-in warning banner
     files/               Lazy directory tree, read-only syntax-highlighted file view
-    agent/               Conversation area wiring, task composer, model/effort menus
-    conversation/        Transcript rendering: messages, thinking, tool rows and their pieces
+    agent/               Conversation area wiring, task composer, model/effort/approval menus, trust prompt
+    conversation/        Transcript rendering: messages, thinking, tool rows (with approve/deny) and their pieces
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              Recent cmem observations for the Memory settings
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
@@ -32,7 +32,8 @@ src/                     React frontend (almost all logic lives here)
     useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
     useProviders.ts      Provider status, sign-in and sign-out via the pi host
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
-    useAgentSession.ts   The folder's pi session: conversation, send/stop, model and effort
+    useAgentSession.ts   The folder's pi session: conversation, send/stop, trust, model and effort
+    useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
   lib/
@@ -57,6 +58,8 @@ src/                     React frontend (almost all logic lives here)
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
     memory.ts            Memory settings text: cmem status line, relative times
+    approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
+    dangerousCommands.ts Regex denylist of risky shell commands that Auto still asks about
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
@@ -68,6 +71,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostTypes.ts           Shared types and HostContext; per-function context instead of closures
   hostAuth.ts            Provider sign-in (status, interaction, login)
   hostSession.ts         The open folder's session (sessionState, setModel, open, prompt)
+  hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
+  hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
+  trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
+  approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
   hostMcpCatalog.ts      MCP presets and imports (toServerName, target, mcpCatalog, addPreset, importServers)
   hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, usableServer, copySignIn)
@@ -85,7 +92,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
-.todo                    Planned work (tool approval prompts, project trust)
+.todo                    Planned work
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
   dev-runner.sh          Runs `tauri dev` from a .app so Stage Manager shows the icon
@@ -115,11 +122,14 @@ Two places hold persisted data:
 - **Memory settings** (`[memory]`): `cmem` (on by default) records
   sessions in cmem, recalls its memories and gives the agent cmem's search
   tools. Recording checks it before each run; the tools follow a reload.
+- **Approval settings** (`[approval]`): `mode`, `"auto"` (default) or
+  `"manual"`, set from the composer. The sidecar reads it on every tool call.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **pi's own files** in `~/.ignition/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
   default for new sessions, and `sessions/`, one JSONL conversation per
-  folder that reopening the folder continues. The model list and each model's effort levels
+  folder that reopening the folder continues, and `trust.json`, pi's
+  per-folder project trust decisions. The model list and each model's effort levels
   always come from pi; the app never hard-codes them. `mcp.json` holds the
   MCP servers in pi-mcp-adapter's documented format (`mcpServers`, optional
   `settings`); Settings edits it and keeps fields it doesn't show. The adapter
@@ -139,8 +149,25 @@ incompatible API.
 
 The app only renders: pi does the work and the sidecar forwards its session
 events (`toWireEvent`), which `lib/transcript.ts` turns into the conversation.
-pi runs its tools (read, bash, edit, write) without asking; approval prompts
-are planned in `.todo`.
+pi has no approval prompts of its own. `sidecar/approvalExtension.ts` (loaded
+last into every session) handles `tool_call`: `lib/approvalPolicy.ts` decides
+whether the call waits, the question goes to the host over pi's event bus
+(`app/approval`) and on to the app as `approval_request`, and the tool row
+shows Approve / Deny, answered with `approval_answer`. A denied call returns
+`{ block: true, reason }` to the model; stopping the run or opening another
+folder denies what's waiting. **Manual** asks for every tool call (built-in,
+MCP, everything). **Auto** asks only for bash commands on the denylist in
+`lib/dangerousCommands.ts` and for anything outside the open folder: file
+tools whose resolved path (symlinks followed) is outside it, and bash
+commands naming absolute, `~` or `..` paths outside it. The denylist is a
+guard against mistakes, not a sandbox; shell tricks can get past it.
+
+Sessions open with the project untrusted, so a folder's own `.pi/`
+extensions, skills and settings never load unasked. When a folder has some
+and pi's trust store has no decision, `open_session` reports `trust: "ask"`
+and the conversation shows a trust prompt once; the answer is saved with
+`set_trust` in `trust.json`, and trusting reloads the session (after the
+current run) with the folder's resources.
 
 MCP servers come from [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adapter)
 (pinned 2.38.0), loaded into every session by `sidecar/mcpExtension.ts` with

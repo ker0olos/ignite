@@ -11,6 +11,8 @@ export type ToolProps = {
   folder: string;
   editor: Editor;
   codeThemes: CodeThemes;
+  /** Approves or denies a call that waits for the user. */
+  onApprove: (toolCallId: string, approved: boolean) => void;
 };
 
 // Lines shown before "… +N lines"; clicking it shows the rest.
