@@ -156,12 +156,9 @@ export function McpQuickAdd({
           <PresetTile id={preset.id} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium">{preset.name}</p>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="line-clamp-2 text-xs text-muted-foreground">
               {preset.summary}
             </p>
-            {preset.signIn && !preset.added && (
-              <p className="text-xs text-muted-foreground">Needs sign-in</p>
-            )}
           </div>
           {preset.added ? (
             <Added />

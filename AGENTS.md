@@ -71,6 +71,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   mcpConfig.ts           pi-mcp-adapter's mcp.json: read, edit servers, cached tool names
   mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
   mcpCatalog.ts          One-click MCP presets, and other apps' MCP servers to import
+  claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
   testMcpServer.ts       A one-tool stdio MCP server for tests
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)

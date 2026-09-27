@@ -88,8 +88,12 @@ function fakeSession() {
       emit: vi.fn(async () => {}),
       getCommand: vi.fn(
         (name: string): unknown =>
-          ["mcp", "app-mcp-sign-in", "app-mcp-sign-out"].includes(name) ||
-          undefined,
+          [
+            "mcp",
+            "app-mcp-sign-in",
+            "app-mcp-sign-out",
+            "app-mcp-copy-sign-in",
+          ].includes(name) || undefined,
       ),
     },
     dispose: vi.fn(),
@@ -1408,9 +1412,10 @@ describe("MCP catalog", () => {
       },
     ]);
     const cwds: (string | undefined)[] = [];
+    const session = fakeSession();
     const ctx = setup(
       fakeRuntime().runtime,
-      undefined,
+      async () => session,
       undefined,
       undefined,
       store,
@@ -1422,7 +1427,7 @@ describe("MCP catalog", () => {
         },
       },
     );
-    return { ...ctx, store, cwds };
+    return { ...ctx, store, cwds, session };
   }
 
   const data = <T>(r: HostMessage) => (r as { data: T }).data;
@@ -1505,6 +1510,21 @@ describe("MCP catalog", () => {
     expect(store.add).toHaveBeenCalledWith({
       "my-docs": { url: "https://docs" },
     });
+  });
+
+  it("copies Claude Code's sign-ins for imported URL servers", async () => {
+    const { request, session } = withCatalog();
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({
+      id: 2,
+      type: "mcp_import",
+      source: "claude-code",
+      names: ["my docs", "blender"],
+    });
+    const copies = session.prompt.mock.calls
+      .map(([text]: unknown[]) => text)
+      .filter((text: unknown) => String(text).startsWith("/app-mcp-copy"));
+    expect(copies).toEqual(["/app-mcp-copy-sign-in my-docs"]);
   });
 
   it("refuses an import from a source that's gone", async () => {

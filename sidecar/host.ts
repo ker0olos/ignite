@@ -21,6 +21,7 @@ import type { ClaudeCode } from "./claudeCode.ts";
 import {
   MCP_SIGN_IN_COMMAND,
   MCP_SIGN_OUT_COMMAND,
+  MCP_COPY_SIGN_IN_COMMAND,
   type McpEntry,
   type McpStore,
 } from "./mcpConfig.ts";
@@ -479,9 +480,23 @@ export function createHost(
       .filter(([name]) => names.includes(name))
       .map(([name, entry]) => [toServerName(name), entry] as const);
     return changeMcp(
-      () => mcpStore.add(Object.fromEntries(entries)),
+      async () => {
+        await mcpStore.add(Object.fromEntries(entries));
+        if (source.app === "Claude Code") {
+          for (const [name, entry] of entries) {
+            if ("url" in entry) await copySignIn(name);
+          }
+        }
+      },
       entries.map(([name]) => name),
     );
+  }
+
+  // A refused keychain or no saved sign-in leaves the server to sign in as usual.
+  async function copySignIn(name: string) {
+    const s = session;
+    if (!s?.extensionRunner.getCommand(MCP_COPY_SIGN_IN_COMMAND)) return;
+    await s.prompt(`/${MCP_COPY_SIGN_IN_COMMAND} ${name}`, {}).catch(() => {});
   }
 
   /**

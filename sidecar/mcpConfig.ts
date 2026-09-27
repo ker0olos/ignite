@@ -20,6 +20,8 @@ import {
 export const MCP_SIGN_IN_COMMAND = "app-mcp-sign-in";
 /** Deletes a server's saved sign-in, also registered by mcpExtension.ts. */
 export const MCP_SIGN_OUT_COMMAND = "app-mcp-sign-out";
+/** Copies Claude Code's sign-in for a server, also registered by mcpExtension.ts. */
+export const MCP_COPY_SIGN_IN_COMMAND = "app-mcp-copy-sign-in";
 /** Event-bus channel on which that command hands over the page to open. */
 export const MCP_AUTH_URL_EVENT = "app/mcp-auth-url";
 

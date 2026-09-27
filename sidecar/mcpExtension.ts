@@ -14,12 +14,14 @@ import {
 import { createMcpAdapter } from "pi-mcp-adapter";
 import {
   MCP_AUTH_URL_EVENT,
+  MCP_COPY_SIGN_IN_COMMAND,
   MCP_SIGN_IN_COMMAND,
   MCP_SIGN_OUT_COMMAND,
   adapterConfig,
   readMcpFile,
 } from "./mcpConfig.ts";
 import { APP_TITLE } from "../src/lib/app.ts";
+import { readClaudeCodeKeychain, signInFor } from "./claudeCodeMcpAuth.ts";
 
 // The adapter's sign-in isn't a public export, and Node can't load its
 // TypeScript from node_modules; pi's extension loader can, from here.
@@ -103,6 +105,24 @@ export default async function mcp(pi: ExtensionAPI) {
     handler: async (name, ctx) => {
       const { removeAuth } = await import(adapterFile("mcp-auth-flow.ts"));
       await removeAuth(name, { signal: ctx.signal });
+    },
+  });
+
+  // For servers imported from Claude Code; a server already signed in keeps its own.
+  pi.registerCommand(MCP_COPY_SIGN_IN_COMMAND, {
+    description: "Copy Claude Code's sign-in for an MCP server",
+    handler: async (name) => {
+      const entry = (await readMcpFile(join(getAgentDir(), "mcp.json")))
+        .mcpServers?.[name];
+      const { resolveServerUrl } = await import(adapterFile("utils.ts"));
+      const url = entry && resolveServerUrl(entry);
+      if (!url) return;
+      const { getAuthForUrl, saveAuthEntry } = await import(
+        adapterFile("mcp-auth.ts")
+      );
+      if (getAuthForUrl(name, url)?.tokens) return;
+      const auth = signInFor(await readClaudeCodeKeychain(), url);
+      if (auth) saveAuthEntry(name, auth, url);
     },
   });
 }

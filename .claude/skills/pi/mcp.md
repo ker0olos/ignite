@@ -113,6 +113,13 @@ or `bearerToken` runs a shell command. Other per-server fields (`lifecycle`,
   url/headers are kept; the adapter's `url` covers both Streamable HTTP and
   SSE, so Claude Code's `type` is dropped. Names are made safe for tool names
   (`[A-Za-z0-9_-]`) on import.
+- A URL server imported from Claude Code also gets Claude Code's sign-in:
+  `/app-mcp-copy-sign-in <name>` reads its keychain item (`Claude
+Code-credentials`, `mcpOAuth`, matched by `serverUrl`, `expiresAt` in ms)
+  and saves it with the adapter's `saveAuthEntry`, unless the server already
+  has one. A refused keychain or no match leaves it needing sign-in. Both
+  apps share the refresh token, so a server that rotates them may sign one
+  of them out.
 - The app passes the open folder as `cwd` with `mcp_catalog` / `mcp_import`
   rather than relying on the session, so the answer never races a folder
   switch.
