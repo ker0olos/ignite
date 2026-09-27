@@ -696,6 +696,7 @@ describe("sessions", () => {
       "/work",
       expect.any(Function),
       expect.any(Function),
+      false,
     );
     expect(responses()[0]).toEqual({
       type: "response",
@@ -756,6 +757,23 @@ describe("sessions", () => {
       reason: "quit",
     });
     expect(order).toEqual(["shutdown", "dispose"]);
+  });
+
+  it("clears by reopening the open folder fresh, and needs one open", async () => {
+    const openSession = vi.fn<OpenSession>(async () => fakeSession());
+    const { request, responses } = setup(fakeRuntime().runtime, openSession);
+    await request({ id: 1, type: "clear_session" });
+    expect(responses()[0]).toMatchObject({
+      ok: false,
+      error: "No folder is open.",
+    });
+    await request({ id: 2, type: "open_session", cwd: "/work" });
+    await request({ id: 3, type: "clear_session" });
+    expect(openSession.mock.calls.map((c) => [c[0], c[3]])).toEqual([
+      ["/work", false],
+      ["/work", true],
+    ]);
+    expect(responses()[2]).toMatchObject({ id: 3, ok: true });
   });
 
   it("switches model through pi, keeping it for the next session", async () => {
@@ -1560,6 +1578,30 @@ describe("toWireEvent", () => {
   it("leaves events other than message_update alone", () => {
     const event = { type: "message_end", message: { role: "user" } };
     expect(toWireEvent(event as SessionEvent)).toBe(event);
+  });
+
+  it("names a starting tool call from pi's partial message, then drops it", () => {
+    const partial = {
+      content: [{ type: "toolCall", id: "c1", name: "bash", arguments: {} }],
+    };
+    const event = {
+      type: "message_update",
+      message: partial,
+      assistantMessageEvent: {
+        type: "toolcall_start",
+        contentIndex: 0,
+        partial,
+      },
+    };
+    expect(toWireEvent(event as unknown as SessionEvent)).toEqual({
+      type: "message_update",
+      assistantMessageEvent: {
+        type: "toolcall_start",
+        contentIndex: 0,
+        id: "c1",
+        toolName: "bash",
+      },
+    });
   });
 });
 

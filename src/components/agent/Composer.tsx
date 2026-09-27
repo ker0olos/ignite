@@ -78,7 +78,7 @@ export function Composer({
             e.preventDefault();
             handleSend();
           }}
-          placeholder="Describe a task…"
+          placeholder="Describe a task"
           autoCorrect="off"
           autoCapitalize="off"
           autoComplete="off"

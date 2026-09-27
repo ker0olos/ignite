@@ -45,6 +45,10 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     return status(ctx, r.provider);
   },
   open_session: (ctx, r) => open(ctx, r.cwd),
+  clear_session: (ctx) => {
+    if (!ctx.cwd) throw new Error("No folder is open.");
+    return open(ctx, ctx.cwd, true);
+  },
   session_state: (ctx) => sessionState(ctx),
   set_model: (ctx, r) => setModel(ctx, r.provider, r.modelId),
   set_thinking_level: (ctx, r) => {

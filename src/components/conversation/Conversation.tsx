@@ -2,6 +2,7 @@ import { type RefObject, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import type { AssistantMessage } from "../../../shared/agentTypes";
 import type { Editor, ToolProps } from "@/components/conversation/shared";
+import { RowBoundary } from "@/components/conversation/RowBoundary";
 import { RowView } from "@/components/conversation/RowView";
 import type { Transcript } from "@/lib/transcript";
 import { toRows } from "@/lib/toolRows";
@@ -52,21 +53,24 @@ export function Conversation({
 
   return (
     <div className="always-bounce mx-auto max-w-3xl space-y-4 px-4 py-6 text-[13px]">
-      {toRows(transcript.items, showThinking).map((row, i) => (
-        <RowView
-          key={i}
-          row={row}
-          tools={transcript.tools}
-          folder={folder}
-          editor={editor}
-          codeThemes={codeThemes}
-          onApprove={onApprove}
-        />
-      ))}
+      {toRows(transcript.items, showThinking, transcript.tools).map(
+        (row, i) => (
+          <RowBoundary key={i} resetOn={row}>
+            <RowView
+              row={row}
+              tools={transcript.tools}
+              folder={folder}
+              editor={editor}
+              codeThemes={codeThemes}
+              onApprove={onApprove}
+            />
+          </RowBoundary>
+        ),
+      )}
       {transcript.running && !lastIsStreamingText && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" />
-          Working…
+          Working
         </div>
       )}
     </div>

@@ -64,6 +64,27 @@ describe("toRows", () => {
     expect(rows.map((r) => r.kind)).toEqual(["group", "tool", "group"]);
   });
 
+  it("takes a failed call out of its group, so the group holds only calls that worked", () => {
+    const rows = toRows(
+      [
+        assistant([
+          call("read", "a"),
+          call("bash", "b"),
+          call("grep", "c"),
+          call("read", "d"),
+          call("ls", "e"),
+        ]),
+      ],
+      false,
+      { a: { status: "done" }, b: { status: "done" }, c: { status: "error" } },
+    );
+    expect(rows).toEqual([
+      { kind: "group", calls: [call("read", "a"), call("bash", "b")] },
+      { kind: "tool", call: call("grep", "c") },
+      { kind: "group", calls: [call("read", "d"), call("ls", "e")] },
+    ]);
+  });
+
   it("text breaks a group", () => {
     const rows = toRows([
       assistant([

@@ -102,7 +102,7 @@ export function readForm(
 const STATUS_LABELS: Record<McpServerStatus, string> = {
   connected: "Connected",
   idle: "Ready",
-  checking: "Checking…",
+  checking: "Checking",
   failed: "Couldn't connect",
   "needs-auth": "Needs sign-in",
   disabled: "Off",

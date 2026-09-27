@@ -6,6 +6,7 @@ import type {
   SessionState,
 } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
+import { fromHistory } from "@/lib/transcript";
 import { useAgentSession } from "./useAgentSession";
 
 const opus = { provider: "anthropic", id: "opus", name: "Opus" };
@@ -327,6 +328,25 @@ describe("useAgentSession", () => {
       expect(result.current.error).toBe("No folder is open.");
       await act(() => result.current.stop());
       expect(types(host)).toContain("abort");
+    });
+
+    it("clears the conversation, and says why if it can't", async () => {
+      const hello = { role: "user", content: "hello", timestamp: 1 };
+      let fail = false;
+      const host = fakeHost(async (req) => {
+        if (req.type === "open_session") return { ...STATE, messages: [hello] };
+        if (fail) throw new Error("Disk full");
+        return { ...STATE, messages: [], running: false, trust: "ask" };
+      });
+      const { result } = renderHook(() => useAgentSession(host, "/work", null));
+      await waitFor(() => expect(result.current.transcript).not.toBeNull());
+      expect(result.current.transcript).not.toEqual(fromHistory([], false));
+      await act(() => result.current.clear());
+      expect(host.request).toHaveBeenLastCalledWith({ type: "clear_session" });
+      expect(result.current.transcript).toEqual(fromHistory([], false));
+      fail = true;
+      await act(() => result.current.clear());
+      expect(result.current.error).toBe("Disk full");
     });
 
     it("stops the run", async () => {

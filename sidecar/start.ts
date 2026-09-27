@@ -3,6 +3,7 @@
  * stdin/stdout using shared/hostProtocol.ts. Stdout carries protocol messages
  * only; logs go to stderr. Closing stdin ends the process.
  */
+import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -155,11 +156,26 @@ async function reselectModel(
   await session.setModel(wanted);
 }
 
+// Continues the folder's last conversation, saved under agentDir/sessions.
+// Clearing deletes all of them, or reopening would pick up an older one.
+async function sessionFor(cwd: string, fresh: boolean) {
+  if (!fresh) return SessionManager.continueRecent(cwd);
+  for (const { path } of await SessionManager.list(cwd)) {
+    await rm(path, { force: true });
+  }
+  return SessionManager.create(cwd);
+}
+
 async function openSession(
   cwd: string,
   onMcpStatus: (snapshot: McpStatusSnapshot) => void,
   onApproval: (ask: ApprovalAsk) => void,
+  fresh: boolean,
 ): Promise<Session> {
+  // pi-claude-bridge runs Claude Code in process.cwd() (pi doesn't pass the
+  // session's), which would load this app's CLAUDE.md instead of the folder's.
+  // Each window has its own sidecar with one session, so this is safe.
+  process.chdir(cwd);
   // Project .pi/ resources load only once the user trusts the folder.
   const settingsManager = SettingsManager.create(cwd, agentDir, {
     projectTrusted: trust.get(cwd) === "trusted",
@@ -186,8 +202,7 @@ async function openSession(
     ],
   });
   await resourceLoader.reload();
-  // Continues the folder's last conversation, saved under agentDir/sessions.
-  const sessionManager = SessionManager.continueRecent(cwd);
+  const sessionManager = await sessionFor(cwd, fresh);
   const { session } = await createAgentSession({
     cwd,
     agentDir,

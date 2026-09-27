@@ -9,7 +9,7 @@ export function memoryDescription(
 ): string {
   switch (state) {
     case undefined:
-      return "Checking for cmem…";
+      return "Checking for cmem";
     case "not-installed":
       return "Install cmem to give the agent memory across sessions. It works with Claude Code, Codex, Cursor and other agents.";
     case "stopped":

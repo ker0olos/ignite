@@ -75,9 +75,9 @@ describe("menuItems", () => {
 
   it("binds the expected shortcuts", () => {
     const items = build(handlers([]));
-    expect(find(items, "Open Folder…")?.accelerator).toBe("CmdOrCtrl+O");
+    expect(find(items, "Open Folder")?.accelerator).toBe("CmdOrCtrl+O");
     expect(find(items, "New Window")?.accelerator).toBe("CmdOrCtrl+Shift+N");
-    expect(find(items, "Settings…")?.accelerator).toBe("CmdOrCtrl+,");
+    expect(find(items, "Settings")?.accelerator).toBe("CmdOrCtrl+,");
     expect(find(items, "Close Tab")?.accelerator).toBe("CmdOrCtrl+W");
     expect(find(items, "Close Window")?.accelerator).toBe("CmdOrCtrl+Shift+W");
     expect(find(items, QUIT)?.accelerator).toBe("CmdOrCtrl+Q");
@@ -113,9 +113,9 @@ describe("menuItems", () => {
     const h = handlers([]);
     const items = build(h);
     for (const text of [
-      "Open Folder…",
+      "Open Folder",
       "Close Folder",
-      "Settings…",
+      "Settings",
       "Close Tab",
       "Close Window",
       QUIT,

@@ -47,7 +47,7 @@ export function mcpItems({
       keywords: "mcp server tool add new import preset claude cursor codex",
       control: (
         <Button variant="outline" size="sm" onClick={onAdd}>
-          Add…
+          Add
         </Button>
       ),
     },

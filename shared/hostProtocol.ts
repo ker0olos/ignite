@@ -201,6 +201,8 @@ export type HostRequest =
   | { id: number; type: "logout"; provider: ProviderId }
   /** Starts the agent session for a folder, replacing any previous one. */
   | { id: number; type: "open_session"; cwd: string }
+  /** Deletes the open folder's saved conversations and starts an empty one. */
+  | { id: number; type: "clear_session" }
   | { id: number; type: "session_state" }
   | { id: number; type: "set_model"; provider: string; modelId: string }
   | { id: number; type: "set_thinking_level"; level: ThinkingLevel }
@@ -247,6 +249,7 @@ export type HostResponses = {
   cancel_login: undefined;
   logout: ProviderStatus;
   open_session: OpenedSession;
+  clear_session: OpenedSession;
   session_state: SessionState;
   set_model: SessionState;
   set_thinking_level: SessionState;
