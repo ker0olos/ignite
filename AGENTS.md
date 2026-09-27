@@ -110,6 +110,7 @@ launcher/                How users run the app (not maintainers; see README)
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
   dev-runner.sh          Runs `tauri dev` from a .app so Stage Manager shows the icon
+  tauri.macos.conf.json  macOS-only config (the runner above); merged over tauri.conf.json
   icons/icon.svg         App icon source; after editing run `npx tauri icon src-tauri/icons/icon.svg`
                          and delete the android/, ios/ and 64x64.png it also writes
   capabilities/          Permissions the frontend may use
