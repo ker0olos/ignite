@@ -4,6 +4,7 @@ import type { HostMessage } from "../../shared/hostProtocol";
 import {
   createHostClient,
   openPiHost,
+  reloadWindow,
   spawnSidecar,
   type Transport,
 } from "./piHost";
@@ -223,5 +224,22 @@ describe("spawnSidecar", () => {
       },
       { cmd: "plugin:shell|kill", args: { cmd: "killChild", pid: 4242 } },
     ]);
+  });
+
+  it("kills only live sidecars before reloading", async () => {
+    const shell = fakeShell();
+    const reload = vi.fn();
+    vi.stubGlobal("location", { reload });
+    await reloadWindow(); // drops sidecars left by earlier tests
+    const closed = await spawnSidecar();
+    await spawnSidecar();
+    await closed.kill();
+    shell.calls.length = 0;
+    await reloadWindow();
+    expect(shell.calls).toEqual([
+      { cmd: "plugin:shell|kill", args: { cmd: "killChild", pid: 4242 } },
+    ]);
+    expect(reload).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
   });
 });

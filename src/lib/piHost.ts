@@ -122,12 +122,28 @@ export async function spawnSidecar(): Promise<Transport> {
   );
 
   const child = await command.spawn();
+  live.add(child);
   return {
     write: (line) => child.write(line),
     onLine: (cb) => void lineListeners.push(cb),
     onClose: (cb) => void (onClose = cb),
-    kill: () => child.kill(),
+    kill: () => {
+      live.delete(child);
+      return child.kill();
+    },
   };
+}
+
+const live = new Set<{ kill(): Promise<void> }>();
+
+/**
+ * Reloads the page. React doesn't unmount on reload, so this window's
+ * sidecars are killed first or they'd outlive it.
+ */
+export async function reloadWindow() {
+  await Promise.allSettled([...live].map((child) => child.kill()));
+  live.clear();
+  location.reload();
 }
 
 /** Starts the sidecar and returns a client for it. */

@@ -81,6 +81,7 @@ describe("menuItems", () => {
     expect(find(items, "Close Tab")?.accelerator).toBe("CmdOrCtrl+W");
     expect(find(items, "Close Window")?.accelerator).toBe("CmdOrCtrl+Shift+W");
     expect(find(items, QUIT)?.accelerator).toBe("CmdOrCtrl+Q");
+    expect(find(items, "Reload")?.accelerator).toBe("CmdOrCtrl+R");
   });
 
   it("never uses a shortcut twice", () => {
