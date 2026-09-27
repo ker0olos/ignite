@@ -17,8 +17,8 @@ export function createClaudeCode(
   return {
     // A `claude` that waits on a prompt would otherwise hang app startup.
     status: () =>
-      new Promise((resolve) =>
-        execFile(
+      new Promise((resolve) => {
+        const child = execFile(
           command,
           ["auth", "status"],
           { timeout: timeoutMs },
@@ -43,8 +43,10 @@ export function createClaudeCode(
               resolve({ installed: true, loggedIn: false });
             }
           },
-        ),
-      ),
+        );
+        // Some Claude Code versions read stdin to its end before answering.
+        child.stdin?.end();
+      }),
 
     // ponytail: not tried against a real signed-out Claude Code; if it hangs
     // waiting for a TTY, run `claude` in a terminal to sign in instead.
