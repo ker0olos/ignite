@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Code,
   FolderTree,
+  MessageSquare,
   Palette,
   Plug,
   Search,
@@ -50,6 +51,10 @@ const SECTIONS = {
   Appearance: { icon: Palette, blurb: "Colors for the app and code." },
   Editor: { icon: Code, blurb: "How files look in the viewer." },
   Files: { icon: FolderTree, blurb: "What the file tree shows." },
+  Conversation: {
+    icon: MessageSquare,
+    blurb: "What the agent's replies show.",
+  },
 } satisfies Record<string, { icon: LucideIcon; blurb: string }>;
 export type Section = keyof typeof SECTIONS;
 const SECTION_NAMES = Object.keys(SECTIONS) as Section[];
@@ -246,6 +251,23 @@ export function SettingsDialog({
             onChange({
               ...settings,
               files: { ...settings.files, hide_gitignored },
+            })
+          }
+        />
+      ),
+    },
+    {
+      section: "Conversation",
+      title: "Show thinking",
+      description: "Show the model's reasoning above its replies.",
+      keywords: "reasoning thoughts",
+      control: (
+        <Switch
+          checked={settings.conversation.show_thinking}
+          onCheckedChange={(show_thinking) =>
+            onChange({
+              ...settings,
+              conversation: { ...settings.conversation, show_thinking },
             })
           }
         />

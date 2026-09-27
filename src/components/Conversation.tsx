@@ -1,6 +1,12 @@
-import { type RefObject, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Check, ChevronRight, Loader2, X } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type {
@@ -10,8 +16,16 @@ import type {
   ToolResult,
   UserMessage,
 } from "../../shared/agentTypes";
-import type { Item, ToolRun, Transcript } from "@/lib/transcript";
-import { highlight } from "@/lib/highlight";
+import type { ToolRun, Transcript } from "@/lib/transcript";
+import { highlight, highlightLines, type Token } from "@/lib/highlight";
+import {
+  diffSummary,
+  groupSummary,
+  parseDiff,
+  toRows,
+  type DiffLine,
+  type Row,
+} from "@/lib/toolRows";
 import { mcpCall, type McpCall } from "@/lib/mcpToolCall";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { Settings } from "@/lib/settings";
@@ -25,9 +39,11 @@ export function Conversation({
   folder,
   editor,
   codeThemes,
+  showThinking,
   scrollRef,
 }: {
   transcript: Transcript;
+  showThinking: boolean;
   folder: string;
   editor: Editor;
   codeThemes: CodeThemes;
@@ -60,10 +76,10 @@ export function Conversation({
 
   return (
     <div className="always-bounce mx-auto max-w-3xl space-y-4 px-4 py-6 text-[13px]">
-      {transcript.items.map((item, i) => (
-        <ItemRow
+      {toRows(transcript.items, showThinking).map((row, i) => (
+        <RowView
           key={i}
-          item={item}
+          row={row}
           tools={transcript.tools}
           folder={folder}
           editor={editor}
@@ -80,49 +96,72 @@ export function Conversation({
   );
 }
 
-function ItemRow({
-  item,
+function RowView({
+  row,
   tools,
   folder,
   editor,
   codeThemes,
 }: {
-  item: Item;
+  row: Row;
   tools: Record<string, ToolRun>;
   folder: string;
   editor: Editor;
   codeThemes: CodeThemes;
 }) {
-  if (item.kind === "notice") {
-    return (
-      <p
-        className={cn(
-          "text-xs text-muted-foreground",
-          item.error && "text-destructive",
-        )}
-      >
-        {item.text}
-      </p>
-    );
+  switch (row.kind) {
+    case "notice":
+      return (
+        <p
+          className={cn(
+            "text-xs text-muted-foreground",
+            row.error && "text-destructive",
+          )}
+        >
+          {row.text}
+        </p>
+      );
+    case "user":
+      return <UserBubble message={row.message} />;
+    case "text":
+      return (
+        <AssistantText
+          text={row.text}
+          editor={editor}
+          codeThemes={codeThemes}
+        />
+      );
+    case "thinking":
+      return <ThinkingRow thinking={row.thinking} />;
+    case "tool":
+      return (
+        <ToolView
+          call={row.call}
+          run={tools[row.call.id]}
+          folder={folder}
+          editor={editor}
+          codeThemes={codeThemes}
+        />
+      );
+    case "group":
+      return (
+        <ToolGroup
+          calls={row.calls}
+          tools={tools}
+          folder={folder}
+          editor={editor}
+          codeThemes={codeThemes}
+        />
+      );
+    case "end":
+      return row.message.stopReason === "error" ? (
+        <p className="text-[13px] text-destructive">
+          {row.message.errorMessage}
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">Stopped</p>
+      );
   }
-  const { message } = item;
-  // `role` narrows only literal-role members; OtherMessage's role is a plain
-  // string, so TS can't exclude it here even though it never matches.
-  if (message.role === "user") {
-    return <UserBubble message={message as UserMessage} />;
-  }
-  if (message.role === "assistant") {
-    return (
-      <AssistantBlock
-        message={message as AssistantMessage}
-        tools={tools}
-        folder={folder}
-        editor={editor}
-        codeThemes={codeThemes}
-      />
-    );
-  }
-  return null;
 }
 
 function UserBubble({ message }: { message: UserMessage }) {
@@ -139,53 +178,6 @@ function UserBubble({ message }: { message: UserMessage }) {
       <div className="max-w-[85%] rounded-2xl bg-muted px-3 py-2 whitespace-pre-wrap">
         {text}
       </div>
-    </div>
-  );
-}
-
-function AssistantBlock({
-  message,
-  tools,
-  folder,
-  editor,
-  codeThemes,
-}: {
-  message: AssistantMessage;
-  tools: Record<string, ToolRun>;
-  folder: string;
-  editor: Editor;
-  codeThemes: CodeThemes;
-}) {
-  return (
-    <div className="space-y-2">
-      {message.content.map((block, i) => {
-        if (block.type === "text") {
-          return block.text ? (
-            <AssistantText
-              key={i}
-              text={block.text}
-              editor={editor}
-              codeThemes={codeThemes}
-            />
-          ) : null;
-        }
-        if (block.type === "thinking") {
-          if (!block.thinking && block.redacted) return null;
-          return <ThinkingRow key={i} thinking={block.thinking} />;
-        }
-        const mcp = mcpCall(block.name, block.arguments);
-        return mcp ? (
-          <McpToolRow key={i} call={mcp} run={tools[block.id]} />
-        ) : (
-          <ToolRow key={i} call={block} run={tools[block.id]} folder={folder} />
-        );
-      })}
-      {message.stopReason === "error" && (
-        <p className="text-[13px] text-destructive">{message.errorMessage}</p>
-      )}
-      {message.stopReason === "aborted" && (
-        <p className="text-xs text-muted-foreground">Stopped</p>
-      )}
     </div>
   );
 }
@@ -351,120 +343,240 @@ function resultText(result: ToolResult | undefined) {
     .join("\n");
 }
 
-const MAX_INLINE_CHARS = 4000;
+const TOOL_TITLES: Record<string, string> = {
+  read: "Read",
+  write: "Write",
+  edit: "Update",
+  bash: "Bash",
+  grep: "Search",
+  find: "Find",
+  ls: "List",
+};
 
-function truncate(text: string) {
-  return text.length > MAX_INLINE_CHARS
-    ? text.slice(0, MAX_INLINE_CHARS) + "\n…"
-    : text;
+// Lines shown before "… +N lines"; clicking it shows the rest.
+const PREVIEW_LINES = 5;
+const CODE_PREVIEW_LINES = 12;
+const DIFF_PREVIEW_LINES = 40;
+
+function toolArg(call: ToolCall, folder: string) {
+  const arg = (key: string) => String(call.arguments[key] ?? "");
+  switch (call.name) {
+    case "read":
+    case "write":
+    case "edit":
+      return relativePath(arg("path"), folder);
+    case "ls":
+      return relativePath(arg("path"), folder) || ".";
+    case "bash":
+      return arg("command");
+    case "grep":
+    case "find":
+      return arg("pattern");
+    default:
+      return "";
+  }
 }
 
-function ToolRow({
-  call,
-  run,
-  folder,
-}: {
+type ToolProps = {
   call: ToolCall;
   run: ToolRun | undefined;
   folder: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const path = String(call.arguments.path ?? "");
+  editor: Editor;
+  codeThemes: CodeThemes;
+};
 
+/** One tool call: `● Update(path)` with its outcome underneath, as Claude Code draws it. */
+function ToolView({ call, run, folder, editor, codeThemes }: ToolProps) {
+  const mcp = mcpCall(call.name, call.arguments);
+  const text = resultText(run?.result);
   return (
-    <div className="rounded-md border">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full min-w-0 items-center gap-2 px-2 py-1.5 text-left"
-      >
-        <StatusIcon run={run} />
-        <span className="min-w-0 flex-1 truncate">
-          {call.name === "read" && (
-            <>
-              Read <PathText path={path} folder={folder} />
-            </>
-          )}
-          {call.name === "write" && (
-            <>
-              Wrote <PathText path={path} folder={folder} />
-            </>
-          )}
-          {call.name === "edit" && (
-            <>
-              Edited <PathText path={path} folder={folder} />
-            </>
-          )}
-          {call.name === "bash" && (
-            <>
-              Ran{" "}
-              <code className="font-mono text-[12px]">
-                {String(call.arguments.command ?? "")}
-              </code>
-            </>
-          )}
-          {!["read", "write", "edit", "bash"].includes(call.name) && call.name}
-        </span>
-        <ChevronRight
-          className={cn(
-            "size-3.5 shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-90",
-          )}
-        />
-      </button>
-      {open && <ToolDetail call={call} run={run} />}
+    <div className="space-y-1">
+      <ToolHead
+        run={run}
+        title={
+          mcp ? (
+            <McpCallLabel call={mcp} />
+          ) : (
+            (TOOL_TITLES[call.name] ?? call.name)
+          )
+        }
+        arg={mcp ? "" : toolArg(call, folder)}
+      />
+      {run?.status === "error" ? (
+        <ToolOutcome>
+          <OutputPreview text={text || "Failed."} error />
+        </ToolOutcome>
+      ) : (
+        run && (
+          <ToolOutcome>
+            <ToolBody
+              call={call}
+              run={run}
+              text={text}
+              editor={editor}
+              codeThemes={codeThemes}
+            />
+          </ToolOutcome>
+        )
+      )}
     </div>
   );
 }
 
-/** A call to an MCP server's tool, through pi-mcp-adapter. */
-function McpToolRow({
+function ToolBody({
   call,
   run,
+  text,
+  editor,
+  codeThemes,
+}: Omit<ToolProps, "folder" | "run"> & { run: ToolRun; text: string }) {
+  const path = String(call.arguments.path ?? "");
+  const running = run.status === "running";
+
+  if (call.name === "edit") {
+    const diff = (run.result?.details as { diff?: string } | undefined)?.diff;
+    if (!diff) return running ? null : <OutputPreview text={text} />;
+    const lines = parseDiff(diff);
+    return (
+      <>
+        <p>{diffSummary(lines)}</p>
+        <CodeLines
+          lines={lines}
+          path={path}
+          max={DIFF_PREVIEW_LINES}
+          editor={editor}
+          codeThemes={codeThemes}
+        />
+      </>
+    );
+  }
+
+  if (call.name === "write") {
+    const content = String(call.arguments.content ?? "").replace(/\n$/, "");
+    const lines: DiffLine[] = content
+      .split("\n")
+      .map((text, i) => ({ kind: "ctx", num: i + 1, text }));
+    return (
+      <>
+        <p>
+          {running ? "Writing" : "Wrote"}{" "}
+          <span className="font-medium text-foreground">{lines.length}</span>{" "}
+          {lines.length === 1 ? "line" : "lines"}
+        </p>
+        <CodeLines
+          lines={lines}
+          path={path}
+          max={CODE_PREVIEW_LINES}
+          editor={editor}
+          codeThemes={codeThemes}
+        />
+      </>
+    );
+  }
+
+  if (call.name === "read") {
+    if (running) return null;
+    const count = text ? text.split("\n").length : 0;
+    return (
+      <p>
+        Read <span className="font-medium text-foreground">{count}</span>{" "}
+        {count === 1 ? "line" : "lines"}
+      </p>
+    );
+  }
+
+  if (!text) return running ? null : <p>(No output)</p>;
+  return <OutputPreview text={text} />;
+}
+
+function ToolHead({
+  run,
+  title,
+  arg,
 }: {
-  call: McpCall;
   run: ToolRun | undefined;
+  title: ReactNode;
+  arg: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <StatusDot run={run} />
+      <span className="min-w-0 truncate">
+        <span className="font-semibold">{title}</span>
+        {arg && (
+          <span className="font-mono text-[12px] text-muted-foreground">
+            ({arg})
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function ToolOutcome({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex gap-2 pl-0.5 text-muted-foreground">
+      <span className="select-none">⎿</span>
+      <div className="min-w-0 flex-1 space-y-1.5">{children}</div>
+    </div>
+  );
+}
+
+function StatusDot({ run }: { run: ToolRun | undefined }) {
+  return (
+    <span
+      className={cn(
+        "size-2 shrink-0 rounded-full",
+        !run || run.status === "running"
+          ? "animate-pulse bg-muted-foreground"
+          : run.status === "error"
+            ? "bg-destructive"
+            : "bg-success",
+      )}
+    />
+  );
+}
+
+/** Consecutive reads, searches and shell commands, folded into one line. */
+function ToolGroup({
+  calls,
+  tools,
+  ...rest
+}: Omit<ToolProps, "call" | "run"> & {
+  calls: ToolCall[];
+  tools: Record<string, ToolRun>;
 }) {
   const [open, setOpen] = useState(false);
-  const text = resultText(run?.result);
+  const runs = calls.map((c) => tools[c.id]);
+  const running = runs.some((r) => !r || r.status === "running");
+  const failed = runs.some((r) => r?.status === "error");
+  const status: ToolRun | undefined = running
+    ? undefined
+    : { status: failed ? "error" : "done" };
 
   return (
-    <div className="rounded-md border">
+    <div className="space-y-2">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full min-w-0 items-center gap-2 px-2 py-1.5 text-left"
+        className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
       >
-        <StatusIcon run={run} />
-        <span className="min-w-0 flex-1 truncate">
-          <McpCallLabel call={call} />
-        </span>
+        <StatusDot run={status} />
+        {groupSummary(calls)}
         <ChevronRight
-          className={cn(
-            "size-3.5 shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-90",
-          )}
+          className={cn("size-3.5 transition-transform", open && "rotate-90")}
         />
       </button>
       {open && (
-        <div className="divide-y border-t">
-          {call.kind === "call" && (
-            <DetailBlock label="Arguments">
-              {typeof call.args === "string"
-                ? call.args
-                : JSON.stringify(call.args, null, 2)}
-            </DetailBlock>
-          )}
-          {call.kind === "script" && (
-            <DetailBlock label="Script">{call.code}</DetailBlock>
-          )}
-          {run?.status === "error" ? (
-            <p className="px-2 py-1.5 text-[12px] whitespace-pre-wrap text-destructive">
-              {text || "Failed."}
-            </p>
-          ) : (
-            text && <DetailBlock label="Result">{truncate(text)}</DetailBlock>
-          )}
+        <div className="space-y-2 border-l pl-3">
+          {calls.map((call) => (
+            <ToolView
+              key={call.id}
+              call={call}
+              run={tools[call.id]}
+              {...rest}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -473,14 +585,16 @@ function McpToolRow({
 
 function McpCallLabel({ call }: { call: McpCall }) {
   const mono = (text: string) => (
-    <code className="font-mono text-[12px]">{text}</code>
+    <code className="font-mono text-[12px] font-normal">{text}</code>
   );
   switch (call.kind) {
     case "call":
       return (
         <>
           {call.server && (
-            <span className="text-muted-foreground">{call.server} · </span>
+            <span className="font-normal text-muted-foreground">
+              {call.server} ·{" "}
+            </span>
           )}
           {mono(call.tool)}
         </>
@@ -498,100 +612,126 @@ function McpCallLabel({ call }: { call: McpCall }) {
   }
 }
 
-function DetailBlock({ label, children }: { label: string; children: string }) {
+function MoreLines({ count, onClick }: { count: number; onClick: () => void }) {
   return (
-    <div className="px-2 py-1.5">
-      <p className="mb-1 text-xs text-muted-foreground">{label}</p>
-      <pre className="max-h-64 overflow-auto font-mono text-[12px] whitespace-pre-wrap">
-        {children}
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs text-muted-foreground hover:text-foreground"
+    >
+      … +{count} {count === 1 ? "line" : "lines"}
+    </button>
+  );
+}
+
+function OutputPreview({ text, error }: { text: string; error?: boolean }) {
+  const [all, setAll] = useState(false);
+  const lines = text.replace(/\n+$/, "").split("\n");
+  const shown = all ? lines : lines.slice(0, PREVIEW_LINES);
+  return (
+    <div>
+      <pre
+        className={cn(
+          "font-mono text-[12px] whitespace-pre-wrap [overflow-wrap:anywhere]",
+          error && "text-destructive",
+        )}
+      >
+        {shown.join("\n")}
       </pre>
+      {lines.length > shown.length && (
+        <MoreLines
+          count={lines.length - shown.length}
+          onClick={() => setAll(true)}
+        />
+      )}
     </div>
   );
 }
 
-function PathText({ path, folder }: { path: string; folder: string }) {
-  return (
-    <span className="font-mono text-[12px]">{relativePath(path, folder)}</span>
-  );
-}
-
-function StatusIcon({ run }: { run: ToolRun | undefined }) {
-  if (!run || run.status === "running") {
-    return (
-      <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-    );
-  }
-  if (run.status === "error") {
-    return <X className="size-3.5 shrink-0 text-destructive" />;
-  }
-  return <Check className="size-3.5 shrink-0 text-muted-foreground" />;
-}
-
-function ToolDetail({
-  call,
-  run,
+/** Highlighted lines with numbers; added and removed lines are tinted. */
+function CodeLines({
+  lines,
+  path,
+  max,
+  editor,
+  codeThemes,
 }: {
-  call: ToolCall;
-  run: ToolRun | undefined;
+  lines: DiffLine[];
+  path: string;
+  max: number;
+  editor: Editor;
+  codeThemes: CodeThemes;
 }) {
-  const text = resultText(run?.result);
+  const [all, setAll] = useState(false);
+  const [tokens, setTokens] = useState<Token[][] | null>(null);
+  const code = lines.map((l) => (l.kind === "gap" ? "" : l.text)).join("\n");
+  const marks = lines.some((l) => l.kind === "add" || l.kind === "del");
+  const shown = all ? lines : lines.slice(0, max);
 
-  if (run?.status === "error") {
-    return (
-      <p className="border-t px-2 py-1.5 text-[12px] whitespace-pre-wrap text-destructive">
-        {text || "Failed."}
-      </p>
+  useEffect(() => {
+    let cancelled = false;
+    highlightLines(code, path, codeThemes).then(
+      (t) => !cancelled && setTokens(t),
     );
-  }
-
-  if (call.name === "edit") {
-    const diff = (run?.result?.details as { diff?: string } | undefined)?.diff;
-    return diff ? (
-      <DiffView diff={diff} />
-    ) : (
-      <pre className="max-h-64 overflow-auto border-t px-2 py-1.5 font-mono text-[12px] whitespace-pre-wrap">
-        {text}
-      </pre>
-    );
-  }
-
-  if (call.name === "write") {
-    return (
-      <pre className="max-h-64 overflow-auto border-t px-2 py-1.5 font-mono text-[12px] whitespace-pre-wrap">
-        {truncate(String(call.arguments.content ?? ""))}
-      </pre>
-    );
-  }
-
-  if (call.name === "bash" || call.name === "read") {
-    return (
-      <pre className="max-h-64 overflow-auto border-t px-2 py-1.5 font-mono text-[12px] whitespace-pre-wrap">
-        {text}
-      </pre>
-    );
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [code, path, codeThemes]);
 
   return (
-    <pre className="max-h-64 overflow-auto border-t px-2 py-1.5 font-mono text-[12px] whitespace-pre-wrap">
-      {JSON.stringify(call.arguments, null, 2)}
-    </pre>
-  );
-}
-
-function DiffView({ diff }: { diff: string }) {
-  return (
-    <pre className="max-h-64 overflow-auto border-t px-2 py-1.5 font-mono text-[12px]">
-      {diff.split("\n").map((line, i) => (
-        <div
-          key={i}
-          className={cn(
-            line.startsWith("+") && "text-success",
-            line.startsWith("-") && "text-destructive",
-          )}
-        >
-          {line}
-        </div>
-      ))}
-    </pre>
+    <div>
+      <div
+        className="tool-code overflow-x-auto rounded-md border py-1 text-[12px] leading-[18px] text-foreground"
+        style={{ fontFamily: editor.font_family }}
+      >
+        {shown.map((line, i) =>
+          line.kind === "gap" ? (
+            <div key={i} className="pl-12 text-muted-foreground select-none">
+              ⋯
+            </div>
+          ) : (
+            <div
+              key={i}
+              className={cn(
+                "flex min-w-fit",
+                line.kind === "add" && "bg-success/15",
+                line.kind === "del" && "bg-destructive/15",
+              )}
+            >
+              <span className="w-10 shrink-0 pr-2 text-right text-muted-foreground select-none">
+                {line.num}
+              </span>
+              {marks && (
+                <span className="w-4 shrink-0 text-muted-foreground select-none">
+                  {line.kind === "add" ? "+" : line.kind === "del" ? "-" : ""}
+                </span>
+              )}
+              <span
+                className={cn(
+                  "pr-3",
+                  editor.word_wrap
+                    ? "min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]"
+                    : "whitespace-pre",
+                )}
+              >
+                {tokens?.[i]
+                  ? tokens[i].map((t, j) => (
+                      <span key={j} className="tok" style={t.style}>
+                        {t.content}
+                      </span>
+                    ))
+                  : line.text}
+              </span>
+            </div>
+          ),
+        )}
+      </div>
+      {lines.length > shown.length && (
+        <MoreLines
+          count={lines.length - shown.length}
+          onClick={() => setAll(true)}
+        />
+      )}
+    </div>
   );
 }

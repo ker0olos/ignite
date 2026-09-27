@@ -196,3 +196,9 @@
   color: var(--muted-foreground);
   user-select: none;
 }
+.tool-code .tok {
+  color: var(--shiki-light);
+}
+.dark .tool-code .tok {
+  color: var(--shiki-dark);
+}

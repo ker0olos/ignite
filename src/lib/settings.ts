@@ -19,6 +19,7 @@ export type Settings = {
   /** How the file viewer shows code. `font_family` is a CSS font-family list. */
   editor: { font_family: string; word_wrap: boolean };
   files: { hide_gitignored: boolean };
+  conversation: { show_thinking: boolean };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -28,6 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
     word_wrap: false,
   },
   files: { hide_gitignored: true },
+  conversation: { show_thinking: false },
 };
 
 // Earlier versions stored the appearance itself; map it to the matching theme.
@@ -68,6 +70,7 @@ export async function loadSettings(): Promise<Settings> {
           : DEFAULT_SETTINGS.editor.word_wrap,
     },
     files: { ...DEFAULT_SETTINGS.files, ...raw.files },
+    conversation: { ...DEFAULT_SETTINGS.conversation, ...raw.conversation },
   };
 }
 

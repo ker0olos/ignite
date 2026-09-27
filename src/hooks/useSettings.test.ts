@@ -162,6 +162,7 @@ describe("useSettings", () => {
       theme: "github-dark",
       editor: { font_family: "Monaco", word_wrap: true },
       files: { hide_gitignored: true },
+      conversation: { show_thinking: false },
     };
     act(() => result.current[1](next));
     expect(result.current[0]).toEqual(next);

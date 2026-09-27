@@ -62,6 +62,13 @@ describe("loadSettings", () => {
     expect((await loadSettings()).editor).toEqual(DEFAULT_SETTINGS.editor);
   });
 
+  it("reads conversation settings", async () => {
+    fakeFs({ [FILE]: "[conversation]\nshow_thinking = true\n" });
+    expect((await loadSettings()).conversation).toEqual({
+      show_thinking: true,
+    });
+  });
+
   it("fills in missing keys from defaults", async () => {
     fakeFs({ [FILE]: 'theme = "nord"\n' });
     expect(await loadSettings()).toEqual({
@@ -100,6 +107,7 @@ describe("saveSettings", () => {
     theme: "github-dark",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false },
+    conversation: { show_thinking: true },
   };
 
   it("creates the settings directory first", async () => {

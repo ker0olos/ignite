@@ -1,6 +1,6 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { beforeEach, describe, expect, it } from "vitest";
-import { highlight } from "./highlight";
+import { highlight, highlightLines } from "./highlight";
 
 const THEMES = { light: "github-light", dark: "github-dark" };
 
@@ -62,5 +62,15 @@ describe("highlight", () => {
   it("escapes file contents", async () => {
     const html = await highlight("<script>alert(1)</script>", "/x.txt", THEMES);
     expect(html).not.toContain("<script>");
+  });
+});
+
+describe("highlightLines", () => {
+  it("returns tokens per line carrying both theme variables", async () => {
+    const lines = await highlightLines("const a = 1;\nlet b;", "/a.ts", THEMES);
+    expect(lines).toHaveLength(2);
+    expect(lines[0].map((t) => t.content).join("")).toBe("const a = 1;");
+    expect(lines[0][0].style["--shiki-light"]).toBeTruthy();
+    expect(lines[0][0].style["--shiki-dark"]).toBeTruthy();
   });
 });

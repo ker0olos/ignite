@@ -39,11 +39,13 @@ export function AgentPanel({
   session,
   codeThemes,
   editor,
+  showThinking,
 }: {
   folder: string;
   session: Session;
   codeThemes: CodeThemes;
   editor: Settings["editor"];
+  showThinking: boolean;
 }) {
   const { state, transcript } = session;
   const [text, setText] = useState("");
@@ -72,6 +74,7 @@ export function AgentPanel({
             folder={folder}
             editor={editor}
             codeThemes={codeThemes}
+            showThinking={showThinking}
             scrollRef={mainRef}
           />
         ) : (

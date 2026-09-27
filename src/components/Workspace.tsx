@@ -28,6 +28,7 @@ export function Workspace({
   codeThemes,
   editor,
   hideGitIgnored,
+  showThinking,
   actions,
   banner,
   session,
@@ -37,6 +38,7 @@ export function Workspace({
   codeThemes: CodeThemes;
   editor: Settings["editor"];
   hideGitIgnored: boolean;
+  showThinking: boolean;
   actions: ReactNode;
   banner?: ReactNode;
   session: ReturnType<typeof useAgentSession>;
@@ -85,6 +87,7 @@ export function Workspace({
             session={session}
             codeThemes={codeThemes}
             editor={editor}
+            showThinking={showThinking}
           />
         </div>
       </ResizablePanel>

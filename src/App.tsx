@@ -131,6 +131,7 @@ export default function App() {
           codeThemes={codeThemesFor(settings.theme)}
           editor={settings.editor}
           hideGitIgnored={settings.files.hide_gitignored}
+          showThinking={settings.conversation.show_thinking}
           actions={settingsButton}
           banner={
             <SignInBanner

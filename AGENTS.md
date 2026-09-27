@@ -54,6 +54,7 @@ src/                     React frontend (almost all logic lives here)
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     transcript.ts        Rebuilds the conversation from pi's session events
+    toolRows.ts          Conversation rows: folds reads/searches/shell runs, parses edit diffs
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
@@ -99,6 +100,8 @@ Two places hold persisted data:
   settings; only their installed theme files.
 - **Editor settings** (`[editor]` in settings.toml): `font_family` (CSS list,
   default Menlo) and `word_wrap` for the file viewer.
+- **Conversation settings** (`[conversation]`): `show_thinking` shows the
+  model's reasoning rows (off by default).
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **pi's own files** in `~/.ignition/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
