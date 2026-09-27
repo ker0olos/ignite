@@ -199,9 +199,7 @@ function ProviderCard({
   return (
     <section className="flex flex-col rounded-xl border bg-card p-5">
       <header className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-lg border bg-muted">
-          <Icon className="size-5" />
-        </div>
+        <Icon className="size-6 shrink-0" />
         <div className="min-w-0 flex-1">
           <h2 className="text-[15px] font-semibold leading-tight">
             {card.title}
@@ -337,7 +335,7 @@ function StatusPill({
   return (
     <span
       className={cn(
-        "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+        "flex items-center gap-1.5 text-[11px] font-medium",
         connected ? "text-foreground" : "text-muted-foreground",
       )}
     >
