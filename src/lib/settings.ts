@@ -20,6 +20,8 @@ export type Settings = {
   editor: { font_family: string; word_wrap: boolean };
   files: { hide_gitignored: boolean };
   conversation: { show_thinking: boolean };
+  /** `cmem`: record sessions in cmem and recall its memories. */
+  memory: { cmem: boolean };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -30,6 +32,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   files: { hide_gitignored: true },
   conversation: { show_thinking: false },
+  memory: { cmem: true },
 };
 
 // Earlier versions stored the appearance itself; map it to the matching theme.
@@ -71,6 +74,7 @@ export async function loadSettings(): Promise<Settings> {
     },
     files: { ...DEFAULT_SETTINGS.files, ...raw.files },
     conversation: { ...DEFAULT_SETTINGS.conversation, ...raw.conversation },
+    memory: { ...DEFAULT_SETTINGS.memory, ...raw.memory },
   };
 }
 

@@ -12,10 +12,12 @@ import {
   writeMcpFile,
 } from "./mcpConfig.ts";
 import mcp, { asApp } from "./mcpExtension.ts";
+import { cmemServer } from "./cmem.ts";
 import { APP_TITLE } from "../src/lib/app.ts";
 
 const install = vi.fn();
 vi.mock("pi-mcp-adapter", () => ({ createMcpAdapter: vi.fn(() => install) }));
+vi.mock("./cmem.ts", () => ({ cmemServer: vi.fn(async () => ({})) }));
 const authenticate = vi.fn();
 const removeAuth = vi.fn();
 vi.mock("../node_modules/pi-mcp-adapter/mcp-auth-flow.ts", () => ({
@@ -59,6 +61,24 @@ it("installs it with no servers before any are added", async () => {
   expect(createMcpAdapter).toHaveBeenCalledWith({
     config: { mcpServers: {} },
   });
+});
+
+it("adds cmem's server, letting a saved one of that name win", async () => {
+  vi.mocked(cmemServer).mockResolvedValue({
+    cmem: { command: "node", lifecycle: "eager" },
+  });
+  await mcp(pi);
+  expect(createMcpAdapter).toHaveBeenLastCalledWith({
+    config: { mcpServers: { cmem: { command: "node", lifecycle: "eager" } } },
+  });
+  await writeMcpFile(join(dir, "mcp.json"), {
+    mcpServers: { cmem: { command: "mine" } },
+  });
+  await mcp(pi);
+  expect(createMcpAdapter).toHaveBeenLastCalledWith({
+    config: { mcpServers: { cmem: { command: "mine" } } },
+  });
+  vi.mocked(cmemServer).mockResolvedValue({});
 });
 
 describe("the sign-in command", () => {

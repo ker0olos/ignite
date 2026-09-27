@@ -15,6 +15,7 @@ import { useAppMenu } from "@/hooks/useAppMenu";
 import { useConnectScreen } from "@/hooks/useConnectScreen";
 import { useFolders } from "@/hooks/useFolders";
 import { useMcpServers } from "@/hooks/useMcpServers";
+import { useMemory } from "@/hooks/useMemory";
 import { useProviders } from "@/hooks/useProviders";
 import { useSettings } from "@/hooks/useSettings";
 import { useTabs } from "@/hooks/useTabs";
@@ -43,6 +44,7 @@ export default function App() {
   const dragging = useFolderDrop(addFolder);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<Section>("Providers");
+  const memory = useMemory(providers.host, current, settingsOpen);
   const openSettings = (section: Section = "Providers") => {
     setSettingsSection(section);
     setSettingsOpen(true);
@@ -132,6 +134,8 @@ export default function App() {
         providers={providers.statuses}
         providersError={providers.hostError}
         mcp={mcp}
+        memory={memory}
+        folder={current}
         onManageProviders={() => {
           setSettingsOpen(false);
           connectScreen.show();

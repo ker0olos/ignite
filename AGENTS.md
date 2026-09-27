@@ -22,6 +22,7 @@ src/                     React frontend (almost all logic lives here)
     agent/               Conversation area wiring, task composer, model/effort menus
     conversation/        Transcript rendering: messages, thinking, tool rows and their pieces
     settings/            Settings dialog shell, its rows, and one items file per section
+    memory/              Recent cmem observations for the Memory settings
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
     providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos
   hooks/
@@ -33,6 +34,7 @@ src/                     React frontend (almost all logic lives here)
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
     useAgentSession.ts   The folder's pi session: conversation, send/stop, model and effort
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
+    useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -54,6 +56,7 @@ src/                     React frontend (almost all logic lives here)
     toolRows.ts          Conversation rows: folds reads/searches/shell runs, parses edit diffs
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
+    memory.ts            Memory settings text: cmem status line, relative times
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
@@ -74,6 +77,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   lines.ts               LF-only JSONL splitting
   mcpConfig.ts           pi-mcp-adapter's mcp.json: read, edit servers, cached tool names
   mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
+  cmem.ts           cmem: finds its worker, the app's on/off setting, recent observations
+  cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
   mcpCatalog.ts          One-click MCP presets, and other apps' MCP servers to import
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
   testMcpServer.ts       A one-tool stdio MCP server for tests
@@ -107,6 +112,9 @@ Two places hold persisted data:
   default Menlo) and `word_wrap` for the file viewer.
 - **Conversation settings** (`[conversation]`): `show_thinking` shows the
   model's reasoning rows (off by default).
+- **Memory settings** (`[memory]`): `cmem` (on by default) records
+  sessions in cmem, recalls its memories and gives the agent cmem's search
+  tools. Recording checks it before each run; the tools follow a reload.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **pi's own files** in `~/.ignition/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
@@ -148,6 +156,22 @@ Settings offers presets (the adapter's list plus a few of ours) and imports
 servers already set up in Claude Code (user, this folder's local scope,
 `.mcp.json`), Cursor, Codex and Claude Desktop. Those files are only read,
 when the MCP settings load; importing copies the entry into the app's mcp.json.
+
+When [cmem](https://cmem.ai) (claude-mem, also used by Codex, Cursor and
+other agents) is installed and its worker is running,
+`sidecar/cmemExtension.ts` does what its agent hooks do, over the worker's
+local HTTP API (port from `~/.claude-mem/worker.pid`): each prompt, tool
+result and finished run is recorded under platform `ignition`, and the
+folder's recalled context (from every agent, not just this app) is appended
+to the system prompt. The Memory settings section turns it on or off
+(`[memory] cmem`), shows its status and previews the folder's latest memories. It honours
+`CLAUDE_MEM_EXCLUDED_PROJECTS`, which the worker itself doesn't check.
+While it's on, `mcpExtension.ts` also adds cmem's own MCP server (`cmem`,
+`mcp-server.cjs` beside the running worker's script, so any agent's install
+works) to the adapter's config: eager, with `search`, `timeline` and
+`get_observations` as direct tools. It isn't in mcp.json, so the MCP page
+doesn't list it; toggling the setting sends `memory_changed`, which reloads
+the session like an MCP change.
 
 Claude subscriptions run through the user's own Claude Code via the
 `pi-claude-bridge` extension (pi provider `claude-bridge`), because Anthropic

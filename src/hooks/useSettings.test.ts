@@ -163,8 +163,9 @@ describe("useSettings", () => {
       editor: { font_family: "Monaco", word_wrap: true },
       files: { hide_gitignored: true },
       conversation: { show_thinking: false },
+      memory: { cmem: true },
     };
-    act(() => result.current[1](next));
+    act(() => void result.current[1](next));
     expect(result.current[0]).toEqual(next);
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(parse(writes[0])).toEqual(next);

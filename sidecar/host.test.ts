@@ -21,6 +21,10 @@ import type {
 } from "./hostTypes.ts";
 import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
 import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
+import { memoryStatus } from "./cmem.ts";
+
+const MEMORY = { state: "stopped", observations: [] } as const;
+vi.mock("./cmem.ts", () => ({ memoryStatus: vi.fn(async () => MEMORY) }));
 
 type Interaction = Parameters<Runtime["login"]>[2];
 
@@ -1136,6 +1140,20 @@ describe("MCP servers", () => {
     expect(session.reload).toHaveBeenCalledTimes(1);
     session.emit({ type: "agent_settled" } as SessionEvent);
     expect(session.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("reloads the session when the memory setting changes", async () => {
+    const { request, responses, session } = await withSession();
+    await request({ id: 2, type: "memory_changed" });
+    expect(session.reload).toHaveBeenCalledTimes(1);
+    expect(responses()[0]).toMatchObject({ ok: true });
+  });
+
+  it("reports cmem's status for the folder", async () => {
+    const { request, responses } = await withSession();
+    await request({ id: 2, type: "memory_status", cwd: "/work/app" });
+    expect(memoryStatus).toHaveBeenCalledWith("/work/app");
+    expect(responses()[0]).toMatchObject({ ok: true, data: MEMORY });
   });
 
   describe("checking a URL server once it's set up", () => {
