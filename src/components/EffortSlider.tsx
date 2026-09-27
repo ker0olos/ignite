@@ -93,13 +93,13 @@ export function EffortSlider({
       </div>
       <div
         ref={track}
-        className="relative my-1.5 h-1 rounded-full bg-muted"
+        className="relative my-2.5 h-2 rounded-full bg-muted"
         style={{ width: WIDTH }}
       >
         {levels.map((level, i) => (
           <span
             key={level}
-            className="absolute top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/40"
+            className="absolute top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/40"
             style={{ left: at(i) }}
           />
         ))}
@@ -108,8 +108,8 @@ export function EffortSlider({
           style={{ width: x.to((v) => Math.max(0, v)), background: color }}
         />
         <animated.div
-          className="absolute top-1/2 size-3 rounded-full shadow-sm ring-2 ring-popover group-focus-visible/effort:ring-ring"
-          style={{ x: x.to((v) => v - 6), y: "-50%", background: color }}
+          className="absolute top-1/2 h-6.5 w-2 rounded-sm bg-foreground shadow-sm ring-2 ring-popover group-focus-visible/effort:ring-ring"
+          style={{ x: x.to((v) => v - 4), y: "-50%" }}
         />
       </div>
     </div>
