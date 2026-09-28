@@ -36,7 +36,7 @@ export function QuestionPrompt({
         <div className="flex gap-1.5 pt-1">
           {step > 0 && (
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               onClick={() => setStep(step - 1)}
             >
@@ -45,18 +45,18 @@ export function QuestionPrompt({
           )}
           {last ? (
             <Button
-              size="xs"
+              size="sm"
               onClick={() => onAnswer(true, toAnswers(questions, drafts))}
             >
               Send answers
             </Button>
           ) : (
-            <Button size="xs" onClick={() => setStep(step + 1)}>
+            <Button size="sm" onClick={() => setStep(step + 1)}>
               Next
             </Button>
           )}
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
             className="ml-auto"
             onClick={() => onAnswer(false)}

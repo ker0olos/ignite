@@ -16,8 +16,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import approval, {
   APPROVAL_EVENT,
+  DECLINED_OUTSIDE,
   DENIED,
-  RETRY_HINT,
   approvalMode,
   realPath,
   type ApprovalAsk,
@@ -118,14 +118,17 @@ function load() {
     );
   };
   const result = (text: string, isError: boolean) =>
-    handlers.get("tool_result")!({
-      type: "tool_result",
-      toolCallId: `t${id}`,
-      toolName: "bash",
-      input,
-      content: [{ type: "text", text }],
-      isError,
-    });
+    handlers.get("tool_result")!(
+      {
+        type: "tool_result",
+        toolCallId: `t${id}`,
+        toolName: "bash",
+        input,
+        content: [{ type: "text", text }],
+        isError,
+      },
+      { cwd },
+    );
   return { asks, call, result, input: () => input };
 }
 
@@ -230,41 +233,49 @@ describe("the sandbox in Auto", () => {
     expect(input().command).toBe("npm test");
   });
 
-  it("tells the model what was blocked, and asks when it retries", async () => {
-    const { asks, call, result, input } = load();
-    await call("bash", { command: "touch ~/x" });
-    fake.violation = "file-write-create /Users/me/x";
-    const explained = (await result("Operation not permitted", true)) as {
-      content: { text: string }[];
-    };
-    expect(explained.content[0].text).toContain("file-write-create");
-    expect(explained.content[0].text).toContain(RETRY_HINT);
+  type Outcome = { content: { text: string }[]; isError?: boolean };
 
-    const retry = call("bash", { command: "touch ~/x" });
+  it("asks in the same call when the sandbox blocks it, then runs it outside", async () => {
+    const { asks, call, result, input } = load();
+    await call("bash", { command: "echo outside" });
+    fake.violation = "file-write-create /Users/me/x";
+    const outcome = result("Operation not permitted", true);
     await vi.waitFor(() => expect(asks).toHaveLength(1));
-    expect(asks[0].request.reason).toBe(
-      "The sandbox stopped it from trying to create /Users/me/x. Run it outside the sandbox?",
-    );
+    expect(asks[0].request).toEqual({
+      toolCallId: "t1",
+      reason: "Auto mode stopped this because it tried to create /Users/me/x.",
+    });
     asks[0].answer(true);
-    await retry;
-    expect(input().command).toBe("touch ~/x");
-    // Approved once; the next run is sandboxed again.
-    await call("bash", { command: "touch ~/x" });
-    expect(input().command).toBe("sandboxed touch ~/x");
+    const ran = (await outcome) as Outcome;
+    expect(ran.isError).toBe(false);
+    expect(ran.content[0].text.trim()).toBe("outside");
+    // The next run is sandboxed again.
+    await call("bash", { command: "echo outside" });
+    expect(input().command).toBe("sandboxed echo outside");
   });
 
-  it("sees a block in the output when the sandbox's report is late", async () => {
+  it("reports a command that fails outside the sandbox too", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "echo nope; exit 3" });
+    fake.violation = "file-write-create /Users/me/x";
+    const outcome = result("Operation not permitted", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    asks[0].answer(true);
+    const ran = (await outcome) as Outcome;
+    expect(ran.isError).toBe(true);
+    expect(ran.content[0].text).toContain("exited with code 3");
+  });
+
+  it("tells the model when the user keeps it in the sandbox", async () => {
     const { asks, call, result } = load();
     await call("bash", { command: "touch ~/x" });
     const refused = "touch: /Users/me/x: Operation not permitted";
-    const explained = (await result(refused, true)) as {
-      content: { text: string }[];
-    };
-    expect(explained.content[0].text).toBe(`${refused}\n\n${RETRY_HINT}`);
-    void call("bash", { command: "touch ~/x" });
+    const outcome = result(refused, true);
     await vi.waitFor(() => expect(asks).toHaveLength(1));
-    expect(asks[0].request.reason).toBe(
-      `The sandbox blocked it (${refused}). Run it outside the sandbox?`,
+    expect(asks[0].request.reason).toBe(`Auto mode stopped this (${refused}).`);
+    asks[0].answer(false);
+    expect(((await outcome) as Outcome).content[0].text).toBe(
+      `${refused}\n\n${DECLINED_OUTSIDE}`,
     );
   });
 

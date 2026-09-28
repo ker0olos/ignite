@@ -1,3 +1,4 @@
+import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -15,11 +16,18 @@ export function ApprovalPrompt({
     <div className="space-y-1.5 text-[13px]">
       {children}
       <p className="text-foreground">{reason ?? "Allow this tool call?"}</p>
-      <div className="flex gap-1.5">
-        <Button size="xs" onClick={() => onAnswer(true)}>
+      <div className="flex gap-2 pt-1">
+        <Button size="sm" className="px-3" onClick={() => onAnswer(true)}>
+          <Check />
           Approve
         </Button>
-        <Button size="xs" variant="outline" onClick={() => onAnswer(false)}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="px-3"
+          onClick={() => onAnswer(false)}
+        >
+          <X />
           Deny
         </Button>
       </div>

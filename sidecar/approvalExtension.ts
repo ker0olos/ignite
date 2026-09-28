@@ -4,15 +4,16 @@
  * bus; a denied call is blocked with a reason the model sees. The mode is
  * read from settings.toml on every call, so switching applies at once.
  * In Auto, shell commands that run without asking run in the OS sandbox
- * (sandbox.ts); one the sandbox blocked asks to run outside it when retried.
+ * (sandbox.ts); when it blocks one, the same call asks to run it outside.
  */
 import { readFile, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import type {
-  ExtensionAPI,
-  ExtensionContext,
-  ToolCallEvent,
+import {
+  createBashTool,
+  type ExtensionAPI,
+  type ExtensionContext,
+  type ToolCallEvent,
 } from "@earendil-works/pi-coding-agent";
 import { parse as parseToml } from "smol-toml";
 import type { ApprovalMode, ApprovalRequest } from "../shared/hostProtocol.ts";
@@ -49,9 +50,8 @@ export type ApprovalAsk = {
 };
 
 export const DENIED = "The user denied this tool call.";
-export const RETRY_HINT =
-  "The sandbox blocked this command. If it must run outside the sandbox, " +
-  "run exactly the same command again; the user will be asked to approve it.";
+export const DECLINED_OUTSIDE =
+  "The sandbox blocked this command, and the user declined to run it outside the sandbox.";
 
 /** The composer's approval mode (`[approval] mode`); Auto unless set to manual. */
 export async function approvalMode(
@@ -98,9 +98,31 @@ function commandOf(event: ToolCallEvent): string | undefined {
     : undefined;
 }
 
+/** Why a command the sandbox blocked waits for the user. */
+function blockedReason(what: string) {
+  const action = blockedAction(what, homedir());
+  return action
+    ? `Auto mode stopped this because it tried to ${action}.`
+    : `Auto mode stopped this (${what}).`;
+}
+
+// ponytail: pi's default shell, not a shellPath or commandPrefix from pi's settings.
+async function runOutside(
+  toolCallId: string,
+  input: Record<string, unknown>,
+  ctx: ExtensionContext,
+) {
+  try {
+    const bash = createBashTool(ctx.cwd);
+    const done = await bash.execute(toolCallId, input as never, ctx.signal);
+    return { content: done.content, details: done.details, isError: false };
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    return { content: [{ type: "text" as const, text }], isError: true };
+  }
+}
+
 export default function approval(pi: ExtensionAPI) {
-  // Commands the sandbox blocked, with what it blocked; retrying one asks.
-  const blocked = new Map<string, string>();
   // Sandboxed runs in progress: tool call id → the command as written.
   const sandboxed = new Map<string, string>();
 
@@ -121,16 +143,6 @@ export default function approval(pi: ExtensionAPI) {
     mode: ApprovalMode,
     box: Sandbox | undefined,
   ) {
-    const command = commandOf(event);
-    const was = command === undefined ? undefined : blocked.get(command);
-    if (box && was) {
-      const action = blockedAction(was, homedir());
-      return {
-        reason: action
-          ? `The sandbox stopped it from trying to ${action}. Run it outside the sandbox?`
-          : `The sandbox blocked it (${was}). Run it outside the sandbox?`,
-      };
-    }
     const { input, place } = await judged(event.input, ctx.cwd);
     const parse = await bashParser;
     return approvalFor(mode, event.toolName, input, place, {
@@ -150,7 +162,6 @@ export default function approval(pi: ExtensionAPI) {
       const request = { toolCallId: event.toolCallId, ...wait };
       if (!(await ask(request, ctx))) return { block: true, reason: DENIED };
       // An approved command runs as is, outside the sandbox.
-      if (command !== undefined) blocked.delete(command);
       return;
     }
     if (!box || command === undefined) return;
@@ -159,7 +170,8 @@ export default function approval(pi: ExtensionAPI) {
     input.command = await box.wrap(command, ctx.cwd, event.toolCallId);
   });
 
-  pi.on("tool_result", async (event) => {
+  // Asked before the call ends, so its row shows the question, not a retry.
+  pi.on("tool_result", async (event, ctx) => {
     const command = sandboxed.get(event.toolCallId);
     const box = await sandbox;
     if (command === undefined || !box) return;
@@ -172,9 +184,15 @@ export default function approval(pi: ExtensionAPI) {
     const explained = await box.explain(event.toolCallId, text);
     const what = blockedSummary(explained) ?? refusedLine(text);
     if (!what) return;
-    blocked.set(command, what);
+    const request = {
+      toolCallId: event.toolCallId,
+      reason: blockedReason(what),
+    };
+    if (await ask(request, ctx)) {
+      return runOutside(event.toolCallId, { ...event.input, command }, ctx);
+    }
     return {
-      content: [{ type: "text", text: `${explained}\n\n${RETRY_HINT}` }],
+      content: [{ type: "text", text: `${explained}\n\n${DECLINED_OUTSIDE}` }],
     };
   });
 }

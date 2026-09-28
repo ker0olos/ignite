@@ -204,9 +204,9 @@ on macOS, bubblewrap on Linux). It may write only in the folder, temp
 folders and package caches, can't read credentials (`~/.ssh`, `~/.aws`,
 keychains, auth files) and reaches only package registries and git hosts
 through the runtime's proxy, which runs in the sidecar. When a failed command
-was blocked, the extension appends the sandbox's report and tells the model
-to rerun it unchanged; the rerun asks the user, and if approved runs outside
-the sandbox. Approving a denylisted command also runs it outside. Where the
+was blocked, the same call asks the user before it ends; approved, the
+extension runs it outside the sandbox and that output is the result, declined,
+the model gets the sandbox's report. Approving a denylisted command also runs it outside. Where the
 sandbox can't start, Auto instead asks for bash commands naming absolute, `~`
 or `..` paths outside the folder. On Windows (no sandbox, and a denylist
 written for Unix) Auto asks for every bash and PowerShell command; file
