@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { AssistantMessage, ToolCall } from "../../shared/agentTypes";
-import { diffSummary, groupSummary, parseDiff, toRows } from "./toolRows";
+import {
+  diffSummary,
+  groupSummary,
+  outputPreview,
+  parseDiff,
+  toRows,
+} from "./toolRows";
 import type { Item } from "./transcript";
 
 const call = (name: string, id = name): ToolCall => ({
@@ -212,5 +218,35 @@ describe("diffSummary", () => {
     expect(diffSummary(parseDiff("+1 b"))).toBe("Added 1 line");
     expect(diffSummary(parseDiff("-1 a\n-2 b"))).toBe("Removed 2 lines");
     expect(diffSummary([])).toBe("No changes");
+  });
+});
+
+describe("outputPreview", () => {
+  it("shows short output whole", () => {
+    expect(outputPreview("a\nb\n", 5, 100)).toEqual({
+      text: "a\nb",
+      hidden: 0,
+    });
+  });
+
+  it("cuts at the line cap", () => {
+    expect(outputPreview("a\nb\nc\nd", 2, 100)).toEqual({
+      text: "a\nb",
+      hidden: 2,
+    });
+  });
+
+  it("cuts one long line at the character cap", () => {
+    expect(outputPreview("x".repeat(50), 5, 10)).toEqual({
+      text: `${"x".repeat(10)}…`,
+      hidden: 1,
+    });
+  });
+
+  it("counts the cut line as hidden", () => {
+    expect(outputPreview("ab\ncdef\ng", 5, 5)).toEqual({
+      text: "ab\ncd…",
+      hidden: 2,
+    });
   });
 });
