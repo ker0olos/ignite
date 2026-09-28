@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
-import { conversationItems } from "./conversationItems";
+import { agentItems } from "./agentItems";
 
 type SwitchProps = { checked: boolean; onCheckedChange: (v: boolean) => void };
 type SelectProps = {
@@ -13,10 +13,10 @@ type SelectProps = {
 const props = <T,>(item: { control?: unknown }) =>
   (item.control as ReactElement<T>).props;
 
-describe("conversationItems", () => {
+describe("agentItems", () => {
   it("toggles subagents on and off", () => {
     const onChange = vi.fn();
-    const [, , subagents] = conversationItems({
+    const [, subagents] = agentItems({
       settings: DEFAULT_SETTINGS,
       onChange,
     });
@@ -36,7 +36,7 @@ describe("conversationItems", () => {
       ...DEFAULT_SETTINGS,
       subagents: { enabled: false, max: 3 },
     };
-    const [, , , max] = conversationItems({ settings, onChange });
+    const [, , max] = agentItems({ settings, onChange });
     expect(max.title).toBe("Subagents per conversation");
     const { value, disabled, onValueChange } = props<SelectProps>(max);
     expect(value).toBe("3");

@@ -8,6 +8,7 @@ import {
   type Section,
 } from "@/components/settings/sections";
 import { aboutItems } from "@/components/settings/sections/aboutItems";
+import { agentItems } from "@/components/settings/sections/agentItems";
 import { appearanceItems } from "@/components/settings/sections/appearanceItems";
 import { conversationItems } from "@/components/settings/sections/conversationItems";
 import { editorItems } from "@/components/settings/sections/editorItems";
@@ -88,6 +89,7 @@ export function SettingsDialog({
 
   const items: Item[] = [
     ...providersItems({ providers, providersError, onManageProviders }),
+    ...agentItems({ settings, onChange }),
     ...mcpItems({ mcp, onEdit: setEditing, onAdd: () => setEditing("new") }),
     ...memoryItems({ memory, folderOpen: !!folder, settings, onChange }),
     ...appearanceItems({
