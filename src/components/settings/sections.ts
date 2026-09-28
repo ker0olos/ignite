@@ -3,6 +3,7 @@ import {
   Brain,
   Code,
   FolderTree,
+  Info,
   MessageSquare,
   Palette,
   Plug,
@@ -25,8 +26,9 @@ export const SECTIONS = {
   Files: { icon: FolderTree, blurb: "What the file tree shows." },
   Conversation: {
     icon: MessageSquare,
-    blurb: "What the agent's replies show.",
+    blurb: "What the agent's replies show, and when it asks you.",
   },
+  About: { icon: Info, blurb: "The version you're running." },
 } satisfies Record<string, { icon: LucideIcon; blurb: string }>;
 
 export type Section = keyof typeof SECTIONS;

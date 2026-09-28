@@ -47,12 +47,16 @@ describe("useFolders", () => {
       expect(result.current.current).toBeNull();
     });
 
-    it("opens the demo folder in demo mode without remembering it", async () => {
+    it("opens the demo folders in demo mode without remembering them", async () => {
       const { result, store } = await setup({
         saved: savedState,
         demo: "/repo/demo/tempo",
       });
       expect(result.current.current).toBe("/repo/demo/tempo");
+      expect(result.current.projects).toEqual([
+        "/repo/demo/pantry",
+        "/repo/demo/tempo",
+      ]);
       await new Promise((r) => setTimeout(r, 10));
       expect(store.sets.filter(([key]) => key === "current")).toEqual([]);
       expect(store.data.get("current")).toBe("/b");

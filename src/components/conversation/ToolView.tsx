@@ -3,12 +3,14 @@ import type {
   ToolCall,
   ToolResult,
 } from "../../../shared/agentTypes";
+import { ASK_TOOL } from "../../../shared/questions";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
 import type { ToolProps } from "@/components/conversation/shared";
 import { ToolHead } from "@/components/conversation/ToolHead";
 import { ToolOutcome } from "@/components/conversation/ToolOutcome";
 import { ToolRunOutcome } from "@/components/conversation/ToolRunOutcome";
 import { mcpCall } from "@/lib/mcpToolCall";
+import { readQuestions } from "@/lib/questions";
 
 /** Path relative to the open folder when it's inside it, else as given. */
 function relativePath(path: string, folder: string) {
@@ -31,6 +33,7 @@ const TOOL_TITLES: Record<string, string> = {
   grep: "Search",
   find: "Find",
   ls: "List",
+  [ASK_TOOL]: "Questions",
 };
 
 function toolArg(call: ToolCall, folder: string) {
@@ -47,6 +50,10 @@ function toolArg(call: ToolCall, folder: string) {
     case "grep":
     case "find":
       return arg("pattern");
+    case ASK_TOOL:
+      return readQuestions(call.arguments)
+        .map((q) => q.header ?? q.question)
+        .join(", ");
     default:
       return "";
   }

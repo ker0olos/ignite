@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { AssistantMessage, ToolCall } from "../../shared/agentTypes";
-import { DEMO_STATE, shownSession } from "./demo";
+import type {
+  AssistantMessage,
+  ToolCall,
+  ToolResultMessage,
+} from "../../shared/agentTypes";
+import { ASK_TOOL } from "../../shared/questions";
+import { DEMO_STATE, shownSession, shownStatuses } from "./demo";
+import { DEMO_QUESTION_MESSAGES, DEMO_QUESTIONS } from "./demoQuestions";
+import { readQuestions } from "./questions";
 import { DEMO_DIFFS, DEMO_MESSAGES } from "./demoTranscript";
 import { EMPTY, fromHistory } from "./transcript";
 import { parseDiff, toRows } from "./toolRows";
@@ -11,6 +18,11 @@ const FILES = import.meta.glob("../../demo/tempo/**/*", {
   eager: true,
 }) as Record<string, string>;
 const file = (path: string) => FILES[`../../demo/tempo/${path}`];
+const PANTRY = import.meta.glob("../../demo/pantry/**/*", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
 
 const session = {
   state: null,
@@ -22,23 +34,89 @@ const session = {
 
 describe("shownSession", () => {
   it("passes the session through outside demo mode, with the host's error", () => {
-    expect(shownSession(session, "The agent host failed", null)).toEqual({
+    expect(shownSession(session, "The agent host failed", null, null)).toEqual({
       ...session,
       error: "The agent host failed",
     });
     const failed = { ...session, error: "No model" };
-    expect(shownSession(failed, "The agent host failed", null).error).toBe(
-      "No model",
-    );
+    expect(
+      shownSession(failed, "The agent host failed", null, null).error,
+    ).toBe("No model");
   });
 
   it("shows the demo conversation in demo mode", () => {
-    const shown = shownSession(session, "ignored", "/repo/demo/tempo");
+    const shown = shownSession(
+      session,
+      "ignored",
+      "/repo/demo/tempo",
+      "/repo/demo/tempo",
+    );
     expect(shown.state).toBe(DEMO_STATE);
     expect(shown.trust).toBe("trusted");
     expect(shown.error).toBeNull();
     expect(shown.transcript.items.length).toBe(DEMO_MESSAGES.length);
     expect(shown.send).toBe(session.send);
+  });
+
+  it("shows pantry's conversation, waiting on its questions", () => {
+    const shown = shownSession(
+      session,
+      null,
+      "/repo/demo/pantry",
+      "/repo/demo/tempo",
+    );
+    expect(shown.transcript.items.length).toBe(DEMO_QUESTION_MESSAGES.length);
+    expect(shown.transcript.running).toBe(true);
+    expect(shown.transcript.tools[DEMO_QUESTIONS.id]).toEqual({
+      status: "running",
+      approval: {},
+    });
+  });
+});
+
+describe("shownStatuses", () => {
+  it("passes statuses through outside demo mode", () => {
+    const statuses = { "/a": { cwd: "/a", running: true, waiting: false } };
+    expect(shownStatuses(statuses, null)).toBe(statuses);
+  });
+
+  it("shows pantry waiting in demo mode", () => {
+    expect(shownStatuses({}, "/repo/demo/tempo")).toEqual({
+      "/repo/demo/pantry": {
+        cwd: "/repo/demo/pantry",
+        running: true,
+        waiting: true,
+      },
+    });
+  });
+});
+
+describe("the pantry conversation", () => {
+  it("asks well-formed questions, recommending one option each", () => {
+    expect(DEMO_QUESTIONS.name).toBe(ASK_TOOL);
+    const questions = readQuestions(DEMO_QUESTIONS.arguments);
+    expect(questions).toHaveLength(3);
+    for (const q of questions) {
+      expect(q.options.length).toBeGreaterThanOrEqual(2);
+      expect(q.options.length).toBeLessThanOrEqual(4);
+    }
+    const recommended = questions.filter((q) =>
+      q.options[0].label.endsWith("(Recommended)"),
+    );
+    expect(recommended).toHaveLength(2);
+  });
+
+  it("reads files as they start in demo/pantry", () => {
+    const reads = DEMO_QUESTION_MESSAGES.filter(
+      (m): m is ToolResultMessage => m.role === "toolResult",
+    );
+    expect(reads).toHaveLength(2);
+    for (const read of reads) {
+      const path =
+        read.toolCallId === "p1" ? "src/server.ts" : "src/recipes.ts";
+      const text = (read.content[0] as { text: string }).text.replace(/…$/, "");
+      expect(PANTRY[`../../demo/pantry/${path}`].startsWith(text)).toBe(true);
+    }
   });
 });
 

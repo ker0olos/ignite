@@ -1,8 +1,13 @@
 import { Menu, type MenuOptions } from "@tauri-apps/api/menu";
+import type { AppVersion } from "../../shared/hostProtocol";
+import { aboutPanel } from "./about";
 import { APP_TITLE } from "./app";
 import { openNewWindow } from "./window";
 
 export type MenuHandlers = {
+  /** The commit the app runs from, for the About panel; null until known. */
+  version: AppVersion | null;
+  checkForUpdates: () => void;
   folders: string[];
   label: (path: string) => string;
   openFolder: () => void;
@@ -30,6 +35,8 @@ export async function setAppMenu(handlers: MenuHandlers) {
  * closing are custom items (not the predefined ones) so they can ask first.
  */
 export function menuItems({
+  version,
+  checkForUpdates,
   folders,
   label,
   openFolder,
@@ -45,7 +52,8 @@ export function menuItems({
     {
       text: APP_TITLE,
       items: [
-        { item: { About: null } },
+        { item: { About: aboutPanel(version) } },
+        { text: "Check for Updates…", action: () => checkForUpdates() },
         { item: "Separator" },
         {
           text: "Settings",

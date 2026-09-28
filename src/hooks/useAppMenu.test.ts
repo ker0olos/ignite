@@ -45,6 +45,8 @@ function props(overrides: Partial<Props> = {}): Props {
     closeFolder: vi.fn(),
     clearFolders: vi.fn(),
     openSettings: vi.fn(),
+    version: null,
+    checkForUpdates: vi.fn(),
     active: null,
     closeTab: vi.fn(),
     ...overrides,

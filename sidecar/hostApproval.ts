@@ -1,3 +1,4 @@
+import type { QuestionAnswer } from "../shared/questions.ts";
 import type { ApprovalAsk } from "./approvalExtension.ts";
 import type { HostContext, Project } from "./hostTypes.ts";
 import { pushProjects } from "./hostProjects.ts";
@@ -21,12 +22,13 @@ export function answerApproval(
   ctx: HostContext,
   toolCallId: string,
   approved: boolean,
+  answers?: QuestionAnswer[],
 ) {
   for (const project of ctx.projects.values()) {
     const ask = project.approvals.get(toolCallId);
     if (!ask) continue;
     project.approvals.delete(toolCallId);
-    ask.answer(approved);
+    ask.answer(approved, answers);
     pushProjects(ctx);
   }
 }

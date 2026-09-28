@@ -185,6 +185,13 @@ describe("tool_call", () => {
     expect(await result).toBeUndefined();
   });
 
+  it("lets ask_user through in Manual; its questions wait instead", async () => {
+    await settings("[approval]\nmode = 'manual'\n");
+    const { asks, call } = load();
+    expect(await call("ask_user", { questions: [] })).toBeUndefined();
+    expect(asks).toEqual([]);
+  });
+
   it("denies a waiting call when the run is stopped", async () => {
     await settings("[approval]\nmode = 'manual'\n");
     const { asks, call } = load();

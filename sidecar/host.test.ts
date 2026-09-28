@@ -1142,7 +1142,7 @@ describe("tool approval", () => {
       toolCallId: "t1",
       approved: true,
     });
-    expect(answer).toHaveBeenCalledWith(true);
+    expect(answer).toHaveBeenCalledWith(true, undefined);
     // Answered once; a second answer finds nothing waiting.
     await request({
       type: "approval_answer",
@@ -1150,6 +1150,21 @@ describe("tool approval", () => {
       approved: false,
     });
     expect(answer).toHaveBeenCalledOnce();
+  });
+
+  it("passes ask_user's answers back with the reply", async () => {
+    const { ask, request } = await opened();
+    const answer = ask("t1");
+    const answers = [
+      { question: "Where?", choices: [{ answer: "SQLite", note: "x" }] },
+    ];
+    await request({
+      type: "approval_answer",
+      toolCallId: "t1",
+      approved: true,
+      answers,
+    });
+    expect(answer).toHaveBeenCalledWith(true, answers);
   });
 
   it("denies waiting calls when the run is stopped", async () => {

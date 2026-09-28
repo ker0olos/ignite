@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import type { QuestionAnswer } from "../../shared/questions";
 import type { HostClient } from "@/lib/piHost";
 import {
   applyError,
@@ -10,7 +11,8 @@ import {
 
 /**
  * Applies the open session's events and approval requests to its
- * transcript. Returns the function that approves or denies a waiting call.
+ * transcript. Returns the function that approves or denies a waiting call,
+ * or answers its questions.
  */
 export function useSessionEvents(
   opened: HostClient | null,
@@ -31,11 +33,11 @@ export function useSessionEvents(
   }, [opened, update]);
 
   return useCallback(
-    (toolCallId: string, approved: boolean) => {
+    (toolCallId: string, approved: boolean, answers?: QuestionAnswer[]) => {
       if (!opened) return;
       update((t) => settleApproval(t, toolCallId));
       opened
-        .send({ type: "approval_answer", toolCallId, approved })
+        .send({ type: "approval_answer", toolCallId, approved, answers })
         .catch((e: Error) => onError(e.message));
     },
     [opened, update, onError],

@@ -28,5 +28,23 @@ export function conversationItems({
         />
       ),
     },
+    {
+      section: "Conversation",
+      title: "Ask before deciding",
+      description:
+        "The agent asks you about open choices, with options to pick from. Off, it decides on its own.",
+      keywords: "questions autonomous choices options",
+      control: (
+        <Switch
+          checked={settings.conversation.ask_questions}
+          onCheckedChange={(ask_questions) =>
+            onChange({
+              ...settings,
+              conversation: { ...settings.conversation, ask_questions },
+            })
+          }
+        />
+      ),
+    },
   ];
 }

@@ -1,12 +1,8 @@
-import { useState } from "react";
 import { SettingsButton } from "@/components/app/SettingsButton";
 import { Welcome } from "@/components/app/Welcome";
 import { Workspace } from "@/components/app/Workspace";
 import { ConnectProviders } from "@/components/providers/ConnectProviders";
-import {
-  SettingsDialog,
-  type Section,
-} from "@/components/settings/SettingsDialog";
+import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { SignInBanner } from "@/components/sidebar/SignInBanner";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
 import { useAgentSession } from "@/hooks/useAgentSession";
@@ -14,15 +10,15 @@ import { useAppMenu } from "@/hooks/useAppMenu";
 import { useConnectScreen } from "@/hooks/useConnectScreen";
 import { useFolders } from "@/hooks/useFolders";
 import { useMcpServers } from "@/hooks/useMcpServers";
-import { useMemory } from "@/hooks/useMemory";
 import { useProjects } from "@/hooks/useProjects";
 import { useProviders } from "@/hooks/useProviders";
 import { useSettings } from "@/hooks/useSettings";
+import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useTabs } from "@/hooks/useTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
 import { needingSignIn } from "@/lib/mcpServers";
 import { approvalSetting } from "@/lib/settings";
-import { DEMO_FOLDER, shownSession } from "@/lib/demo";
+import { DEMO_FOLDER, shownSession, shownStatuses } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -42,18 +38,13 @@ export default function App() {
   // The demo folder shows a fixed conversation; pi never runs in it.
   const live = DEMO_FOLDER ? null : current;
   const agent = useAgentSession(providers.host, live, providers.statuses);
-  const session = shownSession(agent, providers.hostError);
+  const session = shownSession(agent, providers.hostError, current);
   const mcp = useMcpServers(providers.host, live);
-  const statuses = useProjects(providers.host, projects);
+  const statuses = shownStatuses(useProjects(providers.host, projects));
   const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<Section>("Providers");
-  const memory = useMemory(providers.host, current, settingsOpen);
-  const openSettings = (section: Section = "Providers") => {
-    setSettingsSection(section);
-    setSettingsOpen(true);
-  };
+  const dialog = useSettingsDialog(providers.host, current);
+  const openSettings = dialog.show;
 
   const { home } = useAppMenu({
     loaded,
@@ -63,6 +54,8 @@ export default function App() {
     closeFolder,
     clearFolders,
     openSettings: () => openSettings(),
+    version: dialog.about.version,
+    checkForUpdates: dialog.checkForUpdates,
     active: tabs.active,
     closeTab: tabs.close,
   });
@@ -131,19 +124,20 @@ export default function App() {
         </div>
       )}
       <SettingsDialog
-        key={settingsSection}
-        initialSection={settingsSection}
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
+        key={dialog.section}
+        initialSection={dialog.section}
+        open={dialog.open}
+        onOpenChange={dialog.setOpen}
         settings={settings}
         onChange={setSettings}
         providers={providers.statuses}
         providersError={providers.hostError}
         mcp={mcp}
-        memory={memory}
+        memory={dialog.memory}
+        about={dialog.about}
         folder={current}
         onManageProviders={() => {
-          setSettingsOpen(false);
+          dialog.setOpen(false);
           connectScreen.show();
         }}
       />

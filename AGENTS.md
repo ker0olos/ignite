@@ -20,7 +20,8 @@ src/                     React frontend (almost all logic lives here)
     sidebar/             Title-bar strip + file tree, MCP sign-in warning banner
     files/               Lazy directory tree, read-only syntax-highlighted file view
     agent/               Conversation area wiring, task composer, model/effort/approval menus, trust prompt
-    conversation/        Transcript rendering: messages, thinking, tool rows (with approve/deny) and their pieces
+    conversation/        Transcript rendering: messages, thinking, tool rows (with approve/deny, or the
+                         agent's questions) and their pieces
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              Recent cmem observations for the Memory settings
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
@@ -37,6 +38,8 @@ src/                     React frontend (almost all logic lives here)
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
+    useAbout.ts          The commit the app runs from; Check for updates, reloading every window
+    useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -59,10 +62,13 @@ src/                     React frontend (almost all logic lives here)
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
     memory.ts            Memory settings text: cmem status line, relative times
+    about.ts             About text: version line, update button states, the macOS About panel
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
     dangerousCommands.ts Regex denylist of risky shell commands that Auto still asks about
     demo.ts              Demo mode (`npm run demo`): its folder, model state, shown session
     demoTranscript.ts    The demo's fixed conversation
+    demoQuestions.ts     The demo's second project, waiting on the agent's questions
+    questions.ts         ask_user answers being picked: options, own answer, per-option notes
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
@@ -88,20 +94,23 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, usableServer, copySignIn)
   wire.ts                Session event wire form (toWireEvent, describeError)
   claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
+  appUpdate.ts           The app's own commit, and updating it (`git pull --ff-only`, `npm ci` if the lockfile changed)
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
   mcpConfig.ts           pi-mcp-adapter's mcp.json: read, edit servers, cached tool names
   mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
   cmem.ts           cmem: finds its worker, the app's on/off setting, recent observations
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
+  askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
   mcpCatalog.ts          One-click MCP presets, and other apps' MCP servers to import
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
   testMcpServer.ts       A one-tool stdio MCP server for tests
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
-demo/tempo/              Sample project `npm run demo` opens (not built or tested here)
+demo/tempo/, demo/pantry/ Sample projects `npm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
+shared/questions.ts      ask_user's questions and answers (used by both)
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITION_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 launcher/                How users run the app (not maintainers; see README)
@@ -135,7 +144,9 @@ Two places hold persisted data:
 - **Editor settings** (`[editor]` in settings.toml): `font_family` (CSS list,
   default Menlo) and `word_wrap` for the file viewer.
 - **Conversation settings** (`[conversation]`): `show_thinking` shows the
-  model's reasoning rows (off by default).
+  model's reasoning rows (off by default). `ask_questions` (on by default)
+  has the agent bring open decisions to the user with `ask_user`; off, the
+  tool is dropped and the agent is told to decide alone. Read before each run.
 - **Memory settings** (`[memory]`): `cmem` (on by default) records
   sessions in cmem, recalls its memories and gives the agent cmem's search
   tools. Recording checks it before each run; the tools follow a reload.
@@ -173,7 +184,10 @@ whether the call waits, the question goes to the host over pi's event bus
 shows Approve / Deny, answered with `approval_answer`. A denied call returns
 `{ block: true, reason }` to the model; stopping the run or closing the
 folder denies what's waiting. A hidden folder's question waits until it's
-shown again. **Manual** asks for every tool call (built-in,
+shown again. The `ask_user` tool (`sidecar/askExtension.ts`) uses the same
+channel: its call waits as an approval, the row shows its questions, and
+`approval_answer` carries the answers (declining leaves the choice to the
+agent). The approval gate never asks about `ask_user` itself. **Manual** asks for every tool call (built-in,
 MCP, everything); approved commands run as is. **Auto** asks for bash
 commands on the denylist in `lib/dangerousCommands.ts` and for file tools
 whose resolved path (symlinks followed) is outside the open folder. Every

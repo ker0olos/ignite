@@ -16,6 +16,8 @@ type Item = {
 
 function handlers(folders: string[]): MenuHandlers {
   return {
+    version: null,
+    checkForUpdates: vi.fn(),
     folders,
     label: (p) => `label:${p}`,
     openFolder: vi.fn(),
@@ -109,10 +111,26 @@ describe("menuItems", () => {
     }
   });
 
+  it("shows the commit in the About panel once it's known", () => {
+    const about = (h: MenuHandlers) =>
+      (build(h)[0].items?.[0].item as { About: unknown }).About;
+    expect(about(handlers([]))).toBeNull();
+    const version = {
+      sha: "a1b2c3d4e5",
+      date: "2026-09-28T09:00:00Z",
+      subject: "Hi",
+    };
+    expect(about({ ...handlers([]), version })).toMatchObject({
+      version: "a1b2c3d",
+      credits: "Hi",
+    });
+  });
+
   it("wires actions to the handlers", () => {
     const h = handlers([]);
     const items = build(h);
     for (const text of [
+      "Check for Updates…",
       "Open Folder",
       "Close Folder",
       "Settings",
@@ -123,6 +141,7 @@ describe("menuItems", () => {
       // Tauri passes the item's id; Close Folder must not take it for a path.
       find(items, text)?.action?.(`id-${text}`);
     }
+    expect(h.checkForUpdates).toHaveBeenCalledExactlyOnceWith();
     expect(h.openFolder).toHaveBeenCalledOnce();
     expect(h.closeFolder).toHaveBeenCalledExactlyOnceWith();
     expect(h.openSettings).toHaveBeenCalledOnce();
