@@ -57,6 +57,7 @@ export function RowView({
           folder={folder}
           editor={editor}
           codeThemes={codeThemes}
+          tools={tools}
           onApprove={onApprove}
         />
       );

@@ -12,7 +12,6 @@ import {
   createAgentSession,
   createEventBus,
   DefaultResourceLoader,
-  type ExtensionUIContext,
   initTheme,
   ModelRuntime,
   SessionManager,
@@ -22,12 +21,18 @@ import type { HostMessage, HostRequest } from "../shared/hostProtocol.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { createClaudeCode } from "./claudeCode.ts";
 import { codexBackend, withCodexLogin } from "./credentials.ts";
+import { createHeadlessUI } from "./headlessUI.ts";
 import { createHost } from "./host.ts";
 import type { McpStatusSnapshot, Runtime, Session } from "./hostTypes.ts";
 import { createLineSplitter } from "./lines.ts";
 import { findImports, PRESETS } from "./mcpCatalog.ts";
 import { createMcpStore, MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
+import {
+  SUBAGENT_EVENT,
+  WORKER,
+  type SubagentAsk,
+} from "./subagentExtension.ts";
 import { createTrustStore } from "./trust.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
@@ -68,50 +73,7 @@ console.log = console.info = console.error;
 const send = (message: HostMessage) =>
   process.stdout.write(JSON.stringify(message) + "\n");
 
-// Extensions only report problems (a failed MCP sign-in) through a bound UI.
-// This one declines every prompt and passes errors on to the app.
-const headlessUI = {
-  select: async () => undefined,
-  confirm: async () => false,
-  input: async () => undefined,
-  notify: (message: string, type?: "info" | "warning" | "error") => {
-    process.stderr.write(`pi-host: ${type ?? "info"}: ${message}\n`);
-    if (type === "error") send({ type: "extension_error", message });
-  },
-  onTerminalInput: () => () => {},
-  setStatus: () => {},
-  setWorkingMessage: () => {},
-  setWorkingVisible: () => {},
-  setWorkingIndicator: () => {},
-  setHiddenThinkingLabel: () => {},
-  setWidget: () => {},
-  setFooter: () => {},
-  setHeader: () => {},
-  setTitle: () => {},
-  custom: async () => undefined,
-  pasteToEditor: () => {},
-  setEditorText: () => {},
-  getEditorText: () => "",
-  editor: async () => undefined,
-  addAutocompleteProvider: () => {},
-  setEditorComponent: () => {},
-  getEditorComponent: () => undefined,
-  // Styling helpers (fg, bold, ...) return the text as is; nothing is drawn.
-  theme: new Proxy(
-    {},
-    {
-      get:
-        () =>
-        (...args: unknown[]) =>
-          args.at(-1),
-    },
-  ),
-  getAllThemes: () => [],
-  getTheme: () => undefined,
-  setTheme: () => ({ success: false, error: "No UI" }),
-  getToolsExpanded: () => false,
-  setToolsExpanded: () => {},
-} as unknown as ExtensionUIContext;
+const headlessUI = createHeadlessUI(send);
 
 // Runs Claude through the user's own Claude Code (Agent SDK), which Anthropic
 // bills to the Claude plan; pi's direct Claude sign-in draws extra usage.
@@ -122,6 +84,7 @@ const claudeBridge = sibling("pi-claude-bridge/src/index.ts");
 const mcpExtension = sibling("./mcpExtension.ts");
 const cmemExtension = sibling("./cmemExtension.ts");
 const askExtension = sibling("./askExtension.ts");
+const subagentExtension = sibling("./subagentExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
 const approvalExtension = sibling("./approvalExtension.ts");
 const trust = createTrustStore(agentDir);
@@ -213,6 +176,10 @@ async function openSession(
     onMcpStatus(data as McpStatusSnapshot),
   );
   eventBus.on(APPROVAL_EVENT, (data) => onApproval(data as ApprovalAsk));
+  eventBus.on(SUBAGENT_EVENT, (data) => {
+    const ask = data as SubagentAsk;
+    ask.reply(openSubagent(cwd, ask, eventBus));
+  });
   const resourceLoader = new DefaultResourceLoader({
     cwd,
     agentDir,
@@ -223,6 +190,7 @@ async function openSession(
       mcpExtension,
       cmemExtension,
       askExtension,
+      subagentExtension,
       approvalExtension,
     ],
   });
@@ -247,6 +215,41 @@ async function openSession(
   const modelWarning = await reselectModel(wanted, session);
   if (modelWarning) log(modelWarning);
   return Object.assign(session as unknown as Session, { modelWarning });
+}
+
+// In memory, with its own settings so choosing its model never becomes the
+// default. Its tool calls reach the app through the main session's bus.
+// ponytail: no MCP servers or cmem in subagents; add their extensions if needed.
+async function openSubagent(
+  cwd: string,
+  { model, effort }: SubagentAsk,
+  eventBus: ReturnType<typeof createEventBus>,
+) {
+  const settingsManager = SettingsManager.inMemory(
+    {},
+    { projectTrusted: trust.get(cwd) === "trusted" },
+  );
+  const resourceLoader = new DefaultResourceLoader({
+    cwd,
+    agentDir,
+    settingsManager,
+    eventBus,
+    additionalExtensionPaths: [claudeBridge, approvalExtension],
+    appendSystemPromptOverride: (base) => [...base, WORKER],
+  });
+  await resourceLoader.reload();
+  const { session } = await createAgentSession({
+    cwd,
+    agentDir,
+    modelRuntime: runtime,
+    model,
+    thinkingLevel: effort,
+    sessionManager: SessionManager.inMemory(cwd),
+    settingsManager,
+    resourceLoader,
+  });
+  await session.bindExtensions({ uiContext: headlessUI });
+  return session;
 }
 
 // pi's types are pi-ai's; they match Runtime and Session structurally.

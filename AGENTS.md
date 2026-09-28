@@ -102,6 +102,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   cmem.ts           cmem: finds its worker, the app's on/off setting, recent observations
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
+  subagentExtension.ts   subagent tool: hands tasks to a smaller model from the same provider and talks with it
+  headlessUI.ts          The UI context bound to sessions: declines prompts, passes errors to the app
   mcpCatalog.ts          One-click MCP presets, and other apps' MCP servers to import
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
   testMcpServer.ts       A one-tool stdio MCP server for tests
@@ -111,6 +113,7 @@ docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
 shared/questions.ts      ask_user's questions and answers (used by both)
+shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITION_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 launcher/                How users run the app (not maintainers; see README)
@@ -150,6 +153,9 @@ Two places hold persisted data:
 - **Memory settings** (`[memory]`): `cmem` (on by default) records
   sessions in cmem, recalls its memories and gives the agent cmem's search
   tools. Recording checks it before each run; the tools follow a reload.
+- **Subagent settings** (`[subagents]`): `enabled` (on by default) gives
+  the agent the `subagent` tool; `max` (default 2) caps how many one
+  conversation may start. Read before each run.
 - **Approval settings** (`[approval]`): `mode`, `"auto"` (default) or
   `"manual"`, set from the composer. The sidecar reads it on every tool call.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
@@ -210,6 +216,19 @@ pipeline's real words and redirects, including code run by `bash -c`,
 aren't mistaken for commands. A line that doesn't parse is checked as raw
 text. The denylist is a guard against mistakes; the sandbox is the boundary,
 and it covers bash only (file tools and MCP servers run unsandboxed).
+
+The `subagent` tool (`sidecar/subagentExtension.ts`) lets the agent start
+another pi session on a task: a smaller model from its own provider (cheaper
+per output token in pi's catalog; claude-bridge models are priced by their
+`anthropic` listing), at an effort below its own (both checked, not just
+suggested). The host
+opens it in memory (`openSubagent` in `start.ts`) with only the bridge and
+approval extensions, so its tool calls wait for approval like the main
+agent's and show inside the subagent's tool row, rebuilt from the call's
+`details.messages`. Its final reply is the tool result; the main agent
+answers a subagent's question, or gives it more work, by calling the tool
+again with its id. Subagents end with their session and aren't restored
+after a reload.
 
 Sessions open with the project untrusted, so a folder's own `.pi/`
 extensions, skills and settings never load unasked. When a folder has some
