@@ -1,5 +1,9 @@
 import type { McpServer, McpServerStatus } from "../shared/hostProtocol.ts";
-import type { HostContext, McpStatusSnapshot } from "./hostTypes.ts";
+import {
+  shown,
+  type HostContext,
+  type McpStatusSnapshot,
+} from "./hostTypes.ts";
 
 export const MCP_STATUSES: Record<string, McpServerStatus> = {
   connected: "connected",
@@ -26,10 +30,11 @@ export async function rememberSignIns(
 /** Lists all servers with their current status. */
 export async function mcpServers(ctx: HostContext): Promise<McpServer[]> {
   const saved = await ctx.mcpStore.list();
-  if (!ctx.session) return saved;
+  const project = shown(ctx);
+  if (!project?.session) return saved;
   const signIns = await ctx.mcpStore.needsSignIn();
   const known = (name: string) => {
-    const status = MCP_STATUSES[ctx.mcpStatus.get(name) ?? ""] ?? "idle";
+    const status = MCP_STATUSES[project.mcpStatus.get(name) ?? ""] ?? "idle";
     return status === "idle" && signIns.includes(name) ? "needs-auth" : status;
   };
   // ponytail: a failed server shows no reason; the adapter only logs it to
@@ -65,18 +70,19 @@ export async function changeMcp(
   check: string[] = [],
 ) {
   await edit();
-  if (ctx.session?.isStreaming) {
-    ctx.reloadWhenSettled = true;
-  } else if (ctx.session) {
-    await ctx.session.reload();
-    await checkUrlServers(ctx, check);
+  for (const project of ctx.projects.values()) {
+    const s = project.session;
+    if (s?.isStreaming) project.reloadWhenSettled = true;
+    else await s?.reload();
   }
+  const s = shown(ctx)?.session;
+  if (s && !s.isStreaming) await checkUrlServers(ctx, check);
   return mcpServers(ctx);
 }
 
 /** Marks the URL servers among `names` as checking, then checks them in the background. */
 export async function checkUrlServers(ctx: HostContext, names: string[]) {
-  const s = ctx.session;
+  const s = shown(ctx)?.session;
   if (!s?.extensionRunner.getCommand("mcp")) return;
   const urls = (await ctx.mcpStore.list())
     .filter((m) => names.includes(m.name) && m.enabled)

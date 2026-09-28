@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ModelInfo,
   OpenedSession,
@@ -10,7 +10,12 @@ import type {
 import type { ImageContent } from "../../shared/agentTypes";
 import type { HostClient } from "@/lib/piHost";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
-import { applyError, fromHistory, type Transcript } from "@/lib/transcript";
+import {
+  applyError,
+  fromHistory,
+  requestApproval,
+  type Transcript,
+} from "@/lib/transcript";
 
 type Opened = {
   host: HostClient;
@@ -23,9 +28,19 @@ type Opened = {
 const toOpened = (
   host: HostClient,
   folder: string,
-  { messages, running, trust, modelWarning, ...state }: OpenedSession,
+  {
+    messages,
+    running,
+    trust,
+    modelWarning,
+    approvals,
+    ...state
+  }: OpenedSession,
 ): Opened => {
-  const transcript = fromHistory(messages, running);
+  const transcript = approvals.reduce(
+    requestApproval,
+    fromHistory(messages, running),
+  );
   return {
     host,
     folder,
@@ -47,6 +62,44 @@ const view = (s: Opened | null) => ({
 });
 
 /**
+ * Every open folder's last known session, so switching back shows it at once;
+ * each is tagged with its host, so a stale one never shows.
+ */
+function useSessionCache(host: HostClient | null, folder: string | null) {
+  const [sessions, setSessions] = useState<Record<string, Opened>>({});
+  // Events only apply once the sidecar has answered for this folder.
+  const synced = useRef<string | null>(null);
+  const cached = folder ? sessions[folder] : undefined;
+  const current = cached?.host === host ? cached : null;
+  const opened = current?.host ?? null;
+  const put = useCallback(
+    (o: Opened) => setSessions((all) => ({ ...all, [o.folder]: o })),
+    [],
+  );
+  const patch = useCallback(
+    (f: (o: Opened) => Opened) =>
+      setSessions((all) => {
+        const o = folder ? all[folder] : undefined;
+        return o ? { ...all, [o.folder]: f(o) } : all;
+      }),
+    [folder],
+  );
+  const setState = useCallback(
+    (state: SessionState) => patch((o) => ({ ...o, state })),
+    [patch],
+  );
+  const update = useCallback(
+    (f: (t: Transcript) => Transcript) => {
+      if (synced.current !== folder) return;
+      patch((o) => ({ ...o, transcript: f(o.transcript) }));
+    },
+    [patch, folder],
+  );
+
+  return { current, opened, synced, put, patch, setState, update };
+}
+
+/**
  * The pi session for the open folder: the conversation, sending and stopping,
  * approving tool calls, the folder's trust, and its model and effort with the
  * choices pi offers for them. The settings refresh when providers connect or
@@ -57,35 +110,28 @@ export function useAgentSession(
   folder: string | null,
   statuses: ProviderStatus[] | null,
 ) {
-  // Tagged with what it was opened for, so a stale session never shows.
-  const [session, setSession] = useState<Opened | null>(null);
+  const { current, opened, synced, put, patch, setState, update } =
+    useSessionCache(host, folder);
   const [error, setError] = useState<string | null>(null);
-  const current =
-    session && session.host === host && session.folder === folder
-      ? session
-      : null;
-  const opened = current?.host ?? null;
-  const setState = useCallback(
-    (state: SessionState) => setSession((s) => s && { ...s, state }),
-    [],
-  );
-  const update = useCallback(
-    (f: (t: Transcript) => Transcript) =>
-      setSession((s) => s && { ...s, transcript: f(s.transcript) }),
-    [],
-  );
 
   useEffect(() => {
     if (!host || !folder) return;
     let live = true;
     host
       .request({ type: "open_session", cwd: folder })
-      .then((s) => live && setSession(toOpened(host, folder, s)))
+      .then((s) => {
+        if (!live) return;
+        synced.current = folder;
+        put(toOpened(host, folder, s));
+      })
       .catch((e: Error) => live && setError(e.message));
     return () => {
       live = false;
+      synced.current = null;
+      // An error belongs to the folder it happened in.
+      setError(null);
     };
-  }, [host, folder]);
+  }, [host, folder, put, synced]);
 
   useEffect(() => {
     if (!opened || !statuses) return;
@@ -105,12 +151,12 @@ export function useAgentSession(
     async (trusted: boolean) => {
       if (!opened || !folder) return;
       const trust = trusted ? "trusted" : "untrusted";
-      setSession((s) => s && { ...s, trust });
+      patch((o) => ({ ...o, trust }));
       await opened
         .request({ type: "set_trust", cwd: folder, trusted })
         .catch((e: Error) => setError(e.message));
     },
-    [opened, folder],
+    [opened, folder, patch],
   );
 
   const send = useCallback(
@@ -135,11 +181,11 @@ export function useAgentSession(
     setError(null);
     try {
       const s = await opened.request({ type: "clear_session" });
-      setSession(toOpened(opened, folder, s));
+      put(toOpened(opened, folder, s));
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [opened, folder]);
+  }, [opened, folder, put]);
 
   const stop = useCallback(async () => {
     await opened?.request({ type: "abort" }).catch(() => {});

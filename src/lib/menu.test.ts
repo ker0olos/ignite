@@ -11,7 +11,7 @@ type Item = {
   items?: Item[];
   accelerator?: string;
   enabled?: boolean;
-  action?: () => void;
+  action?: (id?: string) => void;
 };
 
 function handlers(folders: string[]): MenuHandlers {
@@ -120,10 +120,11 @@ describe("menuItems", () => {
       "Close Window",
       QUIT,
     ]) {
-      find(items, text)?.action?.();
+      // Tauri passes the item's id; Close Folder must not take it for a path.
+      find(items, text)?.action?.(`id-${text}`);
     }
     expect(h.openFolder).toHaveBeenCalledOnce();
-    expect(h.closeFolder).toHaveBeenCalledOnce();
+    expect(h.closeFolder).toHaveBeenCalledExactlyOnceWith();
     expect(h.openSettings).toHaveBeenCalledOnce();
     expect(h.closeTab).toHaveBeenCalledOnce();
     expect(h.closeWindow).toHaveBeenCalledOnce();

@@ -30,7 +30,7 @@ function fakeHost(answer: (req: { type: string }) => Promise<unknown>) {
     request: vi.fn(async (req: { type: string }) => {
       const data = await answer(req);
       return req.type === "open_session"
-        ? { messages: [], running: false, ...(data as object) }
+        ? { messages: [], running: false, approvals: [], ...(data as object) }
         : data;
     }) as unknown as HostClient["request"],
     send: vi.fn(async () => {}),
@@ -64,6 +64,23 @@ describe("useAgentSession", () => {
     });
     await act(() => result.current.setTrust(false));
     expect(result.current.trust).toBe("untrusted");
+  });
+
+  it("drops an error when another folder is shown", async () => {
+    const host = fakeHost(async (req) =>
+      req.type === "set_trust"
+        ? Promise.reject(new Error("Disk full"))
+        : { ...STATE, trust: "ask" },
+    );
+    const { result, rerender } = renderHook(
+      ({ folder }) => useAgentSession(host, folder, null),
+      { initialProps: { folder: "/work" } },
+    );
+    await waitFor(() => expect(result.current.trust).toBe("ask"));
+    await act(() => result.current.setTrust(true));
+    expect(result.current.error).toBe("Disk full");
+    rerender({ folder: "/other" });
+    expect(result.current.error).toBeNull();
   });
 
   it("shows why trust couldn't be saved", async () => {
@@ -244,6 +261,32 @@ describe("useAgentSession", () => {
       return { host, ...hook };
     }
 
+    it("shows a folder switched back to at once, then catches up", async () => {
+      let answer: (data: object) => void = () => {};
+      const host = fakeHost(async (req) =>
+        req.type === "open_session"
+          ? new Promise((resolve) => (answer = resolve))
+          : undefined,
+      );
+      const { result, rerender } = renderHook(
+        ({ folder }) => useAgentSession(host, folder, null),
+        { initialProps: { folder: "/work" } },
+      );
+      act(() => answer({ ...STATE, messages: [hello] }));
+      await waitFor(() => expect(result.current.transcript).not.toBeNull());
+      rerender({ folder: "/other" });
+      expect(result.current.transcript).toBeNull();
+      rerender({ folder: "/work" });
+      expect(result.current.transcript?.items).toHaveLength(1);
+      // Events before the sidecar answers may still belong to the last folder.
+      host.emit({ type: "session_event", event: { type: "agent_start" } });
+      expect(result.current.transcript?.running).toBe(false);
+      act(() => answer({ ...STATE, messages: [hello, hello] }));
+      await waitFor(() =>
+        expect(result.current.transcript?.items).toHaveLength(2),
+      );
+    });
+
     it("starts from a continued session's history", async () => {
       const { result } = await opened({
         ...STATE,
@@ -268,6 +311,16 @@ describe("useAgentSession", () => {
           error: true,
         },
       ]);
+    });
+
+    it("shows tool calls still waiting from while the folder was hidden", async () => {
+      const { result } = await opened({
+        ...STATE,
+        approvals: [{ toolCallId: "t1", reason: "Deletes files" }],
+      });
+      expect(result.current.transcript?.tools.t1).toMatchObject({
+        approval: { reason: "Deletes files" },
+      });
     });
 
     it("follows the session's events and errors", async () => {
@@ -350,7 +403,13 @@ describe("useAgentSession", () => {
       const host = fakeHost(async (req) => {
         if (req.type === "open_session") return { ...STATE, messages: [hello] };
         if (fail) throw new Error("Disk full");
-        return { ...STATE, messages: [], running: false, trust: "ask" };
+        return {
+          ...STATE,
+          messages: [],
+          running: false,
+          approvals: [],
+          trust: "ask",
+        };
       });
       const { result } = renderHook(() => useAgentSession(host, "/work", null));
       await waitFor(() => expect(result.current.transcript).not.toBeNull());

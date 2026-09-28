@@ -1,10 +1,19 @@
 import type { ApprovalAsk } from "./approvalExtension.ts";
-import type { HostContext } from "./hostTypes.ts";
+import type { HostContext, Project } from "./hostTypes.ts";
+import { pushProjects } from "./hostProjects.ts";
 
-/** Passes a tool call's approval question on to the app. */
-export function askApproval(ctx: HostContext, ask: ApprovalAsk) {
-  ctx.approvals.set(ask.request.toolCallId, ask.answer);
-  ctx.send({ type: "approval_request", request: ask.request });
+/** Keeps a tool call's question, and passes it on if its folder is shown. */
+export function askApproval(
+  ctx: HostContext,
+  cwd: string,
+  project: Project,
+  ask: ApprovalAsk,
+) {
+  project.approvals.set(ask.request.toolCallId, ask);
+  if (ctx.cwd === cwd) {
+    ctx.send({ type: "approval_request", request: ask.request });
+  }
+  pushProjects(ctx);
 }
 
 /** Settles a waiting tool call with the user's answer. */
@@ -13,12 +22,19 @@ export function answerApproval(
   toolCallId: string,
   approved: boolean,
 ) {
-  ctx.approvals.get(toolCallId)?.(approved);
-  ctx.approvals.delete(toolCallId);
+  for (const project of ctx.projects.values()) {
+    const ask = project.approvals.get(toolCallId);
+    if (!ask) continue;
+    project.approvals.delete(toolCallId);
+    ask.answer(approved);
+    pushProjects(ctx);
+  }
 }
 
-/** Denies every waiting tool call: the run stopped or the session closed. */
-export function denyAll(ctx: HostContext) {
-  ctx.approvals.forEach((answer) => answer(false));
-  ctx.approvals.clear();
+/** Denies a project's waiting tool calls: its run stopped or it closed. */
+export function denyAll(ctx: HostContext, project: Project) {
+  if (!project.approvals.size) return;
+  project.approvals.forEach((ask) => ask.answer(false));
+  project.approvals.clear();
+  pushProjects(ctx);
 }

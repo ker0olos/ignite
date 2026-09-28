@@ -1,6 +1,6 @@
-import { Folder, FolderOpen } from "lucide-react";
+import { FolderOpen } from "lucide-react";
+import { RecentRow } from "@/components/app/RecentRow";
 import { APP_TITLE } from "@/lib/app";
-import { basename, dirname, tildify } from "@/lib/paths";
 
 const MAX_RECENT = 8;
 
@@ -49,17 +49,13 @@ export function Welcome({
               Recent
             </h2>
             {folders.slice(0, MAX_RECENT).map((path) => (
-              <button
+              <RecentRow
                 key={path}
-                onClick={() => onSelectFolder(path)}
-                className="-mx-2 flex h-8 w-[calc(100%+1rem)] items-center gap-2 rounded-md px-2 text-[13px] hover:bg-accent"
-              >
-                <Folder className="size-4 shrink-0 text-muted-foreground" />
-                <span className="shrink-0">{basename(path)}</span>
-                <span className="truncate text-muted-foreground">
-                  {tildify(dirname(path), home)}
-                </span>
-              </button>
+                path={path}
+                home={home}
+                onSelect={() => onSelectFolder(path)}
+                className="-mx-2 w-[calc(100%+1rem)] hover:bg-accent"
+              />
             ))}
           </>
         )}

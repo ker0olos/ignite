@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings } from "lucide-react";
+import { SettingsButton } from "@/components/app/SettingsButton";
 import { Welcome } from "@/components/app/Welcome";
 import { Workspace } from "@/components/app/Workspace";
 import { ConnectProviders } from "@/components/providers/ConnectProviders";
@@ -8,7 +8,6 @@ import {
   type Section,
 } from "@/components/settings/SettingsDialog";
 import { SignInBanner } from "@/components/sidebar/SignInBanner";
-import { Button } from "@/components/ui/button";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
 import { useAgentSession } from "@/hooks/useAgentSession";
 import { useAppMenu } from "@/hooks/useAppMenu";
@@ -16,6 +15,7 @@ import { useConnectScreen } from "@/hooks/useConnectScreen";
 import { useFolders } from "@/hooks/useFolders";
 import { useMcpServers } from "@/hooks/useMcpServers";
 import { useMemory } from "@/hooks/useMemory";
+import { useProjects } from "@/hooks/useProjects";
 import { useProviders } from "@/hooks/useProviders";
 import { useSettings } from "@/hooks/useSettings";
 import { useTabs } from "@/hooks/useTabs";
@@ -29,6 +29,7 @@ export default function App() {
   const {
     loaded,
     folders,
+    projects,
     current,
     addFolder,
     openFolder,
@@ -43,6 +44,7 @@ export default function App() {
   const agent = useAgentSession(providers.host, live, providers.statuses);
   const session = shownSession(agent, providers.hostError);
   const mcp = useMcpServers(providers.host, live);
+  const statuses = useProjects(providers.host, projects);
   const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -67,16 +69,7 @@ export default function App() {
 
   if (!loaded) return null;
 
-  const settingsButton = (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onClick={() => openSettings()}
-      aria-label="Settings"
-    >
-      <Settings />
-    </Button>
-  );
+  const settingsButton = <SettingsButton onClick={() => openSettings()} />;
 
   return (
     <div
@@ -103,6 +96,15 @@ export default function App() {
           showThinking={settings.conversation.show_thinking}
           approval={approvalSetting(settings, setSettings)}
           actions={settingsButton}
+          projectList={{
+            folders,
+            projects,
+            statuses,
+            home,
+            onSelect: addFolder,
+            onClose: closeFolder,
+            onOpenFolder: openFolder,
+          }}
           banner={
             <SignInBanner
               names={needingSignIn(mcp.servers)}

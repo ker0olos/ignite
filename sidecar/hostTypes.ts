@@ -90,6 +90,23 @@ export type OpenSession = (
   fresh: boolean,
 ) => Promise<Session>;
 
+/** A folder's session, which keeps running while the app shows another folder. */
+export type Project = {
+  /** Null while it opens. */
+  session: Session | null;
+  opening: Promise<Session>;
+  /** Between agent_start and agent_settled. */
+  running: boolean;
+  /** Unsubscribe from the session's events. */
+  unsubscribe: () => void;
+  /** Adapter status per server name, from the session's latest snapshot. */
+  mcpStatus: Map<string, string>;
+  /** mcp.json or trust changed while pi was running; reload once the run ends. */
+  reloadWhenSettled: boolean;
+  /** Tool calls waiting for the user, by tool call id. */
+  approvals: Map<string, ApprovalAsk>;
+};
+
 type Pending = { resolve(value: string): void; reject(error: Error): void };
 
 /** Shared mutable state for all host functions. */
@@ -103,32 +120,28 @@ export type HostContext = {
   trust: TrustStore;
   /** Active sign-in's abort controller, or null. */
   activeLogin: AbortController | null;
-  /** Opened session, or null if no folder is open. */
-  session: Session | null;
-  /** The open session's folder. */
+  /** Every folder opened in this window, by path. */
+  projects: Map<string, Project>;
+  /** The folder the app shows. */
   cwd: string | null;
-  /** Answers for tool calls waiting for the user, by tool call id. */
-  approvals: Map<string, (approved: boolean) => void>;
-  /** Unsubscribe from the session's events. */
-  unsubscribe: () => void;
-  /** Adapter status per server name, from the open session's latest snapshot. */
-  mcpStatus: Map<string, string>;
   /** Removed servers whose saved sign-in still has to be deleted. */
   pendingSignOuts: Set<string>;
   /** URL servers being connected once after setup. */
   checking: Set<string>;
-  /** mcp.json changed while pi was running; reload once the run ends. */
-  reloadWhenSettled: boolean;
-  /** Counts opened folders, so a replaced session's status is ignored. */
-  opens: number;
   /** Pending auth prompts, keyed by id. */
   prompts: Map<number, Pending>;
   /** Counter for the next auth prompt id. */
   nextPromptId: number;
 };
 
-/** Returns the current session, or throws if none is open. */
-export function current(ctx: HostContext): Session {
-  if (!ctx.session) throw new Error("No folder is open.");
-  return ctx.session;
+/** Returns the shown folder's project, if it has one. */
+export function shown(ctx: HostContext): Project | undefined {
+  return ctx.cwd === null ? undefined : ctx.projects.get(ctx.cwd);
+}
+
+/** Returns the shown folder's session once it's open; throws if none is. */
+export async function current(ctx: HostContext): Promise<Session> {
+  const project = shown(ctx);
+  if (!project) throw new Error("No folder is open.");
+  return project.opening;
 }

@@ -98,7 +98,7 @@ export function menuItems({
           accelerator: "CmdOrCtrl+Shift+W",
           action: closeWindow,
         },
-        { text: "Close Folder", action: closeFolder },
+        { text: "Close Folder", action: () => closeFolder() },
       ],
     },
     {

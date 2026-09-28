@@ -1,7 +1,7 @@
 import type { HostContext } from "./hostTypes.ts";
 
 /**
- * Saves whether the folder is trusted. Trusting the open folder reloads its
+ * Saves whether the folder is trusted. Trusting an open folder reloads its
  * session with the folder's own pi resources, after the current run.
  */
 export async function setTrust(
@@ -10,10 +10,11 @@ export async function setTrust(
   trusted: boolean,
 ) {
   ctx.trust.set(cwd, trusted);
-  const s = ctx.session;
-  if (!trusted || !s || ctx.cwd !== cwd) return undefined;
+  const project = ctx.projects.get(cwd);
+  const s = project?.session;
+  if (!trusted || !project || !s) return undefined;
   s.settingsManager.setProjectTrusted(true);
-  if (s.isStreaming) ctx.reloadWhenSettled = true;
+  if (s.isStreaming) project.reloadWhenSettled = true;
   else await s.reload();
   return undefined;
 }

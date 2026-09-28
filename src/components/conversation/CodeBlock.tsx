@@ -33,15 +33,23 @@ export function CodeBlock({
   }, [code, lang, codeThemes]);
 
   return (
+    // w-max keeps the right padding inside the scrolled width.
     <div
-      className="code-view my-2 overflow-x-auto rounded-lg border"
+      className="code-view my-2 overflow-x-auto rounded-lg border [&_pre]:w-max [&_pre]:min-w-full [&_pre]:pr-4"
       style={{ fontFamily: editor.font_family }}
     >
       {html ? (
         <div dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
-        <pre className="p-3 font-mono text-[12px] whitespace-pre-wrap">
-          {code}
+        // Laid out like Shiki's output, so highlighting doesn't move the page.
+        <pre className="shiki">
+          <code>
+            {code.split("\n").map((line, i) => (
+              <span key={i} className="line">
+                {line}
+              </span>
+            ))}
+          </code>
         </pre>
       )}
     </div>

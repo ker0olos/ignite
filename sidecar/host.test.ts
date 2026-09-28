@@ -710,6 +710,7 @@ describe("sessions", () => {
         trust: "untrusted",
         messages: [],
         running: false,
+        approvals: [],
       },
     });
   });
@@ -750,24 +751,78 @@ describe("sessions", () => {
     expect(data.model).toBeUndefined();
   });
 
-  it("shuts the previous session's extensions down when another folder opens", async () => {
+  it("keeps a folder's session running while another is shown", async () => {
+    const first = fakeSession();
+    const openSession = vi.fn<OpenSession>(async () => first);
+    const { request, responses } = setup(fakeRuntime().runtime, openSession);
+    await request({ id: 1, type: "open_session", cwd: "/a" });
+    openSession.mockImplementation(async () => fakeSession());
+    await request({ id: 2, type: "open_session", cwd: "/b" });
+    await request({ id: 3, type: "open_session", cwd: "/a" });
+    expect(openSession.mock.calls.map((c) => c[0])).toEqual(["/a", "/b"]);
+    expect(first.dispose).not.toHaveBeenCalled();
+    expect(responses()[2]).toMatchObject({ id: 3, ok: true });
+  });
+
+  it("shuts a closed folder's extensions down, then disposes it", async () => {
     const first = fakeSession();
     const order: string[] = [];
     first.extensionRunner.emit.mockImplementation(async () => {
       order.push("shutdown");
     });
     first.dispose.mockImplementation(() => order.push("dispose"));
-    const sessions = [first, fakeSession()];
-    const { request } = setup(fakeRuntime().runtime, async () =>
-      sessions.shift()!,
-    );
+    const { request, sent } = setup(fakeRuntime().runtime, async () => first);
     await request({ id: 1, type: "open_session", cwd: "/a" });
-    await request({ id: 2, type: "open_session", cwd: "/b" });
+    await request({ id: 2, type: "close_session", cwd: "/a" });
     expect(first.extensionRunner.emit).toHaveBeenCalledWith({
       type: "session_shutdown",
       reason: "quit",
     });
     expect(order).toEqual(["shutdown", "dispose"]);
+    expect(await waitFor(sent, "projects")).toEqual({
+      type: "projects",
+      projects: [],
+    });
+  });
+
+  it("waits for a session that's still opening", async () => {
+    let finish: (s: Session) => void = () => {};
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      () => new Promise<Session>((resolve) => (finish = resolve)),
+    );
+    const opening = request({ id: 1, type: "open_session", cwd: "/a" });
+    const state = request({ id: 2, type: "session_state" });
+    finish(fakeSession());
+    await Promise.all([opening, state]);
+    expect(responses().find((r) => r.id === 2)).toMatchObject({ ok: true });
+  });
+
+  it("opens a folder again after its session failed to open", async () => {
+    const openSession = vi.fn<OpenSession>(async () => {
+      throw new Error("No model.");
+    });
+    const { request, responses } = setup(fakeRuntime().runtime, openSession);
+    await request({ id: 1, type: "open_session", cwd: "/a" });
+    openSession.mockImplementation(async () => fakeSession());
+    await request({ id: 2, type: "open_session", cwd: "/a" });
+    expect(responses()[0]).toMatchObject({ ok: false, error: "No model." });
+    expect(responses()[1]).toMatchObject({ ok: true });
+  });
+
+  it("reports which folders are working", async () => {
+    const session = fakeSession();
+    const { request, sent } = setup(fakeRuntime().runtime, async () => session);
+    await request({ id: 1, type: "open_session", cwd: "/a" });
+    session.emit({ type: "agent_start" });
+    expect(await waitFor(sent, "projects")).toEqual({
+      type: "projects",
+      projects: [{ cwd: "/a", running: true, waiting: false }],
+    });
+    session.emit({ type: "agent_settled" });
+    expect(await waitFor(sent, "projects")).toMatchObject({
+      projects: [{ running: false }],
+    });
   });
 
   it("clears by reopening the open folder fresh, and needs one open", async () => {
@@ -877,7 +932,28 @@ describe("sessions", () => {
     ]);
   });
 
-  it("stops forwarding the previous session's events", async () => {
+  it("applies an MCP change to every open folder", async () => {
+    const [a, b] = [fakeSession(), fakeSession()];
+    const sessions = [a, b];
+    const { request } = setup(fakeRuntime().runtime, async () =>
+      sessions.shift()!,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/a" });
+    await request({ id: 2, type: "open_session", cwd: "/b" });
+    a.isStreaming = true;
+    await request({
+      id: 3,
+      type: "mcp_set_enabled",
+      name: "x",
+      enabled: false,
+    });
+    expect(b.reload).toHaveBeenCalledOnce();
+    expect(a.reload).not.toHaveBeenCalled();
+    a.emit({ type: "agent_settled" });
+    expect(a.reload).toHaveBeenCalledOnce();
+  });
+
+  it("doesn't forward a hidden folder's events", async () => {
     const first = fakeSession();
     const sessions = [first, fakeSession()];
     const { request, sent } = setup(fakeRuntime().runtime, async () =>
@@ -1084,17 +1160,41 @@ describe("tool approval", () => {
     expect(session.abort).toHaveBeenCalled();
   });
 
-  it("denies waiting calls when another folder opens", async () => {
+  it("keeps a hidden folder's question until it's shown again", async () => {
+    const { reopen, request, sent, responses } = await opened();
+    const askWork = reopen();
+    await request({ id: 2, type: "open_session", cwd: "/other" });
+    sent.splice(0);
+    const answer = vi.fn();
+    askWork({ request: { toolCallId: "t1", reason: "Deletes files" }, answer });
+    expect(sent).not.toContainEqual(
+      expect.objectContaining({ type: "approval_request" }),
+    );
+    expect(sent).toContainEqual({
+      type: "projects",
+      projects: [
+        { cwd: "/work", running: false, waiting: true },
+        { cwd: "/other", running: false, waiting: false },
+      ],
+    });
+    await request({ id: 3, type: "open_session", cwd: "/work" });
+    expect(responses().at(-1)).toMatchObject({
+      data: { approvals: [{ toolCallId: "t1", reason: "Deletes files" }] },
+    });
+    expect(answer).not.toHaveBeenCalled();
+  });
+
+  it("denies waiting calls when their folder closes", async () => {
     const { ask, request } = await opened();
     const answer = ask("t1");
-    await request({ id: 2, type: "open_session", cwd: "/other" });
+    await request({ id: 2, type: "close_session", cwd: "/work" });
     expect(answer).toHaveBeenCalledWith(false);
   });
 
-  it("denies a question from a session that was replaced", async () => {
+  it("denies a question from a session that was closed", async () => {
     const { reopen, request, sent } = await opened();
     const stale = reopen();
-    await request({ id: 2, type: "open_session", cwd: "/other" });
+    await request({ id: 2, type: "close_session", cwd: "/work" });
     const answer = vi.fn();
     stale({ request: { toolCallId: "old" }, answer });
     expect(answer).toHaveBeenCalledWith(false);
@@ -1265,7 +1365,7 @@ describe("MCP servers", () => {
     ]);
   });
 
-  it("ignores status from a session that was replaced", async () => {
+  it("doesn't push a hidden folder's status", async () => {
     const { request, sent, status } = await withSession();
     await request({ id: 2, type: "open_session", cwd: "/other" });
     await settle();
