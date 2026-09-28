@@ -34,6 +34,8 @@ export function readDiffTab(id: string): DiffTab | null {
 export function rangeLabel(range: string): string {
   if (range === "staged") return "Staged";
   if (range === "HEAD") return "Working Tree";
+  const pr = /^gh:[^:]+:(.+)\.\.\.(.+)$/.exec(range);
+  if (pr) return `${pr[1]} ← ${pr[2]}`;
   const short = (hash: string) => hash.slice(0, 7);
   const single = /^([0-9a-f]{4,64})\^!$/.exec(range);
   if (single) return short(single[1]);
@@ -79,7 +81,16 @@ export function tabLabel(
 export function readGitReview(details: unknown): GitReview | null {
   if (typeof details !== "object" || details === null) return null;
   const { kind, files } = details as Partial<GitReview>;
-  return (kind === "commit" || kind === "push") && Array.isArray(files)
+  return ["commit", "push", "update", "pr"].includes(kind ?? "") &&
+    Array.isArray(files)
     ? (details as GitReview)
     : null;
+}
+
+/** The review a git row shows: its result's, or the approved one until that arrives. */
+export function shownReview(run: {
+  result?: { details?: unknown };
+  review?: GitReview;
+}): GitReview | null {
+  return readGitReview(run.result?.details) ?? run.review ?? null;
 }

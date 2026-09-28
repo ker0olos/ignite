@@ -4,6 +4,7 @@ import {
   rangeLabel,
   readDiffTab,
   readGitReview,
+  shownReview,
   tabLabel,
 } from "./diffTabs";
 
@@ -89,5 +90,29 @@ describe("readGitReview", () => {
     expect(readGitReview({})).toBeNull();
     expect(readGitReview({ kind: "commit", repo: "/repo" })).toBeNull();
     expect(readGitReview("nope")).toBeNull();
+  });
+});
+
+describe("shownReview", () => {
+  const approved = {
+    kind: "push" as const,
+    repo: "/r",
+    range: "HEAD",
+    files: [],
+  };
+  const result = { ...approved, range: "abc1234^!" };
+
+  it("prefers the result's review to the approved one", () => {
+    expect(shownReview({ review: approved })).toBe(approved);
+    expect(shownReview({ review: approved, result: { details: result } })).toBe(
+      result,
+    );
+    expect(shownReview({})).toBeNull();
+  });
+});
+
+describe("a pull request's diff tab", () => {
+  it("is labelled with its branches", () => {
+    expect(rangeLabel("gh:o/r:main...feat/x")).toBe("main ← feat/x");
   });
 });

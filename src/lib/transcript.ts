@@ -18,6 +18,8 @@ export type ToolRun = {
   result?: ToolResult;
   /** Set while the call waits for the user to approve it. */
   approval?: { reason?: string; review?: GitReview };
+  /** The review the user approved, shown until the result arrives. */
+  review?: GitReview;
 };
 
 export type Transcript = {
@@ -83,7 +85,13 @@ export function requestApproval(
 /** The user answered; the call stops waiting (its outcome follows as events). */
 export function settleApproval(t: Transcript, toolCallId: string): Transcript {
   const run = t.tools[toolCallId];
-  return run ? setTool(t, toolCallId, { ...run, approval: undefined }) : t;
+  if (!run) return t;
+  const review = run.approval?.review;
+  return setTool(t, toolCallId, {
+    ...run,
+    approval: undefined,
+    ...(review && { review }),
+  });
 }
 
 type RetryEvent = Extract<

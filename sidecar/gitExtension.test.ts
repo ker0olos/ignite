@@ -95,6 +95,26 @@ describe("the git tool", () => {
     });
   });
 
+  it("shows what a merge brought in, and nothing when HEAD didn't move", async () => {
+    const { call } = load();
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repo });
+    git("add", ".");
+    git("commit", "-qm", "first");
+    git("switch", "-qc", "feature");
+    await writeFile(join(repo, "b.txt"), "b\n");
+    git("add", ".");
+    git("commit", "-qm", "add b");
+    git("switch", "-q", "main");
+    const merged = await call("git", ["merge", "feature"]);
+    expect(merged.details).toMatchObject({
+      kind: "update",
+      files: [{ path: "b.txt", status: "A", added: 1, removed: 0 }],
+      commits: [{ subject: "add b" }],
+    });
+    const again = await call("git", ["merge", "feature"]);
+    expect(again.details).toBeUndefined();
+  });
+
   it("doesn't commit when the user denies it", async () => {
     const { asks, call } = load();
     await call("git", ["add", "a.txt"]);
@@ -123,7 +143,7 @@ describe("the git tool", () => {
 describe("the gh tool", () => {
   it("asks before changing something on GitHub", async () => {
     const { asks, call } = load();
-    const done = call("gh", ["pr", "create", "--fill"]);
+    const done = call("gh", ["pr", "merge", "3"]);
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     expect(asks[0].request).toEqual({
       toolCallId: "t1",

@@ -151,3 +151,28 @@ export function outputPreview(
   const cut = head.slice(0, maxChars);
   return { text: `${cut}…`, hidden: lines.length - cut.split("\n").length + 1 };
 }
+
+// Output shown open by default: one line that fits without wrapping much.
+const SHORT_CHARS = 120;
+
+/** Whether tool output is short enough to show instead of collapsing. */
+export function isShortOutput(text: string): boolean {
+  const trimmed = text.replace(/\n+$/, "");
+  return !trimmed.includes("\n") && trimmed.length <= SHORT_CHARS;
+}
+
+/** The first tool call in the conversation that waits for the user, which the keyboard answers. */
+export function firstWaiting(
+  items: Item[],
+  tools: Record<string, ToolRun>,
+): string | null {
+  for (const item of items) {
+    if (item.kind !== "message" || item.message.role !== "assistant") continue;
+    const { content } = item.message as AssistantMessage;
+    const call = content.find(
+      (b) => b.type === "toolCall" && tools[b.id]?.approval,
+    );
+    if (call?.type === "toolCall") return call.id;
+  }
+  return null;
+}

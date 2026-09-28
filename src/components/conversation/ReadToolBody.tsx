@@ -1,3 +1,5 @@
+import { RunningLine } from "@/components/conversation/RunningLine";
+
 /** A completed `read` tool call's line count. */
 export function ReadToolBody({
   running,
@@ -6,7 +8,7 @@ export function ReadToolBody({
   running: boolean;
   text: string;
 }) {
-  if (running) return null;
+  if (running) return <RunningLine />;
   const count = text ? text.split("\n").length : 0;
   return (
     <p>

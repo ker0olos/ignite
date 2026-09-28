@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { changeStarts, nextChange, parseUnifiedDiff } from "./gitDiff";
+import {
+  changeStarts,
+  nextChange,
+  parseUnifiedDiff,
+  withoutDiffstat,
+} from "./gitDiff";
 
 describe("parseUnifiedDiff", () => {
   it("returns nothing for an empty diff", () => {
@@ -79,5 +84,21 @@ describe("changeStarts and nextChange", () => {
     expect(nextChange(starts, 5, -1)).toBe(1);
     expect(nextChange(starts, 1, -1)).toBe(5);
     expect(nextChange([], 0, 1)).toBeUndefined();
+  });
+});
+
+describe("withoutDiffstat", () => {
+  it("keeps git's messages and drops the per-file stats", () => {
+    const output = [
+      "Updating d1e54d6..8197447",
+      "Fast-forward",
+      " .rulesync/rules/DATES.md    |  2 +",
+      " assets/logo.png             | Bin 0 -> 12 bytes",
+      " 2 files changed, 2 insertions(+)",
+      " create mode 100644 assets/logo.png",
+    ].join("\n");
+    expect(withoutDiffstat(output)).toBe(
+      "Updating d1e54d6..8197447\nFast-forward",
+    );
   });
 });

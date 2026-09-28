@@ -58,8 +58,12 @@ function subagentArg(call: ToolCall) {
     : `${arg("model")}, ${arg("effort")}`;
 }
 
-function gitArg(call: ToolCall) {
-  return (call.arguments.args as string[] | undefined)?.join(" ") ?? "";
+// Paths in the folder are shown relative to it, like `-C server`.
+function gitArg(call: ToolCall, folder: string) {
+  const args = (call.arguments.args as string[] | undefined) ?? [];
+  return args
+    .map((arg) => (arg === folder ? "." : relativePath(arg, folder)))
+    .join(" ");
 }
 
 const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {

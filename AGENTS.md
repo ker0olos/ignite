@@ -110,6 +110,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   gitExtension.ts        git and gh tools: run outside the sandbox, ask for themselves, redirect bash's
   gitRun.ts              Runs git and gh with prompts, pagers and (unless approved) hooks off
   gitReview.ts           A commit's or push's changed files and commits; one file's diff (git_diff)
+  ghReview.ts            What `gh pr create` would open: title, branches, GitHub's compare of them
   headlessUI.ts          The UI context bound to sessions: declines prompts, passes errors to the app
   mcpCatalog.ts          One-click MCP presets, and other apps' MCP servers to import
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
@@ -235,7 +236,7 @@ Manual asks for every call; Auto (`lib/gitPolicy.ts`) runs reads and local
 work (status, diff, log, fetch, pull, clone, switch, add…) and asks for
 anything else, for options that run a program or change git's config
 (`-c`, `--upload-pack`, `rebase -x`, `git config` writes…), and for paths
-outside the folder. A commit or push waits with a review: its changed files
+outside the folder. A commit, push or `gh pr create` waits with a review: its changed files
 (status, +/− counts) and message or commits, each file opening its diff in a
 tab (`git_diff`). The sandbox already refuses writes to `.git/config` and
 `.git/hooks`; hooks can still live in the working tree (husky), so calls that

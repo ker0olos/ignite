@@ -19,7 +19,7 @@ import {
 } from "./approvalExtension.ts";
 import { loadBashParser } from "./bashParser.ts";
 import { resultText, run } from "./gitRun.ts";
-import { committed, review } from "./gitReview.ts";
+import { committed, headOf, repoOf, review, updated } from "./gitReview.ts";
 
 const Params = Type.Object({
   args: Type.Array(Type.String(), {
@@ -54,12 +54,46 @@ const bashParser = loadBashParser().catch(() => undefined);
 
 type Tool = typeof GIT_TOOL | typeof GH_TOOL;
 
+// Subcommands that may move HEAD; the row then shows what they brought in.
+const MOVES_HEAD = new Set([
+  "pull",
+  "merge",
+  "rebase",
+  "cherry-pick",
+  "revert",
+]);
+
+/** HEAD before a git call that may move it, to compare with after. */
+async function headBefore(tool: Tool, args: string[], cwd: string) {
+  if (tool !== GIT_TOOL || !MOVES_HEAD.has(splitGit(args).command ?? "")) {
+    return null;
+  }
+  const repo = repoOf(args, cwd);
+  const head = await headOf(repo);
+  return head ? { repo, head } : null;
+}
+
+/** What the row shows after a successful call. */
+async function shownAfter(
+  approved: GitReview | undefined,
+  before: { repo: string; head: string } | null,
+) {
+  if (approved?.kind === "commit") return committed(approved);
+  if (!before) return approved;
+  const after = await headOf(before.repo);
+  return after && after !== before.head
+    ? updated(before.repo, before.head, after)
+    : undefined;
+}
+
 function ghGate(
   args: string[],
   place: { cwd: string; home: string },
-): ReturnType<typeof gitApproval> {
+): { reason: string; review?: "commit" | "push" | "pr" } | null {
   const reason = ghApproval(args, place);
-  return reason ? { reason } : null;
+  if (!reason) return null;
+  const creates = args[0] === "pr" && args[1] === "create";
+  return creates ? { reason, review: "pr" } : { reason };
 }
 
 // Without the parser, a rough split into commands is enough to spot git and gh.
@@ -107,6 +141,7 @@ export default function gitTools(pi: ExtensionAPI) {
       async execute(toolCallId, { args }, signal, _onUpdate, ctx) {
         const gated = await gate(tool, args, ctx.cwd, toolCallId, signal);
         if (!gated.allowed) throw new Error(DENIED);
+        const before = await headBefore(tool, args, ctx.cwd);
         const result = await run(tool, args, {
           cwd: ctx.cwd,
           signal,
@@ -114,10 +149,7 @@ export default function gitTools(pi: ExtensionAPI) {
         });
         const text = resultText(result);
         if (result.code !== 0) throw new Error(text);
-        const shown =
-          gated.shown?.kind === "commit"
-            ? await committed(gated.shown)
-            : gated.shown;
+        const shown = await shownAfter(gated.shown, before);
         return {
           content: [{ type: "text", text }],
           details: shown satisfies GitReview | undefined,

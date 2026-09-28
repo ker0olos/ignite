@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import type { GitChange, GitReview } from "../shared/git.ts";
 import { validRange } from "../shared/git.ts";
 import { splitGit } from "../src/lib/gitPolicy.ts";
+import { prFileDiff, prReview } from "./ghReview.ts";
 import { run } from "./gitRun.ts";
 
 async function git(repo: string, args: string[]): Promise<string | null> {
@@ -113,35 +114,63 @@ async function pushReview(repo: string): Promise<GitReview> {
     (await git(repo, ["rev-parse", "origin/HEAD"]));
   if (!head || !base) return { kind: "push", repo, range: "HEAD", files: [] };
   const range = `${base.trim()}...${head}`;
-  const log = await git(repo, [
-    "log",
-    "--format=%h%x09%s",
-    range.replace("...", ".."),
-  ]);
-  const commits = (log ?? "")
+  return {
+    kind: "push",
+    repo,
+    range,
+    files: await changes(repo, range),
+    commits: await commitsIn(repo, `${base.trim()}..${head}`),
+  };
+}
+
+/** The commits in `range` (`a..b`), newest first. */
+async function commitsIn(repo: string, range: string) {
+  const log = await git(repo, ["log", "--format=%h%x09%s", range]);
+  return (log ?? "")
     .split("\n")
     .filter(Boolean)
     .map((line) => {
       const [hash, ...subject] = line.split("\t");
       return { hash, subject: subject.join("\t") };
     });
+}
+
+/** The repository a git call runs in: its -C folder, or `cwd`. */
+export function repoOf(args: string[], cwd: string): string {
+  const { dir } = splitGit(args);
+  return dir ? resolve(cwd, dir) : cwd;
+}
+
+/** The commit HEAD points at, or null outside a repository. */
+export async function headOf(repo: string): Promise<string | null> {
+  return (await git(repo, ["rev-parse", "HEAD"]))?.trim() || null;
+}
+
+/** What a pull, merge or rebase brought in, from HEAD before to HEAD after. */
+export async function updated(
+  repo: string,
+  before: string,
+  after: string,
+): Promise<GitReview> {
+  const range = `${before}..${after}`;
   return {
-    kind: "push",
+    kind: "update",
     repo,
     range,
     files: await changes(repo, range),
-    commits,
+    commits: await commitsIn(repo, range),
   };
 }
 
-/** What a commit or push call would change, for the user to review. */
+/** What a commit, push or new pull request would change, for the user to review. */
 export function review(
-  kind: "commit" | "push",
+  kind: "commit" | "push" | "pr",
   args: string[],
   cwd: string,
 ): Promise<GitReview> {
-  const { dir, rest } = splitGit(args);
-  const repo = dir ? resolve(cwd, dir) : cwd;
+  if (kind === "pr") return prReview(args, cwd);
+  const { rest } = splitGit(args);
+  const repo = repoOf(args, cwd);
   return kind === "commit" ? commitReview(repo, rest) : pushReview(repo);
 }
 
@@ -154,6 +183,7 @@ export async function committed(before: GitReview): Promise<GitReview> {
 /** One file's diff in a review's range, with the whole file for context. */
 export async function fileDiff(repo: string, range: string, path: string) {
   if (!validRange(range)) throw new Error(`Not a diff range: ${range}`);
+  if (range.startsWith("gh:")) return prFileDiff(repo, range, path);
   const args = ["diff", "--no-color", "--no-ext-diff", "-U100000"];
   const diff = await git(repo, [...args, ...rangeArgs(range), "--", path]);
   if (diff === null) throw new Error(`Couldn't diff ${path}.`);

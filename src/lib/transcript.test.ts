@@ -270,6 +270,11 @@ describe("applyEvent", () => {
       status: "running",
       approval: { review },
     });
+    // Approved, it stays shown until the result arrives.
+    expect(settleApproval(waiting, "c1").tools.c1).toEqual({
+      status: "running",
+      review,
+    });
   });
 
   it("ignores an answer for a call it doesn't know", () => {

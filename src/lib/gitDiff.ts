@@ -54,3 +54,16 @@ export function nextChange(
   if (step === 1) return starts.find((s) => s > from) ?? starts[0];
   return starts.findLast((s) => s < from) ?? starts.at(-1);
 }
+
+// `path | 14 +-` and `1 file changed, 2 insertions(+)`, which a changes card shows better.
+const DIFFSTAT =
+  /^\s+\S.*\|\s+(?:\d+|Bin\b)|^\s*\d+ files? changed|^\s+(?:create|delete) mode \d+ /;
+
+/** git's output without its diffstat lines. */
+export function withoutDiffstat(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => !DIFFSTAT.test(line))
+    .join("\n")
+    .trim();
+}
