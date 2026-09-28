@@ -52,15 +52,20 @@ export function SettingsNav({
               onSectionChange(s);
             }}
             className={cn(
-              "flex h-7 w-full items-center gap-2 rounded-md px-2 text-[13px]",
+              "flex w-full items-start gap-2 rounded-md px-2 py-1 text-left text-[13px]",
               !q && s === section
                 ? "bg-accent text-accent-foreground"
                 : "hover:bg-accent/50",
               dim && "opacity-40",
             )}
           >
-            <Icon className="size-4 text-muted-foreground" />
-            {s}
+            <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0">
+              <span className="block">{s}</span>
+              <span className="block truncate text-[11px] text-muted-foreground">
+                {SECTIONS[s].brief}
+              </span>
+            </span>
           </button>
         );
       })}
