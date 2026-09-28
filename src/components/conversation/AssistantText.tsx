@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/conversation/CodeBlock";
 import type { Editor } from "@/components/conversation/shared";
+import { useSmoothText } from "@/hooks/useSmoothText";
 import type { CodeThemes } from "@/lib/codeThemes";
 
 /** Assistant markdown text, with fenced code blocks syntax-highlighted. */
@@ -15,6 +16,7 @@ export function AssistantText({
   editor: Editor;
   codeThemes: CodeThemes;
 }) {
+  const shown = useSmoothText(text);
   const components: Components = {
     a: ({ href, children }) => (
       <a
@@ -87,7 +89,7 @@ export function AssistantText({
 
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-      {text}
+      {shown}
     </ReactMarkdown>
   );
 }

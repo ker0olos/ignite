@@ -1,9 +1,10 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import type { AssistantMessage } from "../../../shared/agentTypes";
 import type { Editor, ToolProps } from "@/components/conversation/shared";
 import { RowBoundary } from "@/components/conversation/RowBoundary";
 import { RowView } from "@/components/conversation/RowView";
+import { useStickToBottom } from "@/hooks/useStickToBottom";
 import type { Transcript } from "@/lib/transcript";
 import { toRows } from "@/lib/toolRows";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -26,24 +27,9 @@ export function Conversation({
   scrollRef: RefObject<HTMLElement | null>;
   onApprove: ToolProps["onApprove"];
 }) {
-  const stuck = useRef(true);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 32;
-    };
-    el.addEventListener("scroll", onScroll);
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [scrollRef]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el && stuck.current) el.scrollTop = el.scrollHeight;
-  });
-
+  const contentRef = useRef<HTMLDivElement>(null);
   const last = transcript.items.at(-1);
+  useStickToBottom(scrollRef, contentRef, last);
   const lastMessage =
     last?.kind === "message" ? (last.message as AssistantMessage) : null;
   const lastIsStreamingText =
@@ -52,7 +38,10 @@ export function Conversation({
     lastMessage.content.at(-1)?.type === "text";
 
   return (
-    <div className="always-bounce mx-auto max-w-3xl space-y-4 px-4 py-6 text-[13px]">
+    <div
+      ref={contentRef}
+      className="always-bounce mx-auto select-text max-w-3xl space-y-4 px-4 py-6 text-[13px]"
+    >
       {toRows(transcript.items, showThinking, transcript.tools).map(
         (row, i) => (
           <RowBoundary key={i} resetOn={row}>

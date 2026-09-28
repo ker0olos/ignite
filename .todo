@@ -1,1 +1,5 @@
 # Later
+
+- Smooth AI replies: streamed text arrives in bursts and auto-scroll jumps
+  around. Reveal text at a steady, predictable pace and make auto-scroll
+  controllable (follow only while at the bottom, stop when the user scrolls up).
