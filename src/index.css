@@ -157,7 +157,10 @@
    itself needs overscroll-contain, or a gesture that starts at an edge is
    handed to the (non-bouncing) page and nothing happens. */
 @utility always-bounce {
-  min-height: calc(100% + 1px);
+  /* Windows doesn't bounce, and the extra pixel would show a scrollbar. */
+  :root:not(.windows) & {
+    min-height: calc(100% + 1px);
+  }
 }
 
 /* Scrolls (trackpad, wheel) without a visible bar that could cover content. */
