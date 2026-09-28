@@ -89,7 +89,7 @@ export function ToolView({
         run={run}
         title={
           mcp ? (
-            <McpCallLabel call={mcp} />
+            <McpCallLabel call={mcp} failed={run?.status === "error"} />
           ) : (
             (TOOL_TITLES[call.name] ?? call.name)
           )

@@ -210,6 +210,19 @@ describe("applyEvent", () => {
         partial,
       ).tools.c1.status,
     ).toBe("error");
+    expect(
+      run(
+        [
+          {
+            type: "tool_execution_end",
+            toolCallId: "c1",
+            result: { ...output, details: { error: "connect_failed" } },
+            isError: false,
+          },
+        ],
+        partial,
+      ).tools.c1.status,
+    ).toBe("error");
   });
 
   it("marks a call waiting for approval until it's answered", () => {
