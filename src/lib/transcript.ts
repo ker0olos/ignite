@@ -60,7 +60,7 @@ function applyToolExecutionEvent(
       });
     case "tool_execution_end":
       return setTool(t, event.toolCallId, {
-        status: event.isError ? "error" : "done",
+        status: runStatus(event.isError, event.result.details),
         result: event.result,
         approval: undefined,
       });
@@ -187,9 +187,19 @@ function finishMessage(t: Transcript, message: AgentMessage): Transcript {
 function recordResult(t: Transcript, message: AgentMessage): Transcript {
   if (message.role !== "toolResult" || !("toolCallId" in message)) return t;
   return setTool(t, message.toolCallId, {
-    status: message.isError ? "error" : "done",
+    status: runStatus(message.isError, message.details),
     result: { content: message.content, details: message.details },
   });
+}
+
+// pi-mcp-adapter reports failures (e.g. a server that won't connect) in details, not isError.
+function runStatus(isError: boolean, details: unknown): ToolRun["status"] {
+  const adapterError =
+    typeof details === "object" &&
+    details !== null &&
+    "error" in details &&
+    typeof details.error === "string";
+  return isError || adapterError ? "error" : "done";
 }
 
 function setTool(t: Transcript, id: string, run: ToolRun): Transcript {
