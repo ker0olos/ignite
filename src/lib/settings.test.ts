@@ -39,22 +39,22 @@ describe("loadSettings", () => {
 
   it("reads editor settings", async () => {
     fakeFs({
-      [FILE]: '[editor]\nfont_family = "Monaco"\nword_wrap = true\n',
+      [FILE]: '[editor]\nfont_family = "Monaco"\nword_wrap = false\n',
     });
     expect((await loadSettings()).editor).toEqual({
       font_family: "Monaco",
-      word_wrap: true,
+      word_wrap: false,
     });
   });
 
   it.each([
-    ["an empty font", 'font_family = "  "\nword_wrap = true'],
-    ["wrong types", "font_family = 3\nword_wrap = true"],
+    ["an empty font", 'font_family = "  "\nword_wrap = false'],
+    ["wrong types", "font_family = 3\nword_wrap = false"],
   ])("falls back to the default font for %s", async (_, toml) => {
     fakeFs({ [FILE]: `[editor]\n${toml}\n` });
     expect((await loadSettings()).editor).toEqual({
       font_family: DEFAULT_SETTINGS.editor.font_family,
-      word_wrap: true,
+      word_wrap: false,
     });
   });
 
