@@ -12,12 +12,14 @@ const STAGE_MANAGER_STRIP = 160;
 
 /**
  * Windows start hidden; this fills the monitor's work area (leaving room for
- * Stage Manager) and then shows the window. `maximize()` is avoided because it
- * zooms over the Stage Manager strip.
+ * Stage Manager) and then shows the window. `maximize()` is avoided on macOS
+ * because it zooms over the Stage Manager strip; on Windows it's the only way
+ * to fit the native title and menu bars above the taskbar.
  */
 export async function fitToScreenAndShow() {
   const win = getCurrentWindow();
   try {
+    if (navigator.userAgent.includes("Windows")) return await win.maximize();
     const monitor = await currentMonitor();
     if (!monitor) return;
     const { x, y } = monitor.workArea.position.toLogical(monitor.scaleFactor);

@@ -1,5 +1,5 @@
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import conf from "../../src-tauri/tauri.conf.json";
 import {
   NEW_WINDOW_OPTIONS,
@@ -60,6 +60,19 @@ describe("fitToScreenAndShow", () => {
     expect(commands(calls).indexOf("plugin:window|set_size")).toBeLessThan(
       commands(calls).indexOf("plugin:window|show"),
     );
+  });
+
+  it("maximizes on Windows, where the title and menu bars sit above the content", async () => {
+    const ua = vi
+      .spyOn(navigator, "userAgent", "get")
+      .mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    const calls = fakeWindow(retina);
+    await fitToScreenAndShow();
+    ua.mockRestore();
+    expect(commands(calls)).toEqual([
+      "plugin:window|maximize",
+      "plugin:window|show",
+    ]);
   });
 
   it("still shows the window when there is no monitor", async () => {
