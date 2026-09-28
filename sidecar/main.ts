@@ -3,9 +3,10 @@
  * (Node runs the TypeScript directly). It turns on mods/ overrides before
  * loading anything they could replace, so this file itself can't be modded.
  */
+import { fileURLToPath } from "node:url";
 import { overlayFromEnv } from "../shared/modsOverlay.ts";
 
 process.stderr.write("pi-host: starting\n");
-const overlay = overlayFromEnv(new URL("..", import.meta.url).pathname);
+const overlay = overlayFromEnv(fileURLToPath(new URL("..", import.meta.url)));
 if (overlay) (await import("./modsHooks.ts")).registerModsHooks(overlay);
 await import("./start.ts");

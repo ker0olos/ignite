@@ -5,6 +5,9 @@ import { fitToScreenAndShow } from "./lib/window";
 import "./index.css";
 
 fitToScreenAndShow();
+if (navigator.userAgent.includes("Windows")) {
+  document.documentElement.classList.add("windows");
+}
 
 // WebKit's own menu only offers Reload and Inspect Element; text fields keep theirs for paste.
 document.addEventListener("contextmenu", (e) => {

@@ -138,6 +138,17 @@
   html {
     @apply font-sans;
   }
+  /* Windows draws wide, light scrollbars; macOS's overlay ones are left alone. */
+  .windows,
+  .windows * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(
+        in oklch,
+        var(--muted-foreground) 40%,
+        transparent
+      )
+      transparent;
+  }
 }
 
 /* For the content wrapper inside a scroll area: WebKit only rubber-bands a
