@@ -12,6 +12,8 @@ export type ToolProps = {
   folder: string;
   editor: Editor;
   codeThemes: CodeThemes;
+  /** The conversation's tool runs, so a subagent's nested calls find their approvals. */
+  tools?: Record<string, ToolRun>;
   /** Approves or denies a call that waits for the user, or answers its questions. */
   onApprove: (
     toolCallId: string,

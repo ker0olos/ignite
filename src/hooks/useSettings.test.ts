@@ -165,6 +165,7 @@ describe("useSettings", () => {
       conversation: { show_thinking: false, ask_questions: true },
       memory: { cmem: true },
       approval: { mode: "auto" },
+      subagents: { enabled: true, max: 2 },
     };
     act(() => void result.current[1](next));
     expect(result.current[0]).toEqual(next);

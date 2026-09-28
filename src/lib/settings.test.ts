@@ -88,6 +88,40 @@ describe("loadSettings", () => {
     expect((await loadSettings()).approval).toEqual({ mode: "auto" });
   });
 
+  it("defaults subagents on with a max of 2", async () => {
+    fakeFs({});
+    expect((await loadSettings()).subagents).toEqual({
+      enabled: true,
+      max: 2,
+    });
+  });
+
+  it("reads subagent settings", async () => {
+    fakeFs({ [FILE]: "[subagents]\nenabled = false\nmax = 4\n" });
+    expect((await loadSettings()).subagents).toEqual({
+      enabled: false,
+      max: 4,
+    });
+  });
+
+  it.each([
+    ["not a boolean", "enabled = 1"],
+    ["missing", ""],
+  ])("falls back to enabled for %s", async (_, toml) => {
+    fakeFs({ [FILE]: `[subagents]\n${toml}\n` });
+    expect((await loadSettings()).subagents.enabled).toBe(true);
+  });
+
+  it.each([
+    ["zero", "max = 0"],
+    ["not a whole number", "max = 2.5"],
+    ["not a number", 'max = "3"'],
+    ["missing", ""],
+  ])("falls back to a max of 2 for %s", async (_, toml) => {
+    fakeFs({ [FILE]: `[subagents]\n${toml}\n` });
+    expect((await loadSettings()).subagents.max).toBe(2);
+  });
+
   it("fills in missing keys from defaults", async () => {
     fakeFs({ [FILE]: 'theme = "nord"\n' });
     expect(await loadSettings()).toEqual({
@@ -142,6 +176,7 @@ describe("saveSettings", () => {
     conversation: { show_thinking: true, ask_questions: false },
     memory: { cmem: false },
     approval: { mode: "manual" },
+    subagents: { enabled: false, max: 4 },
   };
 
   it("creates the settings directory first", async () => {

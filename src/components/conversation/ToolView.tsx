@@ -4,6 +4,7 @@ import type {
   ToolResult,
 } from "../../../shared/agentTypes";
 import { ASK_TOOL } from "../../../shared/questions";
+import { SUBAGENT_TOOL } from "../../../shared/subagents";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
 import type { ToolProps } from "@/components/conversation/shared";
 import { ToolHead } from "@/components/conversation/ToolHead";
@@ -34,29 +35,40 @@ const TOOL_TITLES: Record<string, string> = {
   find: "Find",
   ls: "List",
   [ASK_TOOL]: "Questions",
+  [SUBAGENT_TOOL]: "Agent",
+};
+
+function pathArg(call: ToolCall, folder: string) {
+  return relativePath(String(call.arguments.path ?? ""), folder);
+}
+
+function questionsArg(call: ToolCall) {
+  return readQuestions(call.arguments)
+    .map((q) => q.header ?? q.question)
+    .join(", ");
+}
+
+function subagentArg(call: ToolCall) {
+  const arg = (key: string) => String(call.arguments[key] ?? "");
+  return call.arguments.id
+    ? String(call.arguments.id)
+    : `${arg("model")}, ${arg("effort")}`;
+}
+
+const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
+  read: pathArg,
+  write: pathArg,
+  edit: pathArg,
+  ls: (call, folder) => pathArg(call, folder) || ".",
+  bash: (call) => String(call.arguments.command ?? ""),
+  grep: (call) => String(call.arguments.pattern ?? ""),
+  find: (call) => String(call.arguments.pattern ?? ""),
+  [ASK_TOOL]: questionsArg,
+  [SUBAGENT_TOOL]: subagentArg,
 };
 
 function toolArg(call: ToolCall, folder: string) {
-  const arg = (key: string) => String(call.arguments[key] ?? "");
-  switch (call.name) {
-    case "read":
-    case "write":
-    case "edit":
-      return relativePath(arg("path"), folder);
-    case "ls":
-      return relativePath(arg("path"), folder) || ".";
-    case "bash":
-      return arg("command");
-    case "grep":
-    case "find":
-      return arg("pattern");
-    case ASK_TOOL:
-      return readQuestions(call.arguments)
-        .map((q) => q.header ?? q.question)
-        .join(", ");
-    default:
-      return "";
-  }
+  return TOOL_ARGS[call.name]?.(call, folder) ?? "";
 }
 
 /** One tool call: `● Update(path)` with its outcome underneath, as Claude Code draws it. */
@@ -66,6 +78,7 @@ export function ToolView({
   folder,
   editor,
   codeThemes,
+  tools,
   onApprove,
 }: ToolProps) {
   const mcp = mcpCall(call.name, call.arguments);
@@ -91,6 +104,8 @@ export function ToolView({
             text={text}
             editor={editor}
             codeThemes={codeThemes}
+            folder={folder}
+            tools={tools}
             onApprove={onApprove}
           />
         </ToolOutcome>
