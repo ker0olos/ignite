@@ -175,18 +175,55 @@ describe("useAppMenu", () => {
     const addFolder = vi.fn();
     const { home } = await setup({ addFolder });
     const handlers = await latestHandlers(home);
-    expect(handlers.selectFolder).toBe(addFolder);
+    handlers.selectFolder("/a");
+    expect(addFolder).toHaveBeenCalledWith("/a");
   });
 
-  it("re-sets the menu when a dependency like active changes", async () => {
-    const { home, rerender } = await setup({ active: null });
+  it("keeps the menu when only handlers change, and its items use the latest ones", async () => {
+    const folders = ["/a"];
+    const { home, rerender } = await setup({ active: null, folders });
+    const handlers = await latestHandlers(home);
+    const before = setAppMenu.mock.calls.length;
+
+    const closeTab = vi.fn();
+    const openSettings = vi.fn();
+    rerender(props({ active: "/a/file.ts", closeTab, openSettings, folders }));
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(setAppMenu.mock.calls.length).toBe(before);
+    handlers.closeTab();
+    handlers.openSettings();
+    expect(closeTab).toHaveBeenCalledWith("/a/file.ts");
+    expect(openSettings).toHaveBeenCalledOnce();
+  });
+
+  it("re-sets the menu when the recent folders change", async () => {
+    const { home, rerender } = await setup({ folders: [] });
     await latestHandlers(home);
     const before = setAppMenu.mock.calls.length;
 
-    rerender(props({ active: "/a/file.ts" }));
+    rerender(props({ folders: ["/a"] }));
 
     await waitFor(() =>
       expect(setAppMenu.mock.calls.length).toBeGreaterThan(before),
     );
+  });
+
+  it("on Windows, sets the window's own menu once, whatever the focus", async () => {
+    const ua = vi
+      .spyOn(navigator, "userAgent", "get")
+      .mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    try {
+      const { home } = await setup({}, { focused: false, mockEvents: true });
+      await latestHandlers(home);
+      const before = setAppMenu.mock.calls.length;
+
+      await act(() => emit("tauri://focus"));
+      await act(() => emit("tauri://blur"));
+
+      expect(setAppMenu.mock.calls.length).toBe(before);
+    } finally {
+      ua.mockRestore();
+    }
   });
 });

@@ -1,11 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { fitToScreenAndShow } from "./lib/window";
+import { fitToScreenAndShow, isWindows } from "./lib/window";
 import "./index.css";
 
 fitToScreenAndShow();
-if (navigator.userAgent.includes("Windows")) {
+if (isWindows()) {
   document.documentElement.classList.add("windows");
 }
 

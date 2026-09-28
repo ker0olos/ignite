@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { homeDir } from "@tauri-apps/api/path";
 import type { AppVersion } from "../../shared/hostProtocol";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -6,6 +6,7 @@ import type { useFolders } from "@/hooks/useFolders";
 import { confirmBeforeClose, confirmQuit } from "@/lib/lifecycle";
 import { setAppMenu } from "@/lib/menu";
 import { tildify } from "@/lib/paths";
+import { isWindows } from "@/lib/window";
 
 const win = getCurrentWindow();
 
@@ -16,7 +17,8 @@ type Folders = Pick<
 
 /**
  * Tracks this window's home directory and focus, and rewires the macOS app
- * menu (app-wide) to this window's handlers whenever it gains focus.
+ * menu (app-wide) to this window's handlers whenever it gains focus. On
+ * Windows each window has its own menu bar, set once.
  */
 export function useAppMenu({
   loaded,
@@ -54,38 +56,54 @@ export function useAppMenu({
     };
   }, []);
 
-  useEffect(() => {
-    if (!loaded || !focused) return;
-    setAppMenu({
-      version,
-      checkForUpdates,
-      folders,
-      label: (path) => tildify(path, home),
-      openFolder,
-      selectFolder: addFolder,
-      closeFolder,
-      clearFolders,
-      openSettings,
-      // ⌘W closes the file tab; with none open it falls through to the window.
-      closeTab: () => (active ? closeTab(active) : win.close()),
-      closeWindow: () => win.close(),
-      quit: confirmQuit,
-    });
-  }, [
-    loaded,
-    focused,
-    folders,
-    home,
+  // Rebuilding the menu redraws the Windows menu bar, so actions read the
+  // latest handlers here and the menu is rebuilt only when what it shows changes.
+  const latest = useRef({
     openFolder,
     addFolder,
     closeFolder,
     clearFolders,
+    openSettings,
+    checkForUpdates,
     active,
     closeTab,
-    openSettings,
-    version,
-    checkForUpdates,
-  ]);
+  });
+  useEffect(() => {
+    latest.current = {
+      openFolder,
+      addFolder,
+      closeFolder,
+      clearFolders,
+      openSettings,
+      checkForUpdates,
+      active,
+      closeTab,
+    };
+  });
+
+  const ownsMenu = focused || isWindows();
+  useEffect(() => {
+    if (!loaded || !ownsMenu) return;
+    const h = () => latest.current;
+    setAppMenu({
+      version,
+      checkForUpdates: () => h().checkForUpdates(),
+      folders,
+      label: (path) => tildify(path, home),
+      openFolder: () => h().openFolder(),
+      selectFolder: (path) => h().addFolder(path),
+      closeFolder: () => h().closeFolder(),
+      clearFolders: () => h().clearFolders(),
+      openSettings: () => h().openSettings(),
+      // ⌘W closes the file tab; with none open it falls through to the window.
+      closeTab: () => {
+        const { active, closeTab } = h();
+        return active ? closeTab(active) : win.close();
+      },
+      closeWindow: () => win.close(),
+      quit: confirmQuit,
+    });
+  }, [loaded, ownsMenu, folders, home, version]);
 
   return { home };
 }

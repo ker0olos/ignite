@@ -39,7 +39,11 @@ export function Sidebar({
             showingProjects ? "pr-20" : "pr-10",
           )}
         >
-          <div data-tauri-drag-region className="h-13 w-20 shrink-0" />
+          {/* Room for the traffic lights; Windows has none. */}
+          <div
+            data-tauri-drag-region
+            className="h-13 w-20 shrink-0 in-[.windows]:w-2"
+          />
           {!showingProjects && (
             <Button
               variant="ghost"

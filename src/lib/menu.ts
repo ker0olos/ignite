@@ -2,7 +2,7 @@ import { Menu, type MenuOptions } from "@tauri-apps/api/menu";
 import type { AppVersion } from "../../shared/hostProtocol";
 import { aboutPanel } from "./about";
 import { APP_TITLE } from "./app";
-import { openNewWindow } from "./window";
+import { isWindows, openNewWindow, toggleFullscreen } from "./window";
 
 export type MenuHandlers = {
   /** The commit the app runs from, for the About panel; null until known. */
@@ -21,12 +21,12 @@ export type MenuHandlers = {
 };
 
 /**
- * Installs the macOS menu bar. The menu is app-wide, so the focused window
- * calls this to own the handlers.
+ * Installs the menu bar. On macOS it is app-wide, so the focused window calls
+ * this to own the handlers; on Windows it belongs to this window.
  */
 export async function setAppMenu(handlers: MenuHandlers) {
   const menu = await Menu.new({ items: menuItems(handlers) });
-  await menu.setAsAppMenu();
+  await (isWindows() ? menu.setAsWindowMenu() : menu.setAsAppMenu());
 }
 
 /**
@@ -130,7 +130,13 @@ export function menuItems({
           action: () => location.reload(),
         },
         { item: "Separator" },
-        { item: "Fullscreen" },
+        isWindows()
+          ? {
+              text: "Toggle Full Screen",
+              accelerator: "F11",
+              action: () => void toggleFullscreen(),
+            }
+          : { item: "Fullscreen" },
       ],
     },
     {

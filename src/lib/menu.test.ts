@@ -1,4 +1,4 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
+import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { describe, expect, it, vi } from "vitest";
 import { APP_TITLE } from "./app";
 import { menuItems, setAppMenu, type MenuHandlers } from "./menu";
@@ -57,6 +57,24 @@ describe("setAppMenu", () => {
     await setAppMenu(handlers([]));
     expect(calls[calls.length - 1]).toBe("plugin:menu|set_as_app_menu");
   });
+
+  it("gives the window its own menu bar on Windows", async () => {
+    const calls: string[] = [];
+    mockWindows("main");
+    mockIPC((cmd) => {
+      calls.push(cmd);
+      return cmd === "plugin:menu|new" ? [1, "menu"] : null;
+    });
+    const ua = vi
+      .spyOn(navigator, "userAgent", "get")
+      .mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    try {
+      await setAppMenu(handlers([]));
+    } finally {
+      ua.mockRestore();
+    }
+    expect(calls.at(-1)).toBe("plugin:menu|set_as_window_menu");
+  });
 });
 
 describe("menuItems", () => {
@@ -108,6 +126,35 @@ describe("menuItems", () => {
       expect(reload).toHaveBeenCalledOnce();
     } finally {
       vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps the predefined full screen item on macOS", () => {
+    const view = find(build(handlers([])), "View");
+    expect(view?.items?.map((i) => i.item)).toContain("Fullscreen");
+  });
+
+  it("toggles full screen itself on Windows, where the predefined item does nothing", async () => {
+    const calls: { cmd: string; args: unknown }[] = [];
+    mockWindows("main");
+    mockIPC((cmd, args) => {
+      calls.push({ cmd, args });
+      return cmd === "plugin:window|is_fullscreen" ? false : null;
+    });
+    const ua = vi
+      .spyOn(navigator, "userAgent", "get")
+      .mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    try {
+      const toggle = find(build(handlers([])), "Toggle Full Screen");
+      expect(toggle?.accelerator).toBe("F11");
+      toggle?.action?.();
+      await vi.waitFor(() =>
+        expect(
+          calls.find((c) => c.cmd === "plugin:window|set_fullscreen"),
+        ).toMatchObject({ args: { value: true } }),
+      );
+    } finally {
+      ua.mockRestore();
     }
   });
 

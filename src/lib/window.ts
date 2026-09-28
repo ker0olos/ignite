@@ -7,6 +7,9 @@ import {
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { APP_TITLE } from "./app";
 
+/** True in the Windows build, where the title and menu bars are native. */
+export const isWindows = () => navigator.userAgent.includes("Windows");
+
 // ponytail: 160pt gutter for Stage Manager's strip, macOS exposes no API for its width
 const STAGE_MANAGER_STRIP = 160;
 
@@ -19,7 +22,7 @@ const STAGE_MANAGER_STRIP = 160;
 export async function fitToScreenAndShow() {
   const win = getCurrentWindow();
   try {
-    if (navigator.userAgent.includes("Windows")) return await win.maximize();
+    if (isWindows()) return await win.maximize();
     const monitor = await currentMonitor();
     if (!monitor) return;
     const { x, y } = monitor.workArea.position.toLogical(monitor.scaleFactor);
@@ -48,6 +51,12 @@ export const NEW_WINDOW_OPTIONS = {
   hiddenTitle: true,
   trafficLightPosition: new LogicalPosition(20, 28),
 } as const;
+
+/** Enters or leaves full screen; the predefined menu item only works on macOS. */
+export async function toggleFullscreen() {
+  const win = getCurrentWindow();
+  await win.setFullscreen(!(await win.isFullscreen()));
+}
 
 export function openNewWindow() {
   new WebviewWindow(`window-${Date.now()}`, NEW_WINDOW_OPTIONS);
