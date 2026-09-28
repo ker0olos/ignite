@@ -7,6 +7,7 @@ import {
   type Item,
   type Section,
 } from "@/components/settings/sections";
+import { aboutItems } from "@/components/settings/sections/aboutItems";
 import { appearanceItems } from "@/components/settings/sections/appearanceItems";
 import { conversationItems } from "@/components/settings/sections/conversationItems";
 import { editorItems } from "@/components/settings/sections/editorItems";
@@ -17,6 +18,7 @@ import { providersItems } from "@/components/settings/sections/providersItems";
 import { SettingsNav } from "@/components/settings/SettingsNav";
 import { SettingsSections } from "@/components/settings/SettingsSections";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import type { useAbout } from "@/hooks/useAbout";
 import type { useMcpServers } from "@/hooks/useMcpServers";
 import type { useMemory } from "@/hooks/useMemory";
 import type { CodeTheme } from "@/lib/codeThemes";
@@ -36,6 +38,7 @@ export function SettingsDialog({
   onManageProviders,
   mcp,
   memory,
+  about,
   folder,
   initialSection = "Providers",
 }: {
@@ -50,6 +53,7 @@ export function SettingsDialog({
   onManageProviders: () => void;
   mcp: ReturnType<typeof useMcpServers>;
   memory: ReturnType<typeof useMemory>;
+  about: ReturnType<typeof useAbout>;
   /** The open folder, whose memories the Memory section previews. */
   folder: string | null;
   /** The section shown first; changing it needs a new `key` to take effect. */
@@ -95,6 +99,7 @@ export function SettingsDialog({
     ...editorItems({ settings, onChange }),
     ...filesItems({ settings, onChange }),
     ...conversationItems({ settings, onChange }),
+    ...aboutItems({ about }),
   ];
 
   const q = query.trim().toLowerCase();

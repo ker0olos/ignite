@@ -22,6 +22,7 @@ import { describeError } from "./wire.ts";
 import { memoryStatus } from "./cmem.ts";
 import { answerApproval, denyAll } from "./hostApproval.ts";
 import { setTrust } from "./hostTrust.ts";
+import { appUpdate, appVersion } from "./appUpdate.ts";
 import type { TrustStore } from "./trust.ts";
 
 type IdRequest = Extract<HostRequest, { id: number }>;
@@ -92,6 +93,8 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     return undefined;
   },
   set_trust: (ctx, r) => setTrust(ctx, r.cwd, r.trusted),
+  app_version: () => appVersion(),
+  app_update: () => appUpdate(),
 };
 
 /**

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { homeDir } from "@tauri-apps/api/path";
+import type { AppVersion } from "../../shared/hostProtocol";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { useFolders } from "@/hooks/useFolders";
 import { confirmBeforeClose, confirmQuit } from "@/lib/lifecycle";
@@ -25,11 +26,15 @@ export function useAppMenu({
   closeFolder,
   clearFolders,
   openSettings,
+  version,
+  checkForUpdates,
   active,
   closeTab,
 }: Folders & {
   loaded: boolean;
   openSettings: () => void;
+  version: AppVersion | null;
+  checkForUpdates: () => void;
   active: string | null;
   closeTab: (path: string) => void;
 }) {
@@ -52,6 +57,8 @@ export function useAppMenu({
   useEffect(() => {
     if (!loaded || !focused) return;
     setAppMenu({
+      version,
+      checkForUpdates,
       folders,
       label: (path) => tildify(path, home),
       openFolder,
@@ -76,6 +83,8 @@ export function useAppMenu({
     active,
     closeTab,
     openSettings,
+    version,
+    checkForUpdates,
   ]);
 
   return { home };

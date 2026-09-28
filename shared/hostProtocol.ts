@@ -199,6 +199,9 @@ export type MemoryStatus = {
   observations: MemoryObservation[];
 };
 
+/** The commit the app runs from; `date` is ISO 8601. */
+export type AppVersion = { sha: string; date: string; subject: string };
+
 /** Messages the app sends. Those with an `id` get exactly one `response`. */
 export type HostRequest =
   | { id: number; type: "status" }
@@ -253,6 +256,9 @@ export type HostRequest =
   | { id: number; type: "memory_changed" }
   /** Saves the folder's trust; trusting it reloads the session. */
   | { id: number; type: "set_trust"; cwd: string; trusted: boolean }
+  | { id: number; type: "app_version" }
+  /** Pulls the latest code; `updated` is false when it was already current. */
+  | { id: number; type: "app_update" }
   | { type: "prompt_answer"; promptId: number; value: string }
   | { type: "prompt_cancel"; promptId: number }
   /** `answers` replies to an ask_user call; declining one lets the agent decide. */
@@ -288,6 +294,8 @@ export type HostResponses = {
   memory_status: MemoryStatus;
   memory_changed: undefined;
   set_trust: undefined;
+  app_version: AppVersion;
+  app_update: { updated: boolean };
 };
 
 /** Messages the sidecar sends. */

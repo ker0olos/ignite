@@ -38,6 +38,8 @@ src/                     React frontend (almost all logic lives here)
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
+    useAbout.ts          The commit the app runs from; Check for updates, reloading every window
+    useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -60,6 +62,7 @@ src/                     React frontend (almost all logic lives here)
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
     memory.ts            Memory settings text: cmem status line, relative times
+    about.ts             About text: version line, update button states, the macOS About panel
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
     dangerousCommands.ts Regex denylist of risky shell commands that Auto still asks about
     demo.ts              Demo mode (`npm run demo`): its folder, model state, shown session
@@ -91,6 +94,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, usableServer, copySignIn)
   wire.ts                Session event wire form (toWireEvent, describeError)
   claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
+  appUpdate.ts           The app's own commit, and updating it (`git pull --ff-only`, `npm ci` if the lockfile changed)
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
   mcpConfig.ts           pi-mcp-adapter's mcp.json: read, edit servers, cached tool names
