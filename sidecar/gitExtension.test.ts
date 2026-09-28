@@ -1,0 +1,189 @@
+// @vitest-environment node
+import { execFileSync } from "node:child_process";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  createEventBus,
+  type ExtensionAPI,
+} from "@earendil-works/pi-coding-agent";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_NAME } from "../src/lib/app.ts";
+import {
+  APPROVAL_EVENT,
+  DENIED,
+  type ApprovalAsk,
+} from "./approvalExtension.ts";
+import gitTools, { USE_TOOLS, needsTools } from "./gitExtension.ts";
+import { resultText, run } from "./gitRun.ts";
+
+let home: string;
+let repo: string;
+beforeEach(async () => {
+  home = await realpath(await mkdtemp(join(tmpdir(), "git-tools-")));
+  repo = join(home, "app");
+  await mkdir(repo);
+  vi.stubEnv("HOME", home);
+  for (const who of ["AUTHOR", "COMMITTER"]) {
+    vi.stubEnv(`GIT_${who}_NAME`, "Me");
+    vi.stubEnv(`GIT_${who}_EMAIL`, "me@example.com");
+  }
+  execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+  await writeFile(join(repo, "a.txt"), "one\n");
+});
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  await rm(home, { recursive: true, force: true });
+});
+
+type Execute = (
+  id: string,
+  params: { args: string[] },
+  signal: AbortSignal | undefined,
+  onUpdate: undefined,
+  ctx: { cwd: string },
+) => Promise<{ content: { text: string }[]; details?: unknown }>;
+
+function load() {
+  const events = createEventBus();
+  const tools = new Map<string, Execute>();
+  const handlers = new Map<string, (event: object) => Promise<unknown>>();
+  gitTools({
+    registerTool: (t: { name: string; execute: Execute }) =>
+      tools.set(t.name, t.execute),
+    on: (name: string, h: (event: object) => Promise<unknown>) =>
+      handlers.set(name, h),
+    events,
+  } as unknown as ExtensionAPI);
+  const asks: ApprovalAsk[] = [];
+  events.on(APPROVAL_EVENT, (data) => void asks.push(data as ApprovalAsk));
+  const call = (tool: string, args: string[]) =>
+    tools.get(tool)!("t1", { args }, undefined, undefined, { cwd: repo });
+  const bash = (command: string) =>
+    handlers.get("tool_call")!({ toolName: "bash", input: { command } });
+  return { asks, call, bash };
+}
+
+describe("the git tool", () => {
+  it("runs reads and local changes without asking", async () => {
+    const { asks, call } = load();
+    await call("git", ["add", "a.txt"]);
+    const status = await call("git", ["status", "--short"]);
+    expect(status.content[0].text).toBe("A  a.txt");
+    expect(asks).toEqual([]);
+  });
+
+  it("shows a commit's changes, commits once approved, and keeps its diff", async () => {
+    const { asks, call } = load();
+    await call("git", ["add", "a.txt"]);
+    const done = call("git", ["commit", "-m", "first"]);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request).not.toHaveProperty("reason");
+    expect(asks[0].request).toMatchObject({
+      toolCallId: "t1",
+      review: {
+        kind: "commit",
+        message: "first",
+        files: [{ path: "a.txt", status: "A", added: 1, removed: 0 }],
+      },
+    });
+    asks[0].answer(true);
+    const result = await done;
+    expect(result.content[0].text).toContain("first");
+    expect(result.details).toMatchObject({
+      range: expect.stringMatching(/\^!$/),
+    });
+  });
+
+  it("shows what a merge brought in, and nothing when HEAD didn't move", async () => {
+    const { call } = load();
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repo });
+    git("add", ".");
+    git("commit", "-qm", "first");
+    git("switch", "-qc", "feature");
+    await writeFile(join(repo, "b.txt"), "b\n");
+    git("add", ".");
+    git("commit", "-qm", "add b");
+    git("switch", "-q", "main");
+    const merged = await call("git", ["merge", "feature"]);
+    expect(merged.details).toMatchObject({
+      kind: "update",
+      files: [{ path: "b.txt", status: "A", added: 1, removed: 0 }],
+      commits: [{ subject: "add b" }],
+    });
+    const again = await call("git", ["merge", "feature"]);
+    expect(again.details).toBeUndefined();
+  });
+
+  it("doesn't commit when the user denies it", async () => {
+    const { asks, call } = load();
+    await call("git", ["add", "a.txt"]);
+    const done = call("git", ["commit", "-m", "first"]);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    asks[0].answer(false);
+    await expect(done).rejects.toThrow(DENIED);
+    await expect(call("git", ["log"])).rejects.toThrow(/Exited with code/);
+  });
+
+  it("asks for every call in Manual, without a reason", async () => {
+    await mkdir(join(home, `.${APP_NAME}`));
+    await writeFile(
+      join(home, `.${APP_NAME}`, "settings.toml"),
+      "[approval]\nmode = 'manual'\n",
+    );
+    const { asks, call } = load();
+    const done = call("git", ["status"]);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request).toEqual({ toolCallId: "t1" });
+    asks[0].answer(true);
+    await done;
+  });
+});
+
+describe("the gh tool", () => {
+  it("asks before changing something on GitHub", async () => {
+    const { asks, call } = load();
+    const done = call("gh", ["pr", "merge", "3"]);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request).toEqual({
+      toolCallId: "t1",
+      reason: "Changes something on GitHub",
+    });
+    asks[0].answer(false);
+    await expect(done).rejects.toThrow(DENIED);
+  });
+});
+
+describe("git and gh in bash", () => {
+  it("sends commands that need credentials or review to the tools", async () => {
+    const { bash } = load();
+    const blocked = { block: true, reason: USE_TOOLS };
+    expect(await bash("cd server && git push -u origin x")).toEqual(blocked);
+    expect(await bash("gh pr view 3 --comments")).toEqual(blocked);
+    expect(await bash("git status && git diff")).toBeUndefined();
+    expect(await bash('echo "git push"')).toBeUndefined();
+  });
+
+  it("spots them without the parser too", () => {
+    expect(needsTools([["git", "-C", "x", "commit"]])).toBe(true);
+    expect(needsTools([["git", "log"]])).toBe(false);
+  });
+});
+
+describe("run", () => {
+  it("reports a program that isn't installed", async () => {
+    await expect(
+      run("no-such-program-here", [], { cwd: repo }),
+    ).rejects.toThrow("isn't installed");
+  });
+
+  it("says why a run failed", () => {
+    expect(resultText({ output: "", code: 0 })).toBe("(no output)");
+    expect(resultText({ output: "bad\n", code: 2 })).toBe(
+      "bad\n\nExited with code 2",
+    );
+    expect(resultText({ output: "", code: null })).toBe(
+      "(no output)\n\nStopped",
+    );
+  });
+});

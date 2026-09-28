@@ -3,6 +3,8 @@ import type { AssistantMessage, ToolCall } from "../../shared/agentTypes";
 import {
   diffSummary,
   groupSummary,
+  firstWaiting,
+  isShortOutput,
   outputPreview,
   parseDiff,
   toRows,
@@ -248,5 +250,44 @@ describe("outputPreview", () => {
       text: "ab\ncd…",
       hidden: 2,
     });
+  });
+});
+
+describe("isShortOutput", () => {
+  it("is one line that fits", () => {
+    expect(isShortOutput("Already up to date.\n")).toBe(true);
+    expect(isShortOutput("a\nb")).toBe(false);
+    expect(isShortOutput("x".repeat(121))).toBe(false);
+  });
+});
+
+describe("firstWaiting", () => {
+  const call = (id: string): ToolCall => ({
+    type: "toolCall",
+    id,
+    name: "bash",
+    arguments: {},
+  });
+  const turn = (...calls: ToolCall[]): Item => ({
+    kind: "message",
+    message: {
+      role: "assistant",
+      content: calls,
+      provider: "p",
+      model: "m",
+      stopReason: "toolUse",
+      timestamp: 1,
+    },
+  });
+
+  it("finds the earliest call waiting for approval", () => {
+    const items = [turn(call("a"), call("b")), turn(call("c"))];
+    const tools = {
+      a: { status: "done" as const },
+      b: { status: "running" as const, approval: {} },
+      c: { status: "running" as const, approval: {} },
+    };
+    expect(firstWaiting(items, tools)).toBe("b");
+    expect(firstWaiting(items, {})).toBeNull();
   });
 });

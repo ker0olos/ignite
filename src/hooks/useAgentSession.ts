@@ -59,6 +59,8 @@ const view = (s: Opened | null) => ({
   transcript: s?.transcript ?? null,
   /** Whether the folder's own pi resources load. */
   trust: s?.trust ?? null,
+  /** The session's host, for requests outside the conversation (e.g. a diff). */
+  host: s?.host ?? null,
 });
 
 /**

@@ -252,6 +252,31 @@ describe("applyEvent", () => {
     });
   });
 
+  it("keeps a commit or push's review while it waits for approval", () => {
+    const review = {
+      kind: "commit" as const,
+      repo: "/repo",
+      range: "staged",
+      files: [],
+      message: "fix: bug",
+    };
+    // Its reason would only repeat what the review shows.
+    const waiting = requestApproval(EMPTY, {
+      toolCallId: "c1",
+      reason: "Push",
+      review,
+    });
+    expect(waiting.tools.c1).toEqual({
+      status: "running",
+      approval: { review },
+    });
+    // Approved, it stays shown until the result arrives.
+    expect(settleApproval(waiting, "c1").tools.c1).toEqual({
+      status: "running",
+      review,
+    });
+  });
+
   it("ignores an answer for a call it doesn't know", () => {
     expect(settleApproval(EMPTY, "nope")).toBe(EMPTY);
   });

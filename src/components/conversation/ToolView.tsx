@@ -3,6 +3,7 @@ import type {
   ToolCall,
   ToolResult,
 } from "../../../shared/agentTypes";
+import { GH_TOOL, GIT_TOOL } from "../../../shared/git";
 import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL } from "../../../shared/subagents";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
@@ -34,6 +35,8 @@ const TOOL_TITLES: Record<string, string> = {
   grep: "Search",
   find: "Find",
   ls: "List",
+  [GIT_TOOL]: "Git",
+  [GH_TOOL]: "GitHub",
   [ASK_TOOL]: "Questions",
   [SUBAGENT_TOOL]: "Agent",
 };
@@ -55,6 +58,14 @@ function subagentArg(call: ToolCall) {
     : `${arg("model")}, ${arg("effort")}`;
 }
 
+// Paths in the folder are shown relative to it, like `-C server`.
+function gitArg(call: ToolCall, folder: string) {
+  const args = (call.arguments.args as string[] | undefined) ?? [];
+  return args
+    .map((arg) => (arg === folder ? "." : relativePath(arg, folder)))
+    .join(" ");
+}
+
 const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   read: pathArg,
   write: pathArg,
@@ -63,6 +74,8 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   bash: (call) => String(call.arguments.command ?? ""),
   grep: (call) => String(call.arguments.pattern ?? ""),
   find: (call) => String(call.arguments.pattern ?? ""),
+  [GIT_TOOL]: gitArg,
+  [GH_TOOL]: gitArg,
   [ASK_TOOL]: questionsArg,
   [SUBAGENT_TOOL]: subagentArg,
 };

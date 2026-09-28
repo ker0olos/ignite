@@ -21,7 +21,7 @@ export function AssistantText({
     a: ({ href, children }) => (
       <a
         href={href}
-        className="text-primary underline-offset-2 hover:underline"
+        className="text-primary underline decoration-current/40 underline-offset-2 hover:decoration-current"
         onClick={(e) => {
           e.preventDefault();
           if (href) openUrl(href).catch(() => {});

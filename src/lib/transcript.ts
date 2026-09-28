@@ -5,6 +5,7 @@ import type {
   SessionEvent,
   ToolResult,
 } from "../../shared/agentTypes";
+import type { GitReview } from "../../shared/git";
 
 export type Item =
   | { kind: "message"; message: AgentMessage }
@@ -16,7 +17,9 @@ export type ToolRun = {
   /** Latest partial output while running, then the final result. */
   result?: ToolResult;
   /** Set while the call waits for the user to approve it. */
-  approval?: { reason?: string };
+  approval?: { reason?: string; review?: GitReview };
+  /** The review the user approved, shown until the result arrives. */
+  review?: GitReview;
 };
 
 export type Transcript = {
@@ -70,18 +73,25 @@ function applyToolExecutionEvent(
 /** Marks a tool call as waiting for the user. */
 export function requestApproval(
   t: Transcript,
-  { toolCallId, reason }: ApprovalRequest,
+  { toolCallId, reason, review }: ApprovalRequest,
 ): Transcript {
   return setTool(t, toolCallId, {
     status: t.tools[toolCallId]?.status ?? "running",
-    approval: reason ? { reason } : {},
+    // A review says what the call does; a reason under it would repeat it.
+    approval: review ? { review } : reason ? { reason } : {},
   });
 }
 
 /** The user answered; the call stops waiting (its outcome follows as events). */
 export function settleApproval(t: Transcript, toolCallId: string): Transcript {
   const run = t.tools[toolCallId];
-  return run ? setTool(t, toolCallId, { ...run, approval: undefined }) : t;
+  if (!run) return t;
+  const review = run.approval?.review;
+  return setTool(t, toolCallId, {
+    ...run,
+    approval: undefined,
+    ...(review && { review }),
+  });
 }
 
 type RetryEvent = Extract<

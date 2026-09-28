@@ -16,6 +16,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { parse as parseToml } from "smol-toml";
 import type { ApprovalMode, ApprovalRequest } from "../shared/hostProtocol.ts";
+import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
 import { ASK_TOOL, type QuestionAnswer } from "../shared/questions.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { approvalFor, resolvePath } from "../src/lib/approvalPolicy.ts";
@@ -48,6 +49,7 @@ export type ApprovalAsk = {
 };
 
 export const DENIED = "The user denied this tool call.";
+const SELF_ASKING = new Set([ASK_TOOL, GIT_TOOL, GH_TOOL]);
 export const RETRY_HINT =
   "The sandbox blocked this command. If it must run outside the sandbox, " +
   "run exactly the same command again; the user will be asked to approve it.";
@@ -134,8 +136,8 @@ export default function approval(pi: ExtensionAPI) {
   }
 
   pi.on("tool_call", async (event, ctx) => {
-    // Its question already waits for the user.
-    if (event.toolName === ASK_TOOL) return;
+    // Its question already waits for the user; git and gh ask for themselves.
+    if (SELF_ASKING.has(event.toolName)) return;
     const mode = await approvalMode();
     const box = mode === "auto" ? await sandbox : undefined;
     const command = commandOf(event);

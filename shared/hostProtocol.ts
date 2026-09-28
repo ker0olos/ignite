@@ -5,6 +5,7 @@
  * the AbortSignals that can't cross a process boundary.
  */
 import type { AgentMessage, ImageContent, SessionEvent } from "./agentTypes.ts";
+import type { GitReview } from "./git.ts";
 import type { QuestionAnswer } from "./questions.ts";
 
 /**
@@ -94,6 +95,8 @@ export type ApprovalRequest = {
   toolCallId: string;
   /** Why Auto stopped for it; unset in Manual, which asks for everything. */
   reason?: string;
+  /** What a commit or push would change. */
+  review?: GitReview;
 };
 
 /** What opening a folder's session returns: its settings and its history. */
@@ -256,6 +259,8 @@ export type HostRequest =
   | { id: number; type: "memory_changed" }
   /** Saves the folder's trust; trusting it reloads the session. */
   | { id: number; type: "set_trust"; cwd: string; trusted: boolean }
+  /** One file's diff in a review's range (see GitReview). */
+  | { id: number; type: "git_diff"; repo: string; range: string; path: string }
   | { id: number; type: "app_version" }
   /** Pulls the latest code; `updated` is false when it was already current. */
   | { id: number; type: "app_update" }
@@ -294,6 +299,7 @@ export type HostResponses = {
   memory_status: MemoryStatus;
   memory_changed: undefined;
   set_trust: undefined;
+  git_diff: string;
   app_version: AppVersion;
   app_update: { updated: boolean };
 };
