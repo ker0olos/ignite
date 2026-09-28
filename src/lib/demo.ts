@@ -1,14 +1,26 @@
 /**
- * Demo mode (`npm run demo`): the app opens demo/tempo and shows a fixed
- * conversation instead of a pi session, for screenshots and trying the UI.
+ * Demo mode (`npm run demo`): the app opens demo/tempo and demo/pantry and
+ * shows fixed conversations instead of pi sessions, for screenshots and
+ * trying the UI. Pantry's waits on the agent's questions.
  * Nothing is saved or run, so clearing sessions or app state never loses it.
  */
-import type { ProjectTrust, SessionState } from "../../shared/hostProtocol";
+import type {
+  ProjectStatus,
+  ProjectTrust,
+  SessionState,
+} from "../../shared/hostProtocol";
+import { demoQuestionTranscript } from "./demoQuestions";
 import { DEMO_MESSAGES } from "./demoTranscript";
+import { dirname } from "./paths";
 import { fromHistory, type Transcript } from "./transcript";
 
 /** The demo project's folder while in demo mode, otherwise null. */
 export const DEMO_FOLDER: string | null = __DEMO_FOLDER__;
+
+const pantry = (demo: string) => `${dirname(demo)}/pantry`;
+
+/** The projects demo mode opens, the shown one last. */
+export const demoProjects = (demo: string) => [pantry(demo), demo];
 
 const claude = (id: string, name: string) => ({
   provider: "claude-bridge",
@@ -38,21 +50,35 @@ type View = {
 };
 
 /**
- * The session as the workspace shows it: in demo mode the demo conversation
- * in place of pi's; otherwise with the host's error when the sidecar didn't
- * start, since the session then never opens.
+ * The session as the workspace shows it: in demo mode the shown folder's demo
+ * conversation in place of pi's; otherwise with the host's error when the
+ * sidecar didn't start, since the session then never opens.
  */
 export function shownSession<S extends View>(
   session: S,
   hostError: string | null,
-  folder: string | null = DEMO_FOLDER,
+  current: string | null,
+  demo: string | null = DEMO_FOLDER,
 ): S {
-  if (!folder) return { ...session, error: session.error ?? hostError };
+  if (!demo) return { ...session, error: session.error ?? hostError };
   return {
     ...session,
     state: DEMO_STATE,
-    transcript: fromHistory(DEMO_MESSAGES, false),
+    transcript:
+      current === pantry(demo)
+        ? demoQuestionTranscript()
+        : fromHistory(DEMO_MESSAGES, false),
     trust: "trusted",
     error: null,
   };
+}
+
+/** Open projects' statuses; in demo mode, pantry waits on its questions. */
+export function shownStatuses(
+  statuses: Record<string, ProjectStatus>,
+  demo: string | null = DEMO_FOLDER,
+): Record<string, ProjectStatus> {
+  if (!demo) return statuses;
+  const cwd = pantry(demo);
+  return { [cwd]: { cwd, running: true, waiting: true } };
 }

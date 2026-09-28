@@ -52,11 +52,14 @@ describe("replyText", () => {
   it("lists each answer, with notes, and what was left to the agent", () => {
     expect(
       replyText(true, [
-        { question: "Where?", choices: ["SQLite", "Postgres"], note: "fast" },
+        {
+          question: "Where?",
+          choices: [{ answer: "SQLite", note: "fast" }, { answer: "Postgres" }],
+        },
         { question: "How?", choices: [] },
       ]),
     ).toBe(
-      "Q: Where?\nA: SQLite; Postgres\nNote: fast\n\n" +
+      "Q: Where?\nA: SQLite\n   Note: fast\nA: Postgres\n\n" +
         "Q: How?\nA: (left to you; decide it)",
     );
   });
@@ -99,7 +102,9 @@ describe("ask_user", () => {
     const result = run();
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     expect(asks[0].request).toEqual({ toolCallId: "t1" });
-    asks[0].answer(true, [{ question: "Where?", choices: ["SQLite"] }]);
+    asks[0].answer(true, [
+      { question: "Where?", choices: [{ answer: "SQLite" }] },
+    ]);
     expect(text(await result)).toBe("Q: Where?\nA: SQLite");
   });
 

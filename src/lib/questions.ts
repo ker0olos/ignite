@@ -3,10 +3,14 @@ import type { Question, QuestionAnswer } from "../../shared/questions";
 /** In `picked`, the user's own answer (the text in `other`). */
 export const OTHER = "\u0000other";
 
-/** What the user has chosen so far for one question. */
-export type Draft = { picked: string[]; other: string; note: string };
+/** What the user has chosen so far for one question; notes by option label. */
+export type Draft = {
+  picked: string[];
+  other: string;
+  notes: Record<string, string>;
+};
 
-export const EMPTY_DRAFT: Draft = { picked: [], other: "", note: "" };
+export const EMPTY_DRAFT: Draft = { picked: [], other: "", notes: {} };
 
 /** ask_user's questions from the call's arguments, skipping malformed ones. */
 export function readQuestions(args: Record<string, unknown>): Question[] {
@@ -35,16 +39,23 @@ export function typeOther(draft: Draft, other: string, multi: boolean): Draft {
   return { ...draft, other, picked };
 }
 
+/** Sets the note on an option. */
+export function setNote(draft: Draft, label: string, note: string): Draft {
+  return { ...draft, notes: { ...draft.notes, [label]: note } };
+}
+
 /** The replies sent to the agent; a question with nothing picked is left to it. */
 export function toAnswers(
   questions: Question[],
   drafts: Draft[],
 ): QuestionAnswer[] {
   return questions.map(({ question }, i) => {
-    const { picked, other, note } = drafts[i] ?? EMPTY_DRAFT;
-    const choices = picked.flatMap((label) =>
-      label !== OTHER ? [label] : other.trim() ? [other.trim()] : [],
-    );
-    return { question, choices, ...(note.trim() && { note: note.trim() }) };
+    const { picked, other, notes } = drafts[i] ?? EMPTY_DRAFT;
+    const choices = picked.flatMap((label) => {
+      const answer = label === OTHER ? other.trim() : label;
+      const note = notes[label]?.trim();
+      return answer ? [{ answer, ...(note && { note }) }] : [];
+    });
+    return { question, choices };
   });
 }

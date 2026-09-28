@@ -80,11 +80,15 @@ export function replyText(
 ): string {
   if (!approved) return LEFT_TO_AGENT;
   return answers
-    .map(({ question, choices, note }) =>
+    .map(({ question, choices }) =>
       [
         `Q: ${question}`,
-        `A: ${choices.length ? choices.join("; ") : "(left to you; decide it)"}`,
-        ...(note ? [`Note: ${note}`] : []),
+        ...(choices.length
+          ? choices.flatMap(({ answer, note }) => [
+              `A: ${answer}`,
+              ...(note ? [`   Note: ${note}`] : []),
+            ])
+          : ["A: (left to you; decide it)"]),
       ].join("\n"),
     )
     .join("\n\n");

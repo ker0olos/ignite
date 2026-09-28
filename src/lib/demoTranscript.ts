@@ -10,9 +10,9 @@ import type {
   ToolResultMessage,
 } from "../../shared/agentTypes";
 
-const T = Date.UTC(2026, 8, 27, 9, 30);
+export const T = Date.UTC(2026, 8, 27, 9, 30);
 
-const assistant = (
+export const assistant = (
   content: AssistantMessage["content"],
   last = false,
 ): AssistantMessage => ({
@@ -24,13 +24,13 @@ const assistant = (
   timestamp: T,
 });
 
-const call = (
+export const call = (
   id: string,
   name: string,
   args: Record<string, unknown>,
 ): ToolCall => ({ type: "toolCall", id, name, arguments: args });
 
-const result = (
+export const result = (
   call: ToolCall,
   text: string,
   details?: unknown,

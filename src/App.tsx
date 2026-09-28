@@ -22,7 +22,7 @@ import { useTabs } from "@/hooks/useTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
 import { needingSignIn } from "@/lib/mcpServers";
 import { approvalSetting } from "@/lib/settings";
-import { DEMO_FOLDER, shownSession } from "@/lib/demo";
+import { DEMO_FOLDER, shownSession, shownStatuses } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -42,9 +42,9 @@ export default function App() {
   // The demo folder shows a fixed conversation; pi never runs in it.
   const live = DEMO_FOLDER ? null : current;
   const agent = useAgentSession(providers.host, live, providers.statuses);
-  const session = shownSession(agent, providers.hostError);
+  const session = shownSession(agent, providers.hostError, current);
   const mcp = useMcpServers(providers.host, live);
-  const statuses = useProjects(providers.host, projects);
+  const statuses = shownStatuses(useProjects(providers.host, projects));
   const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
   const [settingsOpen, setSettingsOpen] = useState(false);

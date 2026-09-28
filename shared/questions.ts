@@ -12,9 +12,8 @@ export type Question = {
   multiSelect?: boolean;
 };
 
-/** The user's reply to one question: chosen labels or their own text, and a note. */
+/** The user's reply to one question: picked labels or their own text, each with a note. */
 export type QuestionAnswer = {
   question: string;
-  choices: string[];
-  note?: string;
+  choices: { answer: string; note?: string }[];
 };

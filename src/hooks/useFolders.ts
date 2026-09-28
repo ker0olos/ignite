@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { DEMO_FOLDER } from "@/lib/demo";
+import { DEMO_FOLDER, demoProjects } from "@/lib/demo";
 import { stillListed, withRecent } from "@/lib/recent";
 import { onStoreChange, store } from "@/lib/store";
 
@@ -11,7 +11,7 @@ const isMainWindow = getCurrentWindow().label === "main";
 /**
  * Recently opened folders (shared by all windows, most recent first), the
  * projects open in this window and the one it shows. In demo mode the main window opens
- * `demoFolder` and doesn't remember it.
+ * `demoFolder` (and the demo's other project) and doesn't remember them.
  */
 export function useFolders(demoFolder = DEMO_FOLDER) {
   const [folders, setFolders] = useState<string[]>([]);
@@ -70,7 +70,8 @@ export function useFolders(demoFolder = DEMO_FOLDER) {
       if (isMainWindow) {
         const restored = demoFolder ?? (await s.get<string>("current"));
         setCurrent(restored ?? null);
-        setProjects(restored ? [restored] : []);
+        if (demoFolder) setProjects(demoProjects(demoFolder));
+        else setProjects(restored ? [restored] : []);
       }
       setLoaded(true);
     });

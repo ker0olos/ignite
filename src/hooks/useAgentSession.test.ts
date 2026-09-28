@@ -131,7 +131,7 @@ describe("useAgentSession", () => {
     const { result } = renderHook(() => useAgentSession(host, "/work", null));
     await waitFor(() => expect(result.current.state).toEqual(STATE));
     host.emit({ type: "approval_request", request: { toolCallId: "q1" } });
-    const answers = [{ question: "Where?", choices: ["SQLite"] }];
+    const answers = [{ question: "Where?", choices: [{ answer: "SQLite" }] }];
     act(() => result.current.answer("q1", true, answers));
     expect(result.current.transcript?.tools.q1.approval).toBeUndefined();
     expect(host.send).toHaveBeenCalledWith({

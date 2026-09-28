@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  type Draft,
   EMPTY_DRAFT,
   OTHER,
   readQuestions,
+  setNote,
   toAnswers,
   toggle,
   typeOther,
@@ -53,19 +55,37 @@ describe("typeOther", () => {
   });
 });
 
+describe("setNote", () => {
+  it("keeps a note per option", () => {
+    const one = setNote(EMPTY_DRAFT, "SQLite", "fast");
+    expect(setNote(one, "JSON file", "small").notes).toEqual({
+      SQLite: "fast",
+      "JSON file": "small",
+    });
+    expect(EMPTY_DRAFT.notes).toEqual({});
+  });
+});
+
 describe("toAnswers", () => {
   const questions = [
     { question: "Where?", options },
     { question: "How?", options },
   ];
 
-  it("sends picked labels, the user's own text, and trimmed notes", () => {
-    const drafts = [
-      { picked: ["SQLite", OTHER], other: " Postgres ", note: " fast " },
-      { picked: [OTHER], other: "  ", note: "" },
+  it("sends picked labels and the user's own text, with their trimmed notes", () => {
+    const drafts: Draft[] = [
+      {
+        picked: ["SQLite", OTHER],
+        other: " Postgres ",
+        notes: { SQLite: " fast ", "JSON file": "unpicked", [OTHER]: "  " },
+      },
+      { picked: [OTHER], other: "  ", notes: {} },
     ];
     expect(toAnswers(questions, drafts)).toEqual([
-      { question: "Where?", choices: ["SQLite", "Postgres"], note: "fast" },
+      {
+        question: "Where?",
+        choices: [{ answer: "SQLite", note: "fast" }, { answer: "Postgres" }],
+      },
       { question: "How?", choices: [] },
     ]);
   });
