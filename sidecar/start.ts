@@ -33,6 +33,7 @@ import {
   WORKER,
   type SubagentAsk,
 } from "./subagentExtension.ts";
+import { createKeepAwake } from "./keepAwake.ts";
 import { createTrustStore } from "./trust.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
@@ -261,6 +262,7 @@ const host = createHost(
   createMcpStore(join(agentDir, "mcp.json")),
   { presets: PRESETS, findImports: (cwd) => findImports(homedir(), cwd) },
   trust,
+  createKeepAwake(),
 );
 
 const inFlight = new Set<Promise<void>>();

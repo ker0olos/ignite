@@ -109,6 +109,7 @@ export function createHost(
   mcpStore: McpStore,
   catalog: McpCatalogSource,
   trust: TrustStore,
+  keepAwake: HostContext["keepAwake"] = async () => {},
 ) {
   const ctx: HostContext = {
     runtime,
@@ -125,6 +126,7 @@ export function createHost(
     checking: new Set(),
     prompts: new Map(),
     nextPromptId: 1,
+    keepAwake,
   };
 
   /** Handles one request from the app; never throws. */

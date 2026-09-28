@@ -177,6 +177,7 @@ describe("saveSettings", () => {
     memory: { cmem: false },
     approval: { mode: "manual" },
     subagents: { enabled: false, max: 4 },
+    power: { keep_awake: false },
   };
 
   it("creates the settings directory first", async () => {

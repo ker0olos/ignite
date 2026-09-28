@@ -103,6 +103,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
   subagentExtension.ts   subagent tool: hands tasks to a smaller model from the same provider and talks with it
+  keepAwake.ts           Keeps the Mac from idle-sleeping (caffeinate) while an agent works
   headlessUI.ts          The UI context bound to sessions: declines prompts, passes errors to the app
   mcpCatalog.ts          One-click MCP presets, and other apps' MCP servers to import
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
@@ -156,6 +157,9 @@ Two places hold persisted data:
 - **Subagent settings** (`[subagents]`): `enabled` (on by default) gives
   the agent the `subagent` tool; `max` (default 2) caps how many one
   conversation may start. Read before each run.
+- **Power settings** (`[power]`): `keep_awake` (on by default, macOS only)
+  runs `caffeinate -i` while any folder's agent works, and ends it when
+  every agent finishes or waits on the user (`sidecar/keepAwake.ts`).
 - **Approval settings** (`[approval]`): `mode`, `"auto"` (default) or
   `"manual"`, set from the composer. The sidecar reads it on every tool call.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).

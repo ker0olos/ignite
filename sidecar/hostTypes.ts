@@ -132,6 +132,8 @@ export type HostContext = {
   prompts: Map<number, Pending>;
   /** Counter for the next auth prompt id. */
   nextPromptId: number;
+  /** Told whether any folder's agent is working (running, not waiting on the user). */
+  keepAwake: (working: boolean) => Promise<void>;
 };
 
 /** Returns the shown folder's project, if it has one. */
