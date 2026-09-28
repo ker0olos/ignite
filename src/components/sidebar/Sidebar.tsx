@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { FileTree } from "@/components/files/FileTree";
 import { OpenFolderButton } from "@/components/sidebar/OpenFolderButton";
+import { OpenProjects } from "@/components/sidebar/OpenProjects";
 import {
   ProjectList,
   type ProjectListProps,
@@ -70,6 +71,11 @@ export function Sidebar({
         </div>
       </div>
       {banner}
+      {!showingProjects && projectList.projects.length > 1 && (
+        <div className="mb-2 shrink-0 border-b border-sidebar-border px-2 pb-2">
+          <OpenProjects folder={folder} {...projectList} />
+        </div>
+      )}
       <nav className="min-h-0 flex-1 overscroll-contain overflow-y-auto">
         <div className="always-bounce px-2 pb-2">
           {showingProjects ? (
