@@ -1,4 +1,5 @@
 import type { ToolCall } from "../../../shared/agentTypes";
+import type { QuestionAnswer } from "../../../shared/questions";
 import type { ToolRun } from "@/lib/transcript";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { Settings } from "@/lib/settings";
@@ -11,8 +12,12 @@ export type ToolProps = {
   folder: string;
   editor: Editor;
   codeThemes: CodeThemes;
-  /** Approves or denies a call that waits for the user. */
-  onApprove: (toolCallId: string, approved: boolean) => void;
+  /** Approves or denies a call that waits for the user, or answers its questions. */
+  onApprove: (
+    toolCallId: string,
+    approved: boolean,
+    answers?: QuestionAnswer[],
+  ) => void;
 };
 
 // Lines shown before "… +N lines"; clicking it shows the rest.

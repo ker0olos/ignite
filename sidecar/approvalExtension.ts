@@ -16,6 +16,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { parse as parseToml } from "smol-toml";
 import type { ApprovalMode, ApprovalRequest } from "../shared/hostProtocol.ts";
+import { ASK_TOOL, type QuestionAnswer } from "../shared/questions.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { approvalFor, resolvePath } from "../src/lib/approvalPolicy.ts";
 import { loadBashParser } from "./bashParser.ts";
@@ -43,7 +44,7 @@ export const APPROVAL_EVENT = "app/approval";
 /** An approval question on the event bus; `answer` settles it. */
 export type ApprovalAsk = {
   request: ApprovalRequest;
-  answer(approved: boolean): void;
+  answer(approved: boolean, answers?: QuestionAnswer[]): void;
 };
 
 export const DENIED = "The user denied this tool call.";
@@ -133,6 +134,8 @@ export default function approval(pi: ExtensionAPI) {
   }
 
   pi.on("tool_call", async (event, ctx) => {
+    // Its question already waits for the user.
+    if (event.toolName === ASK_TOOL) return;
     const mode = await approvalMode();
     const box = mode === "auto" ? await sandbox : undefined;
     const command = commandOf(event);

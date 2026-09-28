@@ -67,7 +67,10 @@ describe("loadSettings", () => {
     fakeFs({ [FILE]: "[conversation]\nshow_thinking = true\n" });
     expect((await loadSettings()).conversation).toEqual({
       show_thinking: true,
+      ask_questions: true,
     });
+    fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
+    expect((await loadSettings()).conversation.ask_questions).toBe(false);
   });
 
   it("reads memory settings", async () => {
@@ -136,7 +139,7 @@ describe("saveSettings", () => {
     theme: "github-dark",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false },
-    conversation: { show_thinking: true },
+    conversation: { show_thinking: true, ask_questions: false },
     memory: { cmem: false },
     approval: { mode: "manual" },
   };

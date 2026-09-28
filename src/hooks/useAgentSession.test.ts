@@ -126,6 +126,22 @@ describe("useAgentSession", () => {
     });
   });
 
+  it("sends the answers to an ask_user call's questions", async () => {
+    const host = fakeHost(async () => STATE);
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.state).toEqual(STATE));
+    host.emit({ type: "approval_request", request: { toolCallId: "q1" } });
+    const answers = [{ question: "Where?", choices: ["SQLite"] }];
+    act(() => result.current.answer("q1", true, answers));
+    expect(result.current.transcript?.tools.q1.approval).toBeUndefined();
+    expect(host.send).toHaveBeenCalledWith({
+      type: "approval_answer",
+      toolCallId: "q1",
+      approved: true,
+      answers,
+    });
+  });
+
   it("shows why an approval couldn't be sent", async () => {
     const host = fakeHost(async () => STATE);
     host.send.mockRejectedValueOnce(new Error("The agent host stopped."));

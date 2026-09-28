@@ -20,7 +20,8 @@ export type Settings = {
   /** How the file viewer shows code. `font_family` is a CSS font-family list. */
   editor: { font_family: string; word_wrap: boolean };
   files: { hide_gitignored: boolean };
-  conversation: { show_thinking: boolean };
+  /** `ask_questions`: the agent brings open decisions to the user; off, it decides alone. */
+  conversation: { show_thinking: boolean; ask_questions: boolean };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
   /** `mode`: "auto" asks only before risky tool calls, "manual" before all. */
@@ -34,7 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
     word_wrap: false,
   },
   files: { hide_gitignored: true },
-  conversation: { show_thinking: false },
+  conversation: { show_thinking: false, ask_questions: true },
   memory: { cmem: true },
   approval: { mode: "auto" },
 };

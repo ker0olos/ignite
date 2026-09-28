@@ -135,7 +135,12 @@ export function createHost(
       return;
     }
     if (request.type === "approval_answer") {
-      answerApproval(ctx, request.toolCallId, request.approved);
+      answerApproval(
+        ctx,
+        request.toolCallId,
+        request.approved,
+        request.answers,
+      );
       return;
     }
     try {

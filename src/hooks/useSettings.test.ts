@@ -162,7 +162,7 @@ describe("useSettings", () => {
       theme: "github-dark",
       editor: { font_family: "Monaco", word_wrap: true },
       files: { hide_gitignored: true },
-      conversation: { show_thinking: false },
+      conversation: { show_thinking: false, ask_questions: true },
       memory: { cmem: true },
       approval: { mode: "auto" },
     };

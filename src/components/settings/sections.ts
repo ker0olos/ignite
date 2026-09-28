@@ -25,7 +25,7 @@ export const SECTIONS = {
   Files: { icon: FolderTree, blurb: "What the file tree shows." },
   Conversation: {
     icon: MessageSquare,
-    blurb: "What the agent's replies show.",
+    blurb: "What the agent's replies show, and when it asks you.",
   },
 } satisfies Record<string, { icon: LucideIcon; blurb: string }>;
 

@@ -121,6 +121,7 @@ const claudeBridge = sibling("pi-claude-bridge/src/index.ts");
 // pi-mcp-adapter, reading only agentDir/mcp.json.
 const mcpExtension = sibling("./mcpExtension.ts");
 const cmemExtension = sibling("./cmemExtension.ts");
+const askExtension = sibling("./askExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
 const approvalExtension = sibling("./approvalExtension.ts");
 const trust = createTrustStore(agentDir);
@@ -221,6 +222,7 @@ async function openSession(
       claudeBridge,
       mcpExtension,
       cmemExtension,
+      askExtension,
       approvalExtension,
     ],
   });
