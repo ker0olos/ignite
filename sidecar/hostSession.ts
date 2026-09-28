@@ -17,6 +17,7 @@ import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
 import { signOut } from "./hostMcpSignIn.ts";
 import { askApproval, denyAll } from "./hostApproval.ts";
 import { pushProjects } from "./hostProjects.ts";
+import { resume } from "./hostResume.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -76,8 +77,11 @@ export async function open(
   if (fresh) await close(ctx, cwd);
   ctx.cwd = cwd;
   ctx.checking.clear();
-  const project = ctx.projects.get(cwd) ?? start(ctx, cwd, fresh);
+  const started = ctx.projects.get(cwd);
+  const project = started ?? start(ctx, cwd, fresh);
   const s = await project.opening;
+  // After the reply, so the app is following the session when the run starts.
+  if (!started) setTimeout(() => void resume(s).catch(reportTo(ctx, cwd)));
   // ponytail: kept in memory; a sidecar restart before a folder opens drops them.
   for (const name of [...ctx.pendingSignOuts]) {
     ctx.pendingSignOuts.delete(name);
@@ -153,11 +157,7 @@ function follow(
   }
   if (event.type === "agent_settled" && project.reloadWhenSettled) {
     project.reloadWhenSettled = false;
-    project.session?.reload().catch((error: unknown) => {
-      if (ctx.cwd === cwd) {
-        ctx.send({ type: "session_error", error: describeError(error) });
-      }
-    });
+    project.session?.reload().catch(reportTo(ctx, cwd));
   }
 }
 
@@ -191,9 +191,14 @@ export async function prompt(
     ...(s.isStreaming && { streamingBehavior: "steer" as const }),
     ...(images?.length ? { images } : {}),
   };
-  s.prompt(text, options).catch((error: unknown) => {
+  s.prompt(text, options).catch(reportTo(ctx, cwd));
+}
+
+/** Shows a run's failure, if its folder is the one shown. */
+function reportTo(ctx: HostContext, cwd: string | null) {
+  return (error: unknown) => {
     if (ctx.cwd === cwd) {
       ctx.send({ type: "session_error", error: describeError(error) });
     }
-  });
+  };
 }

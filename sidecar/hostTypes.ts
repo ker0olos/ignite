@@ -6,7 +6,11 @@ import type {
   AuthPromptData,
   HostMessage,
 } from "../shared/hostProtocol.ts";
-import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
+import type {
+  AgentMessage,
+  SessionEvent,
+  ToolResultMessage,
+} from "../shared/agentTypes.ts";
 import type { ApprovalAsk } from "./approvalExtension.ts";
 import type { ClaudeCode } from "./claudeCode.ts";
 import type { McpStore } from "./mcpConfig.ts";
@@ -53,6 +57,14 @@ export type Session = {
   setModel(model: ModelInfo, options: { persist: boolean }): Promise<void>;
   setThinkingLevel(level: ThinkingLevel, options: { persist: boolean }): void;
   readonly messages: AgentMessage[];
+  readonly agent: { state: { messages: AgentMessage[] } };
+  readonly sessionManager: {
+    appendMessage(message: ToolResultMessage): string;
+  };
+  sendCustomMessage(
+    message: { customType: string; content: string; display: boolean },
+    options: { triggerTurn: boolean },
+  ): Promise<void>;
   readonly isStreaming: boolean;
   subscribe(listener: (event: SessionEvent) => void): () => void;
   prompt(

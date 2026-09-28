@@ -83,6 +83,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostAuth.ts            Provider sign-in (status, interaction, login)
   hostSession.ts         One session per open folder, kept running while hidden (sessionState, setModel, open, close, prompt)
   hostProjects.ts        Tells the app which open folders are working or waiting (pushProjects)
+  hostResume.ts          Resumes a run a reload or quit cut off: pending calls marked not run, agent continues
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
