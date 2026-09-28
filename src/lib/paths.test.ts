@@ -6,6 +6,10 @@ describe("basename", () => {
     expect(basename("/Users/me/Projects/app")).toBe("app");
   });
 
+  it("splits Windows paths", () => {
+    expect(basename("C:\\Users\\me\\app")).toBe("app");
+  });
+
   it("returns the input when there is no last segment", () => {
     expect(basename("/")).toBe("/");
   });
@@ -14,6 +18,10 @@ describe("basename", () => {
 describe("dirname", () => {
   it("drops the last segment", () => {
     expect(dirname("/Users/me/Projects/app")).toBe("/Users/me/Projects");
+  });
+
+  it("drops the last segment of a Windows path", () => {
+    expect(dirname("C:\\Users\\me\\app")).toBe("C:\\Users\\me");
   });
 
   it("returns / for a top-level entry", () => {
@@ -34,6 +42,10 @@ describe("tildify", () => {
 
   it("leaves a sibling that only shares the prefix alone", () => {
     expect(tildify("/Users/meg/Projects", home)).toBe("/Users/meg/Projects");
+  });
+
+  it("shortens Windows paths under home", () => {
+    expect(tildify("C:\\Users\\me\\app", "C:\\Users\\me")).toBe("~\\app");
   });
 
   it("leaves paths outside home alone", () => {

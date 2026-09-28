@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { exists } from "@tauri-apps/plugin-fs";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { DEMO_FOLDER, demoProjects } from "@/lib/demo";
 import { stillListed, withRecent } from "@/lib/recent";
@@ -68,7 +69,10 @@ export function useFolders(demoFolder = DEMO_FOLDER) {
     store.then(async (s) => {
       show((await s.get<string[]>("folders")) ?? []);
       if (isMainWindow) {
-        const restored = demoFolder ?? (await s.get<string>("current"));
+        const saved = await s.get<string>("current");
+        // A folder moved or deleted since last time isn't reopened.
+        const restored =
+          demoFolder ?? (saved && (await exists(saved)) ? saved : null);
         setCurrent(restored ?? null);
         if (demoFolder) setProjects(demoProjects(demoFolder));
         else setProjects(restored ? [restored] : []);

@@ -15,15 +15,17 @@ async function setup({
   saved = {},
   picked = null,
   demo = null,
+  tree = { "/a": null, "/b": null },
 }: {
   label?: string;
   saved?: Record<string, unknown>;
   picked?: string | null;
   demo?: string | null;
+  tree?: Record<string, null>;
 } = {}) {
   const store = fakeStore(saved, picked);
   mockWindows(label);
-  fakeFs({}, store.handle);
+  fakeFs(tree, store.handle);
   vi.resetModules();
   const { useFolders } = await import("./useFolders");
   const hook = renderHook(() => useFolders(demo));
@@ -39,6 +41,12 @@ describe("useFolders", () => {
       const { result } = await setup({ saved: savedState });
       expect(result.current.folders).toEqual(["/a", "/b"]);
       expect(result.current.current).toBe("/b");
+    });
+
+    it("doesn't reopen a folder that no longer exists", async () => {
+      const { result } = await setup({ saved: savedState, tree: {} });
+      expect(result.current.folders).toEqual(["/a", "/b"]);
+      expect(result.current.current).toBeNull();
     });
 
     it("restores recent folders but opens nothing in extra windows", async () => {
