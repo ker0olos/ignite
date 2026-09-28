@@ -1,8 +1,10 @@
 import { EditToolBody } from "@/components/conversation/EditToolBody";
+import { GitReviewOutput } from "@/components/conversation/GitReviewOutput";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
 import { ReadToolBody } from "@/components/conversation/ReadToolBody";
 import type { ToolProps } from "@/components/conversation/shared";
 import { WriteToolBody } from "@/components/conversation/WriteToolBody";
+import { readGitReview } from "@/lib/diffTabs";
 import type { ToolRun } from "@/lib/transcript";
 
 /** A tool call's outcome, formatted per tool: a diff, new lines, or plain output. */
@@ -18,6 +20,9 @@ export function ToolBody({
 }) {
   const path = String(call.arguments.path ?? "");
   const running = run.status === "running";
+  const review = readGitReview(run.result?.details);
+
+  if (review) return <GitReviewOutput review={review} text={text} />;
 
   if (call.name === "edit") {
     return (

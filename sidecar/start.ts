@@ -86,6 +86,7 @@ const mcpExtension = sibling("./mcpExtension.ts");
 const cmemExtension = sibling("./cmemExtension.ts");
 const askExtension = sibling("./askExtension.ts");
 const subagentExtension = sibling("./subagentExtension.ts");
+const gitExtension = sibling("./gitExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
 const approvalExtension = sibling("./approvalExtension.ts");
 const trust = createTrustStore(agentDir);
@@ -192,6 +193,7 @@ async function openSession(
       cmemExtension,
       askExtension,
       subagentExtension,
+      gitExtension,
       approvalExtension,
     ],
   });

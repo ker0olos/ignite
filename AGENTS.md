@@ -64,6 +64,9 @@ src/                     React frontend (almost all logic lives here)
     memory.ts            Memory settings text: cmem status line, relative times
     about.ts             About text: version line, update button states, the macOS About panel
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
+    gitPolicy.ts         Which git and gh tool calls run and which ask (commit and push for review)
+    gitDiff.ts           Unified diffs into diff lines; stepping through their changes
+    diffTabs.ts          Diff tabs beside file tabs (encoded ids, labels), reading a git review
     dangerousCommands.ts Regex denylist of risky shell commands that Auto still asks about
     demo.ts              Demo mode (`npm run demo`): its folder, model state, shown session
     demoTranscript.ts    The demo's fixed conversation
@@ -104,6 +107,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
   subagentExtension.ts   subagent tool: hands tasks to a smaller model from the same provider and talks with it
   keepAwake.ts           Keeps the Mac from idle-sleeping (caffeinate) while an agent works
+  gitExtension.ts        git and gh tools: run outside the sandbox, ask for themselves, redirect bash's
+  gitRun.ts              Runs git and gh with prompts, pagers and (unless approved) hooks off
+  gitReview.ts           A commit's or push's changed files and commits; one file's diff (git_diff)
   headlessUI.ts          The UI context bound to sessions: declines prompts, passes errors to the app
   mcpCatalog.ts          One-click MCP presets, and other apps' MCP servers to import
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
@@ -115,6 +121,7 @@ shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
 shared/questions.ts      ask_user's questions and answers (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
+shared/git.ts            The git and gh tools' names and what a commit or push shows for review
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITION_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 launcher/                How users run the app (not maintainers; see README)
@@ -220,6 +227,20 @@ pipeline's real words and redirects, including code run by `bash -c`,
 aren't mistaken for commands. A line that doesn't parse is checked as raw
 text. The denylist is a guard against mistakes; the sandbox is the boundary,
 and it covers bash only (file tools and MCP servers run unsandboxed).
+
+The `git` and `gh` tools (`sidecar/gitExtension.ts`) run git and the GitHub
+CLI outside the sandbox with the user's credentials, from an argument list
+(no shell). They ask for themselves, so the approval extension skips them:
+Manual asks for every call; Auto (`lib/gitPolicy.ts`) runs reads and local
+work (status, diff, log, fetch, pull, clone, switch, add…) and asks for
+anything else, for options that run a program or change git's config
+(`-c`, `--upload-pack`, `rebase -x`, `git config` writes…), and for paths
+outside the folder. A commit or push waits with a review: its changed files
+(status, +/− counts) and message or commits, each file opening its diff in a
+tab (`git_diff`). The sandbox already refuses writes to `.git/config` and
+`.git/hooks`; hooks can still live in the working tree (husky), so calls that
+ran without asking run with hooks off. Bash commands that commit, push, pull,
+fetch, clone or run gh are blocked with a pointer to the tools.
 
 The `subagent` tool (`sidecar/subagentExtension.ts`) lets the agent start
 another pi session on a task: a smaller model from its own provider (cheaper

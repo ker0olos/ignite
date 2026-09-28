@@ -1,6 +1,7 @@
 import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL, readSubagent } from "../../../shared/subagents";
 import { ApprovalPrompt } from "@/components/conversation/ApprovalPrompt";
+import { GitChanges } from "@/components/conversation/GitChanges";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
 import type { ToolProps } from "@/components/conversation/shared";
 import { QuestionPrompt } from "@/components/conversation/QuestionPrompt";
@@ -33,7 +34,9 @@ export function ToolRunOutcome({
       <ApprovalPrompt
         reason={run.approval.reason}
         onAnswer={(approved) => onApprove(call.id, approved)}
-      />
+      >
+        {run.approval.review && <GitChanges review={run.approval.review} />}
+      </ApprovalPrompt>
     );
   }
   if (run.status === "error") {
