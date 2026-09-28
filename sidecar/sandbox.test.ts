@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   ALLOWED_DOMAINS,
+  blockedAction,
   blockedSummary,
   createSandbox,
   explainWhenReported,
@@ -81,6 +82,25 @@ describe("blockedSummary", () => {
     expect(blockedSummary("npm ERR! something else")).toBeNull();
     expect(
       blockedSummary("<sandbox_violations>\n</sandbox_violations>"),
+    ).toBeNull();
+  });
+});
+
+describe("blockedAction", () => {
+  it.each([
+    ["file-read-data /Users/me/.ssh/config", "read ~/.ssh/config"],
+    ["file-write-create /tmp/x", "create /tmp/x"],
+    ["file-write-unlink /Users/me/x", "delete ~/x"],
+    ["file-write-data /Users/me/x", "write to ~/x"],
+    ["network-outbound example.com:443", "connect to example.com:443"],
+  ])("says %s in plain words", (summary, plain) => {
+    expect(blockedAction(summary, "/Users/me")).toBe(plain);
+  });
+
+  it("is null for what it can't phrase", () => {
+    expect(blockedAction("mach-lookup com.apple.x", "/Users/me")).toBeNull();
+    expect(
+      blockedAction("touch: x: Operation not permitted", "/Users/me"),
     ).toBeNull();
   });
 });

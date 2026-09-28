@@ -243,7 +243,7 @@ describe("the sandbox in Auto", () => {
     const retry = call("bash", { command: "touch ~/x" });
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     expect(asks[0].request.reason).toBe(
-      "The sandbox blocked it (file-write-create /Users/me/x); run it outside?",
+      "The sandbox stopped it from trying to create /Users/me/x. Run it outside the sandbox?",
     );
     asks[0].answer(true);
     await retry;
@@ -264,7 +264,7 @@ describe("the sandbox in Auto", () => {
     void call("bash", { command: "touch ~/x" });
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     expect(asks[0].request.reason).toBe(
-      `The sandbox blocked it (${refused}); run it outside?`,
+      `The sandbox blocked it (${refused}). Run it outside the sandbox?`,
     );
   });
 

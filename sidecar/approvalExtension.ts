@@ -21,6 +21,7 @@ import { APP_NAME } from "../src/lib/app.ts";
 import { approvalFor, resolvePath } from "../src/lib/approvalPolicy.ts";
 import { loadBashParser } from "./bashParser.ts";
 import {
+  blockedAction,
   blockedSummary,
   createSandbox,
   refusedLine,
@@ -123,7 +124,12 @@ export default function approval(pi: ExtensionAPI) {
     const command = commandOf(event);
     const was = command === undefined ? undefined : blocked.get(command);
     if (box && was) {
-      return { reason: `The sandbox blocked it (${was}); run it outside?` };
+      const action = blockedAction(was, homedir());
+      return {
+        reason: action
+          ? `The sandbox stopped it from trying to ${action}. Run it outside the sandbox?`
+          : `The sandbox blocked it (${was}). Run it outside the sandbox?`,
+      };
     }
     const { input, place } = await judged(event.input, ctx.cwd);
     const parse = await bashParser;
