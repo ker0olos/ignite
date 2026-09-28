@@ -69,6 +69,8 @@ export type Session = {
     getCommand(name: string): unknown;
   };
   dispose(): void;
+  /** Set when the saved model never became available and another was used. */
+  modelWarning?: string;
 };
 
 /** pi-mcp-adapter's status snapshot (its MCP_STATUS_EVENT), as far as it's read. */

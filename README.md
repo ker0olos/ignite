@@ -47,10 +47,11 @@ if an update fails to start.
 
 ## Make it yours
 
-Updates skip a clone with local edits or commits, so rather than editing it,
-copy the file you want to change into `~/.ignition/mods` at the same path and
-edit the copy there, or ask the agent to. Updates never touch your copies. If Ignition fails to start with
-them, it starts without them and tells you.
+Ignition is yours to reshape. Want a different look, a feature it's missing,
+or an agent that works your way? Just ask the agent and it makes the change.
+Your changes live in `~/.ignition/mods` and survive every update, so you keep
+getting new features without losing your own. And if a change ever breaks
+something, Ignition still opens and lets you know.
 
 ## Develop
 

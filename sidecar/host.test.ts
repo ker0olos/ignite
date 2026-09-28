@@ -729,6 +729,17 @@ describe("sessions", () => {
     });
   });
 
+  it("passes on why the saved model wasn't used", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime, async () => ({
+      ...fakeSession(),
+      modelWarning: "opus isn't available; using Mini.",
+    }));
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    expect(responses()[0]).toMatchObject({
+      data: { modelWarning: "opus isn't available; using Mini." },
+    });
+  });
+
   it("reports a session with no model yet", async () => {
     const { request, responses } = setup(fakeRuntime().runtime, async () => ({
       ...fakeSession(),

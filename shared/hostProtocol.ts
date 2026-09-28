@@ -102,6 +102,8 @@ export type OpenedSession = SessionState & {
   messages: AgentMessage[];
   /** Whether pi is still working on it. */
   running: boolean;
+  /** Why the session isn't on the model the user last chose. */
+  modelWarning?: string;
 };
 
 /** How to reach an MCP server: a local command (stdio) or a URL (HTTP). */

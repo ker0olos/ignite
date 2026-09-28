@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@/components/conversation/shared";
 import { highlight } from "@/lib/highlight";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -16,15 +16,20 @@ export function CodeBlock({
   codeThemes: CodeThemes;
 }) {
   const [html, setHtml] = useState<string | null>(null);
+  const requested = useRef(0);
+  const landed = useRef(0);
 
+  // While code streams in, show each newer result instead of cancelling every
+  // one but the last, which would leave it unhighlighted until the stream ends.
   useEffect(() => {
-    let cancelled = false;
+    const n = ++requested.current;
     highlight(code, lang ? `snippet.${lang}` : "snippet.txt", codeThemes).then(
-      (h) => !cancelled && setHtml(h),
+      (h) => {
+        if (n < landed.current) return;
+        landed.current = n;
+        setHtml(h);
+      },
     );
-    return () => {
-      cancelled = true;
-    };
   }, [code, lang, codeThemes]);
 
   return (

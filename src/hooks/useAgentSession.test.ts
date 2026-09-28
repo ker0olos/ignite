@@ -256,6 +256,20 @@ describe("useAgentSession", () => {
       });
     });
 
+    it("warns when the saved model wasn't available", async () => {
+      const { result } = await opened({
+        ...STATE,
+        modelWarning: "opus isn't available; using Mini.",
+      });
+      expect(result.current.transcript?.items).toEqual([
+        {
+          kind: "notice",
+          text: "opus isn't available; using Mini.",
+          error: true,
+        },
+      ]);
+    });
+
     it("follows the session's events and errors", async () => {
       const { host, result } = await opened();
       host.emit({ type: "session_event", event: { type: "agent_start" } });
