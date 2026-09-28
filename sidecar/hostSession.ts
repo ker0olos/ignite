@@ -118,6 +118,7 @@ export async function open(
     trust: ctx.trust.get(cwd),
     messages: s.messages,
     running: s.isStreaming,
+    ...(s.modelWarning && { modelWarning: s.modelWarning }),
   };
 }
 

@@ -10,7 +10,7 @@ import type {
 import type { ImageContent } from "../../shared/agentTypes";
 import type { HostClient } from "@/lib/piHost";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
-import { fromHistory, type Transcript } from "@/lib/transcript";
+import { applyError, fromHistory, type Transcript } from "@/lib/transcript";
 
 type Opened = {
   host: HostClient;
@@ -23,14 +23,19 @@ type Opened = {
 const toOpened = (
   host: HostClient,
   folder: string,
-  { messages, running, trust, ...state }: OpenedSession,
-): Opened => ({
-  host,
-  folder,
-  state,
-  trust,
-  transcript: fromHistory(messages, running),
-});
+  { messages, running, trust, modelWarning, ...state }: OpenedSession,
+): Opened => {
+  const transcript = fromHistory(messages, running);
+  return {
+    host,
+    folder,
+    state,
+    trust,
+    transcript: modelWarning
+      ? applyError(transcript, modelWarning)
+      : transcript,
+  };
+};
 
 /** What the app sees of the session; every field is null until it's open. */
 const view = (s: Opened | null) => ({

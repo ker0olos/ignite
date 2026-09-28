@@ -138,22 +138,45 @@ function sameModel(
   return !!a && a.provider === b.provider && a.id === b.id;
 }
 
-// pi picks the model before extensions register their providers, so a saved
-// claude-bridge model isn't found yet; pick it again now that it is.
-async function reselectModel(
-  runtime: ModelRuntime,
+const MODEL_WAIT_MS = 10_000;
+
+// Read before createAgentSession, which saves its own fallback into an empty
+// session and would hide this choice.
+function savedModel(
   sessionManager: SessionManager,
   settingsManager: SettingsManager,
-  session: AgentSession,
-): Promise<void> {
+) {
   const saved = sessionManager.buildSessionContext().model;
   const provider = saved?.provider ?? settingsManager.getDefaultProvider();
   const id = saved?.modelId ?? settingsManager.getDefaultModel();
-  if (!provider || !id) return;
-  const wanted = runtime.getModel(provider, id);
+  return provider && id ? { provider, id } : undefined;
+}
+
+async function whenAvailable(provider: string, id: string) {
+  const deadline = Date.now() + MODEL_WAIT_MS;
+  for (;;) {
+    const model = runtime.getModel(provider, id);
+    if (model && (await runtime.checkAuth(provider))) return model;
+    if (Date.now() >= deadline) return undefined;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
+// pi picks the model before extensions register their providers, so a saved
+// claude-bridge model isn't found yet; wait for it, then pick it again.
+/** Returns a warning when the saved model never became available. */
+async function reselectModel(
+  wanted: { provider: string; id: string } | undefined,
+  session: AgentSession,
+): Promise<string | undefined> {
   if (!wanted || sameModel(session.model, wanted)) return;
-  if (!(await runtime.checkAuth(wanted.provider))) return;
-  await session.setModel(wanted);
+  const model = await whenAvailable(wanted.provider, wanted.id);
+  if (model) {
+    await session.setModel(model);
+    return;
+  }
+  const using = session.model ? `; using ${session.model.name}` : "";
+  return `${wanted.id} isn't available${using}.`;
 }
 
 // Continues the folder's last conversation, saved under agentDir/sessions.
@@ -203,6 +226,7 @@ async function openSession(
   });
   await resourceLoader.reload();
   const sessionManager = await sessionFor(cwd, fresh);
+  const wanted = savedModel(sessionManager, settingsManager);
   const { session } = await createAgentSession({
     cwd,
     agentDir,
@@ -211,7 +235,6 @@ async function openSession(
     settingsManager,
     resourceLoader,
   });
-  await reselectModel(runtime, sessionManager, settingsManager, session);
   // Starts extensions (session_start), as pi's own modes do; the error
   // listener also makes a reload start them again.
   await session.bindExtensions({
@@ -219,7 +242,9 @@ async function openSession(
     onError: ({ extensionPath, event, error }) =>
       process.stderr.write(`pi-host: ${extensionPath} (${event}): ${error}\n`),
   });
-  return session as unknown as Session;
+  const modelWarning = await reselectModel(wanted, session);
+  if (modelWarning) log(modelWarning);
+  return Object.assign(session as unknown as Session, { modelWarning });
 }
 
 // pi's types are pi-ai's; they match Runtime and Session structurally.
