@@ -1,5 +1,5 @@
-import { ProjectRow } from "@/components/app/ProjectRow";
 import { RecentRow } from "@/components/app/RecentRow";
+import { OpenProjects } from "@/components/sidebar/OpenProjects";
 import type { ProjectStatus } from "../../../shared/hostProtocol";
 
 const MAX_RECENT = 8;
@@ -34,19 +34,14 @@ export function ProjectList({
       <h2 className="mt-2 mb-1 px-2 text-xs font-medium text-muted-foreground">
         Open
       </h2>
-      <div className="flex flex-col gap-1">
-        {projects.map((path) => (
-          <ProjectRow
-            key={path}
-            path={path}
-            home={home}
-            status={statuses[path]}
-            selected={path === folder}
-            onSelect={() => (path === folder ? onShowFiles() : onSelect(path))}
-            onClose={() => onClose(path)}
-          />
-        ))}
-      </div>
+      <OpenProjects
+        folder={folder}
+        projects={projects}
+        statuses={statuses}
+        home={home}
+        onSelect={(path) => (path === folder ? onShowFiles() : onSelect(path))}
+        onClose={onClose}
+      />
       {recent.length > 0 && (
         <>
           <h2 className="mt-4 mb-1 px-2 text-xs font-medium text-muted-foreground">
