@@ -7,8 +7,10 @@ export function SettingsRow({ item }: { item: Item }) {
       {item.icon}
       <div className="min-w-0 flex-1">
         <p className="text-[13px]">{item.title}</p>
-        {item.description && (
-          <p className="text-xs text-muted-foreground">{item.description}</p>
+        {(item.description || item.hint) && (
+          <p className="text-xs text-muted-foreground">
+            {item.description} {item.hint}
+          </p>
         )}
       </div>
       {item.control && <div className="ml-3 shrink-0">{item.control}</div>}

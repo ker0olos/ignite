@@ -7,6 +7,7 @@ import {
   SETTINGS_DIR,
   SETTINGS_FILE,
   loadSettings,
+  nextTextSize,
   onSettingsChange,
   saveSettings,
   type Settings,
@@ -68,9 +69,20 @@ describe("loadSettings", () => {
     expect((await loadSettings()).conversation).toEqual({
       show_thinking: true,
       ask_questions: true,
+      text_size: 14,
     });
     fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
     expect((await loadSettings()).conversation.ask_questions).toBe(false);
+  });
+
+  it.each([
+    ["16", 16],
+    ["99", 24],
+    ["2", 10],
+    ['"big"', 14],
+  ])("reads text_size = %s as %d", async (value, size) => {
+    fakeFs({ [FILE]: `[conversation]\ntext_size = ${value}\n` });
+    expect((await loadSettings()).conversation.text_size).toBe(size);
   });
 
   it("reads memory settings", async () => {
@@ -173,7 +185,7 @@ describe("saveSettings", () => {
     theme: "github-dark",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false },
-    conversation: { show_thinking: true, ask_questions: false },
+    conversation: { show_thinking: true, ask_questions: false, text_size: 15 },
     memory: { cmem: false },
     approval: { mode: "manual" },
     subagents: { enabled: false, max: 4 },
@@ -198,5 +210,22 @@ describe("saveSettings", () => {
     await onSettingsChange((s) => received.push(s));
     await saveSettings(next);
     expect(received).toEqual([next]);
+  });
+});
+
+describe("nextTextSize", () => {
+  it.each([
+    ["=", 13, 14],
+    ["+", 13, 14],
+    ["-", 13, 12],
+    ["0", 20, 14],
+    ["=", 24, 24],
+    ["-", 10, 10],
+  ])("%s from %d gives %d", (key, size, next) => {
+    expect(nextTextSize(size, key)).toBe(next);
+  });
+
+  it("ignores other keys", () => {
+    expect(nextTextSize(13, "k")).toBeNull();
   });
 });
