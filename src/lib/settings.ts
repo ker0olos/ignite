@@ -28,6 +28,8 @@ export type Settings = {
   approval: { mode: ApprovalMode };
   /** `max`: how many subagents one conversation may start. */
   subagents: { enabled: boolean; max: number };
+  /** `keep_awake`: the Mac doesn't idle-sleep while an agent works (macOS only). */
+  power: { keep_awake: boolean };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -41,6 +43,7 @@ export const DEFAULT_SETTINGS: Settings = {
   memory: { cmem: true },
   approval: { mode: "auto" },
   subagents: { enabled: true, max: 2 },
+  power: { keep_awake: true },
 };
 
 const readApproval = (
@@ -106,6 +109,7 @@ export async function loadSettings(): Promise<Settings> {
     memory: { ...DEFAULT_SETTINGS.memory, ...raw.memory },
     approval: readApproval(raw.approval),
     subagents: readSubagents(raw.subagents),
+    power: { ...DEFAULT_SETTINGS.power, ...raw.power },
   };
 }
 

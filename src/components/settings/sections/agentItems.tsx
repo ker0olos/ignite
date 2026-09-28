@@ -14,13 +14,15 @@ const MAX_SUBAGENTS = [1, 2, 3, 4, 5, 6].map((n) => ({
   label: String(n),
 }));
 
-/** Settings rows for how the agent works: questions and subagents. */
+/** Settings rows for how the agent works: questions, subagents, keeping the Mac awake. */
 export function agentItems({
   settings,
   onChange,
+  isMac = navigator.userAgent.includes("Mac"),
 }: {
   settings: Settings;
   onChange: (settings: Settings) => void;
+  isMac?: boolean;
 }): Item[] {
   return [
     {
@@ -90,5 +92,24 @@ export function agentItems({
         </Select>
       ),
     },
+    ...(isMac
+      ? ([
+          {
+            section: "Agent",
+            title: "Keep Mac awake",
+            description:
+              "Your Mac doesn't sleep while the agent works. It can once the agent finishes or waits for you.",
+            keywords: "sleep caffeinate awake power battery",
+            control: (
+              <Switch
+                checked={settings.power.keep_awake}
+                onCheckedChange={(keep_awake) =>
+                  onChange({ ...settings, power: { keep_awake } })
+                }
+              />
+            ),
+          },
+        ] satisfies Item[])
+      : []),
   ];
 }
