@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { HostMessage } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
-import { useProjects } from "./useProjects";
+import { byFolder, useProjects } from "./useProjects";
 
 function fakeHost() {
   const listeners = new Set<(m: HostMessage) => void>();
@@ -21,13 +21,17 @@ function fakeHost() {
 
 const a = { cwd: "/a", running: true, waiting: false };
 const b = { cwd: "/b", running: false, waiting: true };
+const agents = [
+  { ...a, session: "a1" },
+  { ...b, session: "b1" },
+];
 
 describe("useProjects", () => {
   it("reports what each open project is doing", () => {
     const host = fakeHost();
     const { result } = renderHook(() => useProjects(host, ["/a", "/b"]));
     expect(result.current).toEqual({});
-    host.emit({ type: "projects", projects: [a, b] });
+    host.emit({ type: "agents", agents });
     expect(result.current).toEqual({ "/a": a, "/b": b });
   });
 
@@ -36,7 +40,7 @@ describe("useProjects", () => {
     const { rerender } = renderHook(({ open }) => useProjects(host, open), {
       initialProps: { open: ["/a", "/b"] },
     });
-    host.emit({ type: "projects", projects: [a, b] });
+    host.emit({ type: "agents", agents });
     expect(host.request).not.toHaveBeenCalled();
     rerender({ open: ["/b"] });
     expect(host.request).toHaveBeenCalledExactlyOnceWith({
@@ -51,8 +55,21 @@ describe("useProjects", () => {
       ({ host }) => useProjects(host, ["/a"]),
       { initialProps: { host: first as HostClient | null } },
     );
-    first.emit({ type: "projects", projects: [a] });
+    first.emit({ type: "agents", agents: [agents[0]] });
     rerender({ host: null });
     expect(result.current).toEqual({});
+  });
+});
+
+describe("byFolder", () => {
+  it("shows a folder working or waiting if any of its conversations is", () => {
+    const [x, y] = [
+      { cwd: "/a", session: "1", running: true, waiting: false },
+      { cwd: "/a", session: "2", running: false, waiting: true },
+    ];
+    expect(byFolder([x, y])).toEqual({
+      "/a": { cwd: "/a", running: true, waiting: true },
+    });
+    expect(byFolder([y, x])).toEqual(byFolder([x, y]));
   });
 });

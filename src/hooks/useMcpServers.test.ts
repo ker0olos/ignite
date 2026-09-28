@@ -66,7 +66,7 @@ describe("useMcpServers", () => {
     const connected = { ...docs, status: "connected" as const };
     host.emit({ type: "mcp_servers", servers: [connected] });
     expect(result.current.servers).toEqual([connected]);
-    host.emit({ type: "session_error", error: "x" });
+    host.emit({ type: "session_error", session: "s1", error: "x" });
     expect(result.current.servers).toEqual([connected]);
   });
 

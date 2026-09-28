@@ -84,8 +84,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   host.ts                Request dispatch; createHost builds the handler
   hostTypes.ts           Shared types and HostContext; per-function context instead of closures
   hostAuth.ts            Provider sign-in (status, interaction, login)
-  hostSession.ts         One session per open folder, kept running while hidden (sessionState, setModel, open, close, prompt)
-  hostProjects.ts        Tells the app which open folders are working or waiting (pushProjects)
+  hostSession.ts         Open conversations, several per folder, kept running while hidden (sessionState, setModel, open, clear, close, list, prompt)
+  hostProjects.ts        Tells the app which open conversations are working or waiting (pushProjects)
+  sessionStore.ts        pi's saved conversations per folder: the latest, new ids, the list
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
@@ -119,6 +120,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
 demo/tempo/, demo/pantry/ Sample projects `npm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
+shared/validation.ts     Checks on typed API keys and MCP servers (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
 shared/questions.ts      ask_user's questions and answers (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
@@ -173,8 +175,11 @@ Two places hold persisted data:
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **pi's own files** in `~/.ignition/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
-  default for new sessions, and `sessions/`, one JSONL conversation per
-  folder that reopening the folder continues, and `trust.json`, pi's
+  default for new sessions, and `sessions/`, one JSONL file per
+  conversation. A folder can have several open at once, each keyed by pi's
+  session id; reopening the folder continues the most recent. Clearing
+  starts a new one and keeps the old file (written at once, not on the first
+  reply as pi would, so a reopen doesn't bring the old one back). And `trust.json`, pi's
   per-folder project trust decisions. The model list and each model's effort levels
   always come from pi; the app never hard-codes them. `mcp.json` holds the
   MCP servers in pi-mcp-adapter's documented format (`mcpServers`, optional

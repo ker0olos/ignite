@@ -3,7 +3,6 @@
  * stdin/stdout using shared/hostProtocol.ts. Stdout carries protocol messages
  * only; logs go to stderr. Closing stdin ends the process.
  */
-import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +23,7 @@ import { codexBackend, withCodexLogin } from "./credentials.ts";
 import { createHeadlessUI } from "./headlessUI.ts";
 import { createHost } from "./host.ts";
 import type { McpStatusSnapshot, Runtime, Session } from "./hostTypes.ts";
+import { sessionFor, sessions } from "./sessionStore.ts";
 import { createLineSplitter } from "./lines.ts";
 import { findImports, PRESETS } from "./mcpCatalog.ts";
 import { createMcpStore, MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";
@@ -145,21 +145,11 @@ async function reselectModel(
   return `${wanted.id} isn't available${using}.`;
 }
 
-// Continues the folder's last conversation, saved under agentDir/sessions.
-// Clearing deletes all of them, or reopening would pick up an older one.
-async function sessionFor(cwd: string, fresh: boolean) {
-  if (!fresh) return SessionManager.continueRecent(cwd);
-  for (const { path } of await SessionManager.list(cwd)) {
-    await rm(path, { force: true });
-  }
-  return SessionManager.create(cwd);
-}
-
 async function openSession(
   cwd: string,
+  id: string,
   onMcpStatus: (snapshot: McpStatusSnapshot) => void,
   onApproval: (ask: ApprovalAsk) => void,
-  fresh: boolean,
 ): Promise<Session> {
   // pi-claude-bridge runs Claude Code in process.cwd() (pi doesn't pass the
   // session's), which would load this app's CLAUDE.md instead of the folder's.
@@ -198,7 +188,7 @@ async function openSession(
     ],
   });
   await resourceLoader.reload();
-  const sessionManager = await sessionFor(cwd, fresh);
+  const sessionManager = sessionFor(cwd, id);
   const wanted = savedModel(sessionManager, settingsManager);
   const { session } = await createAgentSession({
     cwd,
@@ -260,6 +250,7 @@ const host = createHost(
   runtime as unknown as Runtime,
   send,
   openSession,
+  sessions,
   { claudeCode: createClaudeCode(), usesCodexLogin: logins.usesCodex },
   createMcpStore(join(agentDir, "mcp.json")),
   { presets: PRESETS, findImports: (cwd) => findImports(homedir(), cwd) },

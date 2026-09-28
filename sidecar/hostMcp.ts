@@ -30,11 +30,11 @@ export async function rememberSignIns(
 /** Lists all servers with their current status. */
 export async function mcpServers(ctx: HostContext): Promise<McpServer[]> {
   const saved = await ctx.mcpStore.list();
-  const project = shown(ctx);
-  if (!project?.session) return saved;
+  const agent = shown(ctx);
+  if (!agent?.session) return saved;
   const signIns = await ctx.mcpStore.needsSignIn();
   const known = (name: string) => {
-    const status = MCP_STATUSES[project.mcpStatus.get(name) ?? ""] ?? "idle";
+    const status = MCP_STATUSES[agent.mcpStatus.get(name) ?? ""] ?? "idle";
     return status === "idle" && signIns.includes(name) ? "needs-auth" : status;
   };
   // ponytail: a failed server shows no reason; the adapter only logs it to
@@ -70,9 +70,9 @@ export async function changeMcp(
   check: string[] = [],
 ) {
   await edit();
-  for (const project of ctx.projects.values()) {
-    const s = project.session;
-    if (s?.isStreaming) project.reloadWhenSettled = true;
+  for (const agent of ctx.agents.values()) {
+    const s = agent.session;
+    if (s?.isStreaming) agent.reloadWhenSettled = true;
     else await s?.reload();
   }
   const s = shown(ctx)?.session;

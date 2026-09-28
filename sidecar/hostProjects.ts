@@ -1,12 +1,13 @@
 import type { HostContext } from "./hostTypes.ts";
 
-/** Tells the app which open folders are working or waiting. */
+/** Tells the app which open conversations are working or waiting. */
 export function pushProjects(ctx: HostContext) {
-  const projects = [...ctx.projects].map(([cwd, p]) => ({
-    cwd,
-    running: p.running,
-    waiting: p.approvals.size > 0,
+  const agents = [...ctx.agents.values()].map((a) => ({
+    cwd: a.cwd,
+    session: a.id,
+    running: a.running,
+    waiting: a.approvals.size > 0,
   }));
-  ctx.send({ type: "projects", projects });
-  void ctx.keepAwake(projects.some((p) => p.running && !p.waiting));
+  ctx.send({ type: "agents", agents });
+  void ctx.keepAwake(agents.some((a) => a.running && !a.waiting));
 }

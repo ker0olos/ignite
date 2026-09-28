@@ -1,27 +1,39 @@
 import { useEffect, useState } from "react";
-import type { ProjectStatus } from "../../shared/hostProtocol";
+import type { AgentStatus, ProjectStatus } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
+
+/** Folds a folder's conversations into one status: working or waiting if any is. */
+export function byFolder(agents: AgentStatus[]): Record<string, ProjectStatus> {
+  const folders: Record<string, ProjectStatus> = {};
+  for (const { cwd, running, waiting } of agents) {
+    const f = folders[cwd];
+    folders[cwd] = {
+      cwd,
+      running: running || !!f?.running,
+      waiting: waiting || !!f?.waiting,
+    };
+  }
+  return folders;
+}
 
 /**
  * What each project open in this window is doing, as the sidecar reports it.
- * Keeps the sidecar in step with `projects`: one closed here ends its session.
+ * Keeps the sidecar in step with `projects`: one closed here ends its sessions.
  */
 export function useProjects(host: HostClient | null, projects: string[]) {
   const [pushed, setPushed] = useState<{
     host: HostClient;
-    statuses: ProjectStatus[];
+    agents: AgentStatus[];
   } | null>(null);
-  const statuses = pushed?.host === host ? pushed.statuses : [];
-  const closed = statuses
-    .map((s) => s.cwd)
-    .filter((cwd) => !projects.includes(cwd));
+  const statuses = byFolder(pushed?.host === host ? pushed.agents : []);
+  const closed = Object.keys(statuses).filter((cwd) => !projects.includes(cwd));
   const closedKey = JSON.stringify(closed);
 
   useEffect(() => {
     if (!host) return;
     return host.subscribe((message) => {
-      if (message.type === "projects") {
-        setPushed({ host, statuses: message.projects });
+      if (message.type === "agents") {
+        setPushed({ host, agents: message.agents });
       }
     });
   }, [host]);
@@ -33,5 +45,5 @@ export function useProjects(host: HostClient | null, projects: string[]) {
     }
   }, [host, closedKey]);
 
-  return Object.fromEntries(statuses.map((s) => [s.cwd, s]));
+  return statuses;
 }

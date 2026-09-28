@@ -28,6 +28,9 @@ Settings: global `settings.json` deep-merged under project `.pi/settings.json`.
   `AgentSessionRuntime`; `runtime.session` changes afterwards: re-subscribe.
 - Since 0.87 the `SessionManager` is authoritative for context; assigning
   `agent.state.messages` does not replace history.
+- A new session's file is written only on its first assistant reply
+  (`_persist`). In this app `sidecar/sessionStore.ts` writes the header at
+  once and reopens the file, so `continueRecent` picks an empty new session.
 
 ## Tools
 

@@ -215,7 +215,7 @@ export function useAgentSession(
     error,
     send,
     stop,
-    /** Deletes the folder's saved conversations and starts an empty one. */
+    /** Starts an empty conversation; the old one stays saved. */
     clear,
     /** Approves or denies a tool call that waits for the user. */
     answer,

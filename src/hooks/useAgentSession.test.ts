@@ -111,6 +111,7 @@ describe("useAgentSession", () => {
     await waitFor(() => expect(result.current.state).toEqual(STATE));
     host.emit({
       type: "approval_request",
+      session: "s1",
       request: { toolCallId: "c1", reason: "Kills processes by name" },
     });
     expect(result.current.transcript?.tools.c1).toEqual({
@@ -130,7 +131,11 @@ describe("useAgentSession", () => {
     const host = fakeHost(async () => STATE);
     const { result } = renderHook(() => useAgentSession(host, "/work", null));
     await waitFor(() => expect(result.current.state).toEqual(STATE));
-    host.emit({ type: "approval_request", request: { toolCallId: "q1" } });
+    host.emit({
+      type: "approval_request",
+      session: "s1",
+      request: { toolCallId: "q1" },
+    });
     const answers = [{ question: "Where?", choices: [{ answer: "SQLite" }] }];
     act(() => result.current.answer("q1", true, answers));
     expect(result.current.transcript?.tools.q1.approval).toBeUndefined();
@@ -295,7 +300,11 @@ describe("useAgentSession", () => {
       rerender({ folder: "/work" });
       expect(result.current.transcript?.items).toHaveLength(1);
       // Events before the sidecar answers may still belong to the last folder.
-      host.emit({ type: "session_event", event: { type: "agent_start" } });
+      host.emit({
+        type: "session_event",
+        session: "s1",
+        event: { type: "agent_start" },
+      });
       expect(result.current.transcript?.running).toBe(false);
       act(() => answer({ ...STATE, messages: [hello, hello] }));
       await waitFor(() =>
@@ -341,13 +350,18 @@ describe("useAgentSession", () => {
 
     it("follows the session's events and errors", async () => {
       const { host, result } = await opened();
-      host.emit({ type: "session_event", event: { type: "agent_start" } });
+      host.emit({
+        type: "session_event",
+        session: "s1",
+        event: { type: "agent_start" },
+      });
       expect(result.current.transcript?.running).toBe(true);
       host.emit({
         type: "session_event",
+        session: "s1",
         event: { type: "message_start", message: hello },
       });
-      host.emit({ type: "session_error", error: "No model." });
+      host.emit({ type: "session_error", session: "s1", error: "No model." });
       host.emit({ type: "ready" });
       expect(result.current.transcript).toEqual({
         items: [

@@ -5,6 +5,7 @@ import type {
   AuthMethod,
   AuthPromptData,
   HostMessage,
+  SavedSession,
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import type { ApprovalAsk } from "./approvalExtension.ts";
@@ -79,19 +80,35 @@ export type McpStatusSnapshot = {
 };
 
 /**
- * Opens a folder's session; the adapter's status snapshots go to
- * `onMcpStatus`, tool calls waiting for the user to `onApproval`.
+ * Opens the folder's saved conversation `id`, or starts an empty one with
+ * that id; the adapter's status snapshots go to `onMcpStatus`, tool calls
+ * waiting for the user to `onApproval`.
  */
 export type OpenSession = (
   cwd: string,
+  id: string,
   onMcpStatus: (snapshot: McpStatusSnapshot) => void,
   onApproval: (ask: ApprovalAsk) => void,
-  /** Deletes the folder's saved conversations and starts an empty one. */
-  fresh: boolean,
 ) => Promise<Session>;
 
-/** A folder's session, which keeps running while the app shows another folder. */
-export type Project = {
+/** The conversations pi saved for each folder. */
+export type SessionStore = {
+  /** The folder's most recently used conversation, or a new id if it has none. */
+  latest(cwd: string): string;
+  /** A new conversation id. */
+  create(): string;
+  /** The folder's conversations with at least one message, newest first. */
+  list(cwd: string): Promise<Omit<SavedSession, "open">[]>;
+};
+
+/**
+ * One conversation in a folder, which keeps running while the app shows
+ * another; a folder can have several.
+ */
+export type Agent = {
+  /** pi's session id, which names its saved conversation. */
+  id: string;
+  cwd: string;
   /** Null while it opens. */
   session: Session | null;
   opening: Promise<Session>;
@@ -114,16 +131,19 @@ export type HostContext = {
   runtime: Runtime;
   send: (m: HostMessage) => void;
   openSession: OpenSession;
+  sessions: SessionStore;
   local: LocalLogins;
   mcpStore: McpStore;
   catalog: McpCatalogSource;
   trust: TrustStore;
   /** Active sign-in's abort controller, or null. */
   activeLogin: AbortController | null;
-  /** Every folder opened in this window, by path. */
-  projects: Map<string, Project>;
-  /** The folder the app shows. */
-  cwd: string | null;
+  /** Every conversation open in this window, by id. */
+  agents: Map<string, Agent>;
+  /** The conversation the app shows. */
+  shown: string | null;
+  /** Each folder's last shown conversation, shown again when the folder is. */
+  lastShown: Map<string, string>;
   /** Removed servers whose saved sign-in still has to be deleted. */
   pendingSignOuts: Set<string>;
   /** URL servers being connected once after setup. */
@@ -136,14 +156,19 @@ export type HostContext = {
   keepAwake: (working: boolean) => Promise<void>;
 };
 
-/** Returns the shown folder's project, if it has one. */
-export function shown(ctx: HostContext): Project | undefined {
-  return ctx.cwd === null ? undefined : ctx.projects.get(ctx.cwd);
+/** Returns the conversation the app shows, if any. */
+export function shown(ctx: HostContext): Agent | undefined {
+  return ctx.shown === null ? undefined : ctx.agents.get(ctx.shown);
 }
 
-/** Returns the shown folder's session once it's open; throws if none is. */
+/** Whether the app shows this conversation. */
+export function isShown(ctx: HostContext, agent: Agent): boolean {
+  return shown(ctx) === agent;
+}
+
+/** Returns the shown conversation's session once it's open; throws if none is. */
 export async function current(ctx: HostContext): Promise<Session> {
-  const project = shown(ctx);
-  if (!project) throw new Error("No folder is open.");
-  return project.opening;
+  const agent = shown(ctx);
+  if (!agent) throw new Error("No folder is open.");
+  return agent.opening;
 }

@@ -1,11 +1,11 @@
-import {
-  apiKeyProblem,
-  type AuthPromptData,
-  type AuthEventData,
-  type AuthMethod,
-  type ProviderStatus,
-  type ProviderId,
+import type {
+  AuthPromptData,
+  AuthEventData,
+  AuthMethod,
+  ProviderStatus,
+  ProviderId,
 } from "../shared/hostProtocol.ts";
+import { apiKeyProblem } from "../shared/validation.ts";
 import type { HostContext } from "./hostTypes.ts";
 
 /** Checks authentication status for a provider. */

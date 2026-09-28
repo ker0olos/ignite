@@ -8,13 +8,22 @@ import {
   shown,
   type HostContext,
   type OpenSession,
+  type SessionStore,
   type Runtime,
   type LocalLogins,
   type McpCatalogSource,
 } from "./hostTypes.ts";
 import type { McpStore } from "./mcpConfig.ts";
 import { status, statusWithin, login } from "./hostAuth.ts";
-import { sessionState, setModel, open, close, prompt } from "./hostSession.ts";
+import {
+  sessionState,
+  setModel,
+  open,
+  clear,
+  close,
+  list,
+  prompt,
+} from "./hostSession.ts";
 import { mcpServers, changeMcp } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
@@ -47,13 +56,11 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     await ctx.runtime.logout(r.provider);
     return status(ctx, r.provider);
   },
-  open_session: (ctx, r) => open(ctx, r.cwd),
-  close_session: (ctx, r) => close(ctx, r.cwd),
-  clear_session: async (ctx) => {
-    const cwd = ctx.cwd;
-    await current(ctx);
-    return open(ctx, cwd!, true);
-  },
+  open_session: (ctx, r) => open(ctx, r.cwd, r.session),
+  new_session: (ctx, r) => open(ctx, r.cwd, ctx.sessions.create()),
+  close_session: (ctx, r) => close(ctx, r.cwd, r.session),
+  clear_session: (ctx) => clear(ctx),
+  list_sessions: (ctx, r) => list(ctx, r.cwd),
   session_state: (ctx) => sessionState(ctx),
   set_model: (ctx, r) => setModel(ctx, r.provider, r.modelId),
   set_thinking_level: async (ctx, r) => {
@@ -65,9 +72,9 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     return undefined;
   },
   abort: async (ctx) => {
-    const project = shown(ctx);
+    const agent = shown(ctx);
     const s = await current(ctx);
-    if (project) denyAll(ctx, project);
+    if (agent) denyAll(ctx, agent);
     await s.abort();
     return undefined;
   },
@@ -107,6 +114,7 @@ export function createHost(
   runtime: Runtime,
   send: (m: HostMessage) => void,
   openSession: OpenSession,
+  sessions: SessionStore,
   local: LocalLogins,
   mcpStore: McpStore,
   catalog: McpCatalogSource,
@@ -117,13 +125,15 @@ export function createHost(
     runtime,
     send,
     openSession,
+    sessions,
     local,
     mcpStore,
     catalog,
     trust,
     activeLogin: null,
-    projects: new Map(),
-    cwd: null,
+    agents: new Map(),
+    shown: null,
+    lastShown: new Map(),
     pendingSignOuts: new Set(),
     checking: new Set(),
     prompts: new Map(),

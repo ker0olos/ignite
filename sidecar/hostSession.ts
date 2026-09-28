@@ -6,9 +6,11 @@ import type {
 import type { ImageContent, SessionEvent } from "../shared/agentTypes.ts";
 import {
   current,
+  isShown,
+  shown,
+  type Agent,
   type HostContext,
   type McpStatusSnapshot,
-  type Project,
   type Session,
 } from "./hostTypes.ts";
 import { describeError, toWireEvent } from "./wire.ts";
@@ -64,127 +66,157 @@ export async function setModel(
   return sessionState(ctx);
 }
 
+// The last one shown, else another one open, else the most recent saved one.
+function reopened(ctx: HostContext, cwd: string): string {
+  const last = ctx.lastShown.get(cwd);
+  if (last && ctx.agents.has(last)) return last;
+  const open = [...ctx.agents.values()].find((a) => a.cwd === cwd);
+  return open?.id ?? ctx.sessions.latest(cwd);
+}
+
 /**
- * Shows a folder, starting its session (an empty one if `fresh`) unless it's
- * already open, and returns its state.
+ * Shows one of a folder's conversations (see `reopened` when `id` is unset),
+ * starting its session unless it's already open, and returns its state.
  */
 export async function open(
   ctx: HostContext,
   cwd: string,
-  fresh = false,
+  id = reopened(ctx, cwd),
 ): Promise<OpenedSession> {
-  if (fresh) await close(ctx, cwd);
-  ctx.cwd = cwd;
+  ctx.shown = id;
+  ctx.lastShown.set(cwd, id);
   ctx.checking.clear();
-  const project = ctx.projects.get(cwd) ?? start(ctx, cwd, fresh);
-  const s = await project.opening;
+  const agent = ctx.agents.get(id) ?? start(ctx, cwd, id);
+  const s = await agent.opening;
   // ponytail: kept in memory; a sidecar restart before a folder opens drops them.
   for (const name of [...ctx.pendingSignOuts]) {
     ctx.pendingSignOuts.delete(name);
     await signOut(ctx, name);
   }
   // Servers now have a status, even before the adapter reports any.
-  if (ctx.cwd === cwd) await pushMcpServers(ctx);
+  if (isShown(ctx, agent)) await pushMcpServers(ctx);
   return {
     ...(await sessionState(ctx, s)),
+    session: id,
     trust: ctx.trust.get(cwd),
     messages: s.messages,
     running: s.isStreaming,
     ...(s.modelWarning && { modelWarning: s.modelWarning }),
-    approvals: [...project.approvals.values()].map((ask) => ask.request),
+    approvals: [...agent.approvals.values()].map((ask) => ask.request),
   };
 }
 
-function start(ctx: HostContext, cwd: string, fresh: boolean): Project {
-  const project = {
+/** Ends the shown conversation and shows an empty one in its place; the old one stays saved. */
+export async function clear(ctx: HostContext): Promise<OpenedSession> {
+  const agent = shown(ctx);
+  await current(ctx);
+  await end(ctx, agent!);
+  return open(ctx, agent!.cwd, ctx.sessions.create());
+}
+
+function start(ctx: HostContext, cwd: string, id: string): Agent {
+  const agent = {
+    id,
+    cwd,
     session: null,
     running: false,
     unsubscribe: () => {},
     mcpStatus: new Map(),
     reloadWhenSettled: false,
     approvals: new Map(),
-  } as Omit<Project, "opening"> as Project;
-  const live = () => ctx.projects.get(cwd) === project;
+  } as Omit<Agent, "opening"> as Agent;
+  const live = () => ctx.agents.get(id) === agent;
   // Status can arrive while the session is still opening; it's kept, and
   // pushed with the servers once the session is open.
   const onMcpStatus = async (snapshot: McpStatusSnapshot) => {
     if (!live()) return;
-    project.mcpStatus = new Map(
-      snapshot.servers.map((m) => [m.name, m.status]),
-    );
-    const push = !!project.session && ctx.cwd === cwd;
+    agent.mcpStatus = new Map(snapshot.servers.map((m) => [m.name, m.status]));
+    const push = !!agent.session && isShown(ctx, agent);
     await rememberSignIns(ctx, snapshot);
     if (push) await pushMcpServers(ctx);
   };
   // A closed session's tool calls can't be answered any more.
   const onApproval = (ask: ApprovalAsk) =>
-    live() ? askApproval(ctx, cwd, project, ask) : ask.answer(false);
-  ctx.projects.set(cwd, project);
+    live() ? askApproval(ctx, agent, ask) : ask.answer(false);
+  ctx.agents.set(id, agent);
   pushProjects(ctx);
-  project.opening = ctx
-    .openSession(cwd, onMcpStatus, onApproval, fresh)
+  agent.opening = ctx
+    .openSession(cwd, id, onMcpStatus, onApproval)
     .then((s) => {
-      project.session = s;
-      project.running = s.isStreaming;
-      project.unsubscribe = s.subscribe((event) =>
-        follow(ctx, cwd, project, event),
-      );
+      agent.session = s;
+      agent.running = s.isStreaming;
+      agent.unsubscribe = s.subscribe((event) => follow(ctx, agent, event));
       return s;
     })
     .catch((error: unknown) => {
-      if (live()) ctx.projects.delete(cwd);
+      if (live()) ctx.agents.delete(id);
       throw error;
     });
-  return project;
+  return agent;
 }
 
-// Only the shown folder's events reach the app; the rest keep running unseen.
-function follow(
-  ctx: HostContext,
-  cwd: string,
-  project: Project,
-  event: SessionEvent,
-) {
-  const shown = ctx.projects.get(cwd) === project && ctx.cwd === cwd;
-  if (shown) ctx.send({ type: "session_event", event: toWireEvent(event) });
+// Only the shown conversation's events reach the app; the rest keep running unseen.
+function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
+  if (isShown(ctx, agent)) {
+    ctx.send({
+      type: "session_event",
+      session: agent.id,
+      event: toWireEvent(event),
+    });
+  }
   if (event.type === "agent_start" || event.type === "agent_settled") {
-    project.running = event.type === "agent_start";
+    agent.running = event.type === "agent_start";
     pushProjects(ctx);
   }
-  if (event.type === "agent_settled" && project.reloadWhenSettled) {
-    project.reloadWhenSettled = false;
-    project.session?.reload().catch((error: unknown) => {
-      if (ctx.cwd === cwd) {
-        ctx.send({ type: "session_error", error: describeError(error) });
+  if (event.type === "agent_settled" && agent.reloadWhenSettled) {
+    agent.reloadWhenSettled = false;
+    agent.session?.reload().catch((error: unknown) => {
+      if (isShown(ctx, agent)) {
+        ctx.send({
+          type: "session_error",
+          session: agent.id,
+          error: describeError(error),
+        });
       }
     });
   }
 }
 
-/** Ends a folder's session, denying its waiting tool calls. */
-export async function close(ctx: HostContext, cwd: string) {
-  const project = ctx.projects.get(cwd);
-  if (!project) return;
-  ctx.projects.delete(cwd);
-  denyAll(ctx, project);
+/** Ends conversation `id`, or all of the folder's, denying their waiting tool calls. */
+export async function close(ctx: HostContext, cwd: string, id?: string) {
+  const closing = [...ctx.agents.values()].filter(
+    (a) => a.cwd === cwd && (id === undefined || a.id === id),
+  );
+  await Promise.all(closing.map((a) => end(ctx, a)));
+}
+
+async function end(ctx: HostContext, agent: Agent) {
+  ctx.agents.delete(agent.id);
+  denyAll(ctx, agent);
   pushProjects(ctx);
-  const s = await project.opening.catch(() => null);
+  const s = await agent.opening.catch(() => null);
   if (!s) return;
-  project.unsubscribe();
+  agent.unsubscribe();
   // dispose() alone leaves extensions running (MCP server processes).
   await s.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
   s.dispose();
 }
 
+/** The folder's saved conversations, newest first, marking the open ones. */
+export async function list(ctx: HostContext, cwd: string) {
+  const saved = await ctx.sessions.list(cwd);
+  return saved.map((s) => ({ ...s, open: ctx.agents.has(s.id) }));
+}
+
 // pi's prompt() resolves when the whole run ends; the app follows the run
 // through events, so only a failure is reported here.
-/** Sends a prompt to the open session. */
+/** Sends a prompt to the shown conversation. */
 export async function prompt(
   ctx: HostContext,
   text: string,
   images?: ImageContent[],
 ) {
-  const cwd = ctx.cwd;
+  const agent = shown(ctx);
   const s = await current(ctx);
   // A message sent mid-run steers the agent rather than waiting for the end.
   const options = {
@@ -192,8 +224,12 @@ export async function prompt(
     ...(images?.length ? { images } : {}),
   };
   s.prompt(text, options).catch((error: unknown) => {
-    if (ctx.cwd === cwd) {
-      ctx.send({ type: "session_error", error: describeError(error) });
+    if (isShown(ctx, agent!)) {
+      ctx.send({
+        type: "session_error",
+        session: agent!.id,
+        error: describeError(error),
+      });
     }
   });
 }

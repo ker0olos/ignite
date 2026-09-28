@@ -19,6 +19,7 @@ import type {
   OpenSession,
   Runtime,
   Session,
+  SessionStore,
 } from "./hostTypes.ts";
 import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
 import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
@@ -173,6 +174,16 @@ function fakeTrust(initial: Record<string, ProjectTrust> = {}) {
   };
 }
 
+/** A fake session store: each folder's latest is "<cwd>:saved"; new ids count up. */
+function fakeSessions(saved: Awaited<ReturnType<SessionStore["list"]>> = []) {
+  let next = 0;
+  return {
+    latest: (cwd: string) => `${cwd}:saved`,
+    create: () => `new${++next}`,
+    list: vi.fn(async () => saved),
+  } satisfies SessionStore;
+}
+
 /** Wires a host to a fake runtime and records everything it sends. */
 function setup(
   runtime: Runtime,
@@ -182,12 +193,14 @@ function setup(
   mcpStore: McpStore = fakeMcpStore(),
   catalog: McpCatalogSource = { presets: [], findImports: async () => [] },
   trust: TrustStore = fakeTrust(),
+  sessions: SessionStore = fakeSessions(),
 ) {
   const sent: HostMessage[] = [];
   const host = createHost(
     runtime,
     (m) => sent.push(m),
     openSession,
+    sessions,
     { claudeCode, usesCodexLogin },
     mcpStore,
     catalog,
@@ -694,9 +707,9 @@ describe("sessions", () => {
     await request({ id: 1, type: "open_session", cwd: "/work" });
     expect(openSession).toHaveBeenCalledWith(
       "/work",
+      "/work:saved",
       expect.any(Function),
       expect.any(Function),
-      false,
     );
     expect(responses()[0]).toEqual({
       type: "response",
@@ -707,6 +720,7 @@ describe("sessions", () => {
         model: opus,
         thinkingLevel: "low",
         thinkingLevels: ["off", "low", "high"],
+        session: "/work:saved",
         trust: "untrusted",
         messages: [],
         running: false,
@@ -779,9 +793,9 @@ describe("sessions", () => {
       reason: "quit",
     });
     expect(order).toEqual(["shutdown", "dispose"]);
-    expect(await waitFor(sent, "projects")).toEqual({
-      type: "projects",
-      projects: [],
+    expect(await waitFor(sent, "agents")).toEqual({
+      type: "agents",
+      agents: [],
     });
   });
 
@@ -815,18 +829,21 @@ describe("sessions", () => {
     const { request, sent } = setup(fakeRuntime().runtime, async () => session);
     await request({ id: 1, type: "open_session", cwd: "/a" });
     session.emit({ type: "agent_start" });
-    expect(await waitFor(sent, "projects")).toEqual({
-      type: "projects",
-      projects: [{ cwd: "/a", running: true, waiting: false }],
+    expect(await waitFor(sent, "agents")).toEqual({
+      type: "agents",
+      agents: [
+        { cwd: "/a", session: "/a:saved", running: true, waiting: false },
+      ],
     });
     session.emit({ type: "agent_settled" });
-    expect(await waitFor(sent, "projects")).toMatchObject({
-      projects: [{ running: false }],
+    expect(await waitFor(sent, "agents")).toMatchObject({
+      agents: [{ running: false }],
     });
   });
 
-  it("clears by reopening the open folder fresh, and needs one open", async () => {
-    const openSession = vi.fn<OpenSession>(async () => fakeSession());
+  it("clears by ending the shown conversation and starting a new one", async () => {
+    const first = fakeSession();
+    const openSession = vi.fn<OpenSession>(async () => first);
     const { request, responses } = setup(fakeRuntime().runtime, openSession);
     await request({ id: 1, type: "clear_session" });
     expect(responses()[0]).toMatchObject({
@@ -834,12 +851,134 @@ describe("sessions", () => {
       error: "No folder is open.",
     });
     await request({ id: 2, type: "open_session", cwd: "/work" });
+    openSession.mockImplementation(async () => fakeSession());
     await request({ id: 3, type: "clear_session" });
-    expect(openSession.mock.calls.map((c) => [c[0], c[3]])).toEqual([
-      ["/work", false],
-      ["/work", true],
+    expect(openSession.mock.calls.map((c) => [c[0], c[1]])).toEqual([
+      ["/work", "/work:saved"],
+      ["/work", "new1"],
     ]);
-    expect(responses()[2]).toMatchObject({ id: 3, ok: true });
+    expect(first.dispose).toHaveBeenCalled();
+    expect(responses()[2]).toMatchObject({
+      id: 3,
+      ok: true,
+      data: { session: "new1" },
+    });
+    // Reopening the folder shows the new conversation, not the saved one.
+    await request({ id: 4, type: "open_session", cwd: "/work" });
+    expect(responses()[3]).toMatchObject({ data: { session: "new1" } });
+  });
+
+  it("runs several conversations in one folder", async () => {
+    const [a, b] = [fakeSession(), fakeSession()];
+    const sessions = [a, b];
+    const { request, responses, sent } = setup(
+      fakeRuntime().runtime,
+      async () => sessions.shift()!,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "new_session", cwd: "/work" });
+    expect(responses()[1]).toMatchObject({ data: { session: "new1" } });
+    sent.splice(0);
+    a.emit({ type: "agent_start" });
+    b.emit({ type: "agent_start" });
+    // Only the shown one's events reach the app; both report working.
+    expect(sent.filter((m) => m.type === "session_event")).toEqual([
+      {
+        type: "session_event",
+        session: "new1",
+        event: { type: "agent_start" },
+      },
+    ]);
+    expect(sent.at(-1)).toMatchObject({
+      agents: [
+        { session: "/work:saved", running: true },
+        { session: "new1", running: true },
+      ],
+    });
+    await request({ id: 3, type: "prompt", text: "hi" });
+    expect(b.prompt).toHaveBeenCalled();
+    expect(a.prompt).not.toHaveBeenCalled();
+    await request({
+      id: 4,
+      type: "open_session",
+      cwd: "/work",
+      session: "/work:saved",
+    });
+    expect(responses().at(-1)).toMatchObject({
+      data: { session: "/work:saved" },
+    });
+    await request({ id: 5, type: "prompt", text: "again" });
+    expect(a.prompt).toHaveBeenCalled();
+  });
+
+  it("shows a folder's last shown conversation when it's shown again", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime);
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "new_session", cwd: "/work" });
+    await request({ id: 3, type: "open_session", cwd: "/other" });
+    await request({ id: 4, type: "open_session", cwd: "/work" });
+    expect(responses()[3]).toMatchObject({ data: { session: "new1" } });
+    // Once it's closed, another of the folder's open ones.
+    await request({
+      id: 5,
+      type: "close_session",
+      cwd: "/work",
+      session: "new1",
+    });
+    await request({ id: 6, type: "open_session", cwd: "/work" });
+    expect(responses()[5]).toMatchObject({ data: { session: "/work:saved" } });
+  });
+
+  it("closes one conversation, or all of a folder's", async () => {
+    const [a, b, c] = [fakeSession(), fakeSession(), fakeSession()];
+    const sessions = [a, b, c];
+    const { request, sent } = setup(fakeRuntime().runtime, async () =>
+      sessions.shift()!,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "new_session", cwd: "/work" });
+    await request({ id: 3, type: "open_session", cwd: "/other" });
+    await request({
+      id: 4,
+      type: "close_session",
+      cwd: "/work",
+      session: "new1",
+    });
+    expect(b.dispose).toHaveBeenCalled();
+    expect(a.dispose).not.toHaveBeenCalled();
+    await request({ id: 5, type: "close_session", cwd: "/work" });
+    expect(a.dispose).toHaveBeenCalled();
+    expect(c.dispose).not.toHaveBeenCalled();
+    expect(await waitFor(sent, "agents")).toMatchObject({
+      agents: [{ cwd: "/other" }],
+    });
+  });
+
+  it("lists the folder's saved conversations, marking the open ones", async () => {
+    const saved = [
+      { id: "/work:saved", title: "Fix it", modified: 2, messageCount: 4 },
+      { id: "old", title: "Before", modified: 1, messageCount: 2 },
+    ];
+    const sessions = fakeSessions(saved);
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      sessions,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work" });
+    await request({ id: 2, type: "list_sessions", cwd: "/work" });
+    expect(sessions.list).toHaveBeenCalledWith("/work");
+    expect(responses()[1]).toMatchObject({
+      data: [
+        { id: "/work:saved", open: true },
+        { id: "old", open: false },
+      ],
+    });
   });
 
   it("switches model through pi, keeping it for the next session", async () => {
@@ -917,9 +1056,14 @@ describe("sessions", () => {
       },
     } as SessionEvent);
     expect(sent.filter((m) => m.type === "session_event")).toEqual([
-      { type: "session_event", event: { type: "agent_start" } },
       {
         type: "session_event",
+        session: "/work:saved",
+        event: { type: "agent_start" },
+      },
+      {
+        type: "session_event",
+        session: "/work:saved",
         event: {
           type: "message_update",
           assistantMessageEvent: {
@@ -1008,6 +1152,7 @@ describe("sessions", () => {
     await request({ id: 2, type: "prompt", text: "Hi" });
     expect(await waitFor(sent, "session_error")).toEqual({
       type: "session_error",
+      session: "/work:saved",
       error: "No model selected.",
     });
   });
@@ -1112,15 +1257,18 @@ describe("project trust", () => {
 });
 
 describe("tool approval", () => {
-  type Ask = Parameters<Parameters<OpenSession>[2]>[0];
+  type Ask = Parameters<Parameters<OpenSession>[3]>[0];
   /** Opens a session and returns a way to ask as the extension does. */
   const opened = async () => {
     let onApproval: (ask: Ask) => void = () => {};
     const session = fakeSession();
-    const host = setup(fakeRuntime().runtime, async (_cwd, _status, ask) => {
-      onApproval = ask;
-      return session;
-    });
+    const host = setup(
+      fakeRuntime().runtime,
+      async (_cwd, _id, _status, ask) => {
+        onApproval = ask;
+        return session;
+      },
+    );
     await host.request({ id: 1, type: "open_session", cwd: "/work" });
     const ask = (toolCallId: string, reason?: string) => {
       const answer = vi.fn();
@@ -1135,6 +1283,7 @@ describe("tool approval", () => {
     const answer = ask("t1", "Pipes text into a shell");
     expect(sent).toContainEqual({
       type: "approval_request",
+      session: "/work:saved",
       request: { toolCallId: "t1", reason: "Pipes text into a shell" },
     });
     await request({
@@ -1186,10 +1335,15 @@ describe("tool approval", () => {
       expect.objectContaining({ type: "approval_request" }),
     );
     expect(sent).toContainEqual({
-      type: "projects",
-      projects: [
-        { cwd: "/work", running: false, waiting: true },
-        { cwd: "/other", running: false, waiting: false },
+      type: "agents",
+      agents: [
+        { cwd: "/work", session: "/work:saved", running: false, waiting: true },
+        {
+          cwd: "/other",
+          session: "/other:saved",
+          running: false,
+          waiting: false,
+        },
       ],
     });
     await request({ id: 3, type: "open_session", cwd: "/work" });
@@ -1242,7 +1396,7 @@ describe("MCP servers", () => {
     const session = fakeSession();
     const store = fakeMcpStore(servers);
     const listeners: ((snapshot: McpStatusSnapshot) => void)[] = [];
-    const openSession: OpenSession = async (_cwd, onMcpStatus) => {
+    const openSession: OpenSession = async (_cwd, _id, onMcpStatus) => {
       listeners.push(onMcpStatus);
       return listeners.length === 1 ? session : fakeSession();
     };
@@ -1362,7 +1516,7 @@ describe("MCP servers", () => {
   });
 
   it("keeps status the adapter reports while the session is opening", async () => {
-    const openSession: OpenSession = async (_cwd, onMcpStatus) => {
+    const openSession: OpenSession = async (_cwd, _id, onMcpStatus) => {
       onMcpStatus({ servers: [{ name: "docs", status: "connected" }] });
       return fakeSession();
     };
@@ -1604,6 +1758,7 @@ describe("MCP servers", () => {
     session.emit({ type: "agent_settled" } as SessionEvent);
     expect(await waitFor(sent, "session_error")).toEqual({
       type: "session_error",
+      session: "/work:saved",
       error: "extension broke",
     });
   });

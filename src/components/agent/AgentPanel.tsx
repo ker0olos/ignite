@@ -37,7 +37,6 @@ export function AgentPanel({
     <>
       {!loading && (
         <ConversationMenu
-          folder={folder}
           running={running}
           onClear={() => void session.clear()}
         />

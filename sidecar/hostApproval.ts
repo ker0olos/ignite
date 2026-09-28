@@ -1,18 +1,17 @@
 import type { QuestionAnswer } from "../shared/questions.ts";
 import type { ApprovalAsk } from "./approvalExtension.ts";
-import type { HostContext, Project } from "./hostTypes.ts";
+import { isShown, type Agent, type HostContext } from "./hostTypes.ts";
 import { pushProjects } from "./hostProjects.ts";
 
-/** Keeps a tool call's question, and passes it on if its folder is shown. */
-export function askApproval(
-  ctx: HostContext,
-  cwd: string,
-  project: Project,
-  ask: ApprovalAsk,
-) {
-  project.approvals.set(ask.request.toolCallId, ask);
-  if (ctx.cwd === cwd) {
-    ctx.send({ type: "approval_request", request: ask.request });
+/** Keeps a tool call's question, and passes it on if its conversation is shown. */
+export function askApproval(ctx: HostContext, agent: Agent, ask: ApprovalAsk) {
+  agent.approvals.set(ask.request.toolCallId, ask);
+  if (isShown(ctx, agent)) {
+    ctx.send({
+      type: "approval_request",
+      session: agent.id,
+      request: ask.request,
+    });
   }
   pushProjects(ctx);
 }
@@ -24,19 +23,19 @@ export function answerApproval(
   approved: boolean,
   answers?: QuestionAnswer[],
 ) {
-  for (const project of ctx.projects.values()) {
-    const ask = project.approvals.get(toolCallId);
+  for (const agent of ctx.agents.values()) {
+    const ask = agent.approvals.get(toolCallId);
     if (!ask) continue;
-    project.approvals.delete(toolCallId);
+    agent.approvals.delete(toolCallId);
     ask.answer(approved, answers);
     pushProjects(ctx);
   }
 }
 
-/** Denies a project's waiting tool calls: its run stopped or it closed. */
-export function denyAll(ctx: HostContext, project: Project) {
-  if (!project.approvals.size) return;
-  project.approvals.forEach((ask) => ask.answer(false));
-  project.approvals.clear();
+/** Denies a conversation's waiting tool calls: its run stopped or it closed. */
+export function denyAll(ctx: HostContext, agent: Agent) {
+  if (!agent.approvals.size) return;
+  agent.approvals.forEach((ask) => ask.answer(false));
+  agent.approvals.clear();
   pushProjects(ctx);
 }

@@ -101,6 +101,8 @@ export type ApprovalRequest = {
 
 /** What opening a folder's session returns: its settings and its history. */
 export type OpenedSession = SessionState & {
+  /** The conversation's id; a folder can have several. */
+  session: string;
   trust: ProjectTrust;
   /** The conversation so far, when an earlier session is continued. */
   messages: AgentMessage[];
@@ -118,6 +120,21 @@ export type ProjectStatus = {
   running: boolean;
   /** A tool call waits for the user. */
   waiting: boolean;
+};
+
+/** One of a folder's open conversations. */
+export type AgentStatus = ProjectStatus & { session: string };
+
+/** A conversation pi saved for a folder. */
+export type SavedSession = {
+  id: string;
+  /** Its name, or else its first message. */
+  title: string;
+  /** Milliseconds since the epoch. */
+  modified: number;
+  messageCount: number;
+  /** Whether it's open in this window. */
+  open: boolean;
 };
 
 /** How to reach an MCP server: a local command (stdio) or a URL (HTTP). */
@@ -218,12 +235,22 @@ export type HostRequest =
     }
   | { id: number; type: "cancel_login" }
   | { id: number; type: "logout"; provider: ProviderId }
-  /** Shows a folder, starting its session unless it's already open. */
-  | { id: number; type: "open_session"; cwd: string }
-  /** Ends a folder's session; its waiting tool calls are denied. */
-  | { id: number; type: "close_session"; cwd: string }
-  /** Deletes the open folder's saved conversations and starts an empty one. */
+  /**
+   * Shows one of a folder's conversations, opening it unless it's open.
+   * Without `session`: the one last shown, else the most recent saved one.
+   */
+  | { id: number; type: "open_session"; cwd: string; session?: string }
+  /** Starts another, empty conversation in the folder and shows it. */
+  | { id: number; type: "new_session"; cwd: string }
+  /**
+   * Ends a conversation, or without `session` all of the folder's; their
+   * waiting tool calls are denied. Saved conversations stay.
+   */
+  | { id: number; type: "close_session"; cwd: string; session?: string }
+  /** Ends the shown conversation and starts an empty one in its place; it stays saved. */
   | { id: number; type: "clear_session" }
+  /** The folder's saved conversations, newest first. */
+  | { id: number; type: "list_sessions"; cwd: string }
   | { id: number; type: "session_state" }
   | { id: number; type: "set_model"; provider: string; modelId: string }
   | { id: number; type: "set_thinking_level"; level: ThinkingLevel }
@@ -281,8 +308,10 @@ export type HostResponses = {
   cancel_login: undefined;
   logout: ProviderStatus;
   open_session: OpenedSession;
+  new_session: OpenedSession;
   close_session: undefined;
   clear_session: OpenedSession;
+  list_sessions: SavedSession[];
   session_state: SessionState;
   set_model: SessionState;
   set_thinking_level: SessionState;
@@ -313,53 +342,14 @@ export type HostMessage =
   | { type: "auth_prompt"; promptId: number; prompt: AuthPromptData }
   /** The flow no longer needs this prompt (e.g. the browser callback won). */
   | { type: "auth_prompt_closed"; promptId: number }
-  | { type: "session_event"; event: SessionEvent }
+  | { type: "session_event"; session: string; event: SessionEvent }
   /** A run pi accepted but couldn't carry out (e.g. no model or credentials). */
-  | { type: "session_error"; error: string }
+  | { type: "session_error"; session: string; error: string }
   /** An extension reported a problem (e.g. an MCP sign-in that failed). */
   | { type: "extension_error"; message: string }
   /** A tool call waits for the user (see ApprovalMode). */
-  | { type: "approval_request"; request: ApprovalRequest }
-  /** A project started or finished a run, or began or stopped waiting. */
-  | { type: "projects"; projects: ProjectStatus[] }
+  | { type: "approval_request"; session: string; request: ApprovalRequest }
+  /** A conversation opened, closed, started or finished a run, or began or stopped waiting. */
+  | { type: "agents"; agents: AgentStatus[] }
   /** The MCP servers changed (a status, or a saved change). */
   | { type: "mcp_servers"; servers: McpServer[] };
-
-/**
- * pi interprets stored keys: a leading `!` runs a shell command and `$NAME`
- * reads an env var. A key typed by the user must stay literal, so refuse
- * those (real provider keys never contain them). Returns a message, or null.
- */
-export function apiKeyProblem(key: string): string | null {
-  const trimmed = key.trim();
-  if (!trimmed) return "Enter an API key.";
-  if (trimmed.startsWith("!") || trimmed.includes("$")) {
-    return "That doesn't look like an API key.";
-  }
-  if (/\s/.test(trimmed)) return "API keys can't contain spaces.";
-  return null;
-}
-
-/**
- * Checks a server before it is saved; `taken` holds the other servers' names.
- * Names become part of tool names, so they stay simple. Returns a message, or
- * null.
- */
-export function mcpServerProblem(
-  name: string,
-  config: McpServerConfig,
-  taken: readonly string[],
-): string | null {
-  if (!name) return "Enter a name.";
-  if (!/^[A-Za-z0-9_-]+$/.test(name)) {
-    return "Use only letters, numbers, - and _ in the name.";
-  }
-  if (taken.includes(name)) return `There is already a server named ${name}.`;
-  if (config.type === "stdio") {
-    return config.command.trim() ? null : "Enter a command.";
-  }
-  return URL.canParse(config.url) &&
-    ["http:", "https:"].includes(new URL(config.url).protocol)
-    ? null
-    : "Enter an http:// or https:// URL.";
-}
