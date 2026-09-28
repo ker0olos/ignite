@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { MoreLines } from "@/components/conversation/MoreLines";
-import { PREVIEW_LINES } from "@/components/conversation/shared";
+import { PREVIEW_CHARS, PREVIEW_LINES } from "@/components/conversation/shared";
+import { outputPreview } from "@/lib/toolRows";
 import { cn } from "@/lib/utils";
 
 /** Plain-text tool output, truncated to a few lines with an expand button. */
@@ -12,8 +13,9 @@ export function OutputPreview({
   error?: boolean;
 }) {
   const [all, setAll] = useState(false);
-  const lines = text.replace(/\n+$/, "").split("\n");
-  const shown = all ? lines : lines.slice(0, PREVIEW_LINES);
+  const preview = all
+    ? { text: text.replace(/\n+$/, ""), hidden: 0 }
+    : outputPreview(text, PREVIEW_LINES, PREVIEW_CHARS);
   return (
     <div>
       <pre
@@ -22,13 +24,10 @@ export function OutputPreview({
           error && "text-destructive",
         )}
       >
-        {shown.join("\n")}
+        {preview.text}
       </pre>
-      {lines.length > shown.length && (
-        <MoreLines
-          count={lines.length - shown.length}
-          onClick={() => setAll(true)}
-        />
+      {preview.hidden > 0 && (
+        <MoreLines count={preview.hidden} onClick={() => setAll(true)} />
       )}
     </div>
   );

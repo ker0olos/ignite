@@ -133,3 +133,21 @@ export function diffSummary(lines: DiffLine[]) {
   const text = parts.join(", ") || "no changes";
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+/** The start of a tool's output, cut at `maxLines` lines or `maxChars` characters, and how many lines it hides. */
+export function outputPreview(
+  text: string,
+  maxLines: number,
+  maxChars: number,
+) {
+  const lines = text.replace(/\n+$/, "").split("\n");
+  const head = lines.slice(0, maxLines).join("\n");
+  if (head.length <= maxChars) {
+    return {
+      text: head,
+      hidden: lines.length - Math.min(lines.length, maxLines),
+    };
+  }
+  const cut = head.slice(0, maxChars);
+  return { text: `${cut}…`, hidden: lines.length - cut.split("\n").length + 1 };
+}
