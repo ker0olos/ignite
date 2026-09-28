@@ -9,13 +9,20 @@ import { onStoreChange, store } from "@/lib/store";
 const isMainWindow = getCurrentWindow().label === "main";
 
 /**
- * Recently opened folders (shared by all windows, most recent first) and the
- * folder open in this window. In demo mode the main window opens
+ * Recently opened folders (shared by all windows, most recent first), the
+ * projects open in this window and the one it shows. In demo mode the main window opens
  * `demoFolder` and doesn't remember it.
  */
 export function useFolders(demoFolder = DEMO_FOLDER) {
   const [folders, setFolders] = useState<string[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
+  const [projects, setProjects] = useState<string[]>([]);
+  const currentRef = useRef(current);
+  const projectsRef = useRef(projects);
+  useEffect(() => {
+    currentRef.current = current;
+    projectsRef.current = projects;
+  }, [current, projects]);
   const [loaded, setLoaded] = useState(false);
   // Read by handlers that fire outside React's render cycle (menu, drag and drop).
   const foldersRef = useRef<string[]>([]);
@@ -24,6 +31,7 @@ export function useFolders(demoFolder = DEMO_FOLDER) {
     foldersRef.current = next;
     setFolders(next);
     setCurrent((c) => stillListed(c, next));
+    setProjects((o) => o.filter((p) => next.includes(p)));
   }, []);
 
   const save = useCallback(
@@ -37,6 +45,7 @@ export function useFolders(demoFolder = DEMO_FOLDER) {
   const addFolder = useCallback(
     (path: string) => {
       save(withRecent(foldersRef.current, path));
+      setProjects((o) => (o.includes(path) ? o : [...o, path]));
       setCurrent(path);
     },
     [save],
@@ -47,14 +56,21 @@ export function useFolders(demoFolder = DEMO_FOLDER) {
     if (path) addFolder(path);
   }, [addFolder]);
 
-  const closeFolder = useCallback(() => setCurrent(null), []);
+  /** Closes a project, by default the shown one, which gives way to the last one opened. */
+  const closeFolder = useCallback((path = currentRef.current) => {
+    const rest = projectsRef.current.filter((p) => p !== path);
+    setProjects(rest);
+    setCurrent((c) => (c === path ? (rest.at(-1) ?? null) : c));
+  }, []);
   const clearFolders = useCallback(() => save([]), [save]);
 
   useEffect(() => {
     store.then(async (s) => {
       show((await s.get<string[]>("folders")) ?? []);
       if (isMainWindow) {
-        setCurrent(demoFolder ?? (await s.get<string>("current")) ?? null);
+        const restored = demoFolder ?? (await s.get<string>("current"));
+        setCurrent(restored ?? null);
+        setProjects(restored ? [restored] : []);
       }
       setLoaded(true);
     });
@@ -76,6 +92,8 @@ export function useFolders(demoFolder = DEMO_FOLDER) {
   return {
     loaded,
     folders,
+    /** Projects open in this window, in the order they were opened. */
+    projects,
     current,
     addFolder,
     openFolder,

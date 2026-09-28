@@ -5,6 +5,7 @@ import {
 } from "../shared/hostProtocol.ts";
 import {
   current,
+  shown,
   type HostContext,
   type OpenSession,
   type Runtime,
@@ -13,7 +14,7 @@ import {
 } from "./hostTypes.ts";
 import type { McpStore } from "./mcpConfig.ts";
 import { status, statusWithin, login } from "./hostAuth.ts";
-import { sessionState, setModel, open, prompt } from "./hostSession.ts";
+import { sessionState, setModel, open, close, prompt } from "./hostSession.ts";
 import { mcpServers, changeMcp } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
@@ -45,23 +46,27 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     return status(ctx, r.provider);
   },
   open_session: (ctx, r) => open(ctx, r.cwd),
-  clear_session: (ctx) => {
-    if (!ctx.cwd) throw new Error("No folder is open.");
-    return open(ctx, ctx.cwd, true);
+  close_session: (ctx, r) => close(ctx, r.cwd),
+  clear_session: async (ctx) => {
+    const cwd = ctx.cwd;
+    await current(ctx);
+    return open(ctx, cwd!, true);
   },
   session_state: (ctx) => sessionState(ctx),
   set_model: (ctx, r) => setModel(ctx, r.provider, r.modelId),
-  set_thinking_level: (ctx, r) => {
-    current(ctx).setThinkingLevel(r.level, { persist: true });
+  set_thinking_level: async (ctx, r) => {
+    (await current(ctx)).setThinkingLevel(r.level, { persist: true });
     return sessionState(ctx);
   },
-  prompt: (ctx, r) => {
-    prompt(ctx, r.text, r.images);
+  prompt: async (ctx, r) => {
+    await prompt(ctx, r.text, r.images);
     return undefined;
   },
   abort: async (ctx) => {
-    denyAll(ctx);
-    await current(ctx).abort();
+    const project = shown(ctx);
+    const s = await current(ctx);
+    if (project) denyAll(ctx, project);
+    await s.abort();
     return undefined;
   },
   mcp_list: (ctx) => mcpServers(ctx),
@@ -111,15 +116,10 @@ export function createHost(
     catalog,
     trust,
     activeLogin: null,
-    session: null,
+    projects: new Map(),
     cwd: null,
-    approvals: new Map(),
-    unsubscribe: () => {},
-    mcpStatus: new Map(),
     pendingSignOuts: new Set(),
     checking: new Set(),
-    reloadWhenSettled: false,
-    opens: 0,
     prompts: new Map(),
     nextPromptId: 1,
   };

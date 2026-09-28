@@ -3,7 +3,7 @@ import {
   MCP_SIGN_OUT_COMMAND,
   MCP_COPY_SIGN_IN_COMMAND,
 } from "./mcpConfig.ts";
-import { current, type HostContext } from "./hostTypes.ts";
+import { current, shown, type HostContext } from "./hostTypes.ts";
 import { mcpServers } from "./hostMcp.ts";
 
 /**
@@ -11,7 +11,7 @@ import { mcpServers } from "./hostMcp.ts";
  * Without a session to run it in, it runs when the next folder opens.
  */
 export async function signOut(ctx: HostContext, name: string) {
-  const s = ctx.session;
+  const s = shown(ctx)?.session;
   if (s?.extensionRunner.getCommand(MCP_SIGN_OUT_COMMAND)) {
     try {
       await s.prompt(`/${MCP_SIGN_OUT_COMMAND} ${name}`, {});
@@ -37,7 +37,7 @@ export async function signIn(ctx: HostContext, name: string) {
 }
 
 async function usableServer(ctx: HostContext, name: string) {
-  const s = current(ctx);
+  const s = await current(ctx);
   const server = (await ctx.mcpStore.list()).find((m) => m.name === name);
   if (!server) throw new Error(`There is no server named ${name}.`);
   if (!server.enabled) throw new Error(`Turn ${name} on first.`);
@@ -51,7 +51,7 @@ async function usableServer(ctx: HostContext, name: string) {
 // A refused keychain or no saved sign-in leaves the server to sign in as usual.
 /** Copies a server's saved sign-in from Claude Code's keychain. */
 export async function copySignIn(ctx: HostContext, name: string) {
-  const s = ctx.session;
+  const s = shown(ctx)?.session;
   if (!s?.extensionRunner.getCommand(MCP_COPY_SIGN_IN_COMMAND)) return;
   await s.prompt(`/${MCP_COPY_SIGN_IN_COMMAND} ${name}`, {}).catch(() => {});
 }

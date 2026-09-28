@@ -16,7 +16,7 @@ src/                     React frontend (almost all logic lives here)
   index.css              Tailwind + shadcn theme tokens, code-view styles
   components/            UI only, one component per file; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
-    app/                 Welcome screen, Workspace layout, file tabs, pane handle
+    app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle
     sidebar/             Title-bar strip + file tree, MCP sign-in warning banner
     files/               Lazy directory tree, read-only syntax-highlighted file view
     agent/               Conversation area wiring, task composer, model/effort/approval menus, trust prompt
@@ -26,7 +26,8 @@ src/                     React frontend (almost all logic lives here)
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
     providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos
   hooks/
-    useFolders.ts        Recent folders + this window's open folder
+    useFolders.ts        Recent folders, this window's open projects and the shown one
+    useProjects.ts       Each open project's status (working, waiting); ends closed ones' sessions
     useSettings.ts       settings.toml, synced across windows; applies theme
     useFolderDrop.ts     Drag-and-drop folders onto the window
     useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
@@ -74,7 +75,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   host.ts                Request dispatch; createHost builds the handler
   hostTypes.ts           Shared types and HostContext; per-function context instead of closures
   hostAuth.ts            Provider sign-in (status, interaction, login)
-  hostSession.ts         The open folder's session (sessionState, setModel, open, prompt)
+  hostSession.ts         One session per open folder, kept running while hidden (sessionState, setModel, open, close, prompt)
+  hostProjects.ts        Tells the app which open folders are working or waiting (pushProjects)
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
@@ -169,8 +171,9 @@ last into every session) handles `tool_call`: `lib/approvalPolicy.ts` decides
 whether the call waits, the question goes to the host over pi's event bus
 (`app/approval`) and on to the app as `approval_request`, and the tool row
 shows Approve / Deny, answered with `approval_answer`. A denied call returns
-`{ block: true, reason }` to the model; stopping the run or opening another
-folder denies what's waiting. **Manual** asks for every tool call (built-in,
+`{ block: true, reason }` to the model; stopping the run or closing the
+folder denies what's waiting. A hidden folder's question waits until it's
+shown again. **Manual** asks for every tool call (built-in,
 MCP, everything); approved commands run as is. **Auto** asks for bash
 commands on the denylist in `lib/dangerousCommands.ts` and for file tools
 whose resolved path (symlinks followed) is outside the open folder. Every

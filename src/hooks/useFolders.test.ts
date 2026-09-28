@@ -75,6 +75,46 @@ describe("useFolders", () => {
     });
   });
 
+  describe("open projects", () => {
+    it("keeps each opened folder open, including the restored one", async () => {
+      const { result } = await setup({ saved: savedState });
+      expect(result.current.projects).toEqual(["/b"]);
+      act(() => result.current.addFolder("/a"));
+      act(() => result.current.addFolder("/b"));
+      expect(result.current.projects).toEqual(["/b", "/a"]);
+    });
+
+    it("closes a hidden project, keeping the shown one", async () => {
+      const { result } = await setup({ saved: savedState });
+      act(() => result.current.addFolder("/a"));
+      act(() => result.current.closeFolder("/b"));
+      expect(result.current.current).toBe("/a");
+      expect(result.current.projects).toEqual(["/a"]);
+    });
+
+    it("shows the last opened project after closing the shown one", async () => {
+      const { result } = await setup({
+        saved: { folders: ["/a", "/b", "/c"] },
+      });
+      act(() => result.current.addFolder("/a"));
+      act(() => result.current.addFolder("/b"));
+      act(() => result.current.addFolder("/c"));
+      act(() => result.current.addFolder("/b"));
+      act(() => result.current.closeFolder());
+      expect(result.current.current).toBe("/c");
+      act(() => result.current.closeFolder());
+      act(() => result.current.closeFolder());
+      expect(result.current.current).toBeNull();
+      expect(result.current.projects).toEqual([]);
+    });
+
+    it("closes projects dropped from the recent list", async () => {
+      const { result } = await setup({ saved: savedState });
+      act(() => result.current.clearFolders());
+      expect(result.current.projects).toEqual([]);
+    });
+  });
+
   describe("openFolder", () => {
     it("adds the folder picked in the dialog", async () => {
       const { result } = await setup({ picked: "/picked" });

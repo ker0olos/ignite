@@ -5,6 +5,7 @@ import { PaneHandle } from "@/components/app/PaneHandle";
 import { AgentPanel } from "@/components/agent/AgentPanel";
 import { FileView } from "@/components/files/FileView";
 import { Sidebar } from "@/components/sidebar/Sidebar";
+import type { ProjectListProps } from "@/components/sidebar/ProjectList";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useTabs } from "@/hooks/useTabs";
@@ -26,6 +27,7 @@ export function Workspace({
   showThinking,
   approval,
   actions,
+  projectList,
   banner,
   session,
 }: {
@@ -37,6 +39,7 @@ export function Workspace({
   showThinking: boolean;
   approval: Approval;
   actions: ReactNode;
+  projectList: ProjectListProps;
   banner?: ReactNode;
   session: ReturnType<typeof useAgentSession>;
 }) {
@@ -70,6 +73,7 @@ export function Workspace({
         <Sidebar
           folder={folder}
           actions={actions}
+          projectList={projectList}
           banner={banner}
           selected={active}
           onOpenFile={openFile}

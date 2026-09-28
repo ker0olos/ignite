@@ -104,6 +104,16 @@ export type OpenedSession = SessionState & {
   running: boolean;
   /** Why the session isn't on the model the user last chose. */
   modelWarning?: string;
+  /** Tool calls asked while the folder wasn't shown, still waiting. */
+  approvals: ApprovalRequest[];
+};
+
+/** A folder open in this window, which may be working while another is shown. */
+export type ProjectStatus = {
+  cwd: string;
+  running: boolean;
+  /** A tool call waits for the user. */
+  waiting: boolean;
 };
 
 /** How to reach an MCP server: a local command (stdio) or a URL (HTTP). */
@@ -201,8 +211,10 @@ export type HostRequest =
     }
   | { id: number; type: "cancel_login" }
   | { id: number; type: "logout"; provider: ProviderId }
-  /** Starts the agent session for a folder, replacing any previous one. */
+  /** Shows a folder, starting its session unless it's already open. */
   | { id: number; type: "open_session"; cwd: string }
+  /** Ends a folder's session; its waiting tool calls are denied. */
+  | { id: number; type: "close_session"; cwd: string }
   /** Deletes the open folder's saved conversations and starts an empty one. */
   | { id: number; type: "clear_session" }
   | { id: number; type: "session_state" }
@@ -251,6 +263,7 @@ export type HostResponses = {
   cancel_login: undefined;
   logout: ProviderStatus;
   open_session: OpenedSession;
+  close_session: undefined;
   clear_session: OpenedSession;
   session_state: SessionState;
   set_model: SessionState;
@@ -286,6 +299,8 @@ export type HostMessage =
   | { type: "extension_error"; message: string }
   /** A tool call waits for the user (see ApprovalMode). */
   | { type: "approval_request"; request: ApprovalRequest }
+  /** A project started or finished a run, or began or stopped waiting. */
+  | { type: "projects"; projects: ProjectStatus[] }
   /** The MCP servers changed (a status, or a saved change). */
   | { type: "mcp_servers"; servers: McpServer[] };
 
