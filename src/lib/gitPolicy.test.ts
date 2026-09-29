@@ -114,31 +114,51 @@ describe("taskRunsAlone", () => {
     expect(alone("commit -m x", "main")).toBe(true);
   });
 
-  it("lets a push of its own branch run", () => {
-    expect(alone("push")).toBe(true);
-    expect(alone("push -u origin")).toBe(true);
-    expect(alone("push -u origin HEAD")).toBe(true);
-    expect(alone("push origin feat/y")).toBe(true);
-    expect(alone("push origin HEAD:feat/y")).toBe(true);
-    expect(alone("-C sub push origin feat/y")).toBe(true);
+  it.each([
+    "push",
+    "push -u origin",
+    "push -u origin HEAD",
+    "push --set-upstream origin feat/x",
+    "push origin feat/x",
+    "push origin HEAD:feat/x",
+    "push origin feat/x:refs/heads/feat/x",
+    "push origin HEAD:refs/heads/feat/x",
+    "-C sub push -u origin feat/x",
+  ])("lets %s of its own branch run", (line) => {
+    expect(alone(line)).toBe(true);
   });
 
   it.each([
+    // Another branch, or a protected one by any name.
+    "push origin feat/y",
     "push origin main",
-    "push origin master",
-    "push origin dev",
     "push origin HEAD:main",
-    "push origin feat/y:dev",
-    "push -f origin feat/y",
+    "push origin HEAD:refs/heads/main",
+    "push origin feat/x:dev",
+    "push origin feat/x main",
+    "push origin :feat/x",
+    "push origin +feat/x",
+    // Options: any at all besides -u shifts, widens or forces the push.
+    "push -o x origin main",
+    "push --repo origin main",
+    "push -f origin feat/x",
+    "push -fu origin feat/x",
     "push --force",
     "push --force-with-lease",
     "push --mirror",
     "push --all",
     "push --tags",
-    "push -d origin feat/y",
-    "push --delete origin feat/y",
+    "push -d origin feat/x",
     "push --prune",
-    "push origin +feat/y",
+    "push --receive-pack=x origin feat/x",
+    // Another remote.
+    "push upstream feat/x",
+    "push https://example.com/r.git feat/x",
+    // Options before the subcommand that run programs or set config.
+    "-c core.fsmonitor=x commit -m x",
+    "-c core.sshCommand=x push",
+    "--git-dir=x push",
+    "commit --template=x",
     "status",
     "reset --hard",
   ])("asks for %s", (line) => {

@@ -81,8 +81,8 @@ function load(task: Task | null = null) {
     if (ask.kind === "update") updates.push(ask.update);
     ask.reply(task);
   });
-  const call = (tool: string, args: string[]) =>
-    tools.get(tool)!("t1", { args }, undefined, undefined, { cwd: repo });
+  const call = (tool: string, args: string[], cwd = repo) =>
+    tools.get(tool)!("t1", { args }, undefined, undefined, { cwd });
   const bash = (command: string) =>
     handlers.get("tool_call")!({ toolName: "bash", input: { command } });
   return { asks, updates, call, bash };
@@ -210,6 +210,14 @@ describe("a task's conversation", () => {
     expect(git("ls-remote", "origin", "feat/x").toString()).toContain(
       "refs/heads/feat/x",
     );
+  });
+
+  it("judges a push by the branch of the repository -C names", async () => {
+    await withRemote();
+    const { asks, call } = load(mine);
+    // From the parent folder, which isn't a repository and has no branch.
+    await call("git", ["-C", "app", "push", "-u", "origin", "feat/x"], home);
+    expect(asks).toEqual([]);
   });
 
   it("still asks to push the default branch", async () => {

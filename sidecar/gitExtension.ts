@@ -115,9 +115,11 @@ async function taskMayRun(
   cwd: string,
 ) {
   if (!(await askTask(pi, "get"))) return false;
+  // The repository the call runs in, which -C may name.
+  const repo = repoOf(args, cwd);
   const [current, remoteHead] = await Promise.all([
-    gitOr(cwd, ["branch", "--show-current"]),
-    gitOr(cwd, ["rev-parse", "--abbrev-ref", "origin/HEAD"]),
+    gitOr(repo, ["branch", "--show-current"]),
+    gitOr(repo, ["rev-parse", "--abbrev-ref", "origin/HEAD"]),
   ]);
   const defaultBranch = remoteHead?.replace(/^origin\//, "") || null;
   return taskRunsAlone(args, current || null, defaultBranch);

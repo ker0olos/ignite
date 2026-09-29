@@ -124,29 +124,56 @@ export function gitApproval(
   const reason = otherReason(args);
   return reason ? { reason } : null;
 }
-// Push options that rewrite or remove what's on the remote, or push more than one branch.
-const PUSH_WIDENS =
-  /^(?:-f|--force|--force-with-lease|--force-if-includes|--mirror|--all|--tags|-d|--delete|--prune)(?:=|$)/;
+// The only options a task's push may carry; anything else asks.
+const TASK_PUSH_OPTIONS = new Set(["-u", "--set-upstream"]);
+
+// Only `-C <dir>` may come before the subcommand (-c and the like run programs).
+const onlyDirs = (globals: string[]) =>
+  globals.every((a, i) => (i % 2 === 0 ? a === "-C" : true)) &&
+  globals.length % 2 === 0;
+
+// `<branch>`, `HEAD` or `src:dst`, where both name `current` (dst never HEAD).
+function ownRefspec(spec: string, current: string) {
+  const parts = spec.split(":");
+  const [src, dst = src === "HEAD" ? current : src] = parts;
+  const own = (ref: string) => ref.replace(/^refs\/heads\//, "") === current;
+  return parts.length <= 2 && (src === "HEAD" || own(src)) && own(dst);
+}
 
 /**
- * Whether a commit or push a task's agent makes runs without asking: any
- * commit (it stays local), and a plain push of its own branch, never
- * `defaultBranch` (or main/master) and never forced.
+ * Whether a commit or push a task's agent makes runs without asking. Only
+ * one form each: a commit with no option that runs a program, and
+ * `push [-u] [origin] [<current>|HEAD]` of a branch that isn't
+ * `defaultBranch`, main or master. Anything else asks as usual.
  */
 export function taskRunsAlone(
   args: string[],
   current: string | null,
   defaultBranch: string | null,
 ): boolean {
-  const { command, rest } = splitGit(args);
-  if (command === "commit") return true;
-  if (command !== "push" || rest.some((a) => PUSH_WIDENS.test(a))) return false;
-  const refspec = rest.filter((a) => !a.startsWith("-"))[1];
-  if (refspec?.startsWith("+")) return false;
-  const named = refspec?.split(":").pop();
-  const target = !named || named === "HEAD" ? current : named;
-  const protectedBranches = [defaultBranch, "main", "master"];
-  return !!target && !protectedBranches.includes(target);
+  const { globals, command, rest } = splitGit(args);
+  if (!onlyDirs(globals)) return false;
+  if (command === "commit") return !rest.some((a) => RUNS_PROGRAM.test(a));
+  return command === "push" && ownPush(rest, current, defaultBranch);
+}
+
+// A push's words after `push`: plain, to origin, of `current` only.
+function ownPush(
+  rest: string[],
+  current: string | null,
+  defaultBranch: string | null,
+) {
+  if (!current || [defaultBranch, "main", "master"].includes(current)) {
+    return false;
+  }
+  if (rest.some((a) => a.startsWith("-") && !TASK_PUSH_OPTIONS.has(a))) {
+    return false;
+  }
+  const [remote, spec, ...more] = rest.filter((a) => !a.startsWith("-"));
+  if (more.length || (remote !== undefined && remote !== "origin")) {
+    return false;
+  }
+  return spec === undefined || ownRefspec(spec, current);
 }
 
 // gh commands that only read. Everything else may change something on GitHub.
