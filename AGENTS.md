@@ -29,6 +29,8 @@ src/                     React frontend (almost all logic lives here)
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
     skills/              Skill and plugin rows, import UI from other apps
     providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos
+    tasks/               Tasks view: the checklist, rows that open in place with their status card,
+                         the new-task sheet (notes, images, subtasks, model and effort)
   hooks/
     useFolders.ts        Recent folders, this window's open projects and the shown one
     useProjects.ts       Each open project's and conversation's status (working, waiting, title);
@@ -57,6 +59,8 @@ src/                     React frontend (almost all logic lives here)
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
     useRemoteAccess.ts   Main window: starts the remote access server, runs browsers' allowed Tauri calls
+    useTasks.ts          The folder's tasks, pushed by the sidecar, with status from their conversations
+    useNewTaskSheet.ts   ⌘N / Ctrl+N opens the new-task sheet while the Tasks view shows
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -97,6 +101,8 @@ src/                     React frontend (almost all logic lives here)
     demoGit.ts           Unified diffs and commit reviews for the demo
     demoQuestions.ts     The demo's second project, waiting on the agent's questions
     questions.ts         ask_user answers being picked: options, own answer, per-option notes
+    tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
+    demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
@@ -146,6 +152,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   cmem.ts           cmem: finds its worker, the app's on/off setting, recent observations
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
+  taskStore.ts           Each folder's tasks in ~/.ignition/tasks, written one at a time, pushed on change
+  hostTasks.ts           Starts a task in a background conversation; answers the task extension
+  taskExtension.ts       task_update, and a task conversation's plan, work and wrap-up phases
+  taskSteps.ts           A tool call as a task's current step ("Editing src/app.ts")
   subagentExtension.ts   subagent tool: hands tasks to a smaller model from the same provider and talks with it
   keepAwake.ts           Keeps the Mac from idle-sleeping (caffeinate) while an agent works
   chrome.ts              Chrome over CDP: the user's own (port 9222), else one the app starts
@@ -174,6 +184,7 @@ shared/memory.ts         cmem status and observations as they cross the wire
 shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
 shared/commandSearch.ts  Ranks conversations and files for the command center (sidecar and demo)
 shared/questions.ts      ask_user's questions and answers (used by both)
+shared/tasks.ts          Tasks and the agent's updates to them (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITION_MODS)
@@ -313,6 +324,21 @@ tab (`git_diff`). The sandbox already refuses writes to `.git/config` and
 `.git/hooks`; hooks can still live in the working tree (husky), so calls that
 ran without asking run with hooks off. Bash commands that commit, push, pull,
 fetch, clone or run gh are blocked with a pointer to the tools.
+
+Tasks (the sidebar's Tasks view) hand work to an agent that runs on its own.
+Each folder's tasks live in `~/.ignition/tasks/` (`sidecar/taskStore.ts`,
+one JSON file per folder, images inline). Starting one opens a conversation
+in the background on the task's model and effort (never saved as defaults)
+and sends it the title, notes, subtasks and images. `taskExtension.ts` gives
+only that conversation `task_update`, drops `ask_user` and the `chrome_*`
+tools, and runs it in phases: edits and writes are blocked until it has laid
+out or confirmed the subtasks (`planned`), each tool call becomes its step,
+and a run that ends with subtasks open or no pull request gets one wrap-up
+message. In a task, a commit and a plain push of its own branch run without
+asking (`taskRunsAlone` in `lib/gitPolicy.ts`); `gh pr create` still waits
+for review, and its URL is saved on the task. A task's status comes from its
+conversation (`lib/tasks.ts`): working, waiting on the user, finished (to
+review) once idle or closed, done when the user marks it.
 
 The `chrome_*` tools (`sidecar/chromeExtension.ts`) drive Chrome over the
 DevTools protocol from the sidecar. They attach to the user's own Chrome
