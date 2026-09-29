@@ -5,7 +5,7 @@ import type {
   ToolResultMessage,
 } from "../../shared/agentTypes";
 import { ASK_TOOL } from "../../shared/questions";
-import { DEMO_STATE, shownSession, shownStatuses } from "./demo";
+import { DEMO_STATE, shownRows, shownSession } from "./demo";
 import { DEMO_QUESTION_MESSAGES, DEMO_QUESTIONS } from "./demoQuestions";
 import { readQuestions } from "./questions";
 import { DEMO_DIFFS, DEMO_MESSAGES } from "./demoTranscript";
@@ -25,6 +25,7 @@ const PANTRY = import.meta.glob("../../demo/pantry/**/*", {
 }) as Record<string, string>;
 
 const session = {
+  session: null,
   state: null,
   transcript: EMPTY,
   trust: null,
@@ -54,7 +55,8 @@ describe("shownSession", () => {
     expect(shown.state).toBe(DEMO_STATE);
     expect(shown.trust).toBe("trusted");
     expect(shown.error).toBeNull();
-    expect(shown.transcript.items.length).toBe(DEMO_MESSAGES.length);
+    expect(shown.session).toBe("tempo");
+    expect(shown.transcript!.items.length).toBe(DEMO_MESSAGES.length);
     expect(shown.send).toBe(session.send);
   });
 
@@ -65,29 +67,32 @@ describe("shownSession", () => {
       "/repo/demo/pantry",
       "/repo/demo/tempo",
     );
-    expect(shown.transcript.items.length).toBe(DEMO_QUESTION_MESSAGES.length);
-    expect(shown.transcript.running).toBe(true);
-    expect(shown.transcript.tools[DEMO_QUESTIONS.id]).toEqual({
+    expect(shown.transcript!.items.length).toBe(DEMO_QUESTION_MESSAGES.length);
+    expect(shown.transcript!.running).toBe(true);
+    expect(shown.transcript!.tools[DEMO_QUESTIONS.id]).toEqual({
       status: "running",
       approval: {},
     });
   });
 });
 
-describe("shownStatuses", () => {
-  it("passes statuses through outside demo mode", () => {
-    const statuses = { "/a": { cwd: "/a", running: true, waiting: false } };
-    expect(shownStatuses(statuses, null)).toBe(statuses);
+describe("shownRows", () => {
+  it("passes a folder's conversations through outside demo mode", () => {
+    const rows = () => [];
+    expect(shownRows(rows, null)).toBe(rows);
   });
 
-  it("shows pantry waiting in demo mode", () => {
-    expect(shownStatuses({}, "/repo/demo/tempo")).toEqual({
-      "/repo/demo/pantry": {
-        cwd: "/repo/demo/pantry",
-        running: true,
-        waiting: true,
-      },
-    });
+  it("shows tempo with a second conversation working, and pantry waiting", () => {
+    const rows = shownRows(() => [], "/repo/demo/tempo");
+    expect(rows("/repo/demo/tempo").map((a) => [a.session, a.running])).toEqual(
+      [
+        ["tempo", false],
+        ["tempo-tests", true],
+      ],
+    );
+    expect(rows("/repo/demo/pantry")).toMatchObject([
+      { session: "pantry", waiting: true },
+    ]);
   });
 });
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { MemoryStatus } from "../../shared/hostProtocol";
+import type { MemoryStatus } from "../../shared/memory";
 import type { HostClient } from "@/lib/piHost";
 
 /**

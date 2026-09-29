@@ -31,6 +31,8 @@ export type FileContent = { html: string } | { message: string };
 export async function readForView(
   path: string,
   themes: CodeThemes,
+  /** Only the first this many lines (for a preview). */
+  lines?: number,
 ): Promise<FileContent> {
   try {
     const bytes = await readFile(path);
@@ -41,7 +43,8 @@ export async function readForView(
       return { message: "Binary file not shown." };
     }
     const text = new TextDecoder().decode(bytes);
-    return { html: await highlight(text, path, themes) };
+    const shown = lines ? text.split("\n", lines).join("\n") : text;
+    return { html: await highlight(shown, path, themes) };
   } catch {
     return { message: "Couldn't read this file." };
   }

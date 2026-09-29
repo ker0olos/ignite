@@ -1,6 +1,5 @@
 import { useRef } from "react";
 import { Composer } from "@/components/agent/Composer";
-import { ConversationMenu } from "@/components/agent/ConversationMenu";
 import { ConversationSkeleton } from "@/components/agent/ConversationSkeleton";
 import { EmptyConversation } from "@/components/agent/EmptyConversation";
 import { TrustPrompt } from "@/components/agent/TrustPrompt";
@@ -31,24 +30,17 @@ export function AgentPanel({
   const { state, transcript } = session;
   const mainRef = useRef<HTMLElement>(null);
   const running = transcript?.running ?? false;
-  const loading = !state && !session.error;
+  // A folder with no conversation looks like a new one; sending starts it.
+  const loading = !state && !session.error && !session.none;
 
   return (
     <>
-      {!loading && (
-        <ConversationMenu
-          folder={folder}
-          running={running}
-          onClear={() => void session.clear()}
-        />
-      )}
       <main
         ref={mainRef}
         className="min-h-0 flex-1 overscroll-contain overflow-y-auto"
       >
-        {loading ? (
-          <ConversationSkeleton />
-        ) : transcript && transcript.items.length > 0 ? (
+        {/* A reopened conversation reads while its session still starts. */}
+        {transcript && transcript.items.length > 0 ? (
           <Conversation
             transcript={transcript}
             folder={folder}
@@ -58,6 +50,8 @@ export function AgentPanel({
             scrollRef={mainRef}
             onApprove={session.answer}
           />
+        ) : loading ? (
+          <ConversationSkeleton />
         ) : (
           <EmptyConversation folder={folder} />
         )}

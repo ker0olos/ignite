@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { apiKeyProblem } from "../../../shared/hostProtocol";
+import { apiKeyProblem } from "../../../shared/validation";
 import type { Option } from "@/components/providers/ConnectProviders";
 import { Button } from "@/components/ui/button";
 

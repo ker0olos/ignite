@@ -5,7 +5,7 @@ import {
   type McpStatusSnapshot,
 } from "./hostTypes.ts";
 
-export const MCP_STATUSES: Record<string, McpServerStatus> = {
+const MCP_STATUSES: Record<string, McpServerStatus> = {
   connected: "connected",
   cached: "idle",
   "not-connected": "idle",
@@ -30,11 +30,11 @@ export async function rememberSignIns(
 /** Lists all servers with their current status. */
 export async function mcpServers(ctx: HostContext): Promise<McpServer[]> {
   const saved = await ctx.mcpStore.list();
-  const project = shown(ctx);
-  if (!project?.session) return saved;
+  const agent = shown(ctx);
+  if (!agent?.session) return saved;
   const signIns = await ctx.mcpStore.needsSignIn();
   const known = (name: string) => {
-    const status = MCP_STATUSES[project.mcpStatus.get(name) ?? ""] ?? "idle";
+    const status = MCP_STATUSES[agent.mcpStatus.get(name) ?? ""] ?? "idle";
     return status === "idle" && signIns.includes(name) ? "needs-auth" : status;
   };
   // ponytail: a failed server shows no reason; the adapter only logs it to
@@ -70,9 +70,9 @@ export async function changeMcp(
   check: string[] = [],
 ) {
   await edit();
-  for (const project of ctx.projects.values()) {
-    const s = project.session;
-    if (s?.isStreaming) project.reloadWhenSettled = true;
+  for (const agent of ctx.agents.values()) {
+    const s = agent.session;
+    if (s?.isStreaming) agent.reloadWhenSettled = true;
     else await s?.reload();
   }
   const s = shown(ctx)?.session;
@@ -81,7 +81,7 @@ export async function changeMcp(
 }
 
 /** Marks the URL servers among `names` as checking, then checks them in the background. */
-export async function checkUrlServers(ctx: HostContext, names: string[]) {
+async function checkUrlServers(ctx: HostContext, names: string[]) {
   const s = shown(ctx)?.session;
   if (!s?.extensionRunner.getCommand("mcp")) return;
   const urls = (await ctx.mcpStore.list())

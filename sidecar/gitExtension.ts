@@ -20,6 +20,8 @@ import {
 import { loadBashParser } from "./bashParser.ts";
 import { resultText, run } from "./gitRun.ts";
 import { committed, headOf, repoOf, review, updated } from "./gitReview.ts";
+import { folderOf } from "./worktreeGit.ts";
+import { updateFolder } from "./worktrees.ts";
 
 const Params = Type.Object({
   args: Type.Array(Type.String(), {
@@ -96,6 +98,18 @@ function ghGate(
   return creates ? { reason, review: "pr" } : { reason };
 }
 
+/** Whether a call puts the agent's work on the remote: a push, or a merged pull request. */
+export function delivers(tool: Tool, args: string[]): boolean {
+  if (tool === GH_TOOL) return args[0] === "pr" && args[1] === "merge";
+  return splitGit(args).command === "push";
+}
+
+// An agent in its own worktree: the user's folder follows the remote when it can.
+async function afterDelivery(tool: Tool, args: string[], cwd: string) {
+  const folder = folderOf(cwd);
+  return folder !== cwd && delivers(tool, args) ? updateFolder(folder) : null;
+}
+
 // Without the parser, a rough split into commands is enough to spot git and gh.
 const roughWords = (command: string) =>
   command.split(/[;&|()\n`]+/).map((part) => part.trim().split(/\s+/));
@@ -150,8 +164,9 @@ export default function gitTools(pi: ExtensionAPI) {
         const text = resultText(result);
         if (result.code !== 0) throw new Error(text);
         const shown = await shownAfter(gated.shown, before);
+        const note = await afterDelivery(tool, args, ctx.cwd);
         return {
-          content: [{ type: "text", text }],
+          content: [{ type: "text", text: note ? `${text}\n\n${note}` : text }],
           details: shown satisfies GitReview | undefined,
         };
       },

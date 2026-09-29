@@ -17,8 +17,10 @@ src/                     React frontend (almost all logic lives here)
   components/            UI only, one component per file; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
     app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle
-    sidebar/             Title-bar strip + file tree, MCP sign-in warning banner
+    sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
+                         MCP sign-in warning banner
     files/               Lazy directory tree, read-only syntax-highlighted file view
+    command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring, task composer, model/effort/approval menus, trust prompt
     conversation/        Transcript rendering: messages, thinking, tool rows (with approve/deny, or the
                          agent's questions) and their pieces
@@ -28,13 +30,24 @@ src/                     React frontend (almost all logic lives here)
     providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos
   hooks/
     useFolders.ts        Recent folders, this window's open projects and the shown one
-    useProjects.ts       Each open project's status (working, waiting); ends closed ones' sessions
+    useProjects.ts       Each open project's and conversation's status (working, waiting, title);
+                         ends closed projects' sessions
     useSettings.ts       settings.toml, synced across windows; applies theme
     useFolderDrop.ts     Drag-and-drop folders onto the window
     useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
     useProviders.ts      Provider status, sign-in and sign-out via the pi host
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
-    useAgentSession.ts   The folder's pi session: conversation, send/stop, trust, model and effort
+    useAgentSession.ts   The folder's shown pi session: conversation, send/stop, trust, model and effort
+    useSessionSwitch.ts  Showing and closing the shown folder's conversations
+    useSessionCache.ts   Each folder's last known conversation, or none; which one events apply to
+    useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
+    useDraftState.ts     A folder with no conversation: the models and effort it would start with
+    useConversationList.ts Each folder's listed conversations, remembered across launches
+    useConversations.ts  Every open folder's conversations for the sidebar: show, create, close, details
+    useCommandCenter.ts  ⌘K / Ctrl+K opens the command center, optionally with a query
+    useCommandSearch.ts  The command center's results: debounced command_search, folders, @/# suggestions
+    useDetailsCache.ts   Session details fetched once each, for the command center preview
+    useOpenFile.ts       Opens a file in any folder, switching to it first
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
@@ -53,6 +66,7 @@ src/                     React frontend (almost all logic lives here)
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     tabs.ts              Open/close logic for file tabs
     recent.ts            Recent-folders list logic
+    commandQuery.ts      Command center query: `@folder`, `#convos`/`#files`/`#folders`, result picks
     fileIcons.ts         Extension → monochrome icon
     menu.ts              macOS menu bar
     lifecycle.ts         Confirm before quitting or closing a window
@@ -85,8 +99,17 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   host.ts                Request dispatch; createHost builds the handler
   hostTypes.ts           Shared types and HostContext; per-function context instead of closures
   hostAuth.ts            Provider sign-in (status, interaction, login)
-  hostSession.ts         One session per open folder, kept running while hidden (sessionState, setModel, open, close, prompt)
-  hostProjects.ts        Tells the app which open folders are working or waiting (pushProjects)
+  hostSession.ts         Open conversations, several per folder, kept running while hidden (sessionState, setModel, open, close, prompt)
+  hostProjects.ts        Tells the app which open conversations are working or waiting (pushProjects)
+  sessionStore.ts        pi's saved conversations per folder: the latest, new ids, the list
+  search.ts              command_search: ranks conversations (title, full text) and files across folders
+  fileIndex.ts           A folder's files for search (git ls-files, else a capped walk)
+  sessionRuntime.ts      Each session's own model runtime (passes its cwd to providers); saved model
+  draftSession.ts        What a new conversation would start with (models, effort) before one exists
+  worktrees.ts           Each agent's git worktree: start point, open, save and remove, sweep; updateFolder
+  worktreeExtension.ts   Tells an agent in a worktree where it is and to deliver through a pull request
+  worktreeGit.ts         Worktree paths, snapshots of a working state, folderOf / gitWritable
+  worktreeClone.ts       Copy-on-write clones of the folder's ignored files into a worktree
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
@@ -120,7 +143,11 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
 demo/tempo/, demo/pantry/ Sample projects `npm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
+shared/validation.ts     Checks on typed API keys and MCP servers (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
+shared/conversations.ts  Saved conversations, their details, command search hits (used by both)
+shared/memory.ts         cmem status and observations as they cross the wire
+shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
 shared/questions.ts      ask_user's questions and answers (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
@@ -176,8 +203,15 @@ Two places hold persisted data:
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **pi's own files** in `~/.ignition/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
-  default for new sessions, and `sessions/`, one JSONL conversation per
-  folder that reopening the folder continues, and `trust.json`, pi's
+  default for new sessions, and `sessions/`, one JSONL file per
+  conversation. A folder can have several open at once, each keyed by pi's
+  session id and listed under its folder in the sidebar (the list is kept
+  in state.json, and one starts again when clicked). Showing a folder shows
+  its last shown conversation, or an empty one: a session starts only with
+  its first message. A reopened one shows from its file (`read_session`)
+  while its session starts. Closing one keeps its file, and the ⌘K
+  command center (a folder's History button opens it filtered to that
+  folder) reopens it. And `trust.json`, pi's
   per-folder project trust decisions. The model list and each model's effort levels
   always come from pi; the app never hard-codes them. `mcp.json` holds the
   MCP servers in pi-mcp-adapter's documented format (`mcpServers`, optional
@@ -258,6 +292,35 @@ agent's and show inside the subagent's tool row, rebuilt from the call's
 answers a subagent's question, or gives it more work, by calling the tool
 again with its id. Subagents end with their session and aren't restored
 after a reload.
+
+Each agent (conversation) works in its own git worktree, under
+`~/.ignition/worktrees/<repo>-<hash>/<session id>` (`sidecar/worktrees.ts`),
+so agents in one folder never edit each other's files or the user's. It
+starts detached at the remote's default branch, freshly fetched (the
+folder's HEAD without a remote), so the user's uncommitted work never ends
+up in its commits. The folder's ignored files (`node_modules`, builds,
+`.env`) are cloned copy-on-write (`cp -c` on APFS, `--reflink` on
+Btrfs/XFS, so they cost almost no disk until changed) while pi loads, and
+the first prompt waits for them. Where the filesystem can't clone (Windows,
+ext4, other volumes), only ignored files are copied; ignored folders are
+skipped and the agent installs and builds its own, since a copy costs their
+full size and a link would let it write into the user's (Windows has no
+sandbox to stop that). There's no "apply": work reaches the folder through
+git. `sidecar/worktreeExtension.ts` tells the agent to deliver on a branch
+of its own, pushed with a pull request, and after a successful push or
+`gh pr merge` the git tools fast-forward the user's folder (`git pull
+--ff-only`, `updateFolder`), leaving it alone when that isn't clean; the
+tool result tells the agent which. Ending a conversation (closing it or
+its folder, quitting) saves its state as a commit under
+`refs/ignition/sessions/<id>` and removes the worktree; reopening the
+conversation brings it back. Worktrees are locked with the sidecar's pid,
+and each sidecar start sweeps (saves and removes) those whose process is
+gone; on Windows that also retries a worktree whose files were held open.
+Folders outside git (or with no commit yet) are shared instead.
+Trust, saved conversations and cmem stay keyed by the folder (`folderOf`).
+Each session also has its own model runtime (`sidecar/sessionRuntime.ts`):
+pi-claude-bridge registers one provider per session, and a shared runtime
+sent every session's Claude calls through one of them, in `process.cwd()`.
 
 Sessions open with the project untrusted, so a folder's own `.pi/`
 extensions, skills and settings never load unasked. When a folder has some
@@ -371,6 +434,10 @@ Without the variable nothing changes.
   passes props; it never inlines a child's markup. No private helper
   components either: every component gets its own file. New features follow
   this from the start.
+- **No dead code:** knip (`knip.json`, part of `npm run lint`) fails on
+  unused files, exports and dependencies. Export only what another file
+  uses; a file loaded by path (like the sidecar's extensions) is listed
+  there as an entry.
 - **Size limits are enforced** by oxlint (`.oxlintrc.json`, part of `npm run
 lint`): one component per file, files ≤250 lines, functions ≤120 lines,
   complexity ≤10, nesting ≤4. Split code instead of raising a limit or adding

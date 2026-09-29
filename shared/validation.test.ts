@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  apiKeyProblem,
-  mcpServerProblem,
-  type McpServerConfig,
-} from "./hostProtocol.ts";
+import type { McpServerConfig } from "./hostProtocol.ts";
+import { apiKeyProblem, mcpServerProblem } from "./validation.ts";
 
 describe("apiKeyProblem", () => {
   it("accepts a normal key, with surrounding whitespace", () => {

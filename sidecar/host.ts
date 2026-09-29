@@ -5,16 +5,24 @@ import {
 } from "../shared/hostProtocol.ts";
 import {
   current,
-  shown,
+  target,
   type HostContext,
   type OpenSession,
+  type SessionStore,
   type Runtime,
   type LocalLogins,
   type McpCatalogSource,
 } from "./hostTypes.ts";
 import type { McpStore } from "./mcpConfig.ts";
 import { status, statusWithin, login } from "./hostAuth.ts";
-import { sessionState, setModel, open, close, prompt } from "./hostSession.ts";
+import {
+  sessionState,
+  setModel,
+  open,
+  close,
+  closeAll,
+  prompt,
+} from "./hostSession.ts";
 import { mcpServers, changeMcp } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
@@ -24,9 +32,16 @@ import { answerApproval, denyAll } from "./hostApproval.ts";
 import { setTrust } from "./hostTrust.ts";
 import { appUpdate, appVersion } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
+import { describeSession } from "./describeSession.ts";
+import { listFiles } from "./fileIndex.ts";
+import { createSearch } from "./search.ts";
 import type { TrustStore } from "./trust.ts";
 
 type IdRequest = Extract<HostRequest, { id: number }>;
+
+// A running conversation's own messages are newer than its file's.
+const messagesOf = async (ctx: HostContext, cwd: string, session: string) =>
+  ctx.agents.get(session)?.session?.messages ?? ctx.sessions.read(cwd, session);
 type Handler<K extends IdRequest["type"]> = (
   ctx: HostContext,
   request: Extract<IdRequest, { type: K }>,
@@ -47,27 +62,33 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     await ctx.runtime.logout(r.provider);
     return status(ctx, r.provider);
   },
-  open_session: (ctx, r) => open(ctx, r.cwd),
-  close_session: (ctx, r) => close(ctx, r.cwd),
-  clear_session: async (ctx) => {
-    const cwd = ctx.cwd;
-    await current(ctx);
-    return open(ctx, cwd!, true);
-  },
-  session_state: (ctx) => sessionState(ctx),
-  set_model: (ctx, r) => setModel(ctx, r.provider, r.modelId),
+  open_session: (ctx, r) => open(ctx, r.cwd, r.session),
+  new_session: (ctx, r) => open(ctx, r.cwd, ctx.sessions.create()),
+  close_session: (ctx, r) => close(ctx, r.cwd, r.session),
+  read_session: (ctx, r) => messagesOf(ctx, r.cwd, r.session),
+  command_search: (ctx, r) => ctx.search(r),
+  session_details: async (ctx, r) => ({
+    ...describeSession(await messagesOf(ctx, r.cwd, r.session), r.cwd),
+    ...(await ctx.sessions.extras(r.cwd, r.session)),
+  }),
+  session_state: async (ctx, r) =>
+    sessionState(ctx, await current(ctx, r.session)),
+  draft_state: async (ctx, r) =>
+    sessionState(ctx, await ctx.draft({ model: r.model, level: r.level })),
+  set_model: (ctx, r) => setModel(ctx, r.provider, r.modelId, r.session),
   set_thinking_level: async (ctx, r) => {
-    (await current(ctx)).setThinkingLevel(r.level, { persist: true });
-    return sessionState(ctx);
+    const s = await current(ctx, r.session);
+    s.setThinkingLevel(r.level, { persist: true });
+    return sessionState(ctx, s);
   },
   prompt: async (ctx, r) => {
-    await prompt(ctx, r.text, r.images);
+    await prompt(ctx, r.text, r.images, r.session);
     return undefined;
   },
-  abort: async (ctx) => {
-    const project = shown(ctx);
-    const s = await current(ctx);
-    if (project) denyAll(ctx, project);
+  abort: async (ctx, r) => {
+    const agent = target(ctx, r.session);
+    const s = await current(ctx, r.session);
+    if (agent) denyAll(ctx, agent);
     await s.abort();
     return undefined;
   },
@@ -107,28 +128,38 @@ export function createHost(
   runtime: Runtime,
   send: (m: HostMessage) => void,
   openSession: OpenSession,
+  sessions: SessionStore,
+  workspaces: HostContext["workspaces"],
+  draft: HostContext["draft"],
   local: LocalLogins,
   mcpStore: McpStore,
   catalog: McpCatalogSource,
   trust: TrustStore,
   keepAwake: HostContext["keepAwake"] = async () => {},
+  search: HostContext["search"] = createSearch(sessions, listFiles),
 ) {
   const ctx: HostContext = {
     runtime,
     send,
     openSession,
+    sessions,
+    workspaces,
+    draft,
     local,
     mcpStore,
     catalog,
     trust,
     activeLogin: null,
-    projects: new Map(),
-    cwd: null,
+    claudeLogin: null,
+    agents: new Map(),
+    shown: null,
+    lastShown: new Map(),
     pendingSignOuts: new Set(),
     checking: new Set(),
     prompts: new Map(),
     nextPromptId: 1,
     keepAwake,
+    search,
   };
 
   /** Handles one request from the app; never throws. */
@@ -164,5 +195,5 @@ export function createHost(
     }
   }
 
-  return { handle };
+  return { handle, shutdown: () => closeAll(ctx) };
 }

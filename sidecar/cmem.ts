@@ -10,7 +10,8 @@ import { parse as parseToml } from "smol-toml";
 import type {
   MemoryObservation,
   MemoryStatus,
-} from "../shared/hostProtocol.ts";
+  SessionSummary,
+} from "../shared/memory.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import type { McpEntry } from "./mcpConfig.ts";
 
@@ -156,4 +157,42 @@ export async function memoryStatus(cwd?: string): Promise<MemoryStatus> {
     viewerUrl: url,
     observations: cwd ? await recentObservations(url, projectOf(cwd)) : [],
   };
+}
+
+const SUMMARIES = 100;
+
+const text = (v: unknown) => (typeof v === "string" && v.trim()) || undefined;
+
+// ponytail: looks through the project's latest summaries only; a much older
+// conversation shows none. Ask the worker by session once it can.
+/**
+ * cmem's latest summary of conversation `session` in `cwd`, when cmem is on,
+ * running and recorded it.
+ */
+export async function sessionSummary(
+  cwd: string,
+  session: string,
+  dir = dataDir(),
+): Promise<SessionSummary | undefined> {
+  if (!(await memoryEnabled())) return undefined;
+  const { url } = await findWorker(cwd, dir);
+  if (!url) return undefined;
+  try {
+    const query = `project=${encodeURIComponent(projectOf(cwd))}&limit=${SUMMARIES}`;
+    const response = await fetch(`${url}/api/summaries?${query}`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    const { items } = (await response.json()) as { items: Json[] };
+    const found = items.find((s) => s.session_id === session);
+    return (
+      found && {
+        request: text(found.request),
+        completed: text(found.completed),
+        learned: text(found.learned),
+        nextSteps: text(found.next_steps),
+      }
+    );
+  } catch {
+    return undefined;
+  }
 }

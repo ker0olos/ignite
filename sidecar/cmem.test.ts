@@ -10,6 +10,7 @@ import {
   memoryEnabled,
   memoryStatus,
   recentObservations,
+  sessionSummary,
 } from "./cmem.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 
@@ -154,6 +155,56 @@ describe("recentObservations", () => {
   it("is empty when the worker can't answer", async () => {
     fetchMock.mockResolvedValueOnce(new Response("oops", { status: 500 }));
     expect(await recentObservations("http://w", "app")).toEqual([]);
+  });
+});
+
+describe("sessionSummary", () => {
+  const summary = (session_id: string, completed: string) => ({
+    session_id,
+    request: "Fix Sentry errors",
+    completed,
+    learned: "  ",
+    next_steps: "Open a PR",
+  });
+
+  it("gives cmem's latest summary of the conversation", async () => {
+    await running();
+    fetchMock.mockImplementation(async (url: string) =>
+      url.includes("/api/summaries")
+        ? Response.json({
+            items: [
+              summary("other", "Something else"),
+              summary("s1", "Fixed two issues"),
+              summary("s1", "An earlier run"),
+            ],
+          })
+        : healthy(),
+    );
+    expect(await sessionSummary("/work/motr", "s1")).toEqual({
+      request: "Fix Sentry errors",
+      completed: "Fixed two issues",
+      learned: undefined,
+      nextSteps: "Open a PR",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("project=motr"),
+      expect.anything(),
+    );
+  });
+
+  it("has none when cmem isn't running, is off, or never summarised it", async () => {
+    expect(await sessionSummary("/work/app", "s1")).toBeUndefined();
+    await running();
+    fetchMock.mockImplementation(async (url: string) =>
+      url.includes("/api/summaries") ? Response.json({ items: [] }) : healthy(),
+    );
+    expect(await sessionSummary("/work/app", "s1")).toBeUndefined();
+    await mkdir(join(dir, `.${APP_NAME}`), { recursive: true });
+    await writeFile(
+      join(dir, `.${APP_NAME}`, "settings.toml"),
+      "[memory]\ncmem = false\n",
+    );
+    expect(await sessionSummary("/work/app", "s1")).toBeUndefined();
   });
 });
 
