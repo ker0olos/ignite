@@ -70,12 +70,13 @@ describe("blockedSummary", () => {
     expect(blockedSummary(output)).toBe("network-outbound example.com:443");
   });
 
-  it("falls back to the first line when nothing is a file or network denial", () => {
+  it("is null when only lookups were denied, as for a grep with no match", () => {
     expect(
       blockedSummary(
-        "<sandbox_violations>\nx(1) deny(1) mach-lookup com.apple.x\n</sandbox_violations>",
+        "<sandbox_violations>\ngrep(1) deny(1) system-info vfs.disk-space\n" +
+          "x(1) deny(1) mach-lookup com.apple.x\n</sandbox_violations>",
       ),
-    ).toBe("mach-lookup com.apple.x");
+    ).toBeNull();
   });
 
   it("keeps a line in another format as is", () => {
