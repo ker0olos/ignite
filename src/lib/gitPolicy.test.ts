@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ghApproval, gitApproval, splitGit } from "./gitPolicy";
+import { ghApproval, gitApproval, splitGit, taskRunsAlone } from "./gitPolicy";
 
 const place = { cwd: "/Users/me/app", home: "/Users/me" };
 const git = (line: string) => gitApproval(line.split(" "), place);
@@ -101,5 +101,79 @@ describe("ghApproval", () => {
 
   it("asks before cloning outside the folder", () => {
     expect(gh("repo clone a/b ../b")).toBe("Outside the project: ~/b");
+  });
+});
+
+describe("taskRunsAlone", () => {
+  const alone = (line: string, current: string | null = "feat/x") =>
+    taskRunsAlone(line.split(" "), current, "dev");
+
+  it("lets a commit run, even on a protected branch", () => {
+    expect(alone("commit -m x")).toBe(true);
+    expect(alone("commit -m x", null)).toBe(true);
+    expect(alone("commit -m x", "main")).toBe(true);
+  });
+
+  it.each([
+    "push",
+    "push -u origin",
+    "push -u origin HEAD",
+    "push --set-upstream origin feat/x",
+    "push origin feat/x",
+    "push origin HEAD:feat/x",
+    "push origin feat/x:refs/heads/feat/x",
+    "push origin HEAD:refs/heads/feat/x",
+    "-C sub push -u origin feat/x",
+  ])("lets %s of its own branch run", (line) => {
+    expect(alone(line)).toBe(true);
+  });
+
+  it.each([
+    // Another branch, or a protected one by any name.
+    "push origin feat/y",
+    "push origin main",
+    "push origin HEAD:main",
+    "push origin HEAD:refs/heads/main",
+    "push origin feat/x:dev",
+    "push origin feat/x main",
+    "push origin :feat/x",
+    "push origin +feat/x",
+    // Options: any at all besides -u shifts, widens or forces the push.
+    "push -o x origin main",
+    "push --repo origin main",
+    "push -f origin feat/x",
+    "push -fu origin feat/x",
+    "push --force",
+    "push --force-with-lease",
+    "push --mirror",
+    "push --all",
+    "push --tags",
+    "push -d origin feat/x",
+    "push --prune",
+    "push --receive-pack=x origin feat/x",
+    // Another remote.
+    "push upstream feat/x",
+    "push https://example.com/r.git feat/x",
+    // Options before the subcommand that run programs or set config.
+    "-c core.fsmonitor=x commit -m x",
+    "-c core.sshCommand=x push",
+    "--git-dir=x push",
+    "commit --template=x",
+    "status",
+    "reset --hard",
+  ])("asks for %s", (line) => {
+    expect(alone(line)).toBe(false);
+  });
+
+  it("asks when the current branch is protected or unknown", () => {
+    expect(alone("push", "main")).toBe(false);
+    expect(alone("push", "dev")).toBe(false);
+    expect(alone("push", null)).toBe(false);
+    expect(alone("push origin HEAD", null)).toBe(false);
+  });
+
+  it("treats an unknown default branch as main and master only", () => {
+    expect(taskRunsAlone(["push"], "dev", null)).toBe(true);
+    expect(taskRunsAlone(["push"], "main", null)).toBe(false);
   });
 });

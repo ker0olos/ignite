@@ -11,10 +11,17 @@ export function approvalKey(e: {
   return e.key === "Backspace" ? false : null;
 }
 
+/** A ⌘ shortcut as the platform writes it: ⌘V on macOS, Ctrl+V elsewhere. */
+export function shortcut(
+  key: string,
+  isMac = navigator.userAgent.includes("Mac"),
+) {
+  return `${isMac ? "⌘" : "Ctrl+"}${key}`;
+}
+
 /** The shortcut hints, with the platform's modifier. */
 export function approvalHints(isMac = navigator.userAgent.includes("Mac")) {
-  const mod = isMac ? "⌘" : "Ctrl+";
-  return { approve: `${mod}↩`, deny: `${mod}⌫` };
+  return { approve: shortcut("↩", isMac), deny: shortcut("⌫", isMac) };
 }
 
 /** Whether `el` takes typed text, where the shortcuts must keep their usual meaning. */

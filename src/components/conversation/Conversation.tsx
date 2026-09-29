@@ -1,9 +1,9 @@
 import { type RefObject, useRef } from "react";
-import { Loader2 } from "lucide-react";
 import type { AssistantMessage } from "../../../shared/agentTypes";
 import type { Editor, ToolProps } from "@/components/conversation/shared";
 import { RowBoundary } from "@/components/conversation/RowBoundary";
 import { RowView } from "@/components/conversation/RowView";
+import { RunIndicator } from "@/components/conversation/RunIndicator";
 import { FirstApprovalContext } from "@/hooks/useFirstApproval";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import type { Transcript } from "@/lib/transcript";
@@ -38,10 +38,10 @@ export function Conversation({
     lastMessage.stopReason === "pending" &&
     lastMessage.content.at(-1)?.type === "text";
 
+  const waiting = firstWaiting(transcript.items, transcript.tools);
+
   return (
-    <FirstApprovalContext.Provider
-      value={firstWaiting(transcript.items, transcript.tools)}
-    >
+    <FirstApprovalContext.Provider value={waiting}>
       <div
         ref={contentRef}
         className="always-bounce mx-auto select-text max-w-3xl space-y-4 px-4 py-6 text-[13px]"
@@ -61,10 +61,7 @@ export function Conversation({
           ),
         )}
         {transcript.running && !lastIsStreamingText && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
-            Working
-          </div>
+          <RunIndicator waiting={waiting !== null} />
         )}
       </div>
     </FirstApprovalContext.Provider>

@@ -12,6 +12,7 @@ export function Sidebar({
   folder,
   actions,
   banner,
+  viewSwitch,
   projectList,
   ...treeProps
 }: Omit<ComponentProps<typeof FileTree>, "root"> & {
@@ -19,6 +20,8 @@ export function Sidebar({
   actions: ReactNode;
   /** Shown above the folder name, e.g. a sign-in warning. */
   banner?: ReactNode;
+  /** Above the folders: the switch between chat and tasks. */
+  viewSwitch?: ReactNode;
   projectList: ProjectListProps;
 }) {
   return (
@@ -47,6 +50,11 @@ export function Sidebar({
         </div>
       </div>
       {banner}
+      {viewSwitch && (
+        <div className="mb-3 shrink-0 border-b border-sidebar-border px-2 pb-3">
+          {viewSwitch}
+        </div>
+      )}
       {/* Every folder's conversations stay in sight, to follow them from anywhere. */}
       <div className="mb-2 max-h-[40%] shrink-0 overflow-y-auto border-b border-sidebar-border px-2 pb-2">
         <FolderList folder={folder} {...projectList} />

@@ -1,7 +1,10 @@
 // @vitest-environment node
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
-import worktreeGuidance, { guidance } from "./worktreeExtension.ts";
+import worktreeGuidance, {
+  GIT_GUIDANCE,
+  guidance,
+} from "./worktreeExtension.ts";
 
 describe("guidance", () => {
   it("tells the agent where it works and how its work reaches the user", () => {
@@ -18,14 +21,19 @@ describe("guidance", () => {
 });
 
 describe("the worktree extension", () => {
-  it("leaves an agent that works in the folder itself alone", async () => {
+  it("tells an agent in the user's own folder how to use git there", async () => {
     let handler: (event: object, ctx: object) => Promise<unknown> = async () =>
       "unset";
     worktreeGuidance({
       on: (_: string, h: typeof handler) => (handler = h),
     } as unknown as ExtensionAPI);
-    expect(
-      await handler({ systemPrompt: "base" }, { cwd: "/work" }),
-    ).toBeUndefined();
+    const result = (await handler(
+      { systemPrompt: "base" },
+      { cwd: "/work" },
+    )) as { systemPrompt: string };
+    expect(result.systemPrompt).toMatch(/^base\n\n/);
+    expect(result.systemPrompt).toContain(GIT_GUIDANCE);
+    expect(result.systemPrompt).toContain("the user's checkouts");
+    expect(result.systemPrompt).not.toContain("your own git worktree");
   });
 });

@@ -10,7 +10,13 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { GH_TOOL, GIT_TOOL, type GitReview } from "../shared/git.ts";
 import type { ApprovalRequest } from "../shared/hostProtocol.ts";
-import { ghApproval, gitApproval, splitGit } from "../src/lib/gitPolicy.ts";
+import { prUrl } from "../shared/tasks.ts";
+import {
+  ghApproval,
+  gitApproval,
+  splitGit,
+  taskRunsAlone,
+} from "../src/lib/gitPolicy.ts";
 import {
   APPROVAL_EVENT,
   DENIED,
@@ -20,7 +26,8 @@ import {
 import { loadBashParser } from "./bashParser.ts";
 import { resultText, run } from "./gitRun.ts";
 import { committed, headOf, repoOf, review, updated } from "./gitReview.ts";
-import { folderOf } from "./worktreeGit.ts";
+import { askTask } from "./taskExtension.ts";
+import { folderOf, gitOr } from "./worktreeGit.ts";
 import { updateFolder } from "./worktrees.ts";
 
 const Params = Type.Object({
@@ -94,8 +101,45 @@ function ghGate(
 ): { reason: string; review?: "commit" | "push" | "pr" } | null {
   const reason = ghApproval(args, place);
   if (!reason) return null;
-  const creates = args[0] === "pr" && args[1] === "create";
-  return creates ? { reason, review: "pr" } : { reason };
+  return createsPr(GH_TOOL, args) ? { reason, review: "pr" } : { reason };
+}
+
+const createsPr = (tool: Tool, args: string[]) =>
+  tool === GH_TOOL && args[0] === "pr" && args[1] === "create";
+
+// A task's agent commits and pushes its own branch without asking; its
+// pull request still waits for review (gitPolicy's taskRunsAlone).
+async function taskMayRun(
+  pi: Pick<ExtensionAPI, "events">,
+  args: string[],
+  cwd: string,
+) {
+  if (!(await askTask(pi, "get"))) return false;
+  // The repository the call runs in, which -C may name.
+  const repo = repoOf(args, cwd);
+  const [current, remoteHead] = await Promise.all([
+    gitOr(repo, ["branch", "--show-current"]),
+    gitOr(repo, ["rev-parse", "--abbrev-ref", "origin/HEAD"]),
+  ]);
+  const defaultBranch = remoteHead?.replace(/^origin\//, "") || null;
+  return taskRunsAlone(args, current || null, defaultBranch);
+}
+
+// What a call waits on: Manual, or Auto's rule unless a task may run it; null runs it.
+async function waitsOn(
+  pi: Pick<ExtensionAPI, "events">,
+  tool: Tool,
+  args: string[],
+  cwd: string,
+) {
+  const place = { cwd, home: homedir() };
+  const auto =
+    tool === GIT_TOOL ? gitApproval(args, place) : ghGate(args, place);
+  const manual = (await approvalMode()) === "manual";
+  if (manual) return { auto, manual, alone: false };
+  if (!auto) return null;
+  const alone = !!auto.review && (await taskMayRun(pi, args, cwd));
+  return { auto, manual, alone };
 }
 
 /** Whether a call puts the agent's work on the remote: a push, or a merged pull request. */
@@ -132,12 +176,12 @@ export default function gitTools(pi: ExtensionAPI) {
     toolCallId: string,
     signal?: AbortSignal,
   ) {
-    const place = { cwd, home: homedir() };
-    const auto =
-      tool === GIT_TOOL ? gitApproval(args, place) : ghGate(args, place);
-    const manual = (await approvalMode()) === "manual";
-    if (!auto && !manual) return { allowed: true, asked: false };
+    const waits = await waitsOn(pi, tool, args, cwd);
+    if (!waits) return { allowed: true, asked: false };
+    const { auto, manual, alone } = waits;
+    // Taken before it runs, so the row shows what a task's commit or push changed.
     const shown = auto?.review && (await review(auto.review, args, cwd));
+    if (alone) return { allowed: true, asked: false, shown };
     const request = {
       toolCallId,
       ...(auto && !manual && !shown && { reason: auto.reason }),
@@ -165,6 +209,8 @@ export default function gitTools(pi: ExtensionAPI) {
         if (result.code !== 0) throw new Error(text);
         const shown = await shownAfter(gated.shown, before);
         const note = await afterDelivery(tool, args, ctx.cwd);
+        const pr = createsPr(tool, args) && prUrl(text);
+        if (pr) void askTask(pi, "update", { pr });
         return {
           content: [{ type: "text", text: note ? `${text}\n\n${note}` : text }],
           details: shown satisfies GitReview | undefined,

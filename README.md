@@ -3,80 +3,57 @@
 A native macOS app for running AI coding agents on your projects.
 
 <p align="center">
-  <img src="docs/conversation.png" alt="An agent that added dark mode pushing its branch and opening a pull request, each with the files it changes, while the sidebar shows two more conversations in the same project: one waiting for review, one still working" width="49%">
-  <img src="docs/review.png" alt="An agent's commit waiting for approval: its message and the test file it adds, with that file's diff open beside the conversation" width="49%">
+  <img src="docs/conversation.png" alt="An agent that added dark mode opening its pull request, with its commit and the four files it changes, and one file's diff open beside the conversation; the sidebar shows the project's other conversations, one waiting for review and one still working" width="100%">
 </p>
 
-## Several agents, one project
+## Several agents at once
 
-Start as many conversations in a project as you like. Each agent works in its
-own git worktree, so they never step on each other or on your uncommitted
-work, and your dependencies are cloned in without taking up space. The
-sidebar shows every conversation in every project: which are working, which
-are done, and which are waiting for you.
+Each conversation works in its own git worktree, so agents never touch each
+other's work or yours. The sidebar shows which are working, done or waiting
+for you. Work comes back as a pull request, every file's diff a click away,
+and your folder updates when it merges.
 
-## Delivered through git
+## Tasks
 
-An agent hands its work back as a pull request. It commits on its own branch,
-pushes it and opens the pull request, and each of those steps waits for your
-OK with a list of the files it changes. Click a file to see its diff. When
-the pull request merges, your folder updates by itself.
+<p align="center">
+  <img src="docs/tasks.png" alt="The Tasks view: one task needs you, one is in progress with a screenshot attached, its subtasks and the file it's editing, one is ready for review as pull request 12, two are still to do, and two are done" width="80%">
+</p>
 
-## Find anything with ⌘K
-
-⌘K searches every conversation you've had, every file in your projects and
-the projects themselves, and previews whatever you land on. For a past
-conversation that means the files it touched, its branch, what it cost and
-what the agent learned. Type `@project` to search one project, or `#convos`,
-`#files` or `#folders` for one kind of result.
+Write a task, attach screenshots or sketches, pick a model and start it. The
+agent plans the subtasks, works through them on its own and opens a pull
+request, stopping only when it needs you.
 
 ## You make the calls
 
 <p align="center">
-  <img src="docs/questions.png" alt="The agent asking how people should sign in, with three options and their trade-offs, one question of three" width="49%">
-  <img src="docs/settings.png" alt="Ignition settings, with Claude and ChatGPT connected" width="49%">
+  <img src="docs/questions.png" alt="The agent asking how people should sign in, with three options and their trade-offs, one question of three, while the conversation shows it's waiting for you" width="49%">
+  <img src="docs/settings.png" alt="Ignition settings on the Providers section, with Claude and ChatGPT connected through their subscriptions" width="49%">
 </p>
 
-When a task leaves something open, the agent stops and asks. It lists a few
-options with what each one costs and marks the one it would pick. You can pick
-one or several, write your own answer, add a note under your pick, or leave it
-to the agent. With **Ask before deciding** turned off in Settings, it decides
-on its own.
-
-## Bring your skills
-
-<p align="center">
-  <img src="docs/skills.png" alt="The Skills settings: imported skills and an Expo plugin with 24 skills, each with a switch and a remove button" width="80%">
-</p>
-
-Skills and MCP servers you already use in Claude Code, Codex, Cursor or Claude
-Desktop import in one click, including the skills in Claude Code's plugins.
-Each one has its own switch, and the agent reads a skill only when a task
-needs it.
+When something is open, the agent asks, with a few options and what each one
+costs. Pick one, write your own answer, or leave it to the agent.
 
 ## Features
 
-- Claude runs through your own Claude Code sign-in and ChatGPT through your
-  Codex CLI sign-in, so you use the plans you already pay for. API keys work
-  too.
-- Commands run in a sandbox. They can only write inside the project, can't
-  read your credentials and can only reach package registries and git hosts.
-  Anything risky waits for your OK.
-- With [cmem](https://cmem.ai), the agent remembers what it learned about a
-  project, and what other agents learned there too.
-- Code shows in any theme installed in VS Code, VSCodium, Cursor or Windsurf.
-- Use it from your phone or another computer on the same Wi-Fi: turn on
-  Settings → Remote and scan the QR code. Your conversations, approvals and
-  files are all there.
-
-## Requirements
-
-- macOS
-- [Node.js](https://nodejs.org) 22.18 or newer
-- [Rust](https://rustup.rs)
-- Xcode Command Line Tools: `xcode-select --install`
+- Claude and ChatGPT through your Claude Code and Codex sign-ins, so you use
+  the plans you already pay for. API keys work too.
+- Commands run in a sandbox: they write only inside the project, can't read
+  your credentials and reach only package registries and git hosts. Anything
+  risky asks first.
+- ⌘K searches every conversation, file and project.
+- Skills and MCP servers import from Claude Code, Codex, Cursor and Claude
+  Desktop in one click.
+- With [cmem](https://cmem.ai), agents remember what they learned about a
+  project.
+- Code shows in any theme from VS Code, VSCodium, Cursor or Windsurf.
+- Use it from your phone on the same Wi-Fi: Settings → Remote, then scan the
+  QR code.
 
 ## Install
+
+Needs macOS, [Node.js](https://nodejs.org) 22.18 or newer,
+[Rust](https://rustup.rs) and the Xcode Command Line Tools
+(`xcode-select --install`).
 
 ```sh
 git clone https://github.com/ker0olos/ignition.git
@@ -85,21 +62,17 @@ npm install
 npm run setup
 ```
 
-Ignition is now in `~/Applications`. The first start takes a few minutes. It
-updates itself each time it opens, and goes back to the last working version
-if an update fails to start.
+Ignition is now in `~/Applications`. It updates itself each time it opens,
+and goes back to the last working version if an update fails to start.
 
 ## Make it yours
 
-You can change Ignition by asking its agent: a different look, a missing
-feature, or an agent that works the way you like. Your changes survive every
-update, so you keep getting new features without losing your own. If a change
-breaks something, Ignition still opens and tells you.
+Ask its agent to change Ignition itself: a different look, a missing feature.
+Your changes survive every update, and if one breaks something, Ignition still
+opens and tells you.
 
 ## Develop
 
-`npm install`, then `npm run tauri dev`. This never updates itself and ignores
-`~/.ignition/mods`. `npm run demo` opens two sample projects with scripted
-conversations: one delivered through git, one waiting on its commit's review,
-one still working, and one waiting on your answers. It's all scripted: no
-agent runs, no provider is called, and nothing is saved.
+`npm install`, then `npm run tauri dev`, which never updates itself and
+ignores `~/.ignition/mods`. `npm run demo` opens two sample projects with
+scripted conversations and tasks; no agent runs and nothing is saved.

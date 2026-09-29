@@ -8,6 +8,7 @@ import {
   type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Task, TaskUpdate } from "../shared/tasks.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import {
   APPROVAL_EVENT,
@@ -16,9 +17,14 @@ import {
 } from "./approvalExtension.ts";
 import gitTools, { USE_TOOLS, delivers, needsTools } from "./gitExtension.ts";
 import { resultText, run } from "./gitRun.ts";
+import { TASK_EVENT, type TaskAsk } from "./taskExtension.ts";
 
 let home: string;
 let repo: string;
+
+// A review runs several git commands before it asks, slow under a full test run.
+const asked = (asks: unknown[]) =>
+  vi.waitFor(() => expect(asks).toHaveLength(1), { timeout: 5000 });
 beforeEach(async () => {
   home = await realpath(await mkdtemp(join(tmpdir(), "git-tools-")));
   repo = join(home, "app");
@@ -44,7 +50,17 @@ type Execute = (
   ctx: { cwd: string },
 ) => Promise<{ content: { text: string }[]; details?: unknown }>;
 
-function load() {
+const mine: Task = {
+  id: "t",
+  title: "T",
+  notes: "",
+  images: [],
+  subtasks: [],
+  created: 1,
+  updated: 1,
+};
+
+function load(task: Task | null = null) {
   const events = createEventBus();
   const tools = new Map<string, Execute>();
   const handlers = new Map<string, (event: object) => Promise<unknown>>();
@@ -57,11 +73,19 @@ function load() {
   } as unknown as ExtensionAPI);
   const asks: ApprovalAsk[] = [];
   events.on(APPROVAL_EVENT, (data) => void asks.push(data as ApprovalAsk));
-  const call = (tool: string, args: string[]) =>
-    tools.get(tool)!("t1", { args }, undefined, undefined, { cwd: repo });
+  const updates: TaskUpdate[] = [];
+  events.on(TASK_EVENT, (data) => {
+    const ask = data as TaskAsk;
+    if (!task) return;
+    ask.heard = true;
+    if (ask.kind === "update") updates.push(ask.update);
+    ask.reply(task);
+  });
+  const call = (tool: string, args: string[], cwd = repo) =>
+    tools.get(tool)!("t1", { args }, undefined, undefined, { cwd });
   const bash = (command: string) =>
     handlers.get("tool_call")!({ toolName: "bash", input: { command } });
-  return { asks, call, bash };
+  return { asks, updates, call, bash };
 }
 
 describe("the git tool", () => {
@@ -77,7 +101,7 @@ describe("the git tool", () => {
     const { asks, call } = load();
     await call("git", ["add", "a.txt"]);
     const done = call("git", ["commit", "-m", "first"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     expect(asks[0].request).not.toHaveProperty("reason");
     expect(asks[0].request).toMatchObject({
       toolCallId: "t1",
@@ -119,7 +143,7 @@ describe("the git tool", () => {
     const { asks, call } = load();
     await call("git", ["add", "a.txt"]);
     const done = call("git", ["commit", "-m", "first"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     asks[0].answer(false);
     await expect(done).rejects.toThrow(DENIED);
     await expect(call("git", ["log"])).rejects.toThrow(/Exited with code/);
@@ -133,7 +157,7 @@ describe("the git tool", () => {
     );
     const { asks, call } = load();
     const done = call("git", ["status"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     expect(asks[0].request).toEqual({ toolCallId: "t1" });
     asks[0].answer(true);
     await done;
@@ -144,13 +168,107 @@ describe("the gh tool", () => {
   it("asks before changing something on GitHub", async () => {
     const { asks, call } = load();
     const done = call("gh", ["pr", "merge", "3"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     expect(asks[0].request).toEqual({
       toolCallId: "t1",
       reason: "Changes something on GitHub",
     });
     asks[0].answer(false);
     await expect(done).rejects.toThrow(DENIED);
+  });
+});
+
+describe("a task's conversation", () => {
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: repo });
+  async function withRemote() {
+    git("add", ".");
+    git("commit", "-qm", "first");
+    git("switch", "-qc", "feat/x");
+    git("init", "-q", "--bare", "-b", "main", join(home, "remote.git"));
+    git("remote", "add", "origin", join(home, "remote.git"));
+  }
+
+  it("commits and pushes its own branch without asking", async () => {
+    await withRemote();
+    const { asks, call } = load(mine);
+    await writeFile(join(repo, "b.txt"), "b\n");
+    await call("git", ["add", "b.txt"]);
+    const commit = await call("git", ["commit", "-m", "second"]);
+    const push = await call("git", ["push", "-u", "origin", "feat/x"]);
+    expect(asks).toEqual([]);
+    // Reviewed before running, so the rows still show what they changed.
+    expect(commit.details).toMatchObject({
+      kind: "commit",
+      files: [{ path: "b.txt", status: "A" }],
+    });
+    expect(push.details).toMatchObject({
+      kind: "push",
+      commits: expect.arrayContaining([
+        expect.objectContaining({ subject: "second" }),
+      ]),
+    });
+    expect(git("ls-remote", "origin", "feat/x").toString()).toContain(
+      "refs/heads/feat/x",
+    );
+  });
+
+  it("judges a push by the branch of the repository -C names", async () => {
+    await withRemote();
+    const { asks, call } = load(mine);
+    // From the parent folder, which isn't a repository and has no branch.
+    await call("git", ["-C", "app", "push", "-u", "origin", "feat/x"], home);
+    expect(asks).toEqual([]);
+  });
+
+  it("still asks to push the default branch", async () => {
+    await withRemote();
+    const { asks, call } = load(mine);
+    const done = call("git", ["push", "origin", "HEAD:main"]);
+    await asked(asks);
+    asks[0].answer(false);
+    await expect(done).rejects.toThrow(DENIED);
+  });
+
+  it("asks for a commit and a push without a task", async () => {
+    await withRemote();
+    const { asks, call } = load();
+    const done = call("git", ["commit", "--allow-empty", "-m", "x"]);
+    await asked(asks);
+    asks[0].answer(false);
+    await expect(done).rejects.toThrow(DENIED);
+  });
+
+  it("asks before gh pr create, then reports the pull request", async () => {
+    const bin = join(home, "bin");
+    await mkdir(bin);
+    await writeFile(
+      join(bin, "gh"),
+      "#!/bin/sh\necho https://github.com/a/b/pull/41\n",
+      { mode: 0o755 },
+    );
+    vi.stubEnv("PATH", `${bin}:${process.env.PATH}`);
+    const { asks, updates, call } = load(mine);
+    const done = call("gh", ["pr", "create", "--fill"]);
+    await asked(asks);
+    asks[0].answer(true);
+    const result = await done;
+    expect(result.content[0].text).toContain("/pull/41");
+    expect(updates).toEqual([{ pr: "https://github.com/a/b/pull/41" }]);
+  });
+
+  it("doesn't report a pull request without a task", async () => {
+    const bin = join(home, "bin");
+    await mkdir(bin);
+    await writeFile(join(bin, "gh"), "#!/bin/sh\necho https://x/pull/1\n", {
+      mode: 0o755,
+    });
+    vi.stubEnv("PATH", `${bin}:${process.env.PATH}`);
+    const { asks, updates, call } = load();
+    const done = call("gh", ["pr", "create"]);
+    await asked(asks);
+    asks[0].answer(true);
+    await done;
+    expect(updates).toEqual([]);
   });
 });
 

@@ -296,6 +296,14 @@ describe("the sandbox in Auto", () => {
     expect(asks).toEqual([]);
   });
 
+  it("doesn't ask when a failed command's only denial was a lookup", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "grep -rn fontsource app" });
+    fake.violation = "system-info vfs.disk-space";
+    expect(await result("", true)).toBeUndefined();
+    expect(asks).toEqual([]);
+  });
+
   it("asks for shell commands on Windows", async () => {
     const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
     Object.defineProperty(process, "platform", { value: "win32" });

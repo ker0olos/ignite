@@ -115,6 +115,11 @@ export async function open(
   };
 }
 
+/** Opens conversation `id` in the background, without showing it. */
+export async function launch(ctx: HostContext, cwd: string, id: string) {
+  await (ctx.agents.get(id) ?? start(ctx, cwd, id)).opening;
+}
+
 function start(ctx: HostContext, cwd: string, id: string): Agent {
   const agent = {
     id,
@@ -233,22 +238,25 @@ export async function closeAll(ctx: HostContext) {
 
 // pi's prompt() resolves when the whole run ends; the app follows the run
 // through events, so only a failure is reported here.
-/** Sends a prompt to the shown conversation. */
+/** Sends a prompt to the shown conversation, or `session`; a failure goes to `onError` if given. */
 export async function prompt(
   ctx: HostContext,
   text: string,
   images?: ImageContent[],
   session?: string,
+  onError?: (error: unknown) => void,
 ) {
   const agent = target(ctx, session);
   const s = await current(ctx, session);
   await agent!.ready;
+  // Writing instead of answering declines what waits; the message says what to do instead.
+  denyAll(ctx, agent!);
   // A message sent mid-run steers the agent rather than waiting for the end.
   const options = {
     ...(s.isStreaming && { streamingBehavior: "steer" as const }),
     ...(images?.length ? { images } : {}),
   };
-  s.prompt(text, options).catch(reportTo(ctx, agent!));
+  s.prompt(text, options).catch(onError ?? reportTo(ctx, agent!));
 }
 
 /** Shows a run's failure, if its conversation is the one shown. */

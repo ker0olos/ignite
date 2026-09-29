@@ -105,27 +105,73 @@ async function commitReview(repo: string, rest: string[]): Promise<GitReview> {
   return { kind: "commit", repo, range, files, message };
 }
 
-// ponytail: compares HEAD with its upstream (or origin's default branch),
-// whatever remote or refspec the push names.
-async function pushReview(repo: string): Promise<GitReview> {
+/** The remote-tracking refs a push's target may already have, most specific first. */
+export function pushTargets(rest: string[], current: string | null): string[] {
+  const [remote = "origin", refspec] = rest.filter((a) => !a.startsWith("-"));
+  const named = refspec?.replace(/^\+/, "").split(":").pop();
+  const branch = (!named || named === "HEAD" ? current : named)?.replace(
+    /^refs\/heads\//,
+    "",
+  );
+  // A URL remote has no tracking refs to compare with.
+  const tracked = !remote.includes("/") && branch;
+  return [
+    ...(tracked ? [`refs/remotes/${remote}/${branch}`] : []),
+    "@{upstream}",
+  ];
+}
+
+// What the remote has of the push's target; for a branch it doesn't have
+// yet, the parent of the oldest commit no remote has.
+async function pushBase(repo: string, rest: string[]) {
+  const current = (await git(repo, ["branch", "--show-current"]))?.trim();
+  for (const ref of pushTargets(rest, current || null)) {
+    const base = await git(repo, ["rev-parse", "--verify", "--quiet", ref]);
+    if (base) return base.trim();
+  }
+  const unpushed = await git(repo, [
+    "rev-list",
+    "--reverse",
+    "HEAD",
+    "--not",
+    "--remotes",
+  ]);
+  const oldest = unpushed?.split("\n")[0];
+  if (!oldest) return (await git(repo, ["rev-parse", "HEAD"]))?.trim();
+  const parent = await git(repo, [
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    `${oldest}^`,
+  ]);
+  // The first push to an empty remote sends the root commit, which has none.
+  return parent?.trim() ?? EMPTY_TREE;
+}
+
+// git's empty tree: what a diff against nothing compares with.
+const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
+async function pushReview(repo: string, rest: string[]): Promise<GitReview> {
   const head = (await git(repo, ["rev-parse", "HEAD"]))?.trim();
-  const base =
-    (await git(repo, ["rev-parse", "@{upstream}"])) ??
-    (await git(repo, ["rev-parse", "origin/HEAD"]));
+  const base = await pushBase(repo, rest);
   if (!head || !base) return { kind: "push", repo, range: "HEAD", files: [] };
-  const range = `${base.trim()}...${head}`;
+  const root = base === EMPTY_TREE;
+  const range = root ? `${base}..${head}` : `${base}...${head}`;
   return {
     kind: "push",
     repo,
     range,
     files: await changes(repo, range),
-    commits: await commitsIn(repo, `${base.trim()}..${head}`),
+    commits: await commitsIn(
+      repo,
+      root ? [head, "--not", "--remotes"] : [`${base}..${head}`],
+    ),
   };
 }
 
-/** The commits in `range` (`a..b`), newest first. */
-async function commitsIn(repo: string, range: string) {
-  const log = await git(repo, ["log", "--format=%h%x09%s", range]);
+/** The commits `revs` name (e.g. `a..b`), newest first. */
+async function commitsIn(repo: string, revs: string[]) {
+  const log = await git(repo, ["log", "--format=%h%x09%s", ...revs]);
   return (log ?? "")
     .split("\n")
     .filter(Boolean)
@@ -158,7 +204,7 @@ export async function updated(
     repo,
     range,
     files: await changes(repo, range),
-    commits: await commitsIn(repo, range),
+    commits: await commitsIn(repo, [range]),
   };
 }
 
@@ -171,7 +217,7 @@ export function review(
   if (kind === "pr") return prReview(args, cwd);
   const { rest } = splitGit(args);
   const repo = repoOf(args, cwd);
-  return kind === "commit" ? commitReview(repo, rest) : pushReview(repo);
+  return kind === "commit" ? commitReview(repo, rest) : pushReview(repo, rest);
 }
 
 /** After a commit ran, its review points at the new commit, so its diffs stay. */

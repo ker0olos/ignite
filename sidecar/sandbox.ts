@@ -102,9 +102,10 @@ export function blockedSummary(output: string): string | null {
     output,
   );
   const lines = report?.[1].split("\n").filter((line) => line.trim()) ?? [];
-  // macOS also logs lookups a blocked tool made on the way (system-info,
-  // mach-lookup); the file or network denial is what stopped it.
-  const first = lines.find((l) => /file-|network/.test(l)) ?? lines[0];
+  // macOS also logs lookups (system-info, mach-lookup) that commands failing
+  // for their own reasons made, e.g. a grep with no match; only a file or
+  // network denial is worth asking to run outside the sandbox.
+  const first = lines.find((l) => /file-|network/.test(l));
   // "touch(123) deny(1) file-write-create /path" → "file-write-create /path"
   return first
     ? first.replace(/^\S+\(\d+\)\s+deny\(\d+\)\s+/, "").trim()

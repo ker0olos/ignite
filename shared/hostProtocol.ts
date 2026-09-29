@@ -16,6 +16,7 @@ import type { QuestionAnswer } from "./questions.ts";
 import type { McpCatalog } from "./mcpCatalog.ts";
 import type { SkillRequest, SkillResponses } from "./skills.ts";
 import type { RemoteEvent, RemoteInvoke, RemoteStatus } from "./remote.ts";
+import type { Task, TaskPatch } from "./tasks.ts";
 
 /**
  * pi's providers, plus "claude-code": the user's own Claude Code login, which
@@ -276,6 +277,14 @@ export type HostRequest =
   | { id: number; type: "set_trust"; cwd: string; trusted: boolean }
   /** One file's diff in a review's range (see GitReview). */
   | { id: number; type: "git_diff"; repo: string; range: string; path: string }
+  | { id: number; type: "tasks_list"; cwd: string }
+  /** Adds a new task; an existing id is an error. */
+  | { id: number; type: "task_save"; cwd: string; task: Task }
+  /** Changes the task's user fields only, keeping the agent's progress. */
+  | ({ id: number; type: "task_edit"; cwd: string } & TaskPatch)
+  | { id: number; type: "task_delete"; cwd: string; taskId: string }
+  /** Starts the task in a new background conversation and sends it the task. */
+  | { id: number; type: "task_start"; cwd: string; taskId: string }
   | { id: number; type: "app_version" }
   /** Pulls the latest code; `updated` is false when it was already current. */
   | { id: number; type: "app_update" }
@@ -319,6 +328,11 @@ export type HostResponses = SkillResponses & {
   memory_changed: undefined;
   set_trust: undefined;
   git_diff: string;
+  tasks_list: Task[];
+  task_save: Task[];
+  task_edit: Task[];
+  task_delete: Task[];
+  task_start: Task[];
   app_version: AppVersion;
   app_update: { updated: boolean };
 };
@@ -341,6 +355,8 @@ export type HostMessage =
   | { type: "approval_request"; session: string; request: ApprovalRequest }
   /** A conversation opened, closed, started or finished a run, or began or stopped waiting. */
   | { type: "agents"; agents: AgentStatus[] }
+  /** A folder's tasks changed: saved by a window, or updated by an agent. */
+  | { type: "tasks"; cwd: string; tasks: Task[] }
   /** The MCP servers changed (a status, or a saved change). */
   | { type: "mcp_servers"; servers: McpServer[] }
   /** Remote access, for the main window only (see shared/remote.ts). */

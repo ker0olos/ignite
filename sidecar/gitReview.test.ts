@@ -4,7 +4,13 @@ import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { committed, fileDiff, readCommit, review } from "./gitReview.ts";
+import {
+  committed,
+  fileDiff,
+  pushTargets,
+  readCommit,
+  review,
+} from "./gitReview.ts";
 
 let root: string;
 let repo: string;
@@ -88,14 +94,48 @@ describe("review", () => {
     expect(await fileDiff(repo, shown.range, "a.txt")).toContain("-two");
   });
 
-  it("shows no commits for a branch with nothing to compare", async () => {
+  const subjects = async (args: string[]) =>
+    (await review("push", args, repo)).commits?.map((c) => c.subject);
+
+  it("compares with the branch a push names, without an upstream", async () => {
     git("branch", "-q", "--unset-upstream");
-    expect(await review("push", ["push"], repo)).toEqual({
-      kind: "push",
-      repo,
-      range: "HEAD",
-      files: [],
-    });
+    git("commit", "-q", "--allow-empty", "-m", "fix");
+    expect(await subjects(["push", "origin", "main"])).toEqual(["fix"]);
+    expect(await subjects(["push", "origin", "HEAD:refs/heads/main"])).toEqual([
+      "fix",
+    ]);
+  });
+
+  it("shows a new branch's commits the remote doesn't have", async () => {
+    git("switch", "-q", "-c", "feat");
+    git("commit", "-q", "--allow-empty", "-m", "one");
+    git("commit", "-q", "--allow-empty", "-m", "two");
+    expect(await subjects(["push", "-u", "origin", "feat"])).toEqual([
+      "two",
+      "one",
+    ]);
+  });
+
+  it("shows no commits when everything is pushed", async () => {
+    git("branch", "-q", "--unset-upstream");
+    expect(await subjects(["push"])).toEqual([]);
+  });
+});
+
+describe("pushTargets", () => {
+  it.each([
+    [[], "main", ["refs/remotes/origin/main", "@{upstream}"]],
+    [["origin", "HEAD"], "feat", ["refs/remotes/origin/feat", "@{upstream}"]],
+    [["up", "a:refs/heads/b"], "x", ["refs/remotes/up/b", "@{upstream}"]],
+    [
+      ["-u", "origin", "+feat"],
+      "x",
+      ["refs/remotes/origin/feat", "@{upstream}"],
+    ],
+    [["https://h/r.git", "feat"], "x", ["@{upstream}"]],
+    [[], null, ["@{upstream}"]],
+  ])("%j on %s → %j", (rest, current, refs) => {
+    expect(pushTargets(rest, current)).toEqual(refs);
   });
 });
 

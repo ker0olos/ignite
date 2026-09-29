@@ -4,7 +4,9 @@
  * scripted: providers, models, conversations, search, git. Tempo has three
  * conversations at once: one delivered through git, one waiting on its
  * commit's review, one still working; Pantry's waits on the agent's
- * questions. Whatever is typed into the composer comes out as DEMO_PROMPT.
+ * questions. Their tasks (demoTasks.ts) follow those conversations, with a
+ * few more to do and done. Whatever is typed into the composer comes out as
+ * DEMO_PROMPT.
  */
 import type { AgentStatus } from "../../shared/hostProtocol";
 import { demoConversations } from "./demoConversations";
@@ -17,6 +19,9 @@ export const DEMO_FOLDER: string | null = __DEMO_FOLDER__;
 
 /** The projects demo mode opens, the shown one last. */
 export const demoProjects = (demo: string) => [`${dirname(demo)}/pantry`, demo];
+
+/** The task the Tasks view shows open, in demo mode only. */
+export const DEMO_OPEN_TASK = DEMO_FOLDER ? "task-reload" : null;
 
 /** What the composer types in demo mode, a letter per key pressed. */
 export const DEMO_PROMPT = "Add a short summary of this project to the README.";

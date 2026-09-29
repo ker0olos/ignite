@@ -38,6 +38,8 @@ import { listFiles } from "./fileIndex.ts";
 import { createSearch } from "./search.ts";
 import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
+import { deleteTask, startTask } from "./hostTasks.ts";
+import type { TaskStore } from "./taskStore.ts";
 
 type IdRequest = Extract<HostRequest, { id: number }>;
 
@@ -133,6 +135,11 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   },
   set_trust: (ctx, r) => setTrust(ctx, r.cwd, r.trusted),
   git_diff: (_ctx, r) => fileDiff(r.repo, r.range, r.path),
+  tasks_list: (ctx, r) => ctx.tasks.list(r.cwd),
+  task_save: (ctx, r) => ctx.tasks.save(r.cwd, r.task),
+  task_edit: (ctx, r) => ctx.tasks.edit(r.cwd, r.taskId, r.patch),
+  task_delete: (ctx, r) => deleteTask(ctx, r.cwd, r.taskId),
+  task_start: (ctx, r) => startTask(ctx, r.cwd, r.taskId),
   app_version: () => appVersion(),
   app_update: () => appUpdate(),
 };
@@ -154,6 +161,7 @@ export function createHost(
   catalog: McpCatalogSource,
   trust: TrustStore,
   skills: SkillStore,
+  tasks: TaskStore,
   keepAwake: HostContext["keepAwake"] = async () => {},
   search: HostContext["search"] = createSearch(sessions, listFiles),
 ) {
@@ -172,6 +180,8 @@ export function createHost(
     catalog,
     trust,
     skills,
+    tasks,
+    starting: new Set(),
     activeLogin: null,
     claudeLogin: null,
     agents: new Map(),

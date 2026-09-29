@@ -12,6 +12,7 @@ import type {
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import { createHost } from "./host.ts";
+import { createTaskStore } from "./taskStore.ts";
 import { createSearch } from "./search.ts";
 import { describeError, toWireEvent } from "./wire.ts";
 import type {
@@ -28,6 +29,7 @@ import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
 import { memoryStatus } from "./cmem.ts";
 import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
+import type { Task } from "../shared/tasks.ts";
 
 const MEMORY = { state: "stopped", observations: [] } as const;
 vi.mock("./cmem.ts", () => ({ memoryStatus: vi.fn(async () => MEMORY) }));
@@ -220,6 +222,7 @@ function setup(
   skills?: SkillStore,
 ) {
   const sent: HostMessage[] = [];
+  const tasks = createTaskStore(null);
   const mcp = fakeSession();
   let onMcpStatus: (snapshot: McpStatusSnapshot) => void = () => {};
   const openMcpSession = vi.fn(async (listener: typeof onMcpStatus) => {
@@ -239,6 +242,7 @@ function setup(
     catalog,
     trust,
     skills as SkillStore,
+    tasks,
     undefined,
     search,
   );
@@ -250,6 +254,7 @@ function setup(
     sent,
     responses,
     request,
+    tasks,
     mcp,
     openMcpSession,
     mcpStatus,
@@ -1806,6 +1811,19 @@ describe("tool approval", () => {
     expect(session.abort).toHaveBeenCalled();
   });
 
+  it("denies waiting calls when the user writes instead, then sends the message", async () => {
+    const { ask, request, session } = await opened();
+    const first = ask("t1");
+    const second = ask("t2");
+    await request({ id: 2, type: "prompt", text: "Do it another way" });
+    expect(first).toHaveBeenCalledWith(false);
+    expect(second).toHaveBeenCalledWith(false);
+    expect(session.prompt).toHaveBeenCalledWith(
+      "Do it another way",
+      expect.anything(),
+    );
+  });
+
   it("keeps a hidden folder's question until it's shown again", async () => {
     const { reopen, request, sent, responses } = await opened();
     const askWork = reopen();
@@ -2670,5 +2688,188 @@ describe("skills", () => {
       { ok: true, data: LIST },
       { ok: true, data: { sources: [] } },
     ]);
+  });
+});
+
+describe("tasks", () => {
+  const task = (over: Partial<Task> = {}): Task => ({
+    id: "t1",
+    title: "Fix it",
+    notes: "",
+    images: [],
+    subtasks: [],
+    created: 1,
+    updated: 1,
+    ...over,
+  });
+  const withTasks = () => setup(fakeRuntime().runtime);
+  const data = (r: unknown) => (r as { data: unknown }).data;
+
+  it("lists, saves and deletes a folder's tasks", async () => {
+    const { request, responses } = withTasks();
+    await request({ id: 1, type: "tasks_list", cwd: "/work" });
+    await request({ id: 2, type: "task_save", cwd: "/work", task: task() });
+    await request({ id: 3, type: "tasks_list", cwd: "/work" });
+    await request({ id: 4, type: "task_delete", cwd: "/work", taskId: "t1" });
+    expect(responses().map(data)).toEqual([[], [task()], [task()], []]);
+  });
+
+  it("starts a task in a new conversation and sends it the task", async () => {
+    const session = fakeSession();
+    const { tasks, request, responses } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    const image = {
+      type: "image" as const,
+      data: "abc",
+      mimeType: "image/png",
+    };
+    await tasks.save(
+      "/work",
+      task({ notes: "Soon", images: [{ ...image, name: "a.png" }] }),
+    );
+    await request({ id: 1, type: "task_start", cwd: "/work", taskId: "t1" });
+    const [started] = (await tasks.list("/work")) as Task[];
+    expect(started.session).toBe("new1");
+    expect(data(responses()[0])).toEqual([started]);
+    expect(session.prompt).toHaveBeenCalledWith(
+      "Fix it\n\nSoon\n\nAttached images: a.png",
+      { images: [image] },
+    );
+  });
+
+  it("runs a task on its model and effort without saving them as defaults", async () => {
+    const session = fakeSession();
+    const { tasks, request } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await tasks.save(
+      "/work",
+      task({ model: { provider: OPUS.provider, id: OPUS.id }, effort: "high" }),
+    );
+    await request({ id: 1, type: "task_start", cwd: "/work", taskId: "t1" });
+    expect(session.setModel).toHaveBeenCalledWith(OPUS, { persist: false });
+    expect(session.setThinkingLevel).toHaveBeenCalledWith("high", {
+      persist: false,
+    });
+  });
+
+  it("keeps the default model when the task's is gone", async () => {
+    const session = fakeSession();
+    const { tasks, request } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await tasks.save("/work", task({ model: { provider: "x", id: "gone" } }));
+    await request({ id: 1, type: "task_start", cwd: "/work", taskId: "t1" });
+    expect(session.setModel).not.toHaveBeenCalled();
+    expect(session.setThinkingLevel).not.toHaveBeenCalled();
+  });
+});
+
+describe("task_edit and task_save", () => {
+  const task = (over: Partial<Task> = {}): Task => ({
+    id: "t1",
+    title: "Fix it",
+    notes: "",
+    images: [],
+    subtasks: [],
+    created: 1,
+    updated: 1,
+    ...over,
+  });
+
+  it("edits the user's fields and keeps what the agent wrote since", async () => {
+    const { tasks, request, responses } = setup(fakeRuntime().runtime);
+    await tasks.save("/work", task());
+    await tasks.change("/work", (all) =>
+      all.map((t) => ({ ...t, step: "go", planned: true, session: "s1" })),
+    );
+    await request({
+      id: 1,
+      type: "task_edit",
+      cwd: "/work",
+      taskId: "t1",
+      patch: { title: "New", session: "evil" } as never,
+    });
+    const [saved] = (responses().at(-1) as unknown as { data: Task[] }).data;
+    expect(saved).toMatchObject({
+      title: "New",
+      step: "go",
+      planned: true,
+      session: "s1",
+    });
+    expect(await tasks.list("/work")).toEqual([saved]);
+  });
+
+  it("refuses to save over an existing task", async () => {
+    const { request, sent } = setup(fakeRuntime().runtime);
+    const save = () =>
+      request({ id: 1, type: "task_save", cwd: "/work", task: task() });
+    await save();
+    await save();
+    expect(sent.at(-1)).toMatchObject({
+      type: "response",
+      error: expect.stringContaining("That task already exists."),
+    });
+  });
+});
+
+describe("task start and delete", () => {
+  const task = (over: Partial<Task> = {}): Task => ({
+    id: "t1",
+    title: "Fix it",
+    notes: "",
+    images: [],
+    subtasks: [],
+    created: 1,
+    updated: 1,
+    ...over,
+  });
+  const start = { type: "task_start", cwd: "/work", taskId: "t1" } as const;
+
+  it("starts one conversation for two quick starts", async () => {
+    const openSession = vi.fn(async () => fakeSession());
+    const { tasks, request, sent } = setup(fakeRuntime().runtime, openSession);
+    await tasks.save("/work", task());
+    await Promise.all([
+      request({ id: 1, ...start }),
+      request({ id: 2, ...start }),
+    ]);
+    expect(openSession).toHaveBeenCalledTimes(1);
+    expect(sent.filter((m) => m.type === "response" && !m.ok)).toHaveLength(1);
+  });
+
+  it("shows a failed start on the task, which becomes startable again", async () => {
+    const { tasks, request } = setup(fakeRuntime().runtime, async () => {
+      throw new Error("no model");
+    });
+    await tasks.save("/work", task());
+    await request({ id: 1, ...start });
+    const [t] = await tasks.list("/work");
+    expect(t.session).toBeUndefined();
+    expect(t.error).toContain("no model");
+  });
+
+  it("ends a running task's conversation when the task is deleted", async () => {
+    const workspaces = fakeWorkspaces();
+    const { tasks, request } = setup(
+      fakeRuntime().runtime,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      workspaces,
+    );
+    await tasks.save("/work", task());
+    await request({ id: 1, ...start });
+    await request({ id: 2, type: "task_delete", cwd: "/work", taskId: "t1" });
+    expect(workspaces.close).toHaveBeenCalledWith("/work", "new1");
+    expect(await tasks.list("/work")).toEqual([]);
   });
 });
