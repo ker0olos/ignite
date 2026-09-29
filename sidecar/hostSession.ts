@@ -20,6 +20,7 @@ import { signOut } from "./hostMcpSignIn.ts";
 import { askApproval, denyAll } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { firstTitle, pushProjects, titleOf } from "./hostProjects.ts";
+import { resume } from "./hostResume.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -91,8 +92,16 @@ export async function open(
   ctx.shown = id;
   ctx.lastShown.set(cwd, id);
   ctx.checking.clear();
-  const agent = ctx.agents.get(id) ?? start(ctx, cwd, id);
+  const started = ctx.agents.get(id);
+  const agent = started ?? start(ctx, cwd, id);
   const s = await agent.opening;
+  // After the reply, so the app is following the session when the run starts;
+  // and like a prompt, once the worktree's ignored files are in.
+  if (!started) {
+    setTimeout(() => {
+      agent.ready.then(() => resume(s)).catch(reportTo(ctx, agent));
+    });
+  }
   // ponytail: kept in memory; a sidecar restart before a folder opens drops them.
   for (const name of [...ctx.pendingSignOuts]) {
     ctx.pendingSignOuts.delete(name);
@@ -197,15 +206,7 @@ function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
   }
   if (event.type === "agent_settled" && agent.reloadWhenSettled) {
     agent.reloadWhenSettled = false;
-    agent.session?.reload().catch((error: unknown) => {
-      if (isShown(ctx, agent)) {
-        ctx.send({
-          type: "session_error",
-          session: agent.id,
-          error: describeError(error),
-        });
-      }
-    });
+    agent.session?.reload().catch(reportTo(ctx, agent));
   }
 }
 
@@ -253,13 +254,18 @@ export async function prompt(
     ...(s.isStreaming && { streamingBehavior: "steer" as const }),
     ...(images?.length ? { images } : {}),
   };
-  s.prompt(text, options).catch((error: unknown) => {
-    if (isShown(ctx, agent!)) {
+  s.prompt(text, options).catch(reportTo(ctx, agent!));
+}
+
+/** Shows a run's failure, if its conversation is the one shown. */
+function reportTo(ctx: HostContext, agent: Agent) {
+  return (error: unknown) => {
+    if (isShown(ctx, agent)) {
       ctx.send({
         type: "session_error",
-        session: agent!.id,
+        session: agent.id,
         error: describeError(error),
       });
     }
-  });
+  };
 }

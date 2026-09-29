@@ -82,6 +82,9 @@ function fakeSession() {
       session.thinkingLevel = level;
     }),
     messages: [] as AgentMessage[],
+    agent: { state: { messages: [] as AgentMessage[] } },
+    sessionManager: { appendMessage: vi.fn(() => "entry") },
+    sendCustomMessage: vi.fn(async () => {}),
     isStreaming: false,
     listeners: new Set<(e: SessionEvent) => void>(),
     subscribe: vi.fn((cb: (e: SessionEvent) => void) => {
@@ -781,6 +784,21 @@ describe("sessions", () => {
     expect(responses()[0]).toMatchObject({
       data: { messages: [hello], running: true },
     });
+  });
+
+  it("resumes a run a reload cut off, once, after replying", async () => {
+    const session = fakeSession();
+    session.messages = [{ role: "user", content: "hi", timestamp: 1 }];
+    const { request } = setup(fakeRuntime().runtime, async () => session);
+    const open = { type: "open_session", cwd: "/work", session: "s1" } as const;
+    await request({ id: 1, ...open });
+    expect(session.sendCustomMessage).not.toHaveBeenCalled();
+    await vi.waitFor(() =>
+      expect(session.sendCustomMessage).toHaveBeenCalledOnce(),
+    );
+    await request({ id: 2, ...open });
+    await new Promise((r) => setTimeout(r));
+    expect(session.sendCustomMessage).toHaveBeenCalledOnce();
   });
 
   it("passes on why the saved model wasn't used", async () => {

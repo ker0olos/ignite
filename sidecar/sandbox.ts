@@ -111,6 +111,25 @@ export function blockedSummary(output: string): string | null {
     : null;
 }
 
+const BLOCKED_VERBS: [RegExp, string][] = [
+  [/^file-read/, "read"],
+  [/^file-write-create$/, "create"],
+  [/^file-write-unlink$/, "delete"],
+  [/^file-write/, "write to"],
+  [/^network/, "connect to"],
+];
+
+/** A `blockedSummary` in plain words ("read ~/.ssh/config"); null if it isn't one. */
+export function blockedAction(summary: string, home: string): string | null {
+  const [, op, target] = /^(\S+) (.+)$/.exec(summary) ?? [];
+  const verb = op && BLOCKED_VERBS.find(([re]) => re.test(op))?.[1];
+  if (!verb) return null;
+  const shown = target.startsWith(home + "/")
+    ? "~" + target.slice(home.length)
+    : target;
+  return `${verb} ${shown}`;
+}
+
 /**
  * The line where a failed command says the OS refused it. The sandbox's own
  * report can arrive too late (macOS logs it after the command ends), but a

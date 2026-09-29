@@ -1,9 +1,10 @@
+import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useApprovalKeys } from "@/hooks/useApprovalKeys";
 import { approvalHints } from "@/lib/approvalKeys";
 
-/** Approve or deny a tool call that waits for the user, with why it waits. */
+/** Approve or deny a tool call that waits for the user, with why it waits and what it runs. */
 export function ApprovalPrompt({
   reason,
   children,
@@ -21,15 +22,15 @@ export function ApprovalPrompt({
   return (
     <div className="space-y-2 text-[13px]">
       {children}
-      {(reason || !children) && (
-        <p className="text-foreground">{reason ?? "Allow this tool call?"}</p>
-      )}
-      <div className="flex gap-1.5">
+      <p className="text-foreground">{reason ?? "Allow this tool call?"}</p>
+      <div className="flex gap-2 pt-1">
         <Button
-          size="xs"
+          size="sm"
+          className="px-3"
           aria-keyshortcuts={hints ? "Meta+Enter" : undefined}
           onClick={() => onAnswer(true)}
         >
+          <Check />
           Approve
           {hints && (
             <span aria-hidden className="opacity-60">
@@ -38,11 +39,13 @@ export function ApprovalPrompt({
           )}
         </Button>
         <Button
-          size="xs"
+          size="sm"
           variant="outline"
+          className="px-3"
           aria-keyshortcuts={hints ? "Meta+Backspace" : undefined}
           onClick={() => onAnswer(false)}
         >
+          <X />
           Deny
           {hints && (
             <span aria-hidden className="opacity-60">

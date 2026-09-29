@@ -213,6 +213,16 @@
   color: var(--muted-foreground);
   user-select: none;
 }
+.code-view.terminal .line {
+  padding-left: 1.75rem;
+}
+.code-view.terminal .line::before {
+  content: none;
+}
+.code-view.terminal .line:first-child::before {
+  content: "$";
+  width: 1rem;
+}
 .tool-code .tok {
   color: var(--shiki-light);
 }

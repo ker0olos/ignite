@@ -43,7 +43,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: SYSTEM_THEME,
   editor: {
     font_family: "Menlo, Monaco, 'Courier New', monospace",
-    word_wrap: false,
+    word_wrap: true,
   },
   files: { hide_gitignored: true },
   conversation: { show_thinking: false, ask_questions: true, text_size: 14 },

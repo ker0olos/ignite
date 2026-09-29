@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@/components/conversation/shared";
 import { highlight } from "@/lib/highlight";
+import { cn } from "@/lib/utils";
 import type { CodeThemes } from "@/lib/codeThemes";
 
-/** One fenced code block from assistant markdown, highlighted with Shiki. */
+/** A code block, highlighted with Shiki: assistant markdown, or a command awaiting approval. */
 export function CodeBlock({
   code,
   lang,
   editor,
   codeThemes,
+  className,
 }: {
   code: string;
   lang: string | undefined;
   editor: Editor;
   codeThemes: CodeThemes;
+  className?: string;
 }) {
   const [html, setHtml] = useState<string | null>(null);
   const requested = useRef(0);
@@ -35,7 +38,10 @@ export function CodeBlock({
   return (
     // w-max keeps the right padding inside the scrolled width.
     <div
-      className="code-view my-2 overflow-x-auto rounded-lg border [&_pre]:w-max [&_pre]:min-w-full [&_pre]:pr-4"
+      className={cn(
+        "code-view my-2 overflow-x-auto rounded-lg border [&_pre]:w-max [&_pre]:min-w-full [&_pre]:pr-4",
+        className,
+      )}
       style={{ fontFamily: editor.font_family, fontSize: "0.92em" }}
     >
       {html ? (
