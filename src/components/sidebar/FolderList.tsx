@@ -16,6 +16,8 @@ export type ProjectListProps = {
   home: string;
   /** Takes a folder off the sidebar, ending its conversations. */
   onDismiss: (path: string) => void;
+  /** Opens the command center on a folder's conversations. */
+  onHistory: (path: string) => void;
   onOpenFolder: () => void;
 };
 
@@ -32,6 +34,7 @@ export function FolderList({
   conversations,
   home,
   onDismiss,
+  onHistory,
 }: {
   folder: string;
   folders: string[];
@@ -40,6 +43,7 @@ export function FolderList({
   conversations: Conversations;
   home: string;
   onDismiss: (path: string) => void;
+  onHistory: (path: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -50,9 +54,7 @@ export function FolderList({
             home={home}
             selected={path === folder && !shown}
             onNew={() => void conversations.create(path)}
-            history={() => conversations.history(path)}
-            details={(id) => conversations.details(path, id)}
-            onShowSession={(id) => void conversations.show(path, id)}
+            onHistory={() => onHistory(path)}
             onDismiss={() => onDismiss(path)}
           />
           <FolderConversations

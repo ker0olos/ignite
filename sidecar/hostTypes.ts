@@ -15,6 +15,7 @@ import type { Preset, ImportSource } from "./mcpCatalog.ts";
 import type { TrustStore } from "./trust.ts";
 import type { Workspaces } from "./worktrees.ts";
 import type { DraftPick } from "./draftSession.ts";
+import type { createSearch } from "./search.ts";
 
 /** What the MCP settings offer to add in one click. */
 export type McpCatalogSource = {
@@ -99,8 +100,8 @@ export type OpenSession = (
 export type SessionStore = {
   /** A new conversation id. */
   create(): string;
-  /** The folder's conversations with at least one message, newest first. */
-  list(cwd: string): Promise<Omit<SavedSession, "open">[]>;
+  /** The folder's conversations with at least one message, newest first, with all their text. */
+  list(cwd: string): Promise<(SavedSession & { text: string })[]>;
   /** A saved conversation's messages; none if it has no file yet. */
   read(cwd: string, id: string): Promise<AgentMessage[]>;
   /** What's known of it beyond its messages: its branch, cmem's summary. */
@@ -148,6 +149,8 @@ export type HostContext = {
   openSession: OpenSession;
   sessions: SessionStore;
   workspaces: Pick<Workspaces, "open" | "close">;
+  /** The command center's search over folders' conversations and files. */
+  search: ReturnType<typeof createSearch>;
   /** The session that shows what a new conversation would start with. */
   draft: (pick: DraftPick) => Promise<Session>;
   local: LocalLogins;

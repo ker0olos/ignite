@@ -21,7 +21,6 @@ import {
   open,
   close,
   closeAll,
-  list,
   prompt,
 } from "./hostSession.ts";
 import { mcpServers, changeMcp } from "./hostMcp.ts";
@@ -34,6 +33,8 @@ import { setTrust } from "./hostTrust.ts";
 import { appUpdate, appVersion } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
 import { describeSession } from "./describeSession.ts";
+import { listFiles } from "./fileIndex.ts";
+import { createSearch } from "./search.ts";
 import type { TrustStore } from "./trust.ts";
 
 type IdRequest = Extract<HostRequest, { id: number }>;
@@ -64,8 +65,8 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   open_session: (ctx, r) => open(ctx, r.cwd, r.session),
   new_session: (ctx, r) => open(ctx, r.cwd, ctx.sessions.create()),
   close_session: (ctx, r) => close(ctx, r.cwd, r.session),
-  list_sessions: (ctx, r) => list(ctx, r.cwd),
   read_session: (ctx, r) => messagesOf(ctx, r.cwd, r.session),
+  command_search: (ctx, r) => ctx.search(r),
   session_details: async (ctx, r) => ({
     ...describeSession(await messagesOf(ctx, r.cwd, r.session), r.cwd),
     ...(await ctx.sessions.extras(r.cwd, r.session)),
@@ -135,6 +136,7 @@ export function createHost(
   catalog: McpCatalogSource,
   trust: TrustStore,
   keepAwake: HostContext["keepAwake"] = async () => {},
+  search: HostContext["search"] = createSearch(sessions, listFiles),
 ) {
   const ctx: HostContext = {
     runtime,
@@ -157,6 +159,7 @@ export function createHost(
     prompts: new Map(),
     nextPromptId: 1,
     keepAwake,
+    search,
   };
 
   /** Handles one request from the app; never throws. */

@@ -236,12 +236,6 @@ export async function closeAll(ctx: HostContext) {
   await Promise.all([...ctx.agents.values()].map((a) => end(ctx, a)));
 }
 
-/** The folder's saved conversations, newest first, marking the open ones. */
-export async function list(ctx: HostContext, cwd: string) {
-  const saved = await ctx.sessions.list(cwd);
-  return saved.map((s) => ({ ...s, open: ctx.agents.has(s.id) }));
-}
-
 // pi's prompt() resolves when the whole run ends; the app follows the run
 // through events, so only a failure is reported here.
 /** Sends a prompt to the shown conversation. */

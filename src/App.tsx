@@ -1,12 +1,15 @@
+import { AppCommandCenter } from "@/components/app/AppCommandCenter";
+import { AppSettingsDialog } from "@/components/app/AppSettingsDialog";
 import { SettingsButton } from "@/components/app/SettingsButton";
 import { WelcomeScreen } from "@/components/app/WelcomeScreen";
 import { Workspace } from "@/components/app/Workspace";
 import { ConnectProviders } from "@/components/providers/ConnectProviders";
-import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { SignInBanner } from "@/components/sidebar/SignInBanner";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
 import { useAgentSession } from "@/hooks/useAgentSession";
 import { useAppMenu } from "@/hooks/useAppMenu";
+import { useCommandCenter } from "@/hooks/useCommandCenter";
+import { useOpenFile } from "@/hooks/useOpenFile";
 import { useConnectScreen } from "@/hooks/useConnectScreen";
 import { useFolders } from "@/hooks/useFolders";
 import { useMcpServers } from "@/hooks/useMcpServers";
@@ -20,6 +23,7 @@ import { codeThemesFor } from "@/lib/codeThemes";
 import { needingSignIn } from "@/lib/mcpServers";
 import { approvalSetting } from "@/lib/settings";
 import { DEMO_FOLDER, shownRows, shownSession } from "@/lib/demo";
+import { basename } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -49,6 +53,9 @@ export default function App() {
     forget: list.forget,
   });
   const tabs = useTabs(current);
+  const openFile = useOpenFile(current, tabs.open, addFolder);
+  const command = useCommandCenter();
+  const rows = shownRows(list.rows);
   const dragging = useFolderDrop(addFolder);
   const dialog = useSettingsDialog(providers.host, current);
   const openSettings = dialog.show;
@@ -98,11 +105,13 @@ export default function App() {
           actions={settingsButton}
           projectList={{
             folders: shownFolders,
-            rows: shownRows(list.rows),
+            rows,
             shown: session.session,
             conversations: chats,
             home,
             onDismiss: chats.dismiss,
+            onHistory: (path) =>
+              command.openWith(`@${basename(path)} #convos `),
             onOpenFolder: openFolder,
           }}
           banner={
@@ -123,23 +132,17 @@ export default function App() {
           onSelectFolder={addFolder}
         />
       )}
-      <SettingsDialog
-        key={dialog.section}
-        initialSection={dialog.section}
-        open={dialog.open}
-        onOpenChange={dialog.setOpen}
-        settings={settings}
+      <AppSettingsDialog
+        {...{ dialog, settings, providers, mcp, connectScreen }}
         onChange={setSettings}
-        providers={providers.statuses}
-        providersError={providers.hostError}
-        mcp={mcp}
-        memory={dialog.memory}
-        about={dialog.about}
         folder={current}
-        onManageProviders={() => {
-          dialog.setOpen(false);
-          connectScreen.show();
-        }}
+      />
+      <AppCommandCenter
+        {...{ command, home, rows, settings, openFile }}
+        host={providers.host}
+        folders={folders}
+        conversations={chats}
+        openFolder={addFolder}
       />
     </div>
   );

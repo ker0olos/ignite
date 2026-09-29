@@ -457,24 +457,6 @@ describe("several conversations in a folder", () => {
       const r = req as { type: string; session?: string };
       if (fail && r.type !== "open_session") throw new Error("Disk full");
       if (r.type === "new_session") return { ...STATE, session: "s2" };
-      if (r.type === "list_sessions") {
-        return [
-          {
-            id: "s1",
-            title: "hello",
-            modified: 2,
-            messageCount: 2,
-            open: true,
-          },
-          {
-            id: "s0",
-            title: "older",
-            modified: 1,
-            messageCount: 4,
-            open: false,
-          },
-        ];
-      }
       if (r.type === "close_session") return undefined;
       return { ...STATE, session: r.session ?? "s1", messages: [hello] };
     });

@@ -1,4 +1,4 @@
-/** A folder's saved conversations, as the history search lists and describes them. */
+/** A folder's saved conversations, as the command center finds, lists and describes them. */
 import type { SessionSummary } from "./memory.ts";
 
 /** A conversation pi saved for a folder. */
@@ -9,8 +9,6 @@ export type SavedSession = {
   /** Milliseconds since the epoch. */
   modified: number;
   messageCount: number;
-  /** Whether it's open in this window. */
-  open: boolean;
 };
 
 /** What a saved conversation did, for the history search. */
@@ -28,4 +26,27 @@ export type SessionDetails = {
   branch?: string;
   /** cmem's summary of its latest run, when cmem recorded it. */
   summary?: SessionSummary;
+};
+
+/** A saved conversation the command center found, in `folder`. */
+export type ConversationHit = SavedSession & {
+  folder: string;
+  /** Where its text matched, when not in its title. */
+  snippet?: string;
+};
+
+/** A file the command center found: `path` is relative to `folder`. */
+export type FileHit = { folder: string; path: string };
+
+/** The command center's search: the best matches in `folders`, of `kinds`. */
+export type CommandSearch = {
+  text: string;
+  folders: string[];
+  kinds: ("conversation" | "file")[];
+  limit: number;
+};
+
+export type CommandSearchResult = {
+  conversations: ConversationHit[];
+  files: FileHit[];
 };

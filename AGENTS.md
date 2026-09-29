@@ -20,6 +20,7 @@ src/                     React frontend (almost all logic lives here)
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner
     files/               Lazy directory tree, read-only syntax-highlighted file view
+    command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring, task composer, model/effort/approval menus, trust prompt
     conversation/        Transcript rendering: messages, thinking, tool rows (with approve/deny, or the
                          agent's questions) and their pieces
@@ -42,7 +43,11 @@ src/                     React frontend (almost all logic lives here)
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
     useDraftState.ts     A folder with no conversation: the models and effort it would start with
     useConversationList.ts Each folder's listed conversations, remembered across launches
-    useConversations.ts  Every open folder's conversations for the sidebar; closed ones to reopen
+    useConversations.ts  Every open folder's conversations for the sidebar: show, create, close, details
+    useCommandCenter.ts  ⌘K / Ctrl+K opens the command center, optionally with a query
+    useCommandSearch.ts  The command center's results: debounced command_search, folders, @/# suggestions
+    useDetailsCache.ts   Session details fetched once each, for the command center preview
+    useOpenFile.ts       Opens a file in any folder, switching to it first
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
@@ -60,6 +65,7 @@ src/                     React frontend (almost all logic lives here)
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     tabs.ts              Open/close logic for file tabs
     recent.ts            Recent-folders list logic
+    commandQuery.ts      Command center query: `@folder`, `#convos`/`#files`/`#folders`, result picks
     fileIcons.ts         Extension → monochrome icon
     menu.ts              macOS menu bar
     lifecycle.ts         Confirm before quitting or closing a window
@@ -92,9 +98,11 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   host.ts                Request dispatch; createHost builds the handler
   hostTypes.ts           Shared types and HostContext; per-function context instead of closures
   hostAuth.ts            Provider sign-in (status, interaction, login)
-  hostSession.ts         Open conversations, several per folder, kept running while hidden (sessionState, setModel, open, close, list, prompt)
+  hostSession.ts         Open conversations, several per folder, kept running while hidden (sessionState, setModel, open, close, prompt)
   hostProjects.ts        Tells the app which open conversations are working or waiting (pushProjects)
   sessionStore.ts        pi's saved conversations per folder: the latest, new ids, the list
+  search.ts              command_search: ranks conversations (title, full text) and files across folders
+  fileIndex.ts           A folder's files for search (git ls-files, else a capped walk)
   sessionRuntime.ts      Each session's own model runtime (passes its cwd to providers); saved model
   draftSession.ts        What a new conversation would start with (models, effort) before one exists
   worktrees.ts           Each agent's git worktree: start point, open, save and remove, sweep; updateFolder
@@ -136,6 +144,9 @@ docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/validation.ts     Checks on typed API keys and MCP servers (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
+shared/conversations.ts  Saved conversations, their details, command search hits (used by both)
+shared/memory.ts         cmem status and observations as they cross the wire
+shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
 shared/questions.ts      ask_user's questions and answers (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
@@ -195,8 +206,9 @@ Two places hold persisted data:
   in state.json, and one starts again when clicked). Showing a folder shows
   its last shown conversation, or an empty one: a session starts only with
   its first message. A reopened one shows from its file (`read_session`)
-  while its session starts. Closing one keeps its file, and the folder's
-  history search reopens it. And `trust.json`, pi's
+  while its session starts. Closing one keeps its file, and the ⌘K
+  command center (a folder's History button opens it filtered to that
+  folder) reopens it. And `trust.json`, pi's
   per-folder project trust decisions. The model list and each model's effort levels
   always come from pi; the app never hard-codes them. `mcp.json` holds the
   MCP servers in pi-mcp-adapter's documented format (`mcpServers`, optional

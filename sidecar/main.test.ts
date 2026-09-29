@@ -187,10 +187,17 @@ describe("sidecar process", () => {
       session: first.session,
     });
     expect(await answer(7)).toMatchObject({ model: "gpt-4.1", files: [] });
-    sidecar.send({ id: 4, type: "list_sessions", cwd: home });
-    expect(await answer(4)).toMatchObject([
-      { id: first.session, title: "hello", open: true },
-    ]);
+    sidecar.send({
+      id: 4,
+      type: "command_search",
+      text: "hel",
+      folders: [home],
+      kinds: ["conversation"],
+      limit: 5,
+    });
+    expect(await answer(4)).toMatchObject({
+      conversations: [{ id: first.session, title: "hello", folder: home }],
+    });
     sidecar.send({
       id: 5,
       type: "open_session",

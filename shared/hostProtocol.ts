@@ -7,7 +7,11 @@
 import type { AgentMessage, ImageContent, SessionEvent } from "./agentTypes.ts";
 import type { GitReview } from "./git.ts";
 import type { MemoryStatus } from "./memory.ts";
-import type { SavedSession, SessionDetails } from "./conversations.ts";
+import type {
+  CommandSearch,
+  CommandSearchResult,
+  SessionDetails,
+} from "./conversations.ts";
 import type { QuestionAnswer } from "./questions.ts";
 
 /**
@@ -222,13 +226,12 @@ export type HostRequest =
    * waiting tool calls are denied. Saved conversations stay.
    */
   | { id: number; type: "close_session"; cwd: string; session?: string }
-  /** The folder's saved conversations, newest first. */
-  | { id: number; type: "list_sessions"; cwd: string }
   /**
    * A conversation's messages, read from its file (or its running session)
    * without starting it, so it shows while it starts.
    */
   | { id: number; type: "read_session"; cwd: string; session: string }
+  | ({ id: number; type: "command_search" } & CommandSearch)
   /** What a saved conversation did: model, cost, files, cmem's summary… */
   | { id: number; type: "session_details"; cwd: string; session: string }
   | { id: number; type: "session_state"; session?: string }
@@ -317,9 +320,9 @@ export type HostResponses = {
   open_session: OpenedSession | null;
   new_session: OpenedSession;
   close_session: undefined;
-  list_sessions: SavedSession[];
   read_session: AgentMessage[];
   session_details: SessionDetails;
+  command_search: CommandSearchResult;
   session_state: SessionState;
   draft_state: SessionState;
   set_model: SessionState;

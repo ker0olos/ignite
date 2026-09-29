@@ -1,8 +1,15 @@
 import type { SessionDetails } from "../../../shared/conversations";
-import { DetailsSection } from "@/components/sidebar/DetailsSection";
+import { Highlight } from "@/components/command/Highlight";
+import { DetailsSection } from "@/components/command/DetailsSection";
 
 /** A saved conversation's story: cmem's summary (else its last reply) and the files it edited. */
-export function ConversationSummary({ details }: { details: SessionDetails }) {
+export function ConversationSummary({
+  details,
+  query,
+}: {
+  details: SessionDetails;
+  query: string;
+}) {
   const { summary, lastReply, files } = details;
   const parts: [string, string | undefined, string][] = [
     ["Last done", summary?.completed, "line-clamp-5"],
@@ -21,7 +28,9 @@ export function ConversationSummary({ details }: { details: SessionDetails }) {
         ([title, text, className]) =>
           text && (
             <DetailsSection key={title} title={title}>
-              <p className={className}>{text}</p>
+              <p className={className}>
+                <Highlight text={text} query={query} />
+              </p>
             </DetailsSection>
           ),
       )}
@@ -30,7 +39,7 @@ export function ConversationSummary({ details }: { details: SessionDetails }) {
           <ul className="flex flex-col gap-0.5 font-mono text-xs text-muted-foreground">
             {files.map((f) => (
               <li key={f} className="truncate">
-                {f}
+                <Highlight text={f} query={query} />
               </li>
             ))}
           </ul>

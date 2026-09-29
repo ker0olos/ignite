@@ -1,8 +1,4 @@
 import { Folder } from "lucide-react";
-import type {
-  SavedSession,
-  SessionDetails,
-} from "../../../shared/conversations";
 import { ProjectRowActions } from "@/components/sidebar/ProjectRowActions";
 import { basename, tildify } from "@/lib/paths";
 import { cn } from "@/lib/utils";
@@ -16,18 +12,15 @@ export function ProjectRow({
   home,
   selected,
   onNew,
-  history,
-  details,
-  onShowSession,
+  onHistory,
   onDismiss,
 }: {
   path: string;
   home: string;
   selected?: boolean;
   onNew: () => void;
-  history: () => Promise<SavedSession[]>;
-  details: (session: string) => Promise<SessionDetails | null>;
-  onShowSession: (session: string) => void;
+  /** Opens the command center on the folder's conversations. */
+  onHistory: () => void;
   onDismiss: () => void;
 }) {
   return (
@@ -50,9 +43,7 @@ export function ProjectRow({
       </button>
       <ProjectRowActions
         path={path}
-        history={history}
-        details={details}
-        onShowSession={onShowSession}
+        onHistory={onHistory}
         onDismiss={onDismiss}
       />
     </div>

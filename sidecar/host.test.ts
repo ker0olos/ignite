@@ -12,6 +12,7 @@ import type {
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import { createHost } from "./host.ts";
+import { createSearch } from "./search.ts";
 import { describeError, toWireEvent } from "./wire.ts";
 import type {
   McpCatalogSource,
@@ -211,6 +212,7 @@ function setup(
   sessions: SessionStore = fakeSessions(),
   workspaces: HostContext["workspaces"] = fakeWorkspaces(),
   draft: HostContext["draft"] = async () => fakeSession(),
+  search?: HostContext["search"],
 ) {
   const sent: HostMessage[] = [];
   const host = createHost(
@@ -224,6 +226,8 @@ function setup(
     mcpStore,
     catalog,
     trust,
+    undefined,
+    search,
   );
   const responses = () => sent.filter((m) => m.type === "response");
   const request = async (r: HostRequest) => host.handle(r);
@@ -1171,11 +1175,17 @@ describe("sessions", () => {
     });
   });
 
-  it("lists the folder's saved conversations, marking the open ones", async () => {
+  it("searches folders' conversations and files for the command center", async () => {
     const saved = [
-      { id: "/work:saved", title: "Fix it", modified: 2, messageCount: 4 },
-      { id: "old", title: "Before", modified: 1, messageCount: 2 },
+      {
+        id: "s1",
+        title: "check the sentry errors",
+        modified: 2,
+        messageCount: 4,
+        text: "",
+      },
     ];
+    const files = vi.fn(async () => ["src/sentry.ts", "README.md"]);
     const sessions = fakeSessions(saved);
     const { request, responses } = setup(
       fakeRuntime().runtime,
@@ -1186,20 +1196,25 @@ describe("sessions", () => {
       undefined,
       undefined,
       sessions,
+      undefined,
+      undefined,
+      createSearch(sessions, files),
     );
     await request({
       id: 1,
-      type: "open_session",
-      cwd: "/work",
-      session: "/work:saved",
+      type: "command_search",
+      text: "sentry",
+      folders: ["/work"],
+      kinds: ["conversation", "file"],
+      limit: 10,
     });
-    await request({ id: 2, type: "list_sessions", cwd: "/work" });
-    expect(sessions.list).toHaveBeenCalledWith("/work");
-    expect(responses()[1]).toMatchObject({
-      data: [
-        { id: "/work:saved", open: true },
-        { id: "old", open: false },
-      ],
+    const out = responses()[0];
+    expect(out).toMatchObject({
+      ok: true,
+      data: {
+        conversations: [{ folder: "/work", id: "s1" }],
+        files: [{ folder: "/work", path: "src/sentry.ts" }],
+      },
     });
   });
 

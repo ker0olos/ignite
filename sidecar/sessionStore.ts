@@ -40,5 +40,6 @@ export const sessions: SessionStore = {
         title: s.name ?? s.firstMessage,
         modified: s.modified.getTime(),
         messageCount: s.messageCount,
+        text: s.allMessagesText,
       })),
 };

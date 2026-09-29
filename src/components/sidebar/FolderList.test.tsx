@@ -22,7 +22,6 @@ function setup(shown: string | null = "a") {
     create: vi.fn(),
     close: vi.fn(async () => {}),
     dismiss: vi.fn(),
-    history: vi.fn(async () => []),
     details: vi.fn(async () => null),
   };
   const onDismiss = vi.fn();
@@ -35,6 +34,7 @@ function setup(shown: string | null = "a") {
       conversations={conversations}
       home="/home/me"
       onDismiss={onDismiss}
+      onHistory={vi.fn()}
     />,
   );
   return { conversations, onDismiss };

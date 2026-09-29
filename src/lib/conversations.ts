@@ -55,7 +55,10 @@ const MONEY = new Intl.NumberFormat("en-US", {
 });
 
 /** A saved conversation's facts in one line: model, size, cost and branch, as far as they're known. */
-export function detailsLine(saved: SavedSession, details: SessionDetails) {
+export function detailsLine(
+  saved: Pick<SavedSession, "messageCount">,
+  details: SessionDetails,
+) {
   return [
     details.model,
     `${saved.messageCount} messages`,

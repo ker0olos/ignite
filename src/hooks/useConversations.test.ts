@@ -4,20 +4,9 @@ import type { HostClient } from "@/lib/piHost";
 import { useConversations } from "./useConversations";
 
 function setup(fail = false) {
-  const request = vi.fn(async (r: { type: string }) => {
+  const request = vi.fn(async () => {
     if (fail) throw new Error("Gone");
-    return r.type === "list_sessions"
-      ? [
-          { id: "a", title: "open", modified: 2, messageCount: 2, open: true },
-          {
-            id: "b",
-            title: "closed",
-            modified: 1,
-            messageCount: 2,
-            open: false,
-          },
-        ]
-      : undefined;
+    return undefined;
   });
   const host = { request } as unknown as HostClient;
   const shown = {
@@ -89,12 +78,5 @@ describe("useConversations", () => {
     });
     const failing = setup(true);
     expect(await failing.result.current.details("/work", "s1")).toBeNull();
-  });
-
-  it("lists a folder's closed conversations", async () => {
-    const { result } = setup();
-    expect((await result.current.history("/other")).map((s) => s.id)).toEqual([
-      "b",
-    ]);
   });
 });
