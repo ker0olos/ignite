@@ -43,6 +43,17 @@ one or several, write your own answer, add a note under your pick, or leave it
 to the agent. With **Ask before deciding** turned off in Settings, it decides
 on its own.
 
+## Bring your skills
+
+<p align="center">
+  <img src="docs/skills.png" alt="The Skills settings: imported skills and an Expo plugin with 24 skills, each with a switch and a remove button" width="80%">
+</p>
+
+Skills and MCP servers you already use in Claude Code, Codex, Cursor or Claude
+Desktop import in one click, including the skills in Claude Code's plugins.
+Each one has its own switch, and the agent reads a skill only when a task
+needs it.
+
 ## Features
 
 - Claude runs through your own Claude Code sign-in and ChatGPT through your
@@ -51,8 +62,6 @@ on its own.
 - Commands run in a sandbox. They can only write inside the project, can't
   read your credentials and can only reach package registries and git hosts.
   Anything risky waits for your OK.
-- MCP servers you already use in Claude Code, Cursor, Codex or Claude Desktop
-  import in one click.
 - With [cmem](https://cmem.ai), the agent remembers what it learned about a
   project, and what other agents learned there too.
 - Code shows in any theme installed in VS Code, VSCodium, Cursor or Windsurf.
