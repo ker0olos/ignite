@@ -56,8 +56,8 @@ Needs macOS, [Node.js](https://nodejs.org) 22.18 or newer,
 (`xcode-select --install`).
 
 ```sh
-git clone https://github.com/ker0olos/ignition.git
-cd ignition
+git clone https://github.com/ker0olos/ignite.git
+cd ignite
 npm install
 npm run setup
 ```
