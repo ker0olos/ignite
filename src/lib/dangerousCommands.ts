@@ -196,7 +196,7 @@ export const DANGEROUS_COMMANDS: readonly {
   },
   {
     pattern:
-      /(?:\.ssh\/(?:id_|[^\s/]*_(?:rsa|ed25519|ecdsa|dsa)\b)|\.aws\/credentials|\.netrc\b|\.git-credentials|\.docker\/config\.json|\.kube\/config|\.config\/gh\/hosts|\.gnupg\/|Library\/Keychains|\.codex\/auth\.json|\.claude\/\.credentials|\.pi\/agent\/auth\.json|\.ignition\/pi\/auth\.json)/,
+      /(?:\.ssh\/(?:id_|[^\s/]*_(?:rsa|ed25519|ecdsa|dsa)\b)|\.aws\/credentials|\.netrc\b|\.git-credentials|\.docker\/config\.json|\.kube\/config|\.config\/gh\/hosts|\.gnupg\/|Library\/Keychains|\.codex\/auth\.json|\.claude\/\.credentials|\.pi\/agent\/auth\.json|\.ignite\/pi\/auth\.json)/,
     reason: "Reads credentials or private keys",
   },
   {

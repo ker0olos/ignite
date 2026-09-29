@@ -1,5 +1,5 @@
 {
-  "name": "ignition",
+  "name": "ignite",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "demo": "IGNITION_DEMO=1 tauri dev",
+    "demo": "IGNITE_DEMO=1 tauri dev",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.sidecar.json",
     "lint": "oxlint --deny-warnings && eslint . && knip && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
     "format": "prettier --write . && cargo fmt --manifest-path src-tauri/Cargo.toml",

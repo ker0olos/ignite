@@ -12,7 +12,7 @@ import { REMOTE_SOCKET } from "../shared/remote.ts";
 
 // ponytail: the UI comes from the Vite dev server `tauri dev` runs; a built app would serve dist/
 const VITE = { host: "localhost", port: 1420 };
-const COOKIE = "ignition_remote";
+const COOKIE = "ignite_remote";
 
 // Byte lengths, not string lengths: timingSafeEqual throws on a mismatch.
 const same = (a: string, b: string) => {
@@ -27,7 +27,7 @@ const tokenIn = (url = "/") =>
     : null;
 
 const cookieOf = (req: IncomingMessage) =>
-  /(?:^|;\s*)ignition_remote=([^;]+)/.exec(req.headers.cookie ?? "")?.[1] ?? "";
+  /(?:^|;\s*)ignite_remote=([^;]+)/.exec(req.headers.cookie ?? "")?.[1] ?? "";
 
 /** Whether a browser has the token (in its cookie); a WebSocket must also come from this page. */
 export function allowed(req: IncomingMessage, token: string, socket = false) {
@@ -48,7 +48,7 @@ export function remoteUrls(port: number, token: string) {
 }
 
 const DENIED =
-  "<!doctype html><meta name=viewport content='width=device-width'><p style='font:16px system-ui;padding:24px'>Open this page from the link or QR code in Ignition's Settings.</p>";
+  "<!doctype html><meta name=viewport content='width=device-width'><p style='font:16px system-ui;padding:24px'>Open this page from the link or QR code in Ignite's Settings.</p>";
 
 /**
  * Serves the UI to browsers holding the token: `?token=` sets the cookie,

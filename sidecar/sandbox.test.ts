@@ -42,7 +42,7 @@ describe("sandboxConfig", () => {
         "/Users/me/.ssh",
         "/Users/me/.aws",
         "/Users/me/Library/Keychains",
-        "/Users/me/.ignition/pi/auth.json",
+        "/Users/me/.ignite/pi/auth.json",
       ]),
     );
   });
@@ -152,7 +152,7 @@ describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
   let sandbox: Sandbox;
   let home: string;
   let cwd: string;
-  const escape = join(homedir(), `.ignition-sandbox-test-${process.pid}`);
+  const escape = join(homedir(), `.ignite-sandbox-test-${process.pid}`);
 
   beforeAll(async () => {
     home = await realpath(await mkdtemp(join(tmpdir(), "sandbox-home-")));

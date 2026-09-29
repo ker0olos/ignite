@@ -24,7 +24,7 @@ export function skillsItems({
         section: "Skills",
         title: "No skills yet",
         description:
-          "Import skills from other apps below, or add folders with a SKILL.md to ~/.ignition/pi/skills.",
+          "Import skills from other apps below, or add folders with a SKILL.md to ~/.ignite/pi/skills.",
       },
     ];
   }

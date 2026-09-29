@@ -6,7 +6,7 @@ import { reportHealthy } from "./health";
 describe("reportHealthy", () => {
   it("writes the launcher's health file", async () => {
     const { writes } = fakeFs({});
-    await reportHealthy("/home/.ignition/launch/healthy");
+    await reportHealthy("/home/.ignite/launch/healthy");
     expect(writes).toEqual(["ok"]);
   });
 

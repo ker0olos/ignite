@@ -80,7 +80,7 @@ const DEMO_MEMORY = (now: number): MemoryStatus => ({
       title: "Dark mode follows the system theme",
       subtitle: "Colors moved into CSS variables with a dark set",
       createdAt: now - 20 * 60_000,
-      platform: "ignition",
+      platform: "ignite",
     },
     {
       id: 2,

@@ -19,7 +19,7 @@ const call = (name: string, path?: string) => ({
 
 describe("describeSession", () => {
   it("tells its model, last reply, files edited (from the folder), tool calls and cost", () => {
-    const worktree = "/Users/me/.ignition/worktrees/app-1a2b/s1";
+    const worktree = "/Users/me/.ignite/worktrees/app-1a2b/s1";
     const details = describeSession(
       [
         { role: "user", content: "Fix it", timestamp: 1 },

@@ -168,7 +168,7 @@ describe("workspaces", () => {
     write(join(ws.dir, "app.ts"), "agent\n");
     const path = worktreePath(repo, "a", root);
     git(repo, "worktree", "unlock", path);
-    git(repo, "worktree", "lock", "--reason", "ignition pid 999999", path);
+    git(repo, "worktree", "lock", "--reason", "ignite pid 999999", path);
     age(path);
     await workspaces.sweep();
     expect(existsSync(path)).toBe(false);
@@ -235,7 +235,7 @@ describe("keeping work safe", () => {
     await workspaces.open(repo, "a");
     const path = worktreePath(repo, "a", root);
     git(repo, "worktree", "unlock", path);
-    git(repo, "worktree", "lock", "--reason", "ignition pid 999999", path);
+    git(repo, "worktree", "lock", "--reason", "ignite pid 999999", path);
     await workspaces.open(repo, "a");
     age(path);
     await workspaces.sweep();
@@ -252,7 +252,7 @@ describe("keeping work safe", () => {
       "worktree",
       "lock",
       "--reason",
-      `ignition pid ${process.ppid}`,
+      `ignite pid ${process.ppid}`,
       path,
     );
     await workspaces.close(repo, "a");

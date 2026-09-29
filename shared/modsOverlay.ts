@@ -23,9 +23,9 @@ function real(path: string): string {
   }
 }
 
-/** Reads the overlay from IGNITION_MODS; null when unset (maintainers). */
+/** Reads the overlay from IGNITE_MODS; null when unset (maintainers). */
 export function overlayFromEnv(root: string): Overlay | null {
-  const mods = process.env.IGNITION_MODS;
+  const mods = process.env.IGNITE_MODS;
   return mods ? { root: real(root), mods: real(mods) } : null;
 }
 
