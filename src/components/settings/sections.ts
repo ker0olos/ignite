@@ -10,6 +10,7 @@ import {
   Palette,
   Plug,
   Server,
+  Smartphone,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -45,6 +46,11 @@ export const SECTIONS = {
     icon: Brain,
     brief: "Recall across sessions",
     blurb: "What the agent remembers across sessions, with cmem.",
+  },
+  Remote: {
+    icon: Smartphone,
+    brief: "Use it from other devices",
+    blurb: "Open the app from your phone or another computer.",
   },
   Conversation: {
     icon: MessageSquare,

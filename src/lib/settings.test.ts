@@ -206,6 +206,7 @@ describe("saveSettings", () => {
     subagents: { enabled: false, max: 4 },
     power: { keep_awake: false },
     chrome: { enabled: false, disabled_tools: ["chrome_cdp"] },
+    remote: { enabled: true, port: 5000, token: "abc" },
   };
 
   it("creates the settings directory first", async () => {

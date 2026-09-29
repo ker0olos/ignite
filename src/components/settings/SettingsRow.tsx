@@ -3,9 +3,12 @@ import type { Item } from "@/components/settings/sections";
 /** One settings row: icon, title, description and its control. */
 export function SettingsRow({ item }: { item: Item }) {
   return (
-    <div id={item.id} className="flex min-h-11 items-center gap-3 px-4 py-2.5">
+    <div
+      id={item.id}
+      className="flex min-h-11 items-center gap-3 px-4 py-2.5 max-sm:flex-wrap max-sm:px-3"
+    >
       {item.icon}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 max-sm:min-w-40">
         <p className="text-[13px]">{item.title}</p>
         {(item.description || item.hint) && (
           <p className="text-xs text-muted-foreground">

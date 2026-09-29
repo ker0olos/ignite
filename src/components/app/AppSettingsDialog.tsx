@@ -4,6 +4,7 @@ import type { useMcpServers } from "@/hooks/useMcpServers";
 import type { useProviders } from "@/hooks/useProviders";
 import type { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import type { Settings } from "@/lib/settings";
+import type { RemoteStatus } from "../../../shared/remote";
 
 /** The Settings dialog, wired to the app's state. */
 export function AppSettingsDialog({
@@ -14,6 +15,7 @@ export function AppSettingsDialog({
   mcp,
   folder,
   connectScreen,
+  remote,
 }: {
   dialog: ReturnType<typeof useSettingsDialog>;
   settings: Settings;
@@ -22,6 +24,7 @@ export function AppSettingsDialog({
   mcp: ReturnType<typeof useMcpServers>;
   folder: string | null;
   connectScreen: ReturnType<typeof useConnectScreen>;
+  remote: RemoteStatus | null;
 }) {
   return (
     <SettingsDialog
@@ -38,6 +41,7 @@ export function AppSettingsDialog({
       memory={dialog.memory}
       about={dialog.about}
       folder={folder}
+      remote={remote}
       onManageProviders={() => {
         dialog.setOpen(false);
         connectScreen.show();

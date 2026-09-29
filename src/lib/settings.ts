@@ -39,6 +39,8 @@ export type Settings = {
   power: { keep_awake: boolean };
   /** `disabled_tools`: Chrome tools (shared/chrome.ts) the agent doesn't get. */
   chrome: { enabled: boolean; disabled_tools: string[] };
+  /** Remote access from browsers on other devices; `token` is in the link they open. */
+  remote: { enabled: boolean; port: number; token: string };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -54,6 +56,7 @@ export const DEFAULT_SETTINGS: Settings = {
   subagents: { enabled: true, max: 2 },
   power: { keep_awake: true },
   chrome: { enabled: true, disabled_tools: [] },
+  remote: { enabled: false, port: 4280, token: "" },
 };
 
 export const MIN_TEXT_SIZE = 10;
@@ -112,6 +115,17 @@ const readChrome = (
     : [],
 });
 
+const readRemote = (
+  remote: Partial<Settings["remote"]> = {},
+): Settings["remote"] => ({
+  enabled: remote.enabled === true,
+  port:
+    Number.isInteger(remote.port) && remote.port! > 0 && remote.port! < 65536
+      ? remote.port!
+      : DEFAULT_SETTINGS.remote.port,
+  token: typeof remote.token === "string" ? remote.token : "",
+});
+
 // Earlier versions stored the appearance itself; map it to the matching theme.
 const LEGACY_THEMES: Record<string, string> = {
   light: "github-light",
@@ -156,6 +170,7 @@ export async function loadSettings(): Promise<Settings> {
     subagents: readSubagents(raw.subagents),
     power: { ...DEFAULT_SETTINGS.power, ...raw.power },
     chrome: readChrome(raw.chrome),
+    remote: readRemote(raw.remote),
   };
 }
 

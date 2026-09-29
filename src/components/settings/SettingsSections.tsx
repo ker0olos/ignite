@@ -27,7 +27,7 @@ export function SettingsSections({
 }) {
   const q = query.trim();
   return (
-    <div className="min-w-0 flex-1 overflow-y-auto overscroll-contain px-8 pt-6 pb-8">
+    <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-8 pt-6 pb-8 max-sm:px-3 max-sm:pt-4">
       {groups.length === 0 && (
         <p className="mt-16 text-center text-[13px] text-muted-foreground">
           No settings match “{q}”.

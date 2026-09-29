@@ -1,17 +1,16 @@
 import type { ReactNode } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
-import { FileTabs } from "@/components/app/FileTabs";
+import { EditorPane } from "@/components/app/EditorPane";
+import { MobileWorkspace } from "@/components/app/MobileWorkspace";
 import { PaneHandle } from "@/components/app/PaneHandle";
 import { AgentPanel } from "@/components/agent/AgentPanel";
-import { DiffView } from "@/components/files/DiffView";
-import { FileView } from "@/components/files/FileView";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import type { ProjectListProps } from "@/components/sidebar/FolderList";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { useNarrow } from "@/hooks/useNarrow";
 import { OpenTabContext } from "@/hooks/useOpenTab";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useTabs } from "@/hooks/useTabs";
-import { readDiffTab } from "@/lib/diffTabs";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { Settings } from "@/lib/settings";
 import type { Approval } from "@/components/agent/Composer";
@@ -19,7 +18,7 @@ import type { Approval } from "@/components/agent/Composer";
 /**
  * Everything shown for an open folder: sidebar, full-height agent panel, and
  * an editor pane that appears while files are open. Tab state lives in App so
- * the menu (⌘W) can reach it.
+ * the menu (⌘W) can reach it. On a phone, one pane at a time (MobileWorkspace).
  */
 export function Workspace({
   folder,
@@ -46,10 +45,9 @@ export function Workspace({
   banner?: ReactNode;
   session: ReturnType<typeof useAgentSession>;
 }) {
-  const { files, active } = tabs;
+  const { active } = tabs;
   const openFile = tabs.open;
-  const closeFile = tabs.close;
-  const setActive = tabs.activate;
+  const narrow = useNarrow();
 
   // Pane sizes persist, saved separately for with and without the editor.
   const layout = useDefaultLayout({
@@ -58,7 +56,37 @@ export function Workspace({
     storage: localStorage,
   });
 
-  const diffTab = active ? readDiffTab(active) : null;
+  const sidebar = (
+    <Sidebar
+      folder={folder}
+      actions={actions}
+      projectList={projectList}
+      banner={banner}
+      selected={active}
+      onOpenFile={openFile}
+      hideGitIgnored={hideGitIgnored}
+    />
+  );
+  const agent = (
+    <AgentPanel
+      folder={folder}
+      session={session}
+      codeThemes={codeThemes}
+      editor={editor}
+      showThinking={showThinking}
+      approval={approval}
+    />
+  );
+
+  if (narrow) {
+    return (
+      <OpenTabContext.Provider value={openFile}>
+        <MobileWorkspace
+          {...{ folder, tabs, codeThemes, editor, session, sidebar, agent }}
+        />
+      </OpenTabContext.Provider>
+    );
+  }
 
   return (
     <OpenTabContext.Provider value={openFile}>
@@ -76,58 +104,18 @@ export function Workspace({
           // Like VS Code: the sidebar keeps its width when the window resizes.
           groupResizeBehavior="preserve-pixel-size"
         >
-          <Sidebar
-            folder={folder}
-            actions={actions}
-            projectList={projectList}
-            banner={banner}
-            selected={active}
-            onOpenFile={openFile}
-            hideGitIgnored={hideGitIgnored}
-          />
+          {sidebar}
         </ResizablePanel>
         <PaneHandle />
         <ResizablePanel id="agent" minSize="320px">
-          <div className="relative flex h-full flex-col">
-            <AgentPanel
-              folder={folder}
-              session={session}
-              codeThemes={codeThemes}
-              editor={editor}
-              showThinking={showThinking}
-              approval={approval}
-            />
-          </div>
+          <div className="relative flex h-full flex-col">{agent}</div>
         </ResizablePanel>
         {active && <PaneHandle />}
         {active && (
           <ResizablePanel id="editor" minSize="320px">
-            <div className="flex h-full min-w-0 flex-col">
-              <FileTabs
-                files={files}
-                active={active}
-                folder={folder}
-                onSelect={setActive}
-                onClose={closeFile}
-              />
-              {diffTab ? (
-                <DiffView
-                  key={active}
-                  tab={diffTab}
-                  host={session.host}
-                  themes={codeThemes}
-                  editor={editor}
-                />
-              ) : (
-                <FileView
-                  key={active}
-                  path={active}
-                  root={folder}
-                  themes={codeThemes}
-                  editor={editor}
-                />
-              )}
-            </div>
+            <EditorPane
+              {...{ folder, tabs, active, codeThemes, editor, session }}
+            />
           </ResizablePanel>
         )}
       </ResizablePanelGroup>

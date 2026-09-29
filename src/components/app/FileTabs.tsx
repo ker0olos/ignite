@@ -60,7 +60,8 @@ export function FileTabs({
               aria-label={`Close ${label.name}`}
               className={cn(
                 "rounded p-0.5 hover:bg-foreground/10",
-                path !== active && "invisible group-hover:visible",
+                path !== active &&
+                  "invisible group-hover:visible pointer-coarse:visible",
               )}
             >
               <X className="size-3.5" />

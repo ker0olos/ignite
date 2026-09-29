@@ -172,6 +172,7 @@ describe("useSettings", () => {
       subagents: { enabled: true, max: 2 },
       power: { keep_awake: true },
       chrome: { enabled: true, disabled_tools: [] },
+      remote: { enabled: false, port: 4280, token: "" },
     };
     act(() => void result.current[1](next));
     expect(result.current[0]).toEqual(next);
