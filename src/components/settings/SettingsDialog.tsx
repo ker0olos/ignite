@@ -3,12 +3,12 @@ import type { McpServer, ProviderStatus } from "../../../shared/hostProtocol";
 import { McpServerDialog } from "@/components/mcp/McpServerDialog";
 import {
   SECTION_NAMES,
-  serverRowId,
   type Item,
   type Section,
 } from "@/components/settings/sections";
 import { aboutItems } from "@/components/settings/sections/aboutItems";
 import { agentItems } from "@/components/settings/sections/agentItems";
+import { chromeItems } from "@/components/settings/sections/chromeItems";
 import { appearanceItems } from "@/components/settings/sections/appearanceItems";
 import { conversationItems } from "@/components/settings/sections/conversationItems";
 import { editorItems } from "@/components/settings/sections/editorItems";
@@ -16,12 +16,15 @@ import { filesItems } from "@/components/settings/sections/filesItems";
 import { mcpItems } from "@/components/settings/sections/mcpItems";
 import { memoryItems } from "@/components/settings/sections/memoryItems";
 import { providersItems } from "@/components/settings/sections/providersItems";
+import { skillsItems } from "@/components/settings/sections/skillsItems";
 import { SettingsNav } from "@/components/settings/SettingsNav";
 import { SettingsSections } from "@/components/settings/SettingsSections";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { useAbout } from "@/hooks/useAbout";
 import type { useMcpServers } from "@/hooks/useMcpServers";
 import type { useMemory } from "@/hooks/useMemory";
+import { useScrollToNewServer } from "@/hooks/useScrollToNewServer";
+import type { useSkills } from "@/hooks/useSkills";
 import type { CodeTheme } from "@/lib/codeThemes";
 import { listThemes } from "@/lib/codeThemeDiscovery";
 import type { Settings } from "@/lib/settings";
@@ -38,6 +41,7 @@ export function SettingsDialog({
   providersError,
   onManageProviders,
   mcp,
+  skills,
   memory,
   about,
   folder,
@@ -53,6 +57,7 @@ export function SettingsDialog({
   providersError: string | null;
   onManageProviders: () => void;
   mcp: ReturnType<typeof useMcpServers>;
+  skills: ReturnType<typeof useSkills>;
   memory: ReturnType<typeof useMemory>;
   about: ReturnType<typeof useAbout>;
   /** The open folder, whose memories the Memory section previews. */
@@ -67,20 +72,7 @@ export function SettingsDialog({
   const [themes, setThemes] = useState<CodeTheme[]>([]);
   const search = useRef<HTMLInputElement>(null);
 
-  // Bring a server that was just added (preset, import or form) into view.
-  const serverNames = mcp.servers?.map((m) => m.name).join("\n") ?? null;
-  const knownNames = useRef<string[] | null>(null);
-  useEffect(() => {
-    if (serverNames === null) return;
-    const names = serverNames.split("\n");
-    const known = knownNames.current;
-    knownNames.current = names;
-    const added = known && names.find((n) => !known.includes(n));
-    if (!added) return;
-    document
-      .getElementById(serverRowId(added))
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [serverNames]);
+  useScrollToNewServer(mcp.servers);
 
   // Rescan on every open so newly installed themes show up.
   useEffect(() => {
@@ -91,6 +83,8 @@ export function SettingsDialog({
     ...providersItems({ providers, providersError, onManageProviders }),
     ...agentItems({ settings, onChange }),
     ...mcpItems({ mcp, onEdit: setEditing, onAdd: () => setEditing("new") }),
+    ...skillsItems({ skills }),
+    ...chromeItems({ settings, onChange }),
     ...memoryItems({ memory, folderOpen: !!folder, settings, onChange }),
     ...appearanceItems({
       themes,
@@ -142,6 +136,7 @@ export function SettingsDialog({
           query={query}
           groups={groups}
           mcp={mcp}
+          skills={skills}
           memory={memory}
           folder={folder}
         />

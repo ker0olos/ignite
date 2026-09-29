@@ -5,10 +5,11 @@
  */
 import type {
   AppVersion,
-  McpCatalog,
   McpServer,
   ProviderStatus,
 } from "../../shared/hostProtocol";
+import type { McpCatalog } from "../../shared/mcpCatalog";
+import type { SkillCatalog, SkillEntry } from "../../shared/skills";
 import type { MemoryStatus } from "../../shared/memory";
 
 /** Claude through Claude Code and ChatGPT through Codex, both connected. */
@@ -46,6 +47,29 @@ const DEMO_MCP: McpServer[] = [
 ];
 
 const DEMO_CATALOG: McpCatalog = { presets: [], sources: [] };
+
+const DEMO_SKILLS: SkillEntry[] = [
+  {
+    id: "release-notes",
+    name: "release-notes",
+    description: "Drafts release notes from recent commits.",
+    enabled: true,
+  },
+  {
+    id: "frontend-design",
+    name: "frontend-design",
+    description: "A bundle of skills for building UI.",
+    enabled: true,
+    skills: [
+      {
+        name: "component-layout",
+        description: "Lays out a new component to match the app's style.",
+      },
+    ],
+  },
+];
+
+const DEMO_SKILL_CATALOG: SkillCatalog = { sources: [] };
 
 const DEMO_MEMORY = (now: number): MemoryStatus => ({
   state: "running",
@@ -119,6 +143,11 @@ export const settingsAnswers = (now = Date.now()) => ({
   mcp_add_preset: () => DEMO_MCP,
   mcp_import: () => DEMO_MCP,
   mcp_catalog: () => DEMO_CATALOG,
+  skills_list: () => DEMO_SKILLS,
+  skills_set_enabled: () => DEMO_SKILLS,
+  skills_remove: () => DEMO_SKILLS,
+  skills_catalog: () => DEMO_SKILL_CATALOG,
+  skills_import: () => DEMO_SKILLS,
   memory_status: () => DEMO_MEMORY(now),
   memory_changed: () => undefined,
   app_version: () => DEMO_VERSION,

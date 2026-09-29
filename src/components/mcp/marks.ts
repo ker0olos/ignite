@@ -4,6 +4,7 @@ import {
   Globe,
   Library,
   Search,
+  Sparkles,
   Terminal,
   type LucideProps,
 } from "lucide-react";
@@ -55,4 +56,5 @@ export const APPS: Record<string, Mark> = {
   "Claude Desktop": brand(siClaude),
   Cursor: brand(siCursor),
   Codex: { icon: Terminal },
+  "Agent Skills": { icon: Sparkles },
 };

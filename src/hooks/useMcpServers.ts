@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import type {
-  McpCatalog,
-  McpServer,
-  McpServerConfig,
-} from "../../shared/hostProtocol";
+import type { McpServer, McpServerConfig } from "../../shared/hostProtocol";
+import type { McpCatalog } from "../../shared/mcpCatalog";
 import type { HostClient } from "@/lib/piHost";
 
 type McpChange = Extract<

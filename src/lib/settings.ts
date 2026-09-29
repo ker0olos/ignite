@@ -37,6 +37,8 @@ export type Settings = {
   subagents: { enabled: boolean; max: number };
   /** `keep_awake`: the Mac doesn't idle-sleep while an agent works (macOS only). */
   power: { keep_awake: boolean };
+  /** `disabled_tools`: Chrome tools (shared/chrome.ts) the agent doesn't get. */
+  chrome: { enabled: boolean; disabled_tools: string[] };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -51,6 +53,7 @@ export const DEFAULT_SETTINGS: Settings = {
   approval: { mode: "auto" },
   subagents: { enabled: true, max: 2 },
   power: { keep_awake: true },
+  chrome: { enabled: true, disabled_tools: [] },
 };
 
 export const MIN_TEXT_SIZE = 10;
@@ -100,6 +103,15 @@ const readSubagents = (
       : DEFAULT_SETTINGS.subagents.max,
 });
 
+const readChrome = (
+  chrome: Partial<Settings["chrome"]> = {},
+): Settings["chrome"] => ({
+  enabled: chrome.enabled !== false,
+  disabled_tools: Array.isArray(chrome.disabled_tools)
+    ? chrome.disabled_tools.filter((t) => typeof t === "string")
+    : [],
+});
+
 // Earlier versions stored the appearance itself; map it to the matching theme.
 const LEGACY_THEMES: Record<string, string> = {
   light: "github-light",
@@ -143,6 +155,7 @@ export async function loadSettings(): Promise<Settings> {
     approval: readApproval(raw.approval),
     subagents: readSubagents(raw.subagents),
     power: { ...DEFAULT_SETTINGS.power, ...raw.power },
+    chrome: readChrome(raw.chrome),
   };
 }
 

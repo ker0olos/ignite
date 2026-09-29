@@ -15,9 +15,11 @@ import {
 export function RemoveButton({
   name,
   onConfirm,
+  description = "The agent can no longer use its tools. You can add it again anytime.",
 }: {
   name: string;
   onConfirm: () => void;
+  description?: string;
 }) {
   return (
     <Dialog>
@@ -36,9 +38,7 @@ export function RemoveButton({
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Remove {name}?</DialogTitle>
-          <DialogDescription>
-            The agent can no longer use its tools. You can add it again anytime.
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>

@@ -1,10 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type {
-  HostMessage,
-  McpCatalog,
-  McpServer,
-} from "../../shared/hostProtocol";
+import type { HostMessage, McpServer } from "../../shared/hostProtocol";
+import type { McpCatalog } from "../../shared/mcpCatalog";
 import type { HostClient } from "@/lib/piHost";
 import { useMcpServers } from "./useMcpServers";
 

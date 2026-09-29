@@ -1,51 +1,33 @@
-import { McpImportSources } from "@/components/mcp/McpImportSources";
-import { McpQuickAdd } from "@/components/mcp/McpQuickAdd";
-import { MemoryPreview } from "@/components/memory/MemoryPreview";
+import { McpExtras } from "@/components/mcp/McpExtras";
+import { MemoryExtras } from "@/components/memory/MemoryExtras";
 import type { Section } from "@/components/settings/sections";
+import { SkillsExtras } from "@/components/skills/SkillsExtras";
 import type { useMcpServers } from "@/hooks/useMcpServers";
 import type { useMemory } from "@/hooks/useMemory";
+import type { useSkills } from "@/hooks/useSkills";
 
-/** What a section shows below its rows: MCP servers to add, recent memories. */
+/** What a section shows below its rows: MCP servers or skills to add, recent memories. */
 export function SectionExtras({
   section,
   mcp,
+  skills,
   memory,
   folder,
 }: {
   section: Section;
   mcp: ReturnType<typeof useMcpServers>;
+  skills: ReturnType<typeof useSkills>;
   memory: ReturnType<typeof useMemory>;
   folder: string | null;
 }) {
-  if (section === "Memory") {
-    return (
-      memory.status?.viewerUrl && (
-        <MemoryPreview folder={folder} status={memory.status} />
-      )
-    );
+  switch (section) {
+    case "Memory":
+      return <MemoryExtras memory={memory} folder={folder} />;
+    case "Skills":
+      return <SkillsExtras skills={skills} />;
+    case "MCP":
+      return <McpExtras mcp={mcp} />;
+    default:
+      return null;
   }
-  if (section !== "MCP") return null;
-  return (
-    <>
-      {!!mcp.catalog?.sources.length && (
-        <div className="mt-4">
-          <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-            Import from other apps
-          </h3>
-          <McpImportSources
-            sources={mcp.catalog.sources}
-            onImport={mcp.importServers}
-          />
-        </div>
-      )}
-      {!!mcp.catalog?.presets.length && (
-        <div className="mt-4">
-          <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-            Quick add
-          </h3>
-          <McpQuickAdd presets={mcp.catalog.presets} onAdd={mcp.addPreset} />
-        </div>
-      )}
-    </>
-  );
 }

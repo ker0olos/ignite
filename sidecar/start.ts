@@ -42,6 +42,7 @@ import {
 } from "./subagentExtension.ts";
 import { createKeepAwake } from "./keepAwake.ts";
 import { createTrustStore } from "./trust.ts";
+import { createSkillStore } from "./skillStore.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
 // own ~/.pi/agent, so signing in or out here doesn't affect it.
@@ -95,9 +96,12 @@ const askExtension = sibling("./askExtension.ts");
 const subagentExtension = sibling("./subagentExtension.ts");
 const gitExtension = sibling("./gitExtension.ts");
 const worktreeExtension = sibling("./worktreeExtension.ts");
+const chromeExtension = sibling("./chromeExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
 const approvalExtension = sibling("./approvalExtension.ts");
 const trust = createTrustStore(agentDir);
+const skills = createSkillStore(agentDir, homedir());
+const skillsOverride = skills.sessionSkills;
 // pi-mcp-adapter's status channel (MCP_STATUS_EVENT in its types.ts).
 const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
 
@@ -147,8 +151,10 @@ async function openSession(
       subagentExtension,
       gitExtension,
       worktreeExtension,
+      chromeExtension,
       approvalExtension,
     ],
+    skillsOverride,
   });
   freshExtensions();
   await resourceLoader.reload();
@@ -198,6 +204,7 @@ async function openSubagent(
     settingsManager,
     eventBus,
     additionalExtensionPaths: [claudeBridge, approvalExtension],
+    skillsOverride,
     appendSystemPromptOverride: (base) => [...base, WORKER],
   });
   freshExtensions();
@@ -238,6 +245,7 @@ const host = createHost(
   createMcpStore(join(agentDir, "mcp.json")),
   { presets: PRESETS, findImports: (cwd) => findImports(homedir(), cwd) },
   trust,
+  skills,
   createKeepAwake(),
 );
 

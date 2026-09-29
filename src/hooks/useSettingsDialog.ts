@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Section } from "@/components/settings/sections";
 import { useAbout } from "@/hooks/useAbout";
 import { useMemory } from "@/hooks/useMemory";
+import { useSkills } from "@/hooks/useSkills";
 import type { HostClient } from "@/lib/piHost";
 
 /** The settings dialog: whether it's open, its first section, and what it fetches while open. */
@@ -21,6 +22,7 @@ export function useSettingsDialog(
     setOpen,
     section,
     memory: useMemory(host, folder, open),
+    skills: useSkills(host, open),
     about,
     /** Opens the dialog on `section`. */
     show,

@@ -13,6 +13,8 @@ import type {
   SessionDetails,
 } from "./conversations.ts";
 import type { QuestionAnswer } from "./questions.ts";
+import type { McpCatalog } from "./mcpCatalog.ts";
+import type { SkillRequest, SkillResponses } from "./skills.ts";
 
 /**
  * pi's providers, plus "claude-code": the user's own Claude Code login, which
@@ -167,32 +169,6 @@ export type McpServer = {
   tools: string[];
 };
 
-/** Servers the MCP settings offer to add in one click. */
-export type McpCatalog = {
-  presets: {
-    id: string;
-    name: string;
-    summary: string;
-    /** Signs in with OAuth, which the app can't do yet. */
-    signIn: boolean;
-    /** A server with this name is already saved. */
-    added: boolean;
-  }[];
-  /** Other apps' servers found on this Mac. */
-  sources: {
-    id: string;
-    app: string;
-    /** "project": set up in that app for the open folder only. */
-    scope: "user" | "project";
-    servers: {
-      name: string;
-      /** The command or URL, to recognise it by. */
-      target: string;
-      added: boolean;
-    }[];
-  }[];
-};
-
 /** The commit the app runs from; `date` is ISO 8601. */
 export type AppVersion = { sha: string; date: string; subject: string };
 
@@ -291,6 +267,7 @@ export type HostRequest =
       names: string[];
       cwd?: string;
     }
+  | SkillRequest
   | { id: number; type: "memory_status"; cwd?: string }
   /** The memory setting was saved; reloads the session to add or drop cmem's tools. */
   | { id: number; type: "memory_changed" }
@@ -312,7 +289,7 @@ export type HostRequest =
     };
 
 /** What each request resolves to. */
-export type HostResponses = {
+export type HostResponses = SkillResponses & {
   status: ProviderStatus[];
   login: ProviderStatus;
   cancel_login: undefined;
