@@ -1811,6 +1811,19 @@ describe("tool approval", () => {
     expect(session.abort).toHaveBeenCalled();
   });
 
+  it("denies waiting calls when the user writes instead, then sends the message", async () => {
+    const { ask, request, session } = await opened();
+    const first = ask("t1");
+    const second = ask("t2");
+    await request({ id: 2, type: "prompt", text: "Do it another way" });
+    expect(first).toHaveBeenCalledWith(false);
+    expect(second).toHaveBeenCalledWith(false);
+    expect(session.prompt).toHaveBeenCalledWith(
+      "Do it another way",
+      expect.anything(),
+    );
+  });
+
   it("keeps a hidden folder's question until it's shown again", async () => {
     const { reopen, request, sent, responses } = await opened();
     const askWork = reopen();

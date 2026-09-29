@@ -248,6 +248,8 @@ export async function prompt(
   const agent = target(ctx, session);
   const s = await current(ctx, session);
   await agent!.ready;
+  // Writing instead of answering declines what waits; the message says what to do instead.
+  denyAll(ctx, agent!);
   // A message sent mid-run steers the agent rather than waiting for the end.
   const options = {
     ...(s.isStreaming && { streamingBehavior: "steer" as const }),
