@@ -181,6 +181,7 @@ function fakeSessions(saved: Awaited<ReturnType<SessionStore["list"]>> = []) {
   return {
     create: () => `new${++next}`,
     list: vi.fn(async () => saved),
+    extras: vi.fn(async () => ({ branch: "feat/x" })),
     read: vi.fn(async (): Promise<AgentMessage[]> => [
       { role: "user", content: "from the file", timestamp: 1 },
     ]),
@@ -1105,6 +1106,20 @@ describe("sessions", () => {
     expect(responses().at(-1)).toMatchObject({
       ok: false,
       error: "That conversation isn't open.",
+    });
+  });
+
+  it("tells what a saved conversation did, with what's known beyond its file", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime);
+    await request({
+      id: 1,
+      type: "session_details",
+      cwd: "/work",
+      session: "s",
+    });
+    expect(responses()[0]).toMatchObject({
+      ok: true,
+      data: { files: [], toolCalls: 0, branch: "feat/x" },
     });
   });
 

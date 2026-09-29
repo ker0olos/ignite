@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { SavedSession } from "../../shared/hostProtocol";
+import type { SavedSession, SessionDetails } from "../../shared/conversations";
 import type { HostClient } from "@/lib/piHost";
 
 /** What the shown folder's session hook offers for its own conversations. */
@@ -75,7 +75,17 @@ export function useConversations(
     [host],
   );
 
-  return { show, create, close, dismiss, history };
+  const details = useCallback(
+    async (cwd: string, session: string): Promise<SessionDetails | null> =>
+      host
+        ? host
+            .request({ type: "session_details", cwd, session })
+            .catch(() => null)
+        : null,
+    [host],
+  );
+
+  return { show, create, close, dismiss, history, details };
 }
 
 /** The sidebar's conversation actions, per folder. */

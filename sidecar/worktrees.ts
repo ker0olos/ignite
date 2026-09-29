@@ -74,6 +74,15 @@ const lock = async (repo: string, path: string) => {
 
 const BRANCH = /^branch: (.+)$/m;
 
+/** The branch conversation `id`'s worktree was on when last saved, if any. */
+export async function savedBranch(folder: string, id: string) {
+  const found = await repoFor(folder);
+  const message =
+    found &&
+    (await gitOr(found.repo, ["log", "-1", "--format=%B", stateRef(id)]));
+  return message?.match(BRANCH)?.[1];
+}
+
 // The branch the agent had checked out comes back with it, if it hasn't
 // moved since (and isn't checked out elsewhere); else the worktree is detached.
 async function addAt(repo: string, path: string, saved: string) {

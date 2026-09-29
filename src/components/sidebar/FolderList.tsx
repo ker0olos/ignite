@@ -51,6 +51,7 @@ export function FolderList({
             selected={path === folder && !shown}
             onNew={() => void conversations.create(path)}
             history={() => conversations.history(path)}
+            details={(id) => conversations.details(path, id)}
             onShowSession={(id) => void conversations.show(path, id)}
             onDismiss={() => onDismiss(path)}
           />

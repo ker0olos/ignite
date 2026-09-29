@@ -79,6 +79,18 @@ describe("useConversations", () => {
     });
   });
 
+  it("asks for a saved conversation's details, or none when that fails", async () => {
+    const { request, result } = setup();
+    await result.current.details("/work", "s1");
+    expect(request).toHaveBeenCalledWith({
+      type: "session_details",
+      cwd: "/work",
+      session: "s1",
+    });
+    const failing = setup(true);
+    expect(await failing.result.current.details("/work", "s1")).toBeNull();
+  });
+
   it("lists a folder's closed conversations", async () => {
     const { result } = setup();
     expect((await result.current.history("/other")).map((s) => s.id)).toEqual([

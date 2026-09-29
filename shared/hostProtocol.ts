@@ -7,6 +7,7 @@
 import type { AgentMessage, ImageContent, SessionEvent } from "./agentTypes.ts";
 import type { GitReview } from "./git.ts";
 import type { MemoryStatus } from "./memory.ts";
+import type { SavedSession, SessionDetails } from "./conversations.ts";
 import type { QuestionAnswer } from "./questions.ts";
 
 /**
@@ -128,18 +129,6 @@ export type AgentStatus = {
   waiting: boolean;
 };
 
-/** A conversation pi saved for a folder. */
-export type SavedSession = {
-  id: string;
-  /** Its name, or else its first message. */
-  title: string;
-  /** Milliseconds since the epoch. */
-  modified: number;
-  messageCount: number;
-  /** Whether it's open in this window. */
-  open: boolean;
-};
-
 /** How to reach an MCP server: a local command (stdio) or a URL (HTTP). */
 export type McpServerConfig =
   | {
@@ -240,6 +229,8 @@ export type HostRequest =
    * without starting it, so it shows while it starts.
    */
   | { id: number; type: "read_session"; cwd: string; session: string }
+  /** What a saved conversation did: model, cost, files, cmem's summary… */
+  | { id: number; type: "session_details"; cwd: string; session: string }
   | { id: number; type: "session_state"; session?: string }
   /**
    * What a new conversation would start with (models, model, effort), for a
@@ -328,6 +319,7 @@ export type HostResponses = {
   close_session: undefined;
   list_sessions: SavedSession[];
   read_session: AgentMessage[];
+  session_details: SessionDetails;
   session_state: SessionState;
   draft_state: SessionState;
   set_model: SessionState;

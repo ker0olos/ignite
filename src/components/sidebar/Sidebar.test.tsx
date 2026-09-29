@@ -35,6 +35,7 @@ const sidebar = (folders: string[], rows = ROWS) => {
           close: vi.fn(async () => {}),
           dismiss: vi.fn(),
           history: vi.fn(async () => []),
+          details: vi.fn(async () => null),
         },
         home: "/home/me",
         onDismiss: vi.fn(),

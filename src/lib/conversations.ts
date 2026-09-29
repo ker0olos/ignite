@@ -1,4 +1,5 @@
 import type { AgentStatus } from "../../shared/hostProtocol";
+import type { SavedSession, SessionDetails } from "../../shared/conversations";
 
 /** One conversation listed under its folder, running or not. */
 type ListedConversation = { session: string; title: string };
@@ -46,4 +47,22 @@ export function rowsOf(
       ? { ...running, title: running.title || title }
       : { cwd, session, title, running: false, waiting: false };
   });
+}
+
+const MONEY = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+
+/** A saved conversation's facts in one line: model, size, cost and branch, as far as they're known. */
+export function detailsLine(saved: SavedSession, details: SessionDetails) {
+  return [
+    details.model,
+    `${saved.messageCount} messages`,
+    details.toolCalls ? `${details.toolCalls} tool calls` : null,
+    details.cost ? MONEY.format(details.cost) : null,
+    details.branch,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }

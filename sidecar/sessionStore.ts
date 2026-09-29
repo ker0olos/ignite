@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import type { SessionStore } from "./hostTypes.ts";
+import { sessionSummary } from "./cmem.ts";
+import { savedBranch } from "./worktrees.ts";
 
 /**
  * Opens `folder`'s saved conversation `id`, or starts one with that id, for
@@ -17,6 +19,13 @@ export function sessionFor(folder: string, workdir: string, id: string) {
 /** pi's saved conversations, one file each under the agent dir's sessions/. */
 export const sessions: SessionStore = {
   create: () => randomUUID(),
+  extras: async (cwd, id) => {
+    const [branch, summary] = await Promise.all([
+      savedBranch(cwd, id).catch(() => undefined),
+      sessionSummary(cwd, id),
+    ]);
+    return { ...(branch && { branch }), ...(summary && { summary }) };
+  },
   read: async (cwd, id) => {
     const saved = SessionManager.findById(cwd, id);
     if (!saved) return [];

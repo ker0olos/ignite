@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { rowsOf, withRunning, without, type Listed } from "./conversations";
+import {
+  detailsLine,
+  rowsOf,
+  withRunning,
+  without,
+  type Listed,
+} from "./conversations";
 
 const agent = (cwd: string, session: string, title = "", running = true) => ({
   cwd,
@@ -65,5 +71,27 @@ describe("rowsOf", () => {
       agent("/a", "2", "Asleep", false),
     ]);
     expect(rowsOf(listed, [], "/none")).toEqual([]);
+  });
+});
+
+describe("detailsLine", () => {
+  const saved = {
+    id: "a",
+    title: "t",
+    modified: 1,
+    messageCount: 4,
+    open: false,
+  };
+  it("lists what's known, leaving out what isn't", () => {
+    expect(
+      detailsLine(saved, {
+        model: "gpt-5",
+        files: [],
+        toolCalls: 3,
+        cost: 0.25,
+        branch: "feat/x",
+      }),
+    ).toBe("gpt-5 · 4 messages · 3 tool calls · $0.25 · feat/x");
+    expect(detailsLine(saved, { files: [], toolCalls: 0 })).toBe("4 messages");
   });
 });

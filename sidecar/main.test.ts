@@ -180,6 +180,13 @@ describe("sidecar process", () => {
       session: second.session,
     });
     await answer(3).catch(() => {});
+    sidecar.send({
+      id: 7,
+      type: "session_details",
+      cwd: home,
+      session: first.session,
+    });
+    expect(await answer(7)).toMatchObject({ model: "gpt-4.1", files: [] });
     sidecar.send({ id: 4, type: "list_sessions", cwd: home });
     expect(await answer(4)).toMatchObject([
       { id: first.session, title: "hello", open: true },

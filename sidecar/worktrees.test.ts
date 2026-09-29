@@ -14,7 +14,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createWorkspaces, startPoint, updateFolder } from "./worktrees.ts";
+import {
+  createWorkspaces,
+  savedBranch,
+  startPoint,
+  updateFolder,
+} from "./worktrees.ts";
 import { folderOf, gitAccess, worktreePath } from "./worktreeGit.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
 
@@ -201,6 +206,8 @@ describe("keeping work safe", () => {
     );
     write(join(ws.dir, "app.ts"), "more\n");
     await workspaces.close(repo, "a");
+    expect(await savedBranch(repo, "a")).toBe("feat/x");
+    expect(await savedBranch(repo, "never")).toBeUndefined();
     const again = await workspaces.open(repo, "a");
     expect(git(again.dir, "branch", "--show-current")).toBe("feat/x");
     expect(read(again.dir, "app.ts")).toBe("more\n");

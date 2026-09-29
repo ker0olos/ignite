@@ -5,8 +5,8 @@ import type {
   AuthMethod,
   AuthPromptData,
   HostMessage,
-  SavedSession,
 } from "../shared/hostProtocol.ts";
+import type { SavedSession, SessionDetails } from "../shared/conversations.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import type { ApprovalAsk } from "./approvalExtension.ts";
 import type { ClaudeCode } from "./claudeCode.ts";
@@ -103,6 +103,11 @@ export type SessionStore = {
   list(cwd: string): Promise<Omit<SavedSession, "open">[]>;
   /** A saved conversation's messages; none if it has no file yet. */
   read(cwd: string, id: string): Promise<AgentMessage[]>;
+  /** What's known of it beyond its messages: its branch, cmem's summary. */
+  extras(
+    cwd: string,
+    id: string,
+  ): Promise<Pick<SessionDetails, "branch" | "summary">>;
 };
 
 /**

@@ -33,9 +33,14 @@ import { answerApproval, denyAll } from "./hostApproval.ts";
 import { setTrust } from "./hostTrust.ts";
 import { appUpdate, appVersion } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
+import { describeSession } from "./describeSession.ts";
 import type { TrustStore } from "./trust.ts";
 
 type IdRequest = Extract<HostRequest, { id: number }>;
+
+// A running conversation's own messages are newer than its file's.
+const messagesOf = async (ctx: HostContext, cwd: string, session: string) =>
+  ctx.agents.get(session)?.session?.messages ?? ctx.sessions.read(cwd, session);
 type Handler<K extends IdRequest["type"]> = (
   ctx: HostContext,
   request: Extract<IdRequest, { type: K }>,
@@ -60,9 +65,11 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   new_session: (ctx, r) => open(ctx, r.cwd, ctx.sessions.create()),
   close_session: (ctx, r) => close(ctx, r.cwd, r.session),
   list_sessions: (ctx, r) => list(ctx, r.cwd),
-  read_session: (ctx, r) =>
-    ctx.agents.get(r.session)?.session?.messages ??
-    ctx.sessions.read(r.cwd, r.session),
+  read_session: (ctx, r) => messagesOf(ctx, r.cwd, r.session),
+  session_details: async (ctx, r) => ({
+    ...describeSession(await messagesOf(ctx, r.cwd, r.session), r.cwd),
+    ...(await ctx.sessions.extras(r.cwd, r.session)),
+  }),
   session_state: async (ctx, r) =>
     sessionState(ctx, await current(ctx, r.session)),
   draft_state: async (ctx, r) =>

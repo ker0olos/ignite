@@ -21,3 +21,11 @@ export type MemoryStatus = {
   /** The open folder's latest observations, newest first. */
   observations: MemoryObservation[];
 };
+
+/** cmem's summary of a conversation's latest run. */
+export type SessionSummary = {
+  request?: string;
+  completed?: string;
+  learned?: string;
+  nextSteps?: string;
+};

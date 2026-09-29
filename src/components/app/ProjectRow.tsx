@@ -1,5 +1,8 @@
 import { Folder } from "lucide-react";
-import type { SavedSession } from "../../../shared/hostProtocol";
+import type {
+  SavedSession,
+  SessionDetails,
+} from "../../../shared/conversations";
 import { ProjectRowActions } from "@/components/sidebar/ProjectRowActions";
 import { basename, tildify } from "@/lib/paths";
 import { cn } from "@/lib/utils";
@@ -14,6 +17,7 @@ export function ProjectRow({
   selected,
   onNew,
   history,
+  details,
   onShowSession,
   onDismiss,
 }: {
@@ -22,6 +26,7 @@ export function ProjectRow({
   selected?: boolean;
   onNew: () => void;
   history: () => Promise<SavedSession[]>;
+  details: (session: string) => Promise<SessionDetails | null>;
   onShowSession: (session: string) => void;
   onDismiss: () => void;
 }) {
@@ -46,6 +51,7 @@ export function ProjectRow({
       <ProjectRowActions
         path={path}
         history={history}
+        details={details}
         onShowSession={onShowSession}
         onDismiss={onDismiss}
       />

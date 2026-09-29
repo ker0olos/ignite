@@ -1,5 +1,8 @@
 import { X } from "lucide-react";
-import type { SavedSession } from "../../../shared/hostProtocol";
+import type {
+  SavedSession,
+  SessionDetails,
+} from "../../../shared/conversations";
 import { ConversationHistory } from "@/components/sidebar/ConversationHistory";
 import { basename } from "@/lib/paths";
 
@@ -7,11 +10,13 @@ import { basename } from "@/lib/paths";
 export function ProjectRowActions({
   path,
   history,
+  details,
   onShowSession,
   onDismiss,
 }: {
   path: string;
   history: () => Promise<SavedSession[]>;
+  details: (session: string) => Promise<SessionDetails | null>;
   onShowSession: (session: string) => void;
   onDismiss: () => void;
 }) {
@@ -22,6 +27,7 @@ export function ProjectRowActions({
       <ConversationHistory
         folderName={name}
         history={history}
+        details={details}
         onShow={onShowSession}
       />
       <button

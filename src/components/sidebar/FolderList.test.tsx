@@ -23,6 +23,7 @@ function setup(shown: string | null = "a") {
     close: vi.fn(async () => {}),
     dismiss: vi.fn(),
     history: vi.fn(async () => []),
+    details: vi.fn(async () => null),
   };
   const onDismiss = vi.fn();
   render(
