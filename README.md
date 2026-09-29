@@ -65,6 +65,9 @@ needs it.
 - With [cmem](https://cmem.ai), the agent remembers what it learned about a
   project, and what other agents learned there too.
 - Code shows in any theme installed in VS Code, VSCodium, Cursor or Windsurf.
+- Use it from your phone or another computer on the same Wi-Fi: turn on
+  Settings → Remote and scan the QR code. Your conversations, approvals and
+  files are all there.
 
 ## Requirements
 
