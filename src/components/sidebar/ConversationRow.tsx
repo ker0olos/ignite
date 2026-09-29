@@ -45,7 +45,7 @@ export function ConversationRow({
           onClose();
         }}
         aria-label={`Close ${title}`}
-        className="mr-1 shrink-0 rounded-md p-1 opacity-0 hover:bg-foreground/10 focus-visible:opacity-100 group-hover:opacity-100"
+        className="mr-1 shrink-0 rounded-md p-1 opacity-0 hover:bg-foreground/10 focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
       >
         <X className="size-3.5 text-muted-foreground" />
       </button>

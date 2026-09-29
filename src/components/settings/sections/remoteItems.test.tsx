@@ -1,0 +1,52 @@
+import { describe, expect, it, vi } from "vitest";
+import type { RemoteStatus } from "../../../../shared/remote";
+import { remoteItems } from "./remoteItems";
+import { DEFAULT_SETTINGS } from "@/lib/settings";
+
+const on = {
+  ...DEFAULT_SETTINGS,
+  remote: { enabled: true, port: 4280, token: "t" },
+};
+const titles = (status: Parameters<typeof remoteItems>[0]["status"]) =>
+  remoteItems({ settings: on, onChange: vi.fn(), status }).map((i) => i.title);
+
+describe("remoteItems", () => {
+  it("shows only the switch and port while off", () => {
+    const rows = remoteItems({
+      settings: DEFAULT_SETTINGS,
+      onChange: vi.fn(),
+      status: null,
+    });
+    expect(rows.map((i) => i.title)).toEqual(["Remote access", "Port"]);
+  });
+
+  it("offers the network link to scan or copy", () => {
+    const rows = remoteItems({
+      settings: on,
+      onChange: vi.fn(),
+      status: {
+        type: "remote_status",
+        urls: ["http://192.168.1.2:4280/?token=t"],
+      },
+    });
+    expect(rows.map((i) => i.title)).toEqual(["Remote access", "Port", "Link"]);
+    expect(rows[2].description).toContain("192.168.1.2:4280");
+  });
+
+  it("says why there's no link", () => {
+    const error: RemoteStatus = {
+      type: "remote_status",
+      urls: [],
+      error: "EADDRINUSE",
+    };
+    const rows = remoteItems({
+      settings: on,
+      onChange: vi.fn(),
+      status: error,
+    });
+    expect(rows.find((i) => i.title === "Link")?.description).toBe(
+      "EADDRINUSE",
+    );
+    expect(titles(null)).toContain("Link");
+  });
+});

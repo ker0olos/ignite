@@ -1,4 +1,5 @@
 import { Child, Command } from "@tauri-apps/plugin-shell";
+import { isRemote, remoteTransport } from "./remote";
 import type {
   HostMessage,
   HostRequest,
@@ -167,5 +168,7 @@ function killLeftovers() {
 
 /** Starts the sidecar and returns a client for it. */
 export async function openPiHost(): Promise<HostClient> {
-  return createHostClient(await spawnSidecar());
+  return createHostClient(
+    isRemote() ? remoteTransport() : await spawnSidecar(),
+  );
 }

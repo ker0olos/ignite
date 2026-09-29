@@ -15,6 +15,7 @@ import type {
 import type { QuestionAnswer } from "./questions.ts";
 import type { McpCatalog } from "./mcpCatalog.ts";
 import type { SkillRequest, SkillResponses } from "./skills.ts";
+import type { RemoteEvent, RemoteInvoke, RemoteStatus } from "./remote.ts";
 
 /**
  * pi's providers, plus "claude-code": the user's own Claude Code login, which
@@ -341,4 +342,8 @@ export type HostMessage =
   /** A conversation opened, closed, started or finished a run, or began or stopped waiting. */
   | { type: "agents"; agents: AgentStatus[] }
   /** The MCP servers changed (a status, or a saved change). */
-  | { type: "mcp_servers"; servers: McpServer[] };
+  | { type: "mcp_servers"; servers: McpServer[] }
+  /** Remote access, for the main window only (see shared/remote.ts). */
+  | RemoteInvoke
+  | RemoteEvent
+  | RemoteStatus;

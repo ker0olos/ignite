@@ -43,6 +43,7 @@ import {
 import { createKeepAwake } from "./keepAwake.ts";
 import { createTrustStore } from "./trust.ts";
 import { createSkillStore } from "./skillStore.ts";
+import { createRemote } from "./remote.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
 // own ~/.pi/agent, so signing in or out here doesn't affect it.
@@ -79,8 +80,12 @@ log("model runtime created");
 // pi-mcp-adapter's "Removed credentials") goes to stderr with the rest.
 console.log = console.info = console.error;
 
-const send = (message: HostMessage) =>
+const toApp = (message: unknown) =>
   process.stdout.write(JSON.stringify(message) + "\n");
+// Browsers with remote access share this sidecar; see remote.ts.
+const remote = createRemote((r) => host.handle(r), toApp, log);
+const send = (message: HostMessage) =>
+  remote.toBrowsers(message) || toApp(message);
 
 const headlessUI = createHeadlessUI(send);
 
@@ -259,6 +264,7 @@ const lines = createLineSplitter((line) => {
     process.stderr.write(`pi-host: ignoring a line that isn't JSON\n`);
     return;
   }
+  if (remote.fromApp(request)) return;
   // Slow requests are logged, so a stuck one shows up in the app's terminal.
   const started = Date.now();
   const stuck = setTimeout(

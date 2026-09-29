@@ -89,7 +89,7 @@ export function CommandCenter({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="top-[12%] w-[min(960px,94vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-none"
+        className="top-[12%] w-[min(960px,94vw)] max-w-none max-sm:top-[4%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-none"
       >
         <DialogTitle className="sr-only">Command center</DialogTitle>
         <Command
@@ -107,12 +107,12 @@ export function CommandCenter({
               placeholder="Search conversations, files and folders"
               className="h-14 flex-1 bg-transparent text-lg outline-none placeholder:text-muted-foreground"
             />
-            <span className="shrink-0 text-xs text-muted-foreground">
+            <span className="shrink-0 text-xs text-muted-foreground max-sm:hidden">
               @folder · #convos #files #folders
             </span>
           </div>
           <div className="flex h-[min(480px,64vh)]">
-            <CommandList className="max-h-none w-1/2 shrink-0 border-r p-2">
+            <CommandList className="max-h-none w-1/2 shrink-0 border-r p-2 max-sm:w-full max-sm:border-r-0">
               {nothing && (
                 <CommandEmpty className="py-8 text-muted-foreground">
                   Nothing matches.
@@ -125,7 +125,8 @@ export function CommandCenter({
                 onChoose={choose}
               />
             </CommandList>
-            <div className="min-w-0 flex-1 overflow-y-auto p-5">
+            {/* On a phone results take the width; tapping one opens it, so no preview. */}
+            <div className="min-w-0 flex-1 overflow-y-auto p-5 max-sm:hidden">
               <CommandPreview
                 pick={shown}
                 conversations={found.conversations}
@@ -139,7 +140,7 @@ export function CommandCenter({
             </div>
           </div>
         </Command>
-        <div className="flex justify-end gap-4 border-t px-4 py-2 text-xs text-muted-foreground">
+        <div className="flex justify-end gap-4 border-t px-4 py-2 text-xs text-muted-foreground max-sm:hidden">
           <span>
             <Kbd>↑↓</Kbd> to move
           </span>

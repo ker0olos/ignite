@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { McpServer, ProviderStatus } from "../../../shared/hostProtocol";
+import type { RemoteStatus } from "../../../shared/remote";
 import { McpServerDialog } from "@/components/mcp/McpServerDialog";
 import {
   SECTION_NAMES,
@@ -16,6 +17,7 @@ import { filesItems } from "@/components/settings/sections/filesItems";
 import { mcpItems } from "@/components/settings/sections/mcpItems";
 import { memoryItems } from "@/components/settings/sections/memoryItems";
 import { providersItems } from "@/components/settings/sections/providersItems";
+import { remoteItems } from "@/components/settings/sections/remoteItems";
 import { skillsItems } from "@/components/settings/sections/skillsItems";
 import { SettingsNav } from "@/components/settings/SettingsNav";
 import { SettingsSections } from "@/components/settings/SettingsSections";
@@ -45,6 +47,7 @@ export function SettingsDialog({
   memory,
   about,
   folder,
+  remote,
   initialSection = "Providers",
 }: {
   open: boolean;
@@ -62,6 +65,8 @@ export function SettingsDialog({
   about: ReturnType<typeof useAbout>;
   /** The open folder, whose memories the Memory section previews. */
   folder: string | null;
+  /** The remote access server's links. */
+  remote: RemoteStatus | null;
   /** The section shown first; changing it needs a new `key` to take effect. */
   initialSection?: Section;
 }) {
@@ -86,6 +91,7 @@ export function SettingsDialog({
     ...skillsItems({ skills }),
     ...chromeItems({ settings, onChange }),
     ...memoryItems({ memory, folderOpen: !!folder, settings, onChange }),
+    ...remoteItems({ settings, onChange, status: remote }),
     ...appearanceItems({
       themes,
       settings,
@@ -120,7 +126,7 @@ export function SettingsDialog({
     >
       <DialogContent
         initialFocus={search}
-        className="flex h-[min(560px,85vh)] w-[min(760px,90vw)] max-w-none gap-0 overflow-hidden p-0 sm:max-w-none"
+        className="flex h-[min(560px,85vh)] w-[min(760px,90vw)] max-w-none gap-0 overflow-hidden p-0 max-sm:h-[90dvh] max-sm:w-[95vw] max-sm:flex-col sm:max-w-none"
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <SettingsNav

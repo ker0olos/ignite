@@ -56,6 +56,7 @@ src/                     React frontend (almost all logic lives here)
     useAbout.ts          The commit the app runs from; Check for updates, reloading every window
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
+    useRemoteAccess.ts   Main window: starts the remote access server, runs browsers' allowed Tauri calls
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -100,6 +101,8 @@ src/                     React frontend (almost all logic lives here)
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening
     utils.ts             `cn` class-name helper (shadcn)
+    remote.ts            In a browser (remote access): stands in for Tauri over a WebSocket to the sidecar
+    remoteFirst.ts       Installs that stand-in before any other module loads (first import in main.tsx)
   test/                  Test setup, fake Tauri backends (fakeFs, fakeStore), shared shell command cases
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
   main.ts                Entry: turns on mods/ overrides, then loads start.ts
@@ -154,6 +157,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   mcpCatalog.ts          One-click MCP presets, and other apps' MCP servers to import
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
   testMcpServer.ts       A one-tool stdio MCP server for tests
+  remote.ts              Remote access: browsers share this sidecar; replies routed by id, events to all
+  remoteServer.ts        Its HTTP server: token link sets a cookie, proxies the UI from Vite, WebSocket
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
 demo/tempo/, demo/pantry/ Sample projects `npm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
@@ -171,6 +176,7 @@ shared/subagents.ts      The subagent tool's name, effort order and call details
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITION_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
+shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
 launcher/                How users run the app (not maintainers; see README)
   setup.sh               `npm run setup`: makes ~/Applications/Ignition.app
   launch.sh              What that app runs: update, start with ~/.ignition/mods,
@@ -217,6 +223,10 @@ Two places hold persisted data:
 - **Power settings** (`[power]`): `keep_awake` (on by default, macOS only)
   runs `caffeinate -i` while any folder's agent works, and ends it when
   every agent finishes or waits on the user (`sidecar/keepAwake.ts`).
+- **Remote settings** (`[remote]`): `enabled` (off by default), `port` (4280),
+  and `token`. The main window's sidecar serves the UI to browsers on the
+  network holding the token's link; their Tauri calls run in
+  the main window, limited to `REMOTE_COMMANDS` (`shared/remote.ts`).
 - **Chrome settings** (`[chrome]`): `enabled` (on by default) gives the
   agent the `chrome_*` tools; `disabled_tools` lists ones it doesn't get
   (`shared/chrome.ts`). Read before each run (`sidecar/chromeSettings.ts`).
