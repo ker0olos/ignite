@@ -68,6 +68,18 @@ describe("useConversationList", () => {
     );
   });
 
+  it("keeps a closed conversation off the list while the sidecar still reports it", async () => {
+    const { result, push } = await setup();
+    push([agent("1"), agent("2")]);
+    act(() => result.current.forget("/a", "1"));
+    push([agent("1"), agent("2")]);
+    expect(result.current.rows("/a").map((r) => r.session)).toEqual(["2"]);
+    // Once it's gone, reopening it lists it again.
+    push([agent("2")]);
+    push([agent("2"), agent("1")]);
+    expect(result.current.rows("/a").map((r) => r.session)).toEqual(["2", "1"]);
+  });
+
   it("remembers nothing when told not to", async () => {
     const { push, store } = await setup({}, false);
     push([agent("1")]);

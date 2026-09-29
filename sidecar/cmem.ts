@@ -7,10 +7,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, matchesGlob } from "node:path";
 import { parse as parseToml } from "smol-toml";
-import type {
-  MemoryObservation,
-  MemoryStatus,
-} from "../shared/hostProtocol.ts";
+import type { MemoryObservation, MemoryStatus } from "../shared/memory.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import type { McpEntry } from "./mcpConfig.ts";
 

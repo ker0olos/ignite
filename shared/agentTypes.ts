@@ -6,7 +6,7 @@
 
 export type TextContent = { type: "text"; text: string };
 export type ImageContent = { type: "image"; data: string; mimeType: string };
-export type ThinkingContent = {
+type ThinkingContent = {
   type: "thinking";
   thinking: string;
   redacted?: boolean;
@@ -55,13 +55,13 @@ export type ToolResultMessage = ToolResult & {
 };
 
 /** Any other role (system, custom, summaries); shown only if understood. */
-export type OtherMessage = { role: string; timestamp?: number };
+type OtherMessage = { role: string; timestamp?: number };
 
 export type AgentMessage =
   UserMessage | AssistantMessage | ToolResultMessage | OtherMessage;
 
 /** A streaming update to one content block of the assistant message. */
-export type AssistantMessageEvent =
+type AssistantMessageEvent =
   | { type: "text_start" | "thinking_start"; contentIndex: number }
   | {
       type: "text_delta" | "thinking_delta" | "toolcall_delta";

@@ -7,7 +7,7 @@ import type { ImageContent, SessionEvent } from "../shared/agentTypes.ts";
 import {
   current,
   isShown,
-  shown,
+  target,
   type Agent,
   type HostContext,
   type McpStatusSnapshot,
@@ -54,15 +54,16 @@ export async function setModel(
   ctx: HostContext,
   provider: string,
   modelId: string,
+  session?: string,
 ) {
-  const s = await current(ctx);
+  const s = await current(ctx, session);
   const model = (await s.modelRuntime.getAvailable()).find(
     (m) => m.provider === provider && m.id === modelId,
   );
   if (!model) throw new Error(`${modelId} isn't available.`);
   // Persisted so the next session starts with the same choice.
   await s.setModel(model, { persist: true });
-  return sessionState(ctx);
+  return sessionState(ctx, s);
 }
 
 // The last one shown, else another one open; a folder may have none.
@@ -248,9 +249,10 @@ export async function prompt(
   ctx: HostContext,
   text: string,
   images?: ImageContent[],
+  session?: string,
 ) {
-  const agent = shown(ctx);
-  const s = await current(ctx);
+  const agent = target(ctx, session);
+  const s = await current(ctx, session);
   await agent!.ready;
   // A message sent mid-run steers the agent rather than waiting for the end.
   const options = {

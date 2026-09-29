@@ -5,7 +5,8 @@
  * once it's merged. A folder outside git is shared.
  */
 import { existsSync } from "node:fs";
-import { mkdir, readdir, rm, rmdir } from "node:fs/promises";
+import { mkdir, readdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
@@ -13,6 +14,7 @@ import {
   git,
   gitOr,
   lockReason,
+  repoFile,
   repoOf,
   restore,
   snapshot,
@@ -31,14 +33,22 @@ const shared = (folder: string): Workspace => ({
   ready: Promise.resolve(),
 });
 
+const FETCH_WAIT_MS = 3_000;
+// A worktree younger than this may not be locked yet; sweeps leave it be.
+const NEW_MS = 60_000;
+
 const verified = (repo: string, ref: string) =>
   gitOr(repo, ["rev-parse", "-q", "--verify", `${ref}^{commit}`]);
 
 // Pull requests branch off the remote's latest default branch, and the
-// user's own uncommitted work stays out of them.
-/** The remote's default branch, freshly fetched; the folder's HEAD without a remote. */
+// user's own uncommitted work stays out of them. The fetch carries on in the
+// background when it's slow, so a first message never waits on the network.
+/** The remote's default branch, fetched if quick; the folder's HEAD without a remote. */
 export async function startPoint(repo: string): Promise<string> {
-  await gitOr(repo, ["fetch", "--quiet", "origin"]);
+  await Promise.race([
+    gitOr(repo, ["fetch", "--quiet", "origin"]),
+    new Promise((done) => setTimeout(done, FETCH_WAIT_MS)),
+  ]);
   const head = await gitOr(repo, [
     "symbolic-ref",
     "-q",
@@ -51,12 +61,8 @@ export async function startPoint(repo: string): Promise<string> {
   return "HEAD";
 }
 
-// Resumes the conversation's saved state, else starts fresh from startPoint.
-async function create(repo: string, path: string, id: string) {
-  const saved = await verified(repo, stateRef(id));
-  await mkdir(join(path, ".."), { recursive: true });
-  const start = saved ? `${saved}^` : await startPoint(repo);
-  await git(repo, ["worktree", "add", "--detach", path, start]);
+const lock = async (repo: string, path: string) => {
+  await gitOr(repo, ["worktree", "unlock", path]);
   await git(repo, [
     "worktree",
     "lock",
@@ -64,16 +70,77 @@ async function create(repo: string, path: string, id: string) {
     `${LOCK}${process.pid}`,
     path,
   ]);
+};
+
+const BRANCH = /^branch: (.+)$/m;
+
+// The branch the agent had checked out comes back with it, if it hasn't
+// moved since (and isn't checked out elsewhere); else the worktree is detached.
+async function addAt(repo: string, path: string, saved: string) {
+  const branch = (
+    await gitOr(repo, ["log", "-1", "--format=%B", saved])
+  )?.match(BRANCH)?.[1];
+  const tip = branch && (await verified(repo, `refs/heads/${branch}`));
+  const base = await git(repo, ["rev-parse", `${saved}^`]);
+  if (branch && tip === base) {
+    const added = await gitOr(repo, ["worktree", "add", path, branch]);
+    if (added !== null) return;
+  }
+  await git(repo, ["worktree", "add", "--detach", path, base]);
+}
+
+// Resumes the conversation's saved state, else starts fresh from startPoint.
+async function create(repo: string, path: string, id: string) {
+  const saved = await verified(repo, stateRef(id));
+  await mkdir(join(path, ".."), { recursive: true });
+  await writeFile(repoFile(path), repo);
+  if (saved) await addAt(repo, path, saved);
+  else
+    await git(repo, [
+      "worktree",
+      "add",
+      "--detach",
+      path,
+      await startPoint(repo),
+    ]);
+  await lock(repo, path);
   if (saved) await restore(path, saved);
 }
 
-/** Saves the worktree's state under its conversation, then deletes it. */
+// A repository's folder goes once its last worktree has.
+async function tidy(dir: string) {
+  const left = await readdir(dir).catch(() => [".repo", "?"]);
+  if (left.some((f) => f !== ".repo")) return;
+  await rm(join(dir, ".repo"), { force: true });
+  await rmdir(dir).catch(() => {});
+}
+
+// Deleting the directory the process is in would break later process.cwd() calls.
+function leave(path: string) {
+  try {
+    if (!process.cwd().startsWith(path)) return;
+  } catch {
+    // Already gone.
+  }
+  process.chdir(homedir());
+}
+
+/**
+ * Saves the worktree's state (and branch) under its conversation, then
+ * deletes it. Throws, keeping it, when the state can't be saved.
+ */
 async function remove(path: string) {
+  leave(path);
   const repo = repoOf(path);
-  if (!repo) return rm(path, { recursive: true, force: true });
+  if (!repo) {
+    await rm(path, { recursive: true, force: true });
+    await tidy(dirname(path));
+    return;
+  }
   const id = path.split(/[\\/]/).pop()!;
-  const state = await snapshot(path).catch(() => null);
-  if (state) await git(repo, ["update-ref", stateRef(id), state]);
+  const branch = await gitOr(path, ["symbolic-ref", "-q", "--short", "HEAD"]);
+  const message = `${APP_NAME} snapshot${branch ? `\n\nbranch: ${branch}` : ""}`;
+  await git(repo, ["update-ref", stateRef(id), await snapshot(path, message)]);
   await gitOr(repo, ["worktree", "unlock", path]);
   // Windows can't delete a file another process holds open; then a later
   // sweep tries again, as the lock names a process that's gone by then.
@@ -81,7 +148,7 @@ async function remove(path: string) {
     rm(path, { recursive: true, force: true, maxRetries: 3 }),
   );
   await gitOr(repo, ["worktree", "prune"]);
-  await rmdir(dirname(path)).catch(() => {});
+  await tidy(dirname(path));
 }
 
 async function repoFor(folder: string) {
@@ -102,7 +169,11 @@ export function createWorkspaces(root = WORKTREES) {
       if (!found) return shared(folder);
       const path = worktreePath(found.repo, id, root);
       const dir = resolve(path, found.prefix);
-      if (existsSync(path)) return { dir, ready: Promise.resolve() };
+      if (existsSync(path)) {
+        // Another window's, still in use, stays its; else (a crash) it's ours now.
+        if (owner(path) !== "alive") await lock(found.repo, path);
+        return { dir, ready: Promise.resolve() };
+      }
       try {
         await create(found.repo, path, id);
       } catch (error) {
@@ -113,21 +184,25 @@ export function createWorkspaces(root = WORKTREES) {
       return { dir, ready: cloneIgnored(found.repo, path).catch(() => {}) };
     },
 
-    /** Saves and deletes conversation `id`'s worktree, if it has one. */
+    /** Saves and deletes conversation `id`'s worktree, unless another window still uses it. */
     async close(folder: string, id: string) {
       const found = await repoFor(folder);
       const path = found && worktreePath(found.repo, id, root);
-      if (path && existsSync(path)) await remove(path);
+      if (path && existsSync(path) && owner(path) !== "alive")
+        await remove(path);
     },
 
     /** Saves and deletes worktrees whose app process is gone (it crashed or was killed). */
     async sweep() {
       for (const repoKey of await readdir(root).catch(() => [])) {
         for (const id of await readdir(join(root, repoKey)).catch(() => [])) {
+          if (id.startsWith(".")) continue;
           const path = join(root, repoKey, id);
-          if (!(await ownerAlive(path))) await remove(path).catch(() => {});
+          if (owner(path) === "gone" && !(await isNew(path))) {
+            await remove(path).catch(() => {});
+          }
         }
-        await rmdir(join(root, repoKey)).catch(() => {});
+        await tidy(join(root, repoKey));
       }
     },
   };
@@ -135,18 +210,23 @@ export function createWorkspaces(root = WORKTREES) {
 
 export type Workspaces = ReturnType<typeof createWorkspaces>;
 
-async function ownerAlive(path: string) {
+/** Whose a worktree is, by its lock: this process's, another live one's, or nobody's. */
+function owner(path: string): "mine" | "alive" | "gone" {
   const pid = Number(
     lockReason(path)?.match(new RegExp(`^${LOCK}(\\d+)`))?.[1],
   );
-  if (!pid) return false;
+  if (!pid) return "gone";
+  if (pid === process.pid) return "mine";
   try {
     process.kill(pid, 0);
-    return true;
+    return "alive";
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
+    return (error as NodeJS.ErrnoException).code === "EPERM" ? "alive" : "gone";
   }
 }
+
+const isNew = async (path: string) =>
+  Date.now() - (await stat(path)).mtimeMs < NEW_MS;
 
 /**
  * Fast-forwards the user's folder to its upstream, as after an agent's pull

@@ -5,7 +5,7 @@ import {
   type McpStatusSnapshot,
 } from "./hostTypes.ts";
 
-export const MCP_STATUSES: Record<string, McpServerStatus> = {
+const MCP_STATUSES: Record<string, McpServerStatus> = {
   connected: "connected",
   cached: "idle",
   "not-connected": "idle",
@@ -81,7 +81,7 @@ export async function changeMcp(
 }
 
 /** Marks the URL servers among `names` as checking, then checks them in the background. */
-export async function checkUrlServers(ctx: HostContext, names: string[]) {
+async function checkUrlServers(ctx: HostContext, names: string[]) {
   const s = shown(ctx)?.session;
   if (!s?.extensionRunner.getCommand("mcp")) return;
   const urls = (await ctx.mcpStore.list())

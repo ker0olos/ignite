@@ -24,12 +24,11 @@ export type Opened = {
 };
 
 /** A folder showing no conversation, until the user starts or picks one. */
-export type Empty = { host: HostClient; folder: string; session: null };
+type Empty = { host: HostClient; folder: string; session: null };
 
-export type Entry = Opened | Empty;
+type Entry = Opened | Empty;
 
-export const isOpened = (e: Entry | null): e is Opened =>
-  !!e && e.session !== null;
+const isOpened = (e: Entry | null): e is Opened => !!e && e.session !== null;
 
 /** A conversation whose session is starting, shown from its saved messages. */
 export const toStarting = (

@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowUpRight, Settings2 } from "lucide-react";
-import type { MemoryStatus } from "../../../shared/hostProtocol";
+import type { MemoryStatus } from "../../../shared/memory";
 import { ObservationRow } from "@/components/memory/ObservationRow";
 import { Button } from "@/components/ui/button";
 import { basename } from "@/lib/paths";

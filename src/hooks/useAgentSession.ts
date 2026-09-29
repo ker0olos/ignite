@@ -77,7 +77,7 @@ export function useAgentSession(
     if (!opened || !shown || !statuses) return;
     let live = true;
     opened
-      .request({ type: "session_state" })
+      .request({ type: "session_state", session: shown })
       .then((s) => live && setState(s))
       .catch((e: Error) => live && setError(e.message));
     return () => {
@@ -108,6 +108,7 @@ export function useAgentSession(
   const actions = useComposerActions({
     opened,
     folder,
+    session: shown,
     none,
     start: putOpened,
     setState,

@@ -6,6 +6,7 @@
  */
 import type { AgentMessage, ImageContent, SessionEvent } from "./agentTypes.ts";
 import type { GitReview } from "./git.ts";
+import type { MemoryStatus } from "./memory.ts";
 import type { QuestionAnswer } from "./questions.ts";
 
 /**
@@ -116,19 +117,15 @@ export type OpenedSession = SessionState & {
   approvals: ApprovalRequest[];
 };
 
-/** A folder open in this window, which may be working while another is shown. */
-export type ProjectStatus = {
+/** One of a folder's open conversations, which may be working while another is shown. */
+export type AgentStatus = {
   cwd: string;
-  running: boolean;
-  /** A tool call waits for the user. */
-  waiting: boolean;
-};
-
-/** One of a folder's open conversations. */
-export type AgentStatus = ProjectStatus & {
   session: string;
   /** The first line of its first message; empty until it has one. */
   title: string;
+  running: boolean;
+  /** A tool call waits for the user. */
+  waiting: boolean;
 };
 
 /** A conversation pi saved for a folder. */
@@ -203,32 +200,14 @@ export type McpCatalog = {
   }[];
 };
 
-/** Something claude-mem recorded, as its worker lists it. */
-export type MemoryObservation = {
-  id: number;
-  /** claude-mem's kind: "bugfix", "feature", "decision", "discovery"… */
-  type: string;
-  title: string;
-  subtitle?: string;
-  /** Milliseconds since the epoch. */
-  createdAt: number;
-  /** The tool that recorded it: "claude", "codex", this app's name… */
-  platform: string;
-};
-
-/** claude-mem on this Mac, for the open folder if any. */
-export type MemoryStatus = {
-  state: "not-installed" | "stopped" | "excluded" | "running";
-  /** The worker's web viewer, while it runs. */
-  viewerUrl?: string;
-  /** The open folder's latest observations, newest first. */
-  observations: MemoryObservation[];
-};
-
 /** The commit the app runs from; `date` is ISO 8601. */
 export type AppVersion = { sha: string; date: string; subject: string };
 
-/** Messages the app sends. Those with an `id` get exactly one `response`. */
+/**
+ * Messages the app sends. Those with an `id` get exactly one `response`.
+ * `session`, where a request takes one, names the conversation it's for
+ * (else the shown one), so it can't land in another shown since it was sent.
+ */
 export type HostRequest =
   | { id: number; type: "status" }
   | {
@@ -261,7 +240,7 @@ export type HostRequest =
    * without starting it, so it shows while it starts.
    */
   | { id: number; type: "read_session"; cwd: string; session: string }
-  | { id: number; type: "session_state" }
+  | { id: number; type: "session_state"; session?: string }
   /**
    * What a new conversation would start with (models, model, effort), for a
    * folder with none; `model` and `level` stand in for the saved defaults.
@@ -272,11 +251,28 @@ export type HostRequest =
       model?: { provider: string; id: string };
       level?: ThinkingLevel;
     }
-  | { id: number; type: "set_model"; provider: string; modelId: string }
-  | { id: number; type: "set_thinking_level"; level: ThinkingLevel }
+  | {
+      id: number;
+      type: "set_model";
+      provider: string;
+      modelId: string;
+      session?: string;
+    }
+  | {
+      id: number;
+      type: "set_thinking_level";
+      level: ThinkingLevel;
+      session?: string;
+    }
   /** Resolves once pi has accepted the message; the run streams as events. */
-  | { id: number; type: "prompt"; text: string; images?: ImageContent[] }
-  | { id: number; type: "abort" }
+  | {
+      id: number;
+      type: "prompt";
+      text: string;
+      images?: ImageContent[];
+      session?: string;
+    }
+  | { id: number; type: "abort"; session?: string }
   | { id: number; type: "mcp_list" }
   /** Adds a server, or replaces `previousName` (which may differ, to rename). */
   | {

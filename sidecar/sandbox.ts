@@ -11,7 +11,7 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
-import { gitWritable } from "./worktreeGit.ts";
+import { gitAccess } from "./worktreeGit.ts";
 
 // ponytail: fixed lists; make them settings once someone needs another host
 // or cache.
@@ -37,7 +37,7 @@ export const ALLOWED_DOMAINS = [
 ];
 
 /** Secrets under the home folder that sandboxed commands can't read. */
-export const CREDENTIALS = [
+const CREDENTIALS = [
   ".ssh",
   ".aws",
   ".gnupg",
@@ -56,7 +56,7 @@ export const CREDENTIALS = [
 ];
 
 /** Package manager caches under the home folder, which installs write to. */
-export const CACHES = [
+const CACHES = [
   ".npm",
   ".cache",
   "Library/Caches",
@@ -73,21 +73,23 @@ export const CACHES = [
 
 /**
  * The sandbox for commands run in `cwd`. In an agent's worktree, git also
- * writes its private git dir and objects in the user's repository.
+ * writes its private git dir and objects in the user's repository, but never
+ * the files that say which repository that is (see gitAccess).
  */
 export function sandboxConfig(cwd: string, home: string): SandboxRuntimeConfig {
   const temp = [...new Set([tmpdir(), "/tmp", "/private/tmp"])];
+  const git = gitAccess(cwd);
   return {
     network: { allowedDomains: ALLOWED_DOMAINS, deniedDomains: [] },
     filesystem: {
       denyRead: CREDENTIALS.map((p) => join(home, p)),
       allowWrite: [
         cwd,
-        ...gitWritable(cwd),
+        ...git.allow,
         ...temp,
         ...CACHES.map((p) => join(home, p)),
       ],
-      denyWrite: [],
+      denyWrite: git.deny,
     },
     // macOS denies this to every sandboxed process; it breaks nothing.
     ignoreViolations: { "*": ["kern.iossupportversion"] },

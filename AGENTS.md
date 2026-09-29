@@ -419,6 +419,10 @@ Without the variable nothing changes.
   passes props; it never inlines a child's markup. No private helper
   components either: every component gets its own file. New features follow
   this from the start.
+- **No dead code:** knip (`knip.json`, part of `npm run lint`) fails on
+  unused files, exports and dependencies. Export only what another file
+  uses; a file loaded by path (like the sidecar's extensions) is listed
+  there as an entry.
 - **Size limits are enforced** by oxlint (`.oxlintrc.json`, part of `npm run
 lint`): one component per file, files ≤250 lines, functions ≤120 lines,
   complexity ≤10, nesting ≤4. Split code instead of raising a limit or adding

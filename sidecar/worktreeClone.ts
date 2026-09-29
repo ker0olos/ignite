@@ -8,14 +8,14 @@ const exec = promisify(execFile);
 
 // Copy-on-write clones: a clone of a 1 GB node_modules takes 22 MB until changed.
 /** `cp` flags that clone copy-on-write, where the platform has them. */
-export const CLONE_FLAGS: Partial<Record<NodeJS.Platform, string[]>> = {
+const CLONE_FLAGS: Partial<Record<NodeJS.Platform, string[]>> = {
   darwin: ["-c", "-R", "-p"],
   linux: ["-R", "-p", "--reflink=always"],
 };
 const BATCH = 200;
 
 /** The repository's ignored files and folders (node_modules, builds, .env…), relative to it. */
-export async function ignoredEntries(repo: string): Promise<string[]> {
+async function ignoredEntries(repo: string): Promise<string[]> {
   const out = await git(repo, [
     "ls-files",
     "--others",

@@ -5,7 +5,7 @@ import {
 } from "../shared/hostProtocol.ts";
 import {
   current,
-  shown,
+  target,
   type HostContext,
   type OpenSession,
   type SessionStore,
@@ -63,21 +63,23 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   read_session: (ctx, r) =>
     ctx.agents.get(r.session)?.session?.messages ??
     ctx.sessions.read(r.cwd, r.session),
-  session_state: (ctx) => sessionState(ctx),
+  session_state: async (ctx, r) =>
+    sessionState(ctx, await current(ctx, r.session)),
   draft_state: async (ctx, r) =>
     sessionState(ctx, await ctx.draft({ model: r.model, level: r.level })),
-  set_model: (ctx, r) => setModel(ctx, r.provider, r.modelId),
+  set_model: (ctx, r) => setModel(ctx, r.provider, r.modelId, r.session),
   set_thinking_level: async (ctx, r) => {
-    (await current(ctx)).setThinkingLevel(r.level, { persist: true });
-    return sessionState(ctx);
+    const s = await current(ctx, r.session);
+    s.setThinkingLevel(r.level, { persist: true });
+    return sessionState(ctx, s);
   },
   prompt: async (ctx, r) => {
-    await prompt(ctx, r.text, r.images);
+    await prompt(ctx, r.text, r.images, r.session);
     return undefined;
   },
-  abort: async (ctx) => {
-    const agent = shown(ctx);
-    const s = await current(ctx);
+  abort: async (ctx, r) => {
+    const agent = target(ctx, r.session);
+    const s = await current(ctx, r.session);
     if (agent) denyAll(ctx, agent);
     await s.abort();
     return undefined;

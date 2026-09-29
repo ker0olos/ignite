@@ -8,13 +8,14 @@ import {
   readdirSync,
   realpathSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createWorkspaces, startPoint, updateFolder } from "./worktrees.ts";
-import { folderOf, gitWritable, worktreePath } from "./worktreeGit.ts";
+import { folderOf, gitAccess, worktreePath } from "./worktreeGit.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
 
 let base: string;
@@ -45,6 +46,9 @@ beforeEach(() => {
 });
 
 afterEach(() => rmSync(base, { recursive: true, force: true }));
+
+/** Makes a worktree look old enough for a sweep to consider. */
+const age = (path: string) => utimesSync(path, 0, 0);
 
 /** Gives the repository an origin with main pushed; returns its path. */
 const withRemote = () => {
@@ -118,11 +122,25 @@ describe("workspaces", () => {
     expect(read(ws.dir, "lib.ts")).toBe("lib\n");
     expect(folderOf(ws.dir, root)).toBe(join(repo, "sub"));
     expect(folderOf(repo, root)).toBe(repo);
-    expect(gitWritable(ws.dir, root)).toEqual([
-      join(repo, ".git", "worktrees", "a"),
-      join(repo, ".git", "objects"),
-    ]);
-    expect(gitWritable(repo, root)).toEqual([]);
+    const own = join(repo, ".git", "worktrees", "a");
+    expect(gitAccess(ws.dir, root)).toEqual({
+      allow: [own, join(repo, ".git", "objects")],
+      deny: [
+        join(worktreePath(repo, "a", root), ".git"),
+        join(own, "commondir"),
+        join(own, "gitdir"),
+        join(own, "config.worktree"),
+        join(own, "locked"),
+      ],
+    });
+    expect(gitAccess(repo, root)).toEqual({ allow: [], deny: [] });
+  });
+
+  it("maps back to the user's folder when that is itself a linked worktree", async () => {
+    const linked = join(base, "linked");
+    git(repo, "worktree", "add", "-q", "-b", "feature", linked);
+    const ws = await createWorkspaces(root).open(linked, "a");
+    expect(folderOf(ws.dir, root)).toBe(linked);
   });
 
   it("keeps an agent's work when its worktree is closed, and brings it back", async () => {
@@ -146,6 +164,7 @@ describe("workspaces", () => {
     const path = worktreePath(repo, "a", root);
     git(repo, "worktree", "unlock", path);
     git(repo, "worktree", "lock", "--reason", "ignition pid 999999", path);
+    age(path);
     await workspaces.sweep();
     expect(existsSync(path)).toBe(false);
     expect(existsSync(worktreePath(repo, "live", root))).toBe(true);
@@ -158,8 +177,88 @@ describe("workspaces", () => {
     const workspaces = createWorkspaces(root);
     await workspaces.open(repo, "a");
     rmSync(repo, { recursive: true, force: true });
+    age(worktreePath(repo, "a", root));
     await workspaces.sweep();
     expect(readdirSync(root)).toEqual([]);
+  });
+});
+
+describe("keeping work safe", () => {
+  it("brings back the branch the agent was on when its conversation reopens", async () => {
+    const workspaces = createWorkspaces(root);
+    const ws = await workspaces.open(repo, "a");
+    git(ws.dir, "switch", "-q", "-c", "feat/x");
+    write(join(ws.dir, "app.ts"), "agent\n");
+    git(
+      ws.dir,
+      "-c",
+      "user.name=t",
+      "-c",
+      "user.email=t@t",
+      "commit",
+      "-qam",
+      "x",
+    );
+    write(join(ws.dir, "app.ts"), "more\n");
+    await workspaces.close(repo, "a");
+    const again = await workspaces.open(repo, "a");
+    expect(git(again.dir, "branch", "--show-current")).toBe("feat/x");
+    expect(read(again.dir, "app.ts")).toBe("more\n");
+  });
+
+  it("keeps a worktree it couldn't save", async () => {
+    const workspaces = createWorkspaces(root);
+    await workspaces.open(repo, "a");
+    const path = worktreePath(repo, "a", root);
+    // A broken index makes the snapshot fail.
+    const index = git(
+      path,
+      "rev-parse",
+      "--path-format=absolute",
+      "--git-path",
+      "index",
+    );
+    write(index, "not an index");
+    await expect(workspaces.close(repo, "a")).rejects.toThrow();
+    expect(existsSync(path)).toBe(true);
+  });
+
+  it("takes over a crashed app's worktree when it reopens, so sweeps leave it be", async () => {
+    const workspaces = createWorkspaces(root);
+    await workspaces.open(repo, "a");
+    const path = worktreePath(repo, "a", root);
+    git(repo, "worktree", "unlock", path);
+    git(repo, "worktree", "lock", "--reason", "ignition pid 999999", path);
+    await workspaces.open(repo, "a");
+    age(path);
+    await workspaces.sweep();
+    expect(existsSync(path)).toBe(true);
+  });
+
+  it("leaves a worktree another live window uses when this one closes it", async () => {
+    const workspaces = createWorkspaces(root);
+    await workspaces.open(repo, "a");
+    const path = worktreePath(repo, "a", root);
+    git(repo, "worktree", "unlock", path);
+    git(
+      repo,
+      "worktree",
+      "lock",
+      "--reason",
+      `ignition pid ${process.ppid}`,
+      path,
+    );
+    await workspaces.close(repo, "a");
+    expect(existsSync(path)).toBe(true);
+  });
+
+  it("leaves a new worktree alone even before it's locked", async () => {
+    const workspaces = createWorkspaces(root);
+    await workspaces.open(repo, "a");
+    const path = worktreePath(repo, "a", root);
+    git(repo, "worktree", "unlock", path);
+    await workspaces.sweep();
+    expect(existsSync(path)).toBe(true);
   });
 });
 

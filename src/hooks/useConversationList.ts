@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentStatus } from "../../shared/hostProtocol";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { HostClient } from "@/lib/piHost";
@@ -32,6 +32,9 @@ export function useConversationList(
     [pushed, host],
   );
   const [listed, setListed] = useState<Listed>({});
+  // The sidecar may still report one it hasn't closed yet; it stays off the list.
+  const closing = useRef(new Set<string>());
+
   const [loaded, setLoaded] = useState(!remember);
 
   useEffect(() => {
@@ -48,8 +51,15 @@ export function useConversationList(
     if (!host) return;
     return host.subscribe((message) => {
       if (message.type !== "agents") return;
+      const running = new Set(message.agents.map((a) => a.session));
+      for (const id of closing.current) {
+        if (!running.has(id)) closing.current.delete(id);
+      }
       setPushed({ host, agents: message.agents });
-      setListed((l) => withRunning(l, message.agents));
+      const kept = message.agents.filter(
+        (a) => !closing.current.has(a.session),
+      );
+      setListed((l) => withRunning(l, kept));
     });
   }, [host]);
 
@@ -58,11 +68,10 @@ export function useConversationList(
       void store.then((s) => s.set("conversations", listed));
   }, [remember, loaded, listed]);
 
-  const forget = useCallback(
-    (cwd: string, session: string) =>
-      setListed((l) => without(l, cwd, session)),
-    [],
-  );
+  const forget = useCallback((cwd: string, session: string) => {
+    closing.current.add(session);
+    setListed((l) => without(l, cwd, session));
+  }, []);
 
   return {
     /** The folder's listed conversations, in order, with what each is doing. */

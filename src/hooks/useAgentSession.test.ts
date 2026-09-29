@@ -237,6 +237,7 @@ describe("useAgentSession", () => {
       type: "set_model",
       provider: "openai",
       modelId: "mini",
+      session: "s1",
     });
     expect(result.current.state).toEqual(changed);
 
@@ -244,6 +245,7 @@ describe("useAgentSession", () => {
     expect(host.request).toHaveBeenCalledWith({
       type: "set_thinking_level",
       level: "high",
+      session: "s1",
     });
   });
 
@@ -392,6 +394,7 @@ describe("useAgentSession", () => {
       expect(host.request).toHaveBeenCalledWith({
         type: "prompt",
         text: "Fix the tests",
+        session: "s1",
       });
     });
 
@@ -405,6 +408,7 @@ describe("useAgentSession", () => {
         type: "prompt",
         text: "",
         images,
+        session: "s1",
       });
     });
 
@@ -437,7 +441,10 @@ describe("useAgentSession", () => {
     it("stops the run", async () => {
       const { host, result } = await opened();
       await act(() => result.current.stop());
-      expect(host.request).toHaveBeenCalledWith({ type: "abort" });
+      expect(host.request).toHaveBeenCalledWith({
+        type: "abort",
+        session: "s1",
+      });
     });
   });
 });
@@ -584,6 +591,13 @@ describe("several conversations in a folder", () => {
       "set_model",
       "prompt",
     ]);
+    // By name, so a conversation shown meanwhile can't take them.
+    expect(host.request).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "set_model", session: "s2" }),
+    );
+    expect(host.request).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "prompt", session: "s2" }),
+    );
     expect(result.current.session).toBe("s2");
     expect(result.current.state?.model).toEqual(mini);
   });

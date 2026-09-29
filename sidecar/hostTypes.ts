@@ -184,9 +184,18 @@ export function isShown(ctx: HostContext, agent: Agent): boolean {
   return shown(ctx) === agent;
 }
 
-/** Returns the shown conversation's session once it's open; throws if none is. */
-export async function current(ctx: HostContext): Promise<Session> {
-  const agent = shown(ctx);
-  if (!agent) throw new Error("No folder is open.");
+/** The open conversation `id` names, else the one the app shows. */
+export function target(ctx: HostContext, id?: string): Agent | undefined {
+  return id === undefined ? shown(ctx) : ctx.agents.get(id);
+}
+
+/** Returns that conversation's session once it's open; throws if it isn't. */
+export async function current(ctx: HostContext, id?: string): Promise<Session> {
+  const agent = target(ctx, id);
+  if (!agent) {
+    throw new Error(
+      id ? "That conversation isn't open." : "No folder is open.",
+    );
+  }
   return agent.opening;
 }

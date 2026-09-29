@@ -5,11 +5,10 @@ import { changeMcp } from "./hostMcp.ts";
 import { copySignIn } from "./hostMcpSignIn.ts";
 
 /** Server names end up in tool names (mcp__<server>), so keep them simple. */
-export const toServerName = (name: string) =>
-  name.replace(/[^A-Za-z0-9_-]+/g, "-");
+const toServerName = (name: string) => name.replace(/[^A-Za-z0-9_-]+/g, "-");
 
 /** Returns the command or URL target for an MCP entry. */
-export const target = (e: Record<string, unknown>) =>
+const target = (e: Record<string, unknown>) =>
   typeof e.url === "string"
     ? e.url
     : [e.command as string, ...((e.args as string[]) ?? [])].join(" ");

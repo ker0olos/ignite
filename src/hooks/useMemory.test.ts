@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import type { MemoryStatus } from "../../shared/hostProtocol";
+import type { MemoryStatus } from "../../shared/memory";
 import type { HostClient } from "@/lib/piHost";
 import { useMemory } from "./useMemory";
 

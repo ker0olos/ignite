@@ -1,7 +1,7 @@
 import type { AgentStatus } from "../../shared/hostProtocol";
 
 /** One conversation listed under its folder, running or not. */
-export type ListedConversation = { session: string; title: string };
+type ListedConversation = { session: string; title: string };
 
 /** Each folder's listed conversations, in the order they were opened. */
 export type Listed = Record<string, ListedConversation[]>;

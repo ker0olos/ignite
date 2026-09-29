@@ -36,7 +36,16 @@ export async function git(
   const { stdout } = await exec(
     "git",
     // Long paths: a worktree's node_modules can pass Windows' 260 characters.
-    ["-c", "core.hooksPath=/dev/null", "-c", "core.longpaths=true", ...args],
+    [
+      "-c",
+      "core.hooksPath=/dev/null",
+      // Nothing in a repository's config runs a program on these calls.
+      "-c",
+      "core.fsmonitor=false",
+      "-c",
+      "core.longpaths=true",
+      ...args,
+    ],
     {
       cwd,
       env: {
@@ -71,7 +80,10 @@ export function worktreePath(repo: string, id: string, root = WORKTREES) {
  * Commits `dir`'s working state (tracked and untracked files, not ignored
  * ones) on top of its HEAD, without touching its index or any branch.
  */
-export async function snapshot(dir: string): Promise<string> {
+export async function snapshot(
+  dir: string,
+  message = `${APP_NAME} snapshot`,
+): Promise<string> {
   const tmp = await mkdtemp(join(tmpdir(), `${APP_NAME}-index-`));
   try {
     const env = { GIT_INDEX_FILE: join(tmp, "index") };
@@ -89,7 +101,7 @@ export async function snapshot(dir: string): Promise<string> {
     const tree = await git(dir, ["write-tree"], env);
     return await git(
       dir,
-      ["commit-tree", tree, "-p", "HEAD", "-m", `${APP_NAME} snapshot`],
+      ["commit-tree", tree, "-p", "HEAD", "-m", message],
       APP_IDENTITY,
     );
   } finally {
@@ -122,7 +134,7 @@ export function lockReason(worktree: string): string | null {
 }
 
 /** The agent's worktree that `dir` is in, or null. */
-export function worktreeOf(dir: string, root = WORKTREES): string | null {
+function worktreeOf(dir: string, root = WORKTREES): string | null {
   const rel = relative(root, dir);
   if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
   const [repoKey, id] = rel.split(/[\\/]/);
@@ -138,24 +150,52 @@ export function repoOf(worktree: string): string | null {
   }
 }
 
+/**
+ * The file beside a repository's worktrees naming its checkout, which git's
+ * own links can't tell when the user's folder is a linked worktree or a
+ * submodule. Agents can't write it.
+ */
+export const repoFile = (worktree: string) => join(dirname(worktree), ".repo");
+
 /** The user's folder an agent's `dir` stands for: itself unless it's in a worktree. */
 export function folderOf(dir: string, root = WORKTREES): string {
   const worktree = worktreeOf(dir, root);
-  const repo = worktree && repoOf(worktree);
+  if (!worktree) return dir;
+  let repo: string | null;
+  try {
+    repo = readFileSync(repoFile(worktree), "utf8").trim();
+  } catch {
+    repo = repoOf(worktree);
+  }
   return repo ? join(repo, relative(worktree, dir)) : dir;
 }
 
+// The pointers say which repository (and so which config) git uses there; a
+// sandboxed command rewriting them could make the next unsandboxed git call
+// read a config of its own, which can run programs.
 /**
- * Git folders outside `dir` that git needs to write for it (its worktree's
- * private git dir and the shared objects), or none when it isn't a worktree.
+ * For a `dir` in an agent's worktree, what git may write outside it (the
+ * worktree's private git dir, the shared objects) and what stays read-only
+ * inside (the `.git` file and the private dir's pointers). Empty otherwise.
  */
-export function gitWritable(dir: string, root = WORKTREES): string[] {
+export function gitAccess(
+  dir: string,
+  root = WORKTREES,
+): { allow: string[]; deny: string[] } {
   const worktree = worktreeOf(dir, root);
-  if (!worktree) return [];
+  if (!worktree) return { allow: [], deny: [] };
   try {
     const { own, common } = gitDirs(worktree);
-    return [own, join(common, "objects")];
+    return {
+      allow: [own, join(common, "objects")],
+      deny: [
+        join(worktree, ".git"),
+        ...["commondir", "gitdir", "config.worktree", "locked"].map((f) =>
+          join(own, f),
+        ),
+      ],
+    };
   } catch {
-    return [];
+    return { allow: [], deny: [] };
   }
 }

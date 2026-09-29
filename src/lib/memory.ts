@@ -1,4 +1,4 @@
-import type { MemoryStatus } from "../../shared/hostProtocol";
+import type { MemoryStatus } from "../../shared/memory";
 import { APP_NAME } from "./app";
 
 /** The line under the cmem switch: what it's doing, or why it can't. */

@@ -1081,6 +1081,33 @@ describe("sessions", () => {
     expect(responses()[2]).toMatchObject({ data: [{ content: "live" }] });
   });
 
+  it("acts on the conversation a request names, even with another shown", async () => {
+    const [a, b] = [fakeSession(), fakeSession()];
+    const sessions = [a, b];
+    const { request, responses } = setup(fakeRuntime().runtime, async () =>
+      sessions.shift()!,
+    );
+    await request({ id: 1, type: "new_session", cwd: "/work" });
+    await request({ id: 2, type: "new_session", cwd: "/work" });
+    await request({ id: 3, type: "prompt", text: "hi", session: "new1" });
+    await request({
+      id: 4,
+      type: "set_thinking_level",
+      level: "high",
+      session: "new1",
+    });
+    await request({ id: 5, type: "abort", session: "new1" });
+    expect(a.prompt).toHaveBeenCalled();
+    expect(a.setThinkingLevel).toHaveBeenCalledWith("high", { persist: true });
+    expect(a.abort).toHaveBeenCalled();
+    expect(b.prompt).not.toHaveBeenCalled();
+    await request({ id: 6, type: "prompt", text: "x", session: "gone" });
+    expect(responses().at(-1)).toMatchObject({
+      ok: false,
+      error: "That conversation isn't open.",
+    });
+  });
+
   it("shows a folder with no open conversation without starting one", async () => {
     const openSession = vi.fn<OpenSession>(async () => fakeSession());
     const { request, responses } = setup(fakeRuntime().runtime, openSession);

@@ -9,7 +9,7 @@ import { apiKeyProblem } from "../shared/validation.ts";
 import type { HostContext } from "./hostTypes.ts";
 
 /** Checks Claude Code's install and sign-in, remembering the sign-in. */
-export async function claudeCodeStatus(ctx: HostContext) {
+async function claudeCodeStatus(ctx: HostContext) {
   const checked = await ctx.local.claudeCode.status();
   ctx.claudeLogin = { loggedIn: checked.loggedIn, at: Date.now() };
   return checked;

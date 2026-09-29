@@ -29,13 +29,15 @@ const toChoices = ({ model, level }: Pending): Choice[] => [
 ];
 
 /**
- * Sending, stopping, and the model and effort choices. In a folder with no
- * conversation (`none`), choices wait and the first message starts one:
- * the session opens, takes the choices, then gets the message.
+ * Sending, stopping, and the model and effort choices, each for `session`
+ * (the shown conversation) by name. In a folder with no conversation (`none`),
+ * choices wait and the first message starts one: the session opens, takes
+ * the choices, then gets the message, all by the new one's name.
  */
 export function useComposerActions({
   opened,
   folder,
+  session,
   none,
   start,
   setState,
@@ -43,6 +45,7 @@ export function useComposerActions({
 }: {
   opened: HostClient | null;
   folder: string | null;
+  session: string | null;
   none: boolean;
   /** Shows the new conversation (its events apply from here on). */
   start: (s: OpenedSession) => void;
@@ -52,12 +55,14 @@ export function useComposerActions({
   const [pending, setPending] = useState<Pending>({});
 
   const begin = useCallback(async () => {
-    if (!opened || !folder) return;
-    start(await opened.request({ type: "new_session", cwd: folder }));
+    if (!opened || !folder) return null;
+    const s = await opened.request({ type: "new_session", cwd: folder });
+    start(s);
     for (const choice of toChoices(pending)) {
-      setState(await opened.request(choice));
+      setState(await opened.request({ ...choice, session: s.session }));
     }
     setPending({});
+    return s.session;
   }, [opened, folder, start, pending, setState]);
 
   const send = useCallback(
@@ -65,17 +70,18 @@ export function useComposerActions({
       if (!opened || (!text.trim() && !images.length)) return;
       setError(null);
       try {
-        if (none) await begin();
+        const to = none ? await begin() : session;
         await opened.request({
           type: "prompt",
           text,
           ...(images.length > 0 && { images }),
+          ...(to && { session: to }),
         });
       } catch (e) {
         setError((e as Error).message);
       }
     },
-    [opened, none, begin, setError],
+    [opened, none, session, begin, setError],
   );
 
   const change = useCallback(
@@ -84,17 +90,21 @@ export function useComposerActions({
       if (!opened) return;
       setError(null);
       try {
-        setState(await opened.request(choice));
+        setState(
+          await opened.request({ ...choice, ...(session && { session }) }),
+        );
       } catch (e) {
         setError((e as Error).message);
       }
     },
-    [opened, none, setState, setError],
+    [opened, none, session, setState, setError],
   );
 
   const stop = useCallback(async () => {
-    await opened?.request({ type: "abort" }).catch(() => {});
-  }, [opened]);
+    await opened
+      ?.request({ type: "abort", ...(session && { session }) })
+      .catch(() => {});
+  }, [opened, session]);
 
   return {
     pending,

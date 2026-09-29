@@ -20,7 +20,7 @@ function rangeArgs(range: string): string[] {
 }
 
 /** The files `range` changes, with line counts. Renames show as delete and add. */
-export async function changes(
+async function changes(
   repo: string,
   range: string,
   paths: string[] = [],
