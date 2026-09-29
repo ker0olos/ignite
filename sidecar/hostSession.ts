@@ -16,7 +16,6 @@ import {
 import { describeError, toWireEvent } from "./wire.ts";
 import type { ApprovalAsk } from "./approvalExtension.ts";
 import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
-import { signOut } from "./hostMcpSignIn.ts";
 import { askApproval, denyAll } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { firstTitle, pushProjects, titleOf } from "./hostProjects.ts";
@@ -101,11 +100,6 @@ export async function open(
     setTimeout(() => {
       agent.ready.then(() => resume(s)).catch(reportTo(ctx, agent));
     });
-  }
-  // ponytail: kept in memory; a sidecar restart before a folder opens drops them.
-  for (const name of [...ctx.pendingSignOuts]) {
-    ctx.pendingSignOuts.delete(name);
-    await signOut(ctx, name);
   }
   // Servers now have a status, even before the adapter reports any.
   if (isShown(ctx, agent)) await pushMcpServers(ctx);

@@ -28,10 +28,11 @@ export async function mcpCatalog(
       signIn: needsSignIn(p.entry),
       added: taken.has(p.id),
     })),
-    sources: sources.map(({ id, app, scope, servers }) => ({
+    sources: sources.map(({ id, app, scope, folder, servers }) => ({
       id,
       app,
       scope,
+      ...(folder && { folder }),
       servers: Object.entries(servers).map(([name, entry]) => ({
         name,
         target: target(entry),

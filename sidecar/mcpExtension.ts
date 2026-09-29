@@ -5,6 +5,7 @@
  * mcp.json only. It runs on each (re)load, so saved changes apply on reload.
  */
 import { mkdir, writeFile } from "node:fs/promises";
+import { Server } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -63,6 +64,26 @@ export async function asApp<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+// ponytail: process-wide patch while a sign-in runs; a server closing meanwhile
+// drops its open connections too. Remove once the adapter closes them itself.
+/**
+ * Runs `fn` with `server.close()` also dropping open connections. The
+ * adapter's sign-in waits on its callback server's close, which a browser's
+ * unused preconnected socket holds open until Node's header timeout (~2 min).
+ */
+export async function closingConnections<T>(fn: () => Promise<T>): Promise<T> {
+  const close = Server.prototype.close;
+  Server.prototype.close = function (this: Server, callback) {
+    this.closeAllConnections();
+    return close.call(this, callback);
+  };
+  try {
+    return await fn();
+  } finally {
+    Server.prototype.close = close;
+  }
+}
+
 export default async function mcp(pi: ExtensionAPI) {
   const config = adapterConfig(
     await readMcpFile(join(getAgentDir(), "mcp.json")),
@@ -85,12 +106,14 @@ export default async function mcp(pi: ExtensionAPI) {
         const url = resolveServerUrl(entry);
         if (!url) throw new Error(`${name} has no URL to sign in to.`);
         const status = await asApp(() =>
-          authenticate(name, url, entry, {
-            onAuthorizationUrl: () => {},
-            openAuthorizationUrl: (authUrl: string) =>
-              pi.events.emit(MCP_AUTH_URL_EVENT, authUrl),
-            signal: ctx.signal,
-          }),
+          closingConnections(() =>
+            authenticate(name, url, entry, {
+              onAuthorizationUrl: () => {},
+              openAuthorizationUrl: (authUrl: string) =>
+                pi.events.emit(MCP_AUTH_URL_EVENT, authUrl),
+              signal: ctx.signal,
+            }),
+          ),
         );
         if (status !== "authenticated") {
           throw new Error(`Signing in to ${name} didn't finish.`);

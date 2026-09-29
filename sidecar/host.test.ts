@@ -220,6 +220,12 @@ function setup(
   skills?: SkillStore,
 ) {
   const sent: HostMessage[] = [];
+  const mcp = fakeSession();
+  let onMcpStatus: (snapshot: McpStatusSnapshot) => void = () => {};
+  const openMcpSession = vi.fn(async (listener: typeof onMcpStatus) => {
+    onMcpStatus = listener;
+    return mcp;
+  });
   const host = createHost(
     runtime,
     (m) => sent.push(m),
@@ -229,6 +235,7 @@ function setup(
     draft,
     { claudeCode, usesCodexLogin },
     mcpStore,
+    openMcpSession,
     catalog,
     trust,
     skills as SkillStore,
@@ -237,7 +244,16 @@ function setup(
   );
   const responses = () => sent.filter((m) => m.type === "response");
   const request = async (r: HostRequest) => host.handle(r);
-  return { host, sent, responses, request };
+  const mcpStatus = (s: McpStatusSnapshot) => onMcpStatus(s);
+  return {
+    host,
+    sent,
+    responses,
+    request,
+    mcp,
+    openMcpSession,
+    mcpStatus,
+  };
 }
 
 /** Waits until the host has sent a message of `type`. */
@@ -1909,21 +1925,68 @@ describe("MCP servers", () => {
 
   const settle = () => new Promise((r) => setTimeout(r));
 
-  it("lists saved servers without a status while no folder is open", async () => {
-    const { request, responses } = setup(
+  /** A host with no folder open; `mcpStatus` sends the MCP session's status. */
+  function withoutFolder(servers: SavedServer[] = [docs]) {
+    const store = fakeMcpStore(servers);
+    const ctx = setup(
       fakeRuntime().runtime,
       undefined,
       undefined,
       undefined,
-      fakeMcpStore([docs]),
+      store,
     );
+    return { ...ctx, store };
+  }
+
+  it("lists servers with a status while no folder is open, opening nothing", async () => {
+    const { request, responses, openMcpSession } = withoutFolder();
     await request({ id: 1, type: "mcp_list" });
     expect(responses()[0]).toEqual({
       type: "response",
       id: 1,
       ok: true,
-      data: [docs],
+      data: [{ ...docs, status: "idle" }],
     });
+    expect(openMcpSession).not.toHaveBeenCalled();
+  });
+
+  it("shows the MCP session's status unless the shown folder knows more", async () => {
+    const { request, responses, mcpStatus, status } = await withSession([
+      docs,
+      { ...docs, name: "web" },
+    ]);
+    await request({ id: 2, type: "mcp_sign_in", name: "docs" });
+    mcpStatus({
+      servers: [
+        { name: "docs", status: "needs-auth" },
+        { name: "web", status: "connected" },
+      ],
+    });
+    status({
+      servers: [
+        { name: "docs", status: "failed" },
+        { name: "web", status: "not-connected" },
+      ],
+    });
+    await request({ id: 3, type: "mcp_list" });
+    expect(responses().at(-1)).toMatchObject({
+      data: [
+        { name: "docs", status: "failed" },
+        { name: "web", status: "connected" },
+      ],
+    });
+  });
+
+  it("pushes the MCP session's status and remembers sign-ins from it", async () => {
+    const { request, sent, mcpStatus, store } = withoutFolder();
+    await request({ id: 1, type: "mcp_sign_in", name: "docs" });
+    sent.splice(0);
+    mcpStatus({ servers: [{ name: "docs", status: "needs-auth" }] });
+    expect(await waitFor(sent, "mcp_servers")).toEqual({
+      type: "mcp_servers",
+      servers: [{ ...docs, status: "needs-auth" }],
+    });
+    expect(store.signIns).toEqual(["docs"]);
   });
 
   it("shows servers the adapter hasn't reported as idle, and disabled ones as off", async () => {
@@ -2148,12 +2211,12 @@ describe("MCP servers", () => {
         ([text]: unknown[]) => text === "/mcp reconnect web",
       );
 
-    it("connects a saved URL server once, so a needed sign-in shows", async () => {
-      const { request, responses, session, sent } = await withSession();
+    it("connects a saved URL server once in the MCP session, with no folder open", async () => {
+      const { request, responses, mcp, sent } = withoutFolder([]);
       let finish = () => {};
-      session.prompt.mockReturnValue(new Promise<void>((r) => (finish = r)));
-      await request({ id: 2, type: "mcp_save", name: "web", config: web });
-      await vi.waitFor(() => expect(checks(session)).toHaveLength(1));
+      mcp.prompt.mockReturnValue(new Promise<void>((r) => (finish = r)));
+      await request({ id: 1, type: "mcp_save", name: "web", config: web });
+      await vi.waitFor(() => expect(checks(mcp)).toHaveLength(1));
       expect(statusOf(responses()[0], "web")).toBe("checking");
 
       sent.splice(0);
@@ -2164,56 +2227,50 @@ describe("MCP servers", () => {
       expect(pushed.servers.find((m) => m.name === "web")?.status).toBe("idle");
     });
 
-    it("stops showing a check once another folder opens", async () => {
-      const { request, responses, session } = await withSession();
-      session.prompt.mockReturnValue(new Promise<void>(() => {}));
-      await request({ id: 2, type: "mcp_save", name: "web", config: web });
-      await request({
-        id: 3,
-        type: "open_session",
-        cwd: "/other",
-        session: "/other:saved",
-      });
-      await request({ id: 4, type: "mcp_list" });
-      expect(statusOf(responses().at(-1)!, "web")).toBe("idle");
-    });
-
-    it("leaves local command servers to connect when used", async () => {
-      const { request, session } = await withSession();
-      await request({ id: 2, type: "mcp_save", name: "web", config: stdio });
-      await settle();
-      expect(session.prompt).not.toHaveBeenCalled();
-    });
-
-    it("skips servers that are off, or while pi is running", async () => {
-      const { request, session, store } = await withSession();
-      await request({ id: 2, type: "mcp_save", name: "web", config: web });
-      await vi.waitFor(() => expect(checks(session)).toHaveLength(1));
-      session.prompt.mockClear();
-      await request({
-        id: 3,
-        type: "mcp_set_enabled",
-        name: "web",
-        enabled: false,
-      });
-      store.servers = store.servers.map((m) => ({ ...m, enabled: false }));
+    it("checks while a conversation runs, reloading the MCP session first", async () => {
+      const { request, session, mcp } = await withSession();
       session.isStreaming = true;
-      await request({ id: 4, type: "mcp_save", name: "web", config: web });
-      await settle();
+      await request({ id: 2, type: "mcp_save", name: "web", config: web });
+      await vi.waitFor(() => expect(checks(mcp)).toHaveLength(1));
+      await request({ id: 3, type: "mcp_save", name: "web", config: web });
+      expect(mcp.reload).toHaveBeenCalledTimes(1);
       expect(session.prompt).not.toHaveBeenCalled();
+    });
+
+    it("leaves local command servers and servers that are off alone", async () => {
+      const { request, mcp, store } = withoutFolder([]);
+      await request({ id: 1, type: "mcp_save", name: "cli", config: stdio });
+      store.save.mockImplementationOnce(async () => {
+        store.servers = [{ ...docs, name: "web", enabled: false, config: web }];
+      });
+      await request({ id: 2, type: "mcp_save", name: "web", config: web });
+      await settle();
+      expect(mcp.prompt).not.toHaveBeenCalled();
     });
 
     it("skips the check without the adapter, and ignores a failed one", async () => {
-      const { request, session } = await withSession();
-      session.prompt.mockRejectedValue(new Error("offline"));
-      await request({ id: 2, type: "mcp_save", name: "web", config: web });
-      await vi.waitFor(() => expect(checks(session)).toHaveLength(1));
+      const { request, mcp, responses, sent } = withoutFolder([]);
+      mcp.prompt.mockRejectedValue(new Error("offline"));
+      await request({ id: 1, type: "mcp_save", name: "web", config: web });
+      await vi.waitFor(() => expect(checks(mcp)).toHaveLength(1));
 
-      session.prompt.mockClear();
-      session.extensionRunner.getCommand.mockReturnValue(undefined);
-      await request({ id: 3, type: "mcp_save", name: "web", config: web });
+      mcp.prompt.mockClear();
+      mcp.extensionRunner.getCommand.mockReturnValue(undefined);
+      sent.splice(0);
+      await request({ id: 2, type: "mcp_save", name: "web", config: web });
+      await waitFor(sent, "mcp_servers");
+      expect(mcp.prompt).not.toHaveBeenCalled();
+      expect(statusOf(responses().at(-1)!, "web")).toBe("checking");
+    });
+
+    it("tries opening the MCP session again after it failed", async () => {
+      const { request, mcp, openMcpSession } = withoutFolder([]);
+      openMcpSession.mockRejectedValueOnce(new Error("pi broke"));
+      await request({ id: 1, type: "mcp_save", name: "web", config: web });
       await settle();
-      expect(session.prompt).not.toHaveBeenCalled();
+      await request({ id: 2, type: "mcp_save", name: "web", config: web });
+      await vi.waitFor(() => expect(checks(mcp)).toHaveLength(1));
+      expect(openMcpSession).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -2223,68 +2280,19 @@ describe("MCP servers", () => {
         ([text]: unknown[]) => text === "/app-mcp-sign-out docs",
       );
 
-    it("deletes its saved sign-in first", async () => {
-      const { request, session, store } = await withSession();
-      await request({ id: 2, type: "mcp_remove", name: "docs" });
-      expect(signOuts(session)).toHaveLength(1);
+    it("deletes its saved sign-in first, with no folder open", async () => {
+      const { request, mcp, store } = withoutFolder();
+      await request({ id: 1, type: "mcp_remove", name: "docs" });
+      expect(signOuts(mcp)).toHaveLength(1);
       expect(store.remove).toHaveBeenCalledWith("docs");
     });
 
-    it("deletes it when the next folder opens if it can't now", async () => {
-      const second = fakeSession();
-      const first = fakeSession();
-      first.prompt.mockRejectedValue(new Error("busy"));
-      const sessions = [first, second];
-      const store = fakeMcpStore([docs]);
-      const { request } = setup(
-        fakeRuntime().runtime,
-        async () => sessions.shift()!,
-        undefined,
-        undefined,
-        store,
-      );
-      await request({
-        id: 1,
-        type: "open_session",
-        cwd: "/a",
-        session: "/a:saved",
-      });
-      await request({ id: 2, type: "mcp_remove", name: "docs" });
-      expect(store.remove).toHaveBeenCalledWith("docs");
-      await request({
-        id: 3,
-        type: "open_session",
-        cwd: "/b",
-        session: "/b:saved",
-      });
-      expect(second.prompt).toHaveBeenCalledWith("/app-mcp-sign-out docs", {});
-      await request({
-        id: 4,
-        type: "open_session",
-        cwd: "/c",
-        session: "/c:saved",
-      });
-    });
-
-    it("waits for a folder when none is open", async () => {
-      const session = fakeSession();
-      const store = fakeMcpStore([docs]);
-      const { request } = setup(
-        fakeRuntime().runtime,
-        async () => session,
-        undefined,
-        undefined,
-        store,
-      );
+    it("removes it even when the sign-out fails", async () => {
+      const { request, mcp, store, responses } = withoutFolder();
+      mcp.prompt.mockRejectedValue(new Error("keychain"));
       await request({ id: 1, type: "mcp_remove", name: "docs" });
       expect(store.remove).toHaveBeenCalledWith("docs");
-      await request({
-        id: 2,
-        type: "open_session",
-        cwd: "/a",
-        session: "/a:saved",
-      });
-      expect(signOuts(session)).toHaveLength(1);
+      expect(responses()[0]).toMatchObject({ ok: true });
     });
   });
 
@@ -2338,63 +2346,60 @@ describe("MCP servers", () => {
     expect(session.reload).not.toHaveBeenCalled();
   });
 
-  it("signs in with the adapter's command, then connects", async () => {
-    const { request, responses, session } = await withSession();
-    await request({ id: 2, type: "mcp_sign_in", name: "docs" });
-    expect(session.prompt).toHaveBeenNthCalledWith(
-      1,
-      "/app-mcp-sign-in docs",
-      {},
-    );
-    expect(session.prompt).toHaveBeenNthCalledWith(
-      2,
-      "/mcp reconnect docs",
-      {},
-    );
+  it("signs in in the MCP session with no folder open, then connects", async () => {
+    const { request, responses, mcp } = withoutFolder();
+    await request({ id: 1, type: "mcp_sign_in", name: "docs" });
+    expect(mcp.prompt).toHaveBeenNthCalledWith(1, "/app-mcp-sign-in docs", {});
+    expect(mcp.prompt).toHaveBeenNthCalledWith(2, "/mcp reconnect docs", {});
     expect(responses()[0]).toMatchObject({ ok: true });
   });
 
+  it("connects a signed-in server in idle conversations with the adapter", async () => {
+    const { request, session } = await withSession();
+    await request({ id: 2, type: "mcp_sign_in", name: "docs" });
+    expect(session.prompt).toHaveBeenCalledWith("/mcp reconnect docs", {});
+
+    session.prompt.mockClear();
+    session.isStreaming = true;
+    await request({ id: 3, type: "mcp_sign_in", name: "docs" });
+    session.isStreaming = false;
+    session.extensionRunner.getCommand.mockReturnValue(undefined);
+    await request({ id: 4, type: "mcp_sign_in", name: "docs" });
+    expect(session.prompt).not.toHaveBeenCalled();
+  });
+
   it("can't sign in without the adapter's sign-in command", async () => {
-    const { request, responses, session } = await withSession();
-    session.extensionRunner.getCommand.mockImplementation(
+    const { request, responses, mcp } = withoutFolder();
+    mcp.extensionRunner.getCommand.mockImplementation(
       (name: string) => name === "mcp" || undefined,
     );
-    await request({ id: 2, type: "mcp_sign_in", name: "docs" });
+    await request({ id: 1, type: "mcp_sign_in", name: "docs" });
     expect(responses()[0]).toMatchObject({
       ok: false,
-      error: "MCP sign-in isn't available in this session.",
+      error: "MCP sign-in isn't available.",
     });
-    expect(session.prompt).not.toHaveBeenCalled();
+    expect(mcp.prompt).not.toHaveBeenCalled();
   });
 
   it.each([
     ["missing", "There is no server named missing."],
     ["off", "Turn off on first."],
   ])("won't sign in to %s", async (name, error) => {
-    const { request, responses, session } = await withSession();
-    await request({ id: 2, type: "mcp_sign_in", name });
+    const { request, responses, mcp } = withoutFolder([docs, off]);
+    await request({ id: 1, type: "mcp_sign_in", name });
     expect(responses()[0]).toMatchObject({ ok: false, error });
-    expect(session.prompt).not.toHaveBeenCalled();
+    expect(mcp.prompt).not.toHaveBeenCalled();
   });
 
   it("won't send the command to the model when the adapter isn't loaded", async () => {
-    const { request, responses, session } = await withSession();
-    session.extensionRunner.getCommand.mockReturnValue(undefined);
-    await request({ id: 2, type: "mcp_sign_in", name: "docs" });
-    expect(responses()[0]).toMatchObject({
-      ok: false,
-      error: "MCP isn't running in this session. Check mcp.json.",
-    });
-    expect(session.prompt).not.toHaveBeenCalled();
-  });
-
-  it("can't sign in before a folder is open", async () => {
-    const { request, responses } = setup(fakeRuntime().runtime);
+    const { request, responses, mcp } = withoutFolder();
+    mcp.extensionRunner.getCommand.mockReturnValue(undefined);
     await request({ id: 1, type: "mcp_sign_in", name: "docs" });
     expect(responses()[0]).toMatchObject({
       ok: false,
-      error: "No folder is open.",
+      error: "MCP isn't running. Check mcp.json.",
     });
+    expect(mcp.prompt).not.toHaveBeenCalled();
   });
 });
 
@@ -2568,21 +2573,15 @@ describe("MCP catalog", () => {
     });
   });
 
-  it("copies Claude Code's sign-ins for imported URL servers", async () => {
-    const { request, session } = withCatalog();
+  it("copies Claude Code's sign-ins for imported URL servers, with no folder open", async () => {
+    const { request, mcp } = withCatalog();
     await request({
       id: 1,
-      type: "open_session",
-      cwd: "/work",
-      session: "/work:saved",
-    });
-    await request({
-      id: 2,
       type: "mcp_import",
       source: "claude-code",
       names: ["my docs", "blender"],
     });
-    const copies = session.prompt.mock.calls
+    const copies = mcp.prompt.mock.calls
       .map(([text]: unknown[]) => text)
       .filter((text: unknown) => String(text).startsWith("/app-mcp-copy"));
     expect(copies).toEqual(["/app-mcp-copy-sign-in my-docs"]);

@@ -2,6 +2,7 @@ import type { McpCatalog } from "../../../shared/mcpCatalog";
 import { Added } from "@/components/mcp/Added";
 import { AppIcon } from "@/components/mcp/AppIcon";
 import { AsyncButton } from "@/components/mcp/AsyncButton";
+import { scopeLabel } from "@/lib/mcpServers";
 
 /** Other apps' MCP servers found on this Mac, grouped by source. */
 export function McpImportSources({
@@ -24,7 +25,7 @@ export function McpImportSources({
                 <AppIcon app={source.app} />
                 {source.app}
                 <span className="ml-1.5 text-xs text-muted-foreground">
-                  {source.scope === "user" ? "Global" : "This project only"}
+                  {scopeLabel(source)}
                   {" · "}
                   {source.servers.length === 1
                     ? "1 server"

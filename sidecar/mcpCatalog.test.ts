@@ -3,12 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  PRESETS,
-  findImports,
-  needsSignIn,
-  toAdapterEntry,
-} from "./mcpCatalog.ts";
+import { findImports, needsSignIn, toAdapterEntry } from "./mcpCatalog.ts";
+import { PRESETS } from "./mcpPresets.ts";
 
 let home: string;
 let project: string;
@@ -133,25 +129,31 @@ describe("findImports", () => {
       ["claude-code", "Claude Code", "user", ["blender"]],
       ["claude-code-local", "Claude Code", "project", ["sentry"]],
       ["project-mcp-json", "Claude Code", "project", ["shared"]],
+      ["claude-code-local:/elsewhere", "Claude Code", "project", ["other"]],
       ["cursor", "Cursor", "user", ["c"]],
       ["cursor-project", "Cursor", "project", ["cp"]],
       ["codex", "Codex", "user", ["docs"]],
       ["claude-desktop", "Claude Desktop", "user", ["d"]],
     ]);
     expect(found[1].servers.sentry).toEqual(remote);
-    expect(found[5].servers.docs).toEqual({
+    expect(found[3].folder).toBe("/elsewhere");
+    expect(found[6].servers.docs).toEqual({
       command: "npx",
       args: ["-y", "docs"],
     });
   });
 
-  it("leaves out project servers without an open folder", async () => {
+  it("lists every Claude Code folder's servers without an open folder", async () => {
     await put(join(home, ".claude.json"), {
       mcpServers: { blender: stdio },
       projects: { [project]: { mcpServers: { sentry: remote } } },
     });
+    await put(join(project, ".mcp.json"), { mcpServers: { shared: stdio } });
     const found = await findImports(home, undefined);
-    expect(found.map((s) => s.id)).toEqual(["claude-code"]);
+    expect(found.map((s) => s.id)).toEqual([
+      "claude-code",
+      `claude-code-local:${project}`,
+    ]);
   });
 
   it("skips files it can't read and folders Claude Code doesn't know", async () => {

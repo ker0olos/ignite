@@ -25,6 +25,7 @@ import type { McpStatusSnapshot, Runtime, Session } from "./hostTypes.ts";
 import { sessionFor, sessions } from "./sessionStore.ts";
 import { createWorkspaces } from "./worktrees.ts";
 import { createDraft } from "./draftSession.ts";
+import { MCP_STATUS_EVENT, mcpSessionOpener } from "./mcpSession.ts";
 import {
   freshExtensions,
   reselectModel,
@@ -32,7 +33,8 @@ import {
   savedModel,
 } from "./sessionRuntime.ts";
 import { createLineSplitter } from "./lines.ts";
-import { findImports, PRESETS } from "./mcpCatalog.ts";
+import { findImports } from "./mcpCatalog.ts";
+import { PRESETS } from "./mcpPresets.ts";
 import { createMcpStore, MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
 import {
@@ -107,8 +109,8 @@ const approvalExtension = sibling("./approvalExtension.ts");
 const trust = createTrustStore(agentDir);
 const skills = createSkillStore(agentDir, homedir());
 const skillsOverride = skills.sessionSkills;
-// pi-mcp-adapter's status channel (MCP_STATUS_EVENT in its types.ts).
-const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
+const onAuthUrl = (url: string) =>
+  send({ type: "auth_event", event: { type: "auth_url", url } });
 
 // Extensions style status text with pi's TUI theme even without a terminal;
 // pi-mcp-adapter throws on reload if none is set.
@@ -132,9 +134,7 @@ async function openSession(
   });
   // One bus per session, so a closed session's listeners go with it.
   const eventBus = createEventBus();
-  eventBus.on(MCP_AUTH_URL_EVENT, (url) =>
-    send({ type: "auth_event", event: { type: "auth_url", url: String(url) } }),
-  );
+  eventBus.on(MCP_AUTH_URL_EVENT, (url) => onAuthUrl(String(url)));
   eventBus.on(MCP_STATUS_EVENT, (data) =>
     onMcpStatus(data as McpStatusSnapshot),
   );
@@ -229,12 +229,8 @@ async function openSubagent(
 }
 
 const workspaces = createWorkspaces();
-const draft = createDraft({
-  agentDir,
-  claudeBridge,
-  credentials: logins.store,
-  uiContext: headlessUI,
-});
+const base = { agentDir, credentials: logins.store, uiContext: headlessUI };
+const draft = createDraft({ ...base, claudeBridge });
 // Worktrees left by an app that crashed or was killed; this one's are locked to it.
 void workspaces.sweep();
 
@@ -248,6 +244,7 @@ const host = createHost(
   draft,
   { claudeCode: createClaudeCode(), usesCodexLogin: logins.usesCodex },
   createMcpStore(join(agentDir, "mcp.json")),
+  mcpSessionOpener({ ...base, mcpExtension, onAuthUrl }),
   { presets: PRESETS, findImports: (cwd) => findImports(homedir(), cwd) },
   trust,
   skills,

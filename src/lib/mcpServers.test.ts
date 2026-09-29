@@ -4,6 +4,7 @@ import {
   EMPTY_FORM,
   needingSignIn,
   readForm,
+  scopeLabel,
   statusLabel,
   toForm,
 } from "./mcpServers";
@@ -156,5 +157,18 @@ describe("needingSignIn", () => {
       ]),
     ).toEqual(["sentry"]);
     expect(needingSignIn(null)).toEqual([]);
+  });
+});
+
+describe("scopeLabel", () => {
+  const source = { id: "s", app: "Claude Code", servers: [] };
+  it("names the scope, and another folder by its name", () => {
+    expect(scopeLabel({ ...source, scope: "user" })).toBe("Global");
+    expect(scopeLabel({ ...source, scope: "project" })).toBe(
+      "This project only",
+    );
+    expect(
+      scopeLabel({ ...source, scope: "project", folder: "/code/motr-server" }),
+    ).toBe("motr-server only");
   });
 });

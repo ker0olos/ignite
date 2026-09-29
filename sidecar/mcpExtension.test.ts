@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { createServer, Server } from "node:http";
+import { connect, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -11,7 +13,7 @@ import {
   MCP_SIGN_OUT_COMMAND,
   writeMcpFile,
 } from "./mcpConfig.ts";
-import mcp, { asApp } from "./mcpExtension.ts";
+import mcp, { asApp, closingConnections } from "./mcpExtension.ts";
 import { cmemServer } from "./cmem.ts";
 import { APP_TITLE } from "../src/lib/app.ts";
 
@@ -179,4 +181,39 @@ it("deletes a server's saved sign-in", async () => {
   await mcp(pi);
   await commands.get(MCP_SIGN_OUT_COMMAND)!("web", { signal: undefined });
   expect(removeAuth).toHaveBeenCalledWith("web", { signal: undefined });
+});
+
+describe("closingConnections", () => {
+  /** A listening server holding a socket that never sends a request, like a browser's preconnect. */
+  async function withPreconnect() {
+    const server = createServer((_req, res) => res.end());
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address() as AddressInfo;
+    const accepted = new Promise((r) => server.once("connection", r));
+    const socket = connect(port, "127.0.0.1");
+    socket.on("error", () => {});
+    await accepted;
+    const closed = new Promise<void>((r) => server.close(() => r()));
+    return { server, socket, closed };
+  }
+
+  it("lets close() finish despite an unused open socket, then restores it", async () => {
+    const original = Server.prototype.close;
+    await closingConnections(async () => {
+      const { closed } = await withPreconnect();
+      await closed;
+    });
+    expect(Server.prototype.close).toBe(original);
+  });
+
+  it("leaves close() waiting on it otherwise", async () => {
+    const { closed, socket } = await withPreconnect();
+    const first = await Promise.race([
+      closed.then(() => "closed"),
+      new Promise((r) => setTimeout(() => r("waiting"), 200)),
+    ]);
+    expect(first).toBe("waiting");
+    socket.destroy();
+    await closed;
+  });
 });

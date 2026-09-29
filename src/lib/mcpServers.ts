@@ -3,7 +3,9 @@ import type {
   McpServerConfig,
   McpServerStatus,
 } from "../../shared/hostProtocol";
+import type { McpCatalog } from "../../shared/mcpCatalog";
 import { mcpServerProblem } from "../../shared/validation";
+import { basename } from "./paths";
 
 /** One name/value row of the form (an environment variable or a header). */
 export type Pair = { key: string; value: string };
@@ -123,4 +125,12 @@ export function needingSignIn(servers: McpServer[] | null): string[] {
   return (servers ?? [])
     .filter((m) => m.enabled && m.status === "needs-auth")
     .map((m) => m.name);
+}
+
+/** Where an importable source's servers apply: everywhere, or one folder. */
+export function scopeLabel(source: McpCatalog["sources"][number]): string {
+  if (source.scope === "user") return "Global";
+  return source.folder
+    ? `${basename(source.folder)} only`
+    : "This project only";
 }

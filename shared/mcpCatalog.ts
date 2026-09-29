@@ -13,8 +13,9 @@ export type McpCatalog = {
   sources: {
     id: string;
     app: string;
-    /** "project": set up in that app for the open folder only. */
+    /** "project": set up in that app for one folder only; the open one unless `folder`. */
     scope: "user" | "project";
+    folder?: string;
     servers: {
       name: string;
       /** The command or URL, to recognise it by. */

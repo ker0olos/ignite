@@ -126,9 +126,14 @@ Code-credentials`, `mcpOAuth`, matched by `serverUrl`, `expiresAt` in ms)
 
 ## Setup check and sign-in
 
+- Checks, sign-in, sign-out and copied sign-ins run in the MCP session
+  (`sidecar/mcpSession.ts`): in memory, only the adapter, opened on first
+  use, so they work with no conversation open or while one runs. Settings
+  shows its status unless the shown conversation's is more than idle; after
+  a sign-in, idle conversations reconnect the server too.
 - Servers stay `lazy`. After a URL server is added, imported or edited the
-  host sends the adapter's `/mcp reconnect <name>` once (not while pi runs),
-  so its real status (connected, needs-auth, failed) shows during setup.
+  host sends the adapter's `/mcp reconnect <name>` once in that session, so
+  its real status (connected, needs-auth, failed) shows during setup.
   Local command servers are never started this way.
 - Sign in runs our own command, `/app-mcp-sign-in <name>`, registered by
   `sidecar/mcpExtension.ts`. It calls the adapter's `authenticate()` (not a
@@ -138,7 +143,11 @@ Code-credentials`, `mcpOAuth`, matched by `serverUrl`, `expiresAt` in ms)
   (`app/mcp-auth-url`) to the app, which opens it with Tauri's opener. The
   adapter's own `/mcp-auth` launches the browser itself through the `open`
   package, which loses the URL when the sidecar runs under the app (Chrome
-  opens with no tab). Failures are reported with `ctx.ui.notify(..., "error")`,
+  opens with no tab). `authenticate()` only returns once its localhost
+  callback server has closed, and a browser's preconnected socket (accepted,
+  no request) keeps `server.close()` waiting until Node's header timeout, about
+  two minutes after the token was saved; `closingConnections()` makes close drop
+  open connections while a sign-in runs. Failures are reported with `ctx.ui.notify(..., "error")`,
   which the headless UI in `start.ts` turns into an `extension_error`.
 - With a fake `HOME` the keychain can't be read, so a check reports `failed`
   instead of `needs-auth`; test sign-in flows with the real home.
@@ -161,7 +170,6 @@ cleared.
 The adapter keeps OAuth tokens and client registrations in the macOS keychain
 (service `pi-mcp-adapter.oauth`) keyed by server **name**, so a server removed
 and re-added under the same name would silently sign back in. Removing a server
-first runs our `/app-mcp-sign-out <name>` (the adapter's `removeAuth`). With no
-folder open, or if it fails, the name waits in memory and is signed out when
-the next folder opens. The adapter logs with `console.log`, so `start.ts` sends
+first runs our `/app-mcp-sign-out <name>` (the adapter's `removeAuth`) in the
+MCP session; if that fails the server is still removed. The adapter logs with `console.log`, so `start.ts` sends
 console output to stderr to keep stdout protocol-only.

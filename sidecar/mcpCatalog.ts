@@ -1,61 +1,13 @@
 /**
- * Servers the MCP settings offer to add in one click: well-known presets, and
- * servers already set up in other apps on this Mac (Claude Code, Cursor,
- * Codex, Claude Desktop), user-wide or for the open folder. Importing copies
+ * Servers the MCP settings offer to import: those already set up in other
+ * apps on this Mac (Claude Code, Cursor, Codex, Claude Desktop), user-wide or
+ * for one folder (any of Claude Code's, else the open one). Importing copies
  * an entry into the app's mcp.json; the other apps' files are only read.
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { KNOWN_SERVER_PRESETS } from "pi-mcp-adapter/config";
 import { parse as parseToml } from "smol-toml";
 import type { McpEntry } from "./mcpConfig.ts";
-
-export type Preset = {
-  id: string;
-  name: string;
-  summary: string;
-  entry: McpEntry;
-};
-
-// ponytail: hand-picked on top of the adapter's list; entries checked against
-// the servers' docs in Sept 2026 (npm @playwright/mcp, live OAuth endpoints).
-const EXTRA_PRESETS: Preset[] = [
-  {
-    id: "playwright",
-    name: "Playwright",
-    summary: "Drive a browser to test and debug web apps.",
-    entry: { command: "npx", args: ["-y", "@playwright/mcp@0.0.82"] },
-  },
-  {
-    id: "sentry",
-    name: "Sentry",
-    summary: "Look into errors and issues in your Sentry projects.",
-    entry: { url: "https://mcp.sentry.dev/mcp", auth: "oauth" },
-  },
-  {
-    id: "supabase",
-    name: "Supabase",
-    summary: "Manage your Supabase projects, database and functions.",
-    entry: { url: "https://mcp.supabase.com/mcp", auth: "oauth" },
-  },
-  {
-    id: "linear",
-    name: "Linear",
-    summary: "Find and update Linear issues and projects.",
-    entry: { url: "https://mcp.linear.app/mcp", auth: "oauth" },
-  },
-];
-
-/** pi-mcp-adapter's presets, then ours. */
-export const PRESETS: readonly Preset[] = [
-  ...KNOWN_SERVER_PRESETS.map(({ id, name, summary, entry }) => ({
-    id,
-    name,
-    summary,
-    entry: entry as McpEntry,
-  })),
-  ...EXTRA_PRESETS,
-];
 
 /** Whether a server signs in with OAuth (the app can't do that yet). */
 export const needsSignIn = (entry: McpEntry) => entry.auth === "oauth";
@@ -64,8 +16,9 @@ export const needsSignIn = (entry: McpEntry) => entry.auth === "oauth";
 export type ImportSource = {
   id: string;
   app: string;
-  /** "project": set up for the open folder only. */
+  /** "project": set up for one folder only; the open one unless `folder`. */
   scope: "user" | "project";
+  folder?: string;
   servers: Record<string, McpEntry>;
 };
 
@@ -144,8 +97,11 @@ async function claudeCodeSources(
   cwd: string | undefined,
 ): Promise<ImportSource[]> {
   const claude = await readJson(join(home, ".claude.json"));
-  const claudeProject =
-    cwd && isObject(claude?.projects) ? claude.projects[cwd] : undefined;
+  const projects = isObject(claude?.projects) ? claude.projects : {};
+  const localServers = (folder: string) => {
+    const p = projects[folder];
+    return servers(isObject(p) && p.mcpServers);
+  };
   const projectSources: ImportSource[] = [];
   if (cwd) {
     projectSources.push(
@@ -154,7 +110,7 @@ async function claudeCodeSources(
         id: "claude-code-local",
         app: "Claude Code",
         scope: "project",
-        servers: servers(isObject(claudeProject) && claudeProject.mcpServers),
+        servers: localServers(cwd),
       },
       // Claude Code's "project" scope, shared with the repo.
       {
@@ -173,6 +129,15 @@ async function claudeCodeSources(
       servers: servers(claude?.mcpServers),
     },
     ...projectSources,
+    ...Object.keys(projects)
+      .filter((folder) => folder !== cwd)
+      .map((folder): ImportSource => ({
+        id: `claude-code-local:${folder}`,
+        app: "Claude Code",
+        scope: "project",
+        folder,
+        servers: localServers(folder),
+      })),
   ];
 }
 

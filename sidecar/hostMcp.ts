@@ -3,6 +3,7 @@ import {
   shown,
   type HostContext,
   type McpStatusSnapshot,
+  type Session,
 } from "./hostTypes.ts";
 
 const MCP_STATUSES: Record<string, McpServerStatus> = {
@@ -27,14 +28,44 @@ export async function rememberSignIns(
   }
 }
 
+/** The MCP session, opened on first use; its status is pushed like a shown conversation's. */
+function mcpSession(ctx: HostContext): Promise<Session> {
+  if (!ctx.mcpSession) {
+    const opening = ctx.openMcpSession(async (snapshot) => {
+      ctx.mcpStatus = new Map(snapshot.servers.map((m) => [m.name, m.status]));
+      await rememberSignIns(ctx, snapshot);
+      await pushMcpServers(ctx);
+    });
+    ctx.mcpSession = opening;
+    opening.catch(() => {
+      if (ctx.mcpSession === opening) ctx.mcpSession = null;
+    });
+  }
+  return ctx.mcpSession;
+}
+
+/** The MCP session if it has the adapter, which a slash command needs to not reach the model. */
+export async function adapterSession(
+  ctx: HostContext,
+  command = "mcp",
+): Promise<Session | undefined> {
+  const s = await mcpSession(ctx).catch(() => undefined);
+  return s?.extensionRunner.getCommand(command) ? s : undefined;
+}
+
+// The shown conversation's status wins once it knows more than "idle".
+function adapterStatus(ctx: HostContext, name: string): McpServerStatus {
+  const own = MCP_STATUSES[shown(ctx)?.mcpStatus.get(name) ?? ""];
+  if (own && own !== "idle") return own;
+  return MCP_STATUSES[ctx.mcpStatus.get(name) ?? ""] ?? "idle";
+}
+
 /** Lists all servers with their current status. */
 export async function mcpServers(ctx: HostContext): Promise<McpServer[]> {
   const saved = await ctx.mcpStore.list();
-  const agent = shown(ctx);
-  if (!agent?.session) return saved;
   const signIns = await ctx.mcpStore.needsSignIn();
   const known = (name: string) => {
-    const status = MCP_STATUSES[agent.mcpStatus.get(name) ?? ""] ?? "idle";
+    const status = adapterStatus(ctx, name);
     return status === "idle" && signIns.includes(name) ? "needs-auth" : status;
   };
   // ponytail: a failed server shows no reason; the adapter only logs it to
@@ -61,8 +92,9 @@ export async function pushMcpServers(ctx: HostContext) {
 // The session's adapter only reads mcp.json on (re)load.
 /**
  * Saves a change and applies it. Servers still connect lazily, but URL
- * servers in `check` connect once now, so one that needs sign-in says so
- * while it's being set up rather than when the agent first needs it.
+ * servers in `check` connect once now, in the MCP session, so one that needs
+ * sign-in says so while it's being set up rather than when the agent first
+ * needs it.
  */
 export async function changeMcp(
   ctx: HostContext,
@@ -71,13 +103,14 @@ export async function changeMcp(
 ) {
   await edit();
   await reloadSessions(ctx);
-  const s = shown(ctx)?.session;
-  if (s && !s.isStreaming) await checkUrlServers(ctx, check);
+  await checkUrlServers(ctx, check);
   return mcpServers(ctx);
 }
 
-/** Reloads every open session, or once its run ends if it's running. */
+/** Reloads the MCP session and every open conversation, a running one once its run ends. */
 export async function reloadSessions(ctx: HostContext) {
+  const mcp = await ctx.mcpSession?.catch(() => undefined);
+  await mcp?.reload();
   for (const agent of ctx.agents.values()) {
     const s = agent.session;
     if (s?.isStreaming) agent.reloadWhenSettled = true;
@@ -87,8 +120,6 @@ export async function reloadSessions(ctx: HostContext) {
 
 /** Marks the URL servers among `names` as checking, then checks them in the background. */
 async function checkUrlServers(ctx: HostContext, names: string[]) {
-  const s = shown(ctx)?.session;
-  if (!s?.extensionRunner.getCommand("mcp")) return;
   const urls = (await ctx.mcpStore.list())
     .filter((m) => names.includes(m.name) && m.enabled)
     .filter((m) => m.config.type === "http")
@@ -97,7 +128,8 @@ async function checkUrlServers(ctx: HostContext, names: string[]) {
   void (async () => {
     for (const name of urls) {
       // The result arrives as a status snapshot; a failure is shown there.
-      await s.prompt(`/mcp reconnect ${name}`, {}).catch(() => {});
+      const s = await adapterSession(ctx);
+      await s?.prompt(`/mcp reconnect ${name}`, {}).catch(() => {});
       ctx.checking.delete(name);
       await pushMcpServers(ctx);
     }

@@ -1,22 +1,26 @@
 import type { ComponentType } from "react";
 import {
-  BookOpen,
   Globe,
   Library,
-  Search,
   Sparkles,
   Terminal,
   type LucideProps,
 } from "lucide-react";
 import {
+  siAtlassian,
   siClaude,
+  siCloudflare,
   siCursor,
+  siFigma,
   siGithub,
-  siGooglechrome,
+  siHuggingface,
   siLinear,
-  siNotion,
+  siN8n,
+  siNeon,
   siSentry,
+  siStripe,
   siSupabase,
+  siVercel,
   type SimpleIcon,
 } from "simple-icons";
 
@@ -27,7 +31,7 @@ export type Mark = {
 };
 
 // Brand colours too dark to see on a dark background fall back to the text
-// colour (Notion, GitHub, Cursor are black).
+// colour (GitHub, Cursor are black).
 function brand(icon: SimpleIcon): Mark {
   const [r, g, b] = [0, 2, 4].map((i) =>
     parseInt(icon.hex.slice(i, i + 2), 16),
@@ -39,16 +43,20 @@ function brand(icon: SimpleIcon): Mark {
 // Brands missing from Simple Icons get a Lucide icon for what they do, in the
 // brand's colour where it has a clear one.
 export const PRESETS: Record<string, Mark> = {
-  deepwiki: { icon: BookOpen },
   context7: { icon: Library, color: "#00E9A3" },
-  "parallel-search": { icon: Search },
-  notion: brand(siNotion),
   github: brand(siGithub),
-  "chrome-devtools": brand(siGooglechrome),
   playwright: { icon: Globe, color: "#2EAD33" },
   sentry: { icon: siSentry, color: "#A48FE0" },
   supabase: brand(siSupabase),
   linear: brand(siLinear),
+  n8n: brand(siN8n),
+  stripe: brand(siStripe),
+  vercel: brand(siVercel),
+  figma: brand(siFigma),
+  atlassian: brand(siAtlassian),
+  neon: brand(siNeon),
+  "cloudflare-docs": brand(siCloudflare),
+  "hugging-face": brand(siHuggingface),
 };
 
 export const APPS: Record<string, Mark> = {

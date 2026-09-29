@@ -131,7 +131,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
   hostMcpCatalog.ts      MCP presets and imports (toServerName, target, mcpCatalog, addPreset, importServers)
-  hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, usableServer, copySignIn)
+  hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, copySignIn), run in the MCP session
+  mcpSession.ts          An in-memory session with only the MCP adapter: checks and sign-ins with no conversation open
   wire.ts                Session event wire form (toWireEvent, describeError)
   claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
   appUpdate.ts           The app's own commit, and updating it (`git pull --ff-only`, `npm ci` if the lockfile changed)
@@ -154,7 +155,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   gitReview.ts           A commit's or push's changed files and commits; one file's diff (git_diff)
   ghReview.ts            What `gh pr create` would open: title, branches, GitHub's compare of them
   headlessUI.ts          The UI context bound to sessions: declines prompts, passes errors to the app
-  mcpCatalog.ts          One-click MCP presets, and other apps' MCP servers to import
+  mcpPresets.ts          One-click MCP presets (the adapter's and ours)
+  mcpCatalog.ts          Other apps' MCP servers to import
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
   testMcpServer.ts       A one-tool stdio MCP server for tests
   remote.ts              Remote access: browsers share this sidecar; replies routed by id, events to all

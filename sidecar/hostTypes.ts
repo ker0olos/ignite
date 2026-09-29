@@ -15,7 +15,8 @@ import type {
 import type { ApprovalAsk } from "./approvalExtension.ts";
 import type { ClaudeCode } from "./claudeCode.ts";
 import type { McpStore } from "./mcpConfig.ts";
-import type { Preset, ImportSource } from "./mcpCatalog.ts";
+import type { ImportSource } from "./mcpCatalog.ts";
+import type { Preset } from "./mcpPresets.ts";
 import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
 import type { Workspaces } from "./worktrees.ts";
@@ -109,6 +110,11 @@ export type OpenSession = (
   onApproval: (ask: ApprovalAsk) => void,
 ) => Promise<Session>;
 
+/** Opens the session MCP servers are checked and signed into in; see mcpSession.ts. */
+export type OpenMcpSession = (
+  onMcpStatus: (snapshot: McpStatusSnapshot) => void,
+) => Promise<Session>;
+
 /** The conversations pi saved for each folder. */
 export type SessionStore = {
   /** A new conversation id. */
@@ -168,6 +174,11 @@ export type HostContext = {
   draft: (pick: DraftPick) => Promise<Session>;
   local: LocalLogins;
   mcpStore: McpStore;
+  openMcpSession: OpenMcpSession;
+  /** The MCP session, once asked for. */
+  mcpSession: Promise<Session> | null;
+  /** Adapter status per server name, from the MCP session's latest snapshot. */
+  mcpStatus: Map<string, string>;
   catalog: McpCatalogSource;
   trust: TrustStore;
   skills: SkillStore;
@@ -179,8 +190,6 @@ export type HostContext = {
   shown: string | null;
   /** Each folder's last shown conversation, shown again when the folder is. */
   lastShown: Map<string, string>;
-  /** Removed servers whose saved sign-in still has to be deleted. */
-  pendingSignOuts: Set<string>;
   /** URL servers being connected once after setup. */
   checking: Set<string>;
   /** Pending auth prompts, keyed by id. */
