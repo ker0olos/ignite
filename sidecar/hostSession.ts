@@ -115,6 +115,11 @@ export async function open(
   };
 }
 
+/** Opens conversation `id` in the background, without showing it. */
+export async function launch(ctx: HostContext, cwd: string, id: string) {
+  await (ctx.agents.get(id) ?? start(ctx, cwd, id)).opening;
+}
+
 function start(ctx: HostContext, cwd: string, id: string): Agent {
   const agent = {
     id,

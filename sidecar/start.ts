@@ -46,6 +46,8 @@ import { createKeepAwake } from "./keepAwake.ts";
 import { createTrustStore } from "./trust.ts";
 import { createSkillStore } from "./skillStore.ts";
 import { createRemote } from "./remote.ts";
+import { taskAnswerer, taskStoreIn } from "./hostTasks.ts";
+import { TASK_EVENT } from "./taskExtension.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
 // own ~/.pi/agent, so signing in or out here doesn't affect it.
@@ -104,11 +106,13 @@ const subagentExtension = sibling("./subagentExtension.ts");
 const gitExtension = sibling("./gitExtension.ts");
 const worktreeExtension = sibling("./worktreeExtension.ts");
 const chromeExtension = sibling("./chromeExtension.ts");
+const taskExtension = sibling("./taskExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
 const approvalExtension = sibling("./approvalExtension.ts");
 const trust = createTrustStore(agentDir);
 const skills = createSkillStore(agentDir, homedir());
 const skillsOverride = skills.sessionSkills;
+const tasks = taskStoreIn(join(agentDir, "..", "tasks"), send);
 const onAuthUrl = (url: string) =>
   send({ type: "auth_event", event: { type: "auth_url", url } });
 
@@ -139,6 +143,7 @@ async function openSession(
     onMcpStatus(data as McpStatusSnapshot),
   );
   eventBus.on(APPROVAL_EVENT, (data) => onApproval(data as ApprovalAsk));
+  eventBus.on(TASK_EVENT, taskAnswerer(tasks, folder, id));
   eventBus.on(SUBAGENT_EVENT, (data) => {
     const ask = data as SubagentAsk;
     ask.reply(openSubagent(folder, cwd, ask, eventBus));
@@ -157,6 +162,7 @@ async function openSession(
       gitExtension,
       worktreeExtension,
       chromeExtension,
+      taskExtension,
       approvalExtension,
     ],
     skillsOverride,
@@ -248,6 +254,7 @@ const host = createHost(
   { presets: PRESETS, findImports: (cwd) => findImports(homedir(), cwd) },
   trust,
   skills,
+  tasks,
   createKeepAwake(),
 );
 

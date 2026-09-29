@@ -7,21 +7,18 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { useAgentSession } from "@/hooks/useAgentSession";
+import type { ModelInfo, SessionState } from "../../../shared/hostProtocol";
 import { ModelGroups } from "@/components/agent/ModelGroups";
 import { MENU_TRIGGER } from "@/components/agent/styles";
 import { modelLabel, modelMenu } from "@/lib/modelMenu";
 
-type Session = ReturnType<typeof useAgentSession>;
-type SessionState = NonNullable<Session["state"]>;
-
-/** Composer's model picker: featured models, with the rest under "More models". */
+/** Model picker (composer, new-task sheet): featured models, with the rest under "More models". */
 export function ModelMenu({
   state,
-  session,
+  onSelect,
 }: {
   state: SessionState;
-  session: Session;
+  onSelect: (model: ModelInfo) => void;
 }) {
   const { featured, more } = modelMenu(state.models);
 
@@ -34,7 +31,7 @@ export function ModelMenu({
         <ModelGroups
           groups={featured}
           current={state.model}
-          onSelect={session.setModel}
+          onSelect={onSelect}
         />
         {more.length > 0 && (
           <>
@@ -45,7 +42,7 @@ export function ModelMenu({
                 <ModelGroups
                   groups={more}
                   current={state.model}
-                  onSelect={session.setModel}
+                  onSelect={onSelect}
                 />
               </DropdownMenuSubContent>
             </DropdownMenuSub>

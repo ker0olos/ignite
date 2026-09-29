@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approvalHints, approvalKey, isTyping } from "./approvalKeys";
+import { approvalHints, approvalKey, isTyping, shortcut } from "./approvalKeys";
 
 const key = (key: string, mods: Partial<Record<string, boolean>> = {}) =>
   approvalKey({
@@ -23,6 +23,13 @@ describe("approvalKey", () => {
     expect(key("Enter", { metaKey: true, shiftKey: true })).toBeNull();
     expect(key("Backspace", { metaKey: true, altKey: true })).toBeNull();
     expect(key("a", { metaKey: true })).toBeNull();
+  });
+});
+
+describe("shortcut", () => {
+  it("uses ⌘ on macOS and Ctrl+ elsewhere", () => {
+    expect(shortcut("V", true)).toBe("⌘V");
+    expect(shortcut("V", false)).toBe("Ctrl+V");
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ghApproval, gitApproval, splitGit } from "./gitPolicy";
+import { ghApproval, gitApproval, splitGit, taskRunsAlone } from "./gitPolicy";
 
 const place = { cwd: "/Users/me/app", home: "/Users/me" };
 const git = (line: string) => gitApproval(line.split(" "), place);
@@ -101,5 +101,59 @@ describe("ghApproval", () => {
 
   it("asks before cloning outside the folder", () => {
     expect(gh("repo clone a/b ../b")).toBe("Outside the project: ~/b");
+  });
+});
+
+describe("taskRunsAlone", () => {
+  const alone = (line: string, current: string | null = "feat/x") =>
+    taskRunsAlone(line.split(" "), current, "dev");
+
+  it("lets a commit run, even on a protected branch", () => {
+    expect(alone("commit -m x")).toBe(true);
+    expect(alone("commit -m x", null)).toBe(true);
+    expect(alone("commit -m x", "main")).toBe(true);
+  });
+
+  it("lets a push of its own branch run", () => {
+    expect(alone("push")).toBe(true);
+    expect(alone("push -u origin")).toBe(true);
+    expect(alone("push -u origin HEAD")).toBe(true);
+    expect(alone("push origin feat/y")).toBe(true);
+    expect(alone("push origin HEAD:feat/y")).toBe(true);
+    expect(alone("-C sub push origin feat/y")).toBe(true);
+  });
+
+  it.each([
+    "push origin main",
+    "push origin master",
+    "push origin dev",
+    "push origin HEAD:main",
+    "push origin feat/y:dev",
+    "push -f origin feat/y",
+    "push --force",
+    "push --force-with-lease",
+    "push --mirror",
+    "push --all",
+    "push --tags",
+    "push -d origin feat/y",
+    "push --delete origin feat/y",
+    "push --prune",
+    "push origin +feat/y",
+    "status",
+    "reset --hard",
+  ])("asks for %s", (line) => {
+    expect(alone(line)).toBe(false);
+  });
+
+  it("asks when the current branch is protected or unknown", () => {
+    expect(alone("push", "main")).toBe(false);
+    expect(alone("push", "dev")).toBe(false);
+    expect(alone("push", null)).toBe(false);
+    expect(alone("push origin HEAD", null)).toBe(false);
+  });
+
+  it("treats an unknown default branch as main and master only", () => {
+    expect(taskRunsAlone(["push"], "dev", null)).toBe(true);
+    expect(taskRunsAlone(["push"], "main", null)).toBe(false);
   });
 });

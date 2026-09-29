@@ -34,11 +34,14 @@ export function ComposerToolbar({
         </>
       )}
       {state && state.models.length > 0 && (
-        <ModelMenu state={state} session={session} />
+        <ModelMenu state={state} onSelect={session.setModel} />
       )}
       {/* pi offers only "off" for models that can't reason. */}
       {state && state.thinkingLevels.length > 1 && (
-        <EffortMenu state={state} session={session} />
+        <EffortMenu
+          state={state}
+          onChange={(level) => void session.setThinkingLevel(level)}
+        />
       )}
       <ApprovalMenu mode={approval.mode} onChange={approval.onChange} />
       {session.error && (

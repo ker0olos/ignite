@@ -126,6 +126,7 @@ export default function App() {
             />
           }
           session={session}
+          host={host}
         />
       ) : (
         <WelcomeScreen

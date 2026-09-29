@@ -5,19 +5,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EffortSlider } from "@/components/agent/EffortSlider";
 import { MENU_TRIGGER } from "@/components/agent/styles";
-import type { useAgentSession } from "@/hooks/useAgentSession";
+import type { SessionState, ThinkingLevel } from "../../../shared/hostProtocol";
 import { EFFORT_LABELS } from "@/lib/modelMenu";
 
-type Session = ReturnType<typeof useAgentSession>;
-type SessionState = NonNullable<Session["state"]>;
-
-/** Composer's effort picker, opening the effort slider in a dropdown. */
+/** Effort picker (composer, new-task sheet), opening the effort slider in a dropdown. */
 export function EffortMenu({
   state,
-  session,
+  onChange,
 }: {
   state: SessionState;
-  session: Session;
+  onChange: (level: ThinkingLevel) => void;
 }) {
   return (
     <DropdownMenu>
@@ -28,7 +25,7 @@ export function EffortMenu({
         <EffortSlider
           levels={state.thinkingLevels}
           value={state.thinkingLevel}
-          onChange={(level) => void session.setThinkingLevel(level)}
+          onChange={onChange}
         />
       </DropdownMenuContent>
     </DropdownMenu>

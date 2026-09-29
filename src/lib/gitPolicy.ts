@@ -124,6 +124,31 @@ export function gitApproval(
   const reason = otherReason(args);
   return reason ? { reason } : null;
 }
+// Push options that rewrite or remove what's on the remote, or push more than one branch.
+const PUSH_WIDENS =
+  /^(?:-f|--force|--force-with-lease|--force-if-includes|--mirror|--all|--tags|-d|--delete|--prune)(?:=|$)/;
+
+/**
+ * Whether a commit or push a task's agent makes runs without asking: any
+ * commit (it stays local), and a plain push of its own branch, never
+ * `defaultBranch` (or main/master) and never forced.
+ */
+export function taskRunsAlone(
+  args: string[],
+  current: string | null,
+  defaultBranch: string | null,
+): boolean {
+  const { command, rest } = splitGit(args);
+  if (command === "commit") return true;
+  if (command !== "push" || rest.some((a) => PUSH_WIDENS.test(a))) return false;
+  const refspec = rest.filter((a) => !a.startsWith("-"))[1];
+  if (refspec?.startsWith("+")) return false;
+  const named = refspec?.split(":").pop();
+  const target = !named || named === "HEAD" ? current : named;
+  const protectedBranches = [defaultBranch, "main", "master"];
+  return !!target && !protectedBranches.includes(target);
+}
+
 // gh commands that only read. Everything else may change something on GitHub.
 const GH_READS: Record<string, Set<string>> = {
   pr: new Set(["view", "list", "diff", "status", "checks"]),
