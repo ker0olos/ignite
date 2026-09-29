@@ -40,6 +40,7 @@ src/                     React frontend (almost all logic lives here)
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
     useAbout.ts          The commit the app runs from; Check for updates, reloading every window
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
+    useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -159,6 +160,8 @@ Two places hold persisted data:
   model's reasoning rows (off by default). `ask_questions` (on by default)
   has the agent bring open decisions to the user with `ask_user`; off, the
   tool is dropped and the agent is told to decide alone. Read before each run.
+  `text_size` (px, default 14, 10–24) sizes user and assistant messages only;
+  ⌘/Ctrl +, - and 0 change it (`hooks/useTextSize.ts`).
 - **Memory settings** (`[memory]`): `cmem` (on by default) records
   sessions in cmem, recalls its memories and gives the agent cmem's search
   tools. Recording checks it before each run; the tools follow a reload.

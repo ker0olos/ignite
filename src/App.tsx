@@ -15,6 +15,7 @@ import { useProviders } from "@/hooks/useProviders";
 import { useSettings } from "@/hooks/useSettings";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useTabs } from "@/hooks/useTabs";
+import { useTextSize } from "@/hooks/useTextSize";
 import { codeThemesFor } from "@/lib/codeThemes";
 import { needingSignIn } from "@/lib/mcpServers";
 import { approvalSetting } from "@/lib/settings";
@@ -33,6 +34,7 @@ export default function App() {
     clearFolders,
   } = useFolders();
   const [settings, setSettings] = useSettings();
+  useTextSize(settings, setSettings);
   const providers = useProviders();
   const connectScreen = useConnectScreen(providers.statuses);
   // The demo folder shows a fixed conversation; pi never runs in it.

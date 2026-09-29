@@ -31,19 +31,15 @@ export function AssistantText({
       </a>
     ),
     h1: ({ children }) => (
-      <h1 className="mt-4 mb-2 text-base font-semibold first:mt-0">
+      <h1 className="mt-4 mb-2 text-[1.2em] font-semibold first:mt-0">
         {children}
       </h1>
     ),
     h2: ({ children }) => (
-      <h2 className="mt-4 mb-2 text-[13px] font-semibold first:mt-0">
-        {children}
-      </h2>
+      <h2 className="mt-4 mb-2 font-semibold first:mt-0">{children}</h2>
     ),
     h3: ({ children }) => (
-      <h3 className="mt-3 mb-1.5 text-[13px] font-semibold first:mt-0">
-        {children}
-      </h3>
+      <h3 className="mt-3 mb-1.5 font-semibold first:mt-0">{children}</h3>
     ),
     p: ({ children }) => (
       <p className="mb-2 leading-relaxed last:mb-0">{children}</p>
@@ -81,15 +77,17 @@ export function AssistantText({
       );
     },
     code: ({ children }) => (
-      <code className="rounded bg-muted px-1 font-mono text-[12px]">
+      <code className="rounded bg-muted px-1 font-mono text-[0.92em]">
         {children}
       </code>
     ),
   };
 
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-      {shown}
-    </ReactMarkdown>
+    <div className="text-[length:var(--message-text,14px)]">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {shown}
+      </ReactMarkdown>
+    </div>
   );
 }

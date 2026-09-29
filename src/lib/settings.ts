@@ -20,8 +20,15 @@ export type Settings = {
   /** How the file viewer shows code. `font_family` is a CSS font-family list. */
   editor: { font_family: string; word_wrap: boolean };
   files: { hide_gitignored: boolean };
-  /** `ask_questions`: the agent brings open decisions to the user; off, it decides alone. */
-  conversation: { show_thinking: boolean; ask_questions: boolean };
+  /**
+   * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
+   * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
+   */
+  conversation: {
+    show_thinking: boolean;
+    ask_questions: boolean;
+    text_size: number;
+  };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
   /** `mode`: "auto" asks only before risky tool calls, "manual" before all. */
@@ -39,11 +46,37 @@ export const DEFAULT_SETTINGS: Settings = {
     word_wrap: false,
   },
   files: { hide_gitignored: true },
-  conversation: { show_thinking: false, ask_questions: true },
+  conversation: { show_thinking: false, ask_questions: true, text_size: 14 },
   memory: { cmem: true },
   approval: { mode: "auto" },
   subagents: { enabled: true, max: 2 },
   power: { keep_awake: true },
+};
+
+export const MIN_TEXT_SIZE = 10;
+export const MAX_TEXT_SIZE = 24;
+
+const clampTextSize = (size: number) =>
+  Math.min(MAX_TEXT_SIZE, Math.max(MIN_TEXT_SIZE, Math.round(size)));
+
+/** The message text size after ⌘/Ctrl plus `key`, or null when the key isn't a text size shortcut. */
+export function nextTextSize(size: number, key: string): number | null {
+  if (key === "0") return DEFAULT_SETTINGS.conversation.text_size;
+  if (key === "=" || key === "+") return clampTextSize(size + 1);
+  if (key === "-") return clampTextSize(size - 1);
+  return null;
+}
+
+const readConversation = (
+  conversation: Partial<Settings["conversation"]> = {},
+): Settings["conversation"] => {
+  const merged = { ...DEFAULT_SETTINGS.conversation, ...conversation };
+  return {
+    ...merged,
+    text_size: Number.isFinite(merged.text_size)
+      ? clampTextSize(merged.text_size)
+      : DEFAULT_SETTINGS.conversation.text_size,
+  };
 };
 
 const readApproval = (
@@ -105,7 +138,7 @@ export async function loadSettings(): Promise<Settings> {
           : DEFAULT_SETTINGS.editor.word_wrap,
     },
     files: { ...DEFAULT_SETTINGS.files, ...raw.files },
-    conversation: { ...DEFAULT_SETTINGS.conversation, ...raw.conversation },
+    conversation: readConversation(raw.conversation),
     memory: { ...DEFAULT_SETTINGS.memory, ...raw.memory },
     approval: readApproval(raw.approval),
     subagents: readSubagents(raw.subagents),

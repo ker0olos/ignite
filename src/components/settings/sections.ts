@@ -46,8 +46,8 @@ export const SECTIONS = {
   },
   Editor: {
     icon: Code,
-    brief: "Font and wrapping",
-    blurb: "How files look in the viewer.",
+    brief: "Font, wrapping, text size",
+    blurb: "How files and messages look.",
   },
   Files: {
     icon: FolderTree,
@@ -68,6 +68,8 @@ export interface Item {
   section: Section;
   title: string;
   description?: string;
+  /** Shown after the description, such as keyboard shortcuts; search skips it. */
+  hint?: ReactNode;
   /** A mark shown before the title. */
   icon?: ReactNode;
   /** The row element's id, to scroll to it. */
