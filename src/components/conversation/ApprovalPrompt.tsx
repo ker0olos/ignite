@@ -1,4 +1,3 @@
-import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useApprovalKeys } from "@/hooks/useApprovalKeys";
@@ -30,7 +29,6 @@ export function ApprovalPrompt({
           aria-keyshortcuts={hints ? "Meta+Enter" : undefined}
           onClick={() => onAnswer(true)}
         >
-          <Check />
           Approve
           {hints && (
             <span aria-hidden className="opacity-60">
@@ -45,7 +43,6 @@ export function ApprovalPrompt({
           aria-keyshortcuts={hints ? "Meta+Backspace" : undefined}
           onClick={() => onAnswer(false)}
         >
-          <X />
           Deny
           {hints && (
             <span aria-hidden className="opacity-60">

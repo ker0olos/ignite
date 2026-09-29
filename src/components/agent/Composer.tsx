@@ -7,6 +7,7 @@ import { ImageAttachments } from "@/components/agent/ImageAttachments";
 import { MENU_TRIGGER } from "@/components/agent/styles";
 import { Textarea } from "@/components/ui/textarea";
 import type { useAgentSession } from "@/hooks/useAgentSession";
+import { typedText } from "@/lib/demo";
 import { pastedImages, pickImages } from "@/lib/images";
 
 type Session = ReturnType<typeof useAgentSession>;
@@ -68,7 +69,7 @@ export function Composer({
         <Textarea
           ref={input}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => setText(typedText(e.target.value))}
           onPaste={(e) => {
             const { clipboardData } = e;
             if (clipboardData.files.length === 0) return;

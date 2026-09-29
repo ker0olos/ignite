@@ -190,4 +190,16 @@ describe("useSettings", () => {
     await act(() => saveSettings(next));
     expect(result.current[0]).toEqual(next);
   });
+
+  it("in demo mode starts from the defaults and saves nothing", async () => {
+    const { writes } = fakeFs(toml("nord"));
+    fakeSystemAppearance(false);
+    const { result } = renderHook(() => useSettings(true));
+    const next = { ...DEFAULT_SETTINGS, theme: "dracula" };
+    await act(() => result.current[1](next));
+    expect(result.current[0]).toEqual(next);
+    await act(() => saveSettings({ ...DEFAULT_SETTINGS, theme: "nord" }));
+    expect(result.current[0]).toEqual(next);
+    expect(writes).toHaveLength(1);
+  });
 });

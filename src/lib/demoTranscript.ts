@@ -1,6 +1,6 @@
 /**
- * The conversation `npm run demo` shows: the agent adding dark mode to the
- * sample project in demo/tempo. Its files are the finished result, so the
+ * The conversation `npm run demo` shows first: the agent adding dark mode to
+ * the sample project in demo/tempo. Its files are the finished result, so the
  * diffs here match them (checked in demo.test.ts).
  */
 import type {
@@ -48,7 +48,7 @@ const readSettings = call("r1", "read", { path: "src/settings.ts" });
 const readStyles = call("r2", "read", { path: "src/styles.css" });
 const search = call("r3", "grep", { pattern: "prefers-color-scheme" });
 
-const THEME = `export type Theme = "system" | "light" | "dark";
+export const THEME = `export type Theme = "system" | "light" | "dark";
 
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 let chosen: Theme = "system";
@@ -139,8 +139,8 @@ const edited = (edit: ToolCall) => {
   return result(edit, `Updated ${path}`, { diff: DEMO_DIFFS[path] });
 };
 
-/** The whole conversation, oldest first. */
-export const DEMO_MESSAGES: AgentMessage[] = [
+/** The conversation up to the passing tests, oldest first; demoDarkMode.ts delivers it. */
+export const DEMO_WORK: AgentMessage[] = [
   {
     role: "user",
     content:
@@ -180,22 +180,5 @@ export const DEMO_MESSAGES: AgentMessage[] = [
   result(
     runTests,
     " ✓ tests/timer.test.ts (2 tests) 3ms\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)",
-  ),
-  assistant(
-    [
-      {
-        type: "text",
-        text: [
-          "Dark mode is in.",
-          "",
-          "- **Follows the system** by default, and switches live when macOS changes appearance.",
-          "- **Settings → Theme** offers Match system, Light and Dark.",
-          "- The choice is **saved** with the other settings, so it sticks between visits.",
-          "",
-          "The existing tests still pass.",
-        ].join("\n"),
-      },
-    ],
-    true,
   ),
 ];

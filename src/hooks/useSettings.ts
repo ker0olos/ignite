@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ThemeKind } from "@/lib/codeThemes";
+import { DEMO_FOLDER } from "@/lib/demo";
 import { importTheme, themeKind } from "@/lib/codeThemeLoad";
 import {
   DEFAULT_SETTINGS,
@@ -11,12 +12,14 @@ import {
 
 /**
  * User settings from ~/.<APP_NAME>/settings.toml, synced across windows.
- * Also applies the theme as the `dark` class on <html>.
+ * Also applies the theme as the `dark` class on <html>. Demo mode starts from
+ * the defaults and never reads or saves the user's.
  */
-export function useSettings() {
+export function useSettings(demo = !!DEMO_FOLDER) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
+    if (demo) return;
     loadSettings().then(async (loaded) => {
       setSettings(loaded);
       // A theme picked straight from an editor (before themes were copied in)
@@ -28,7 +31,7 @@ export function useSettings() {
     return () => {
       unlisten.then((f) => f());
     };
-  }, []);
+  }, [demo]);
 
   // The theme decides light or dark; "system" (or an unknown theme) follows macOS.
   const { theme } = settings;
@@ -57,7 +60,7 @@ export function useSettings() {
   /** Shows the change now; resolves once it's saved. */
   function updateSettings(next: Settings) {
     setSettings(next);
-    return saveSettings(next);
+    return demo ? Promise.resolve() : saveSettings(next);
   }
 
   return [settings, updateSettings] as const;

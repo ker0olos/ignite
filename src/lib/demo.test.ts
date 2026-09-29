@@ -1,78 +1,45 @@
-import { describe, expect, it } from "vitest";
-import type {
-  AssistantMessage,
-  ToolCall,
-  ToolResultMessage,
-} from "../../shared/agentTypes";
-import { ASK_TOOL } from "../../shared/questions";
-import { DEMO_STATE, shownRows, shownSession } from "./demo";
-import { DEMO_QUESTION_MESSAGES, DEMO_QUESTIONS } from "./demoQuestions";
-import { readQuestions } from "./questions";
-import { DEMO_DIFFS, DEMO_MESSAGES } from "./demoTranscript";
-import { EMPTY, fromHistory } from "./transcript";
-import { parseDiff, toRows } from "./toolRows";
+import { describe, expect, it, vi } from "vitest";
+import {
+  DEMO_PROMPT,
+  hostOpener,
+  shownRows,
+  shownSession,
+  typedText,
+} from "./demo";
+import { DEMO_STATUSES } from "./demoAnswers";
+import { createDemoHost, DEMO_REPLY, DEMO_STATE } from "./demoHost";
+import { openPiHost } from "./piHost";
 
-const FILES = import.meta.glob("../../demo/tempo/**/*", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
-const file = (path: string) => FILES[`../../demo/tempo/${path}`];
-const PANTRY = import.meta.glob("../../demo/pantry/**/*", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
-
-const session = {
-  session: null,
-  state: null,
-  transcript: EMPTY,
-  trust: null,
-  error: null,
-  send: () => {},
-};
+const TEMPO = "/repo/demo/tempo";
+const PANTRY = "/repo/demo/pantry";
 
 describe("shownSession", () => {
-  it("passes the session through outside demo mode, with the host's error", () => {
-    expect(shownSession(session, "The agent host failed", null, null)).toEqual({
-      ...session,
-      error: "The agent host failed",
+  it("shows the host's error when the session has none", () => {
+    const session = { error: null, other: 1 };
+    expect(shownSession(session, "Host failed")).toEqual({
+      error: "Host failed",
+      other: 1,
     });
-    const failed = { ...session, error: "No model" };
-    expect(
-      shownSession(failed, "The agent host failed", null, null).error,
-    ).toBe("No model");
-  });
-
-  it("shows the demo conversation in demo mode", () => {
-    const shown = shownSession(
-      session,
-      "ignored",
-      "/repo/demo/tempo",
-      "/repo/demo/tempo",
+    expect(shownSession({ error: "No model" }, "Host failed").error).toBe(
+      "No model",
     );
-    expect(shown.state).toBe(DEMO_STATE);
-    expect(shown.trust).toBe("trusted");
-    expect(shown.error).toBeNull();
-    expect(shown.session).toBe("tempo");
-    expect(shown.transcript!.items.length).toBe(DEMO_MESSAGES.length);
-    expect(shown.send).toBe(session.send);
   });
+});
 
-  it("shows pantry's conversation, waiting on its questions", () => {
-    const shown = shownSession(
-      session,
-      null,
-      "/repo/demo/pantry",
-      "/repo/demo/tempo",
-    );
-    expect(shown.transcript!.items.length).toBe(DEMO_QUESTION_MESSAGES.length);
-    expect(shown.transcript!.running).toBe(true);
-    expect(shown.transcript!.tools[DEMO_QUESTIONS.id]).toEqual({
-      status: "running",
-      approval: {},
-    });
+describe("hostOpener", () => {
+  it("starts the sidecar, or in demo mode the demo host", async () => {
+    expect(hostOpener(null)).toBe(openPiHost);
+    const host = await hostOpener(TEMPO)();
+    expect(await host.request({ type: "status" })).toBe(DEMO_STATUSES);
+  });
+});
+
+describe("typedText", () => {
+  it("types the demo's prompt whatever the keys, outside demo mode what was typed", () => {
+    expect(typedText("zzz", TEMPO)).toBe(DEMO_PROMPT.slice(0, 3));
+    expect(typedText("z".repeat(999), TEMPO)).toBe(DEMO_PROMPT);
+    expect(typedText("", TEMPO)).toBe("");
+    expect(typedText("zzz", null)).toBe("zzz");
   });
 });
 
@@ -82,110 +49,130 @@ describe("shownRows", () => {
     expect(shownRows(rows, null)).toBe(rows);
   });
 
-  it("shows tempo with a second conversation working, and pantry waiting", () => {
-    const rows = shownRows(() => [], "/repo/demo/tempo");
-    expect(rows("/repo/demo/tempo").map((a) => [a.session, a.running])).toEqual(
-      [
-        ["tempo", false],
-        ["tempo-tests", true],
-      ],
-    );
-    expect(rows("/repo/demo/pantry")).toMatchObject([
-      { session: "pantry", waiting: true },
+  it("shows tempo with three conversations at once, and pantry waiting", () => {
+    const rows = shownRows(() => [], TEMPO);
+    expect(rows(TEMPO).map((a) => [a.session, a.running, a.waiting])).toEqual([
+      ["tempo", false, false],
+      ["tempo-tests", true, true],
+      ["tempo-reload", true, false],
     ]);
+    expect(rows(PANTRY)).toMatchObject([{ session: "pantry", waiting: true }]);
   });
 });
 
-describe("the pantry conversation", () => {
-  it("asks well-formed questions, recommending one option each", () => {
-    expect(DEMO_QUESTIONS.name).toBe(ASK_TOOL);
-    const questions = readQuestions(DEMO_QUESTIONS.arguments);
-    expect(questions).toHaveLength(3);
-    for (const q of questions) {
-      expect(q.options.length).toBeGreaterThanOrEqual(2);
-      expect(q.options.length).toBeLessThanOrEqual(4);
-    }
-    const recommended = questions.filter((q) =>
-      q.options[0].label.endsWith("(Recommended)"),
+describe("the demo host", () => {
+  const listen = (host: ReturnType<typeof createDemoHost>) => {
+    const heard = vi.fn();
+    return { heard, off: host.subscribe(heard) };
+  };
+
+  it("opens a folder's first conversation, the one asked for, or a new one", async () => {
+    const host = createDemoHost(TEMPO);
+    const first = await host.request({ type: "open_session", cwd: TEMPO });
+    expect(first).toMatchObject({ session: "tempo", running: false });
+    const waiting = await host.request({
+      type: "open_session",
+      cwd: TEMPO,
+      session: "tempo-tests",
+    });
+    expect(waiting!.approvals[0].review).toMatchObject({ kind: "commit" });
+    const made = await host.request({ type: "new_session", cwd: TEMPO });
+    expect(made).toMatchObject({ session: "demo-1", messages: [] });
+    expect(
+      await host.request({ type: "open_session", cwd: "/elsewhere" }),
+    ).toBeNull();
+  });
+
+  it("shows a working conversation's running call once opened, until unsubscribed", async () => {
+    const host = createDemoHost(TEMPO, 0);
+    const { heard, off } = listen(host);
+    await host.request({
+      type: "open_session",
+      cwd: TEMPO,
+      session: "tempo-reload",
+    });
+    await vi.waitFor(() => expect(heard).toHaveBeenCalledOnce());
+    expect(heard.mock.calls[0][0]).toMatchObject({
+      type: "session_event",
+      session: "tempo-reload",
+      event: { type: "tool_execution_start", toolName: "edit" },
+    });
+    off();
+    await host.request({
+      type: "open_session",
+      cwd: TEMPO,
+      session: "tempo-reload",
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    expect(heard).toHaveBeenCalledOnce();
+  });
+
+  it("answers a message with the scripted reply, streamed", async () => {
+    const host = createDemoHost(TEMPO, 0);
+    const { heard } = listen(host);
+    await host.request({ type: "prompt", text: "hi", session: "demo-1" });
+    await vi.waitFor(() =>
+      expect(heard).toHaveBeenLastCalledWith(
+        expect.objectContaining({ event: { type: "agent_settled" } }),
+      ),
     );
-    expect(recommended).toHaveLength(2);
+    const events = heard.mock.calls.map((c) => c[0].event);
+    expect(events[1]).toMatchObject({
+      type: "message_start",
+      message: { role: "user", content: "hi" },
+    });
+    const streamed = events
+      .map((e) => e.assistantMessageEvent?.delta ?? "")
+      .join("");
+    expect(streamed).toBe(DEMO_REPLY);
+    await host.request({ type: "prompt", text: "no conversation" });
   });
 
-  it("reads files as they start in demo/pantry", () => {
-    const reads = DEMO_QUESTION_MESSAGES.filter(
-      (m): m is ToolResultMessage => m.role === "toolResult",
-    );
-    expect(reads).toHaveLength(2);
-    for (const read of reads) {
-      const path =
-        read.toolCallId === "p1" ? "src/server.ts" : "src/recipes.ts";
-      const text = (read.content[0] as { text: string }).text.replace(/…$/, "");
-      expect(PANTRY[`../../demo/pantry/${path}`].startsWith(text)).toBe(true);
-    }
-  });
-});
-
-describe("the demo conversation", () => {
-  const transcript = fromHistory(DEMO_MESSAGES, false);
-  const calls = DEMO_MESSAGES.flatMap((m) =>
-    m.role === "assistant"
-      ? (m as AssistantMessage).content.filter(
-          (c): c is ToolCall => c.type === "toolCall",
-        )
-      : [],
-  );
-
-  it("reads at a glance: a request, a few steps, and a summary", () => {
-    expect(toRows(transcript.items).map((r) => r.kind)).toEqual([
-      "user",
-      "text",
-      "group",
-      "text",
-      "tool",
-      "tool",
-      "tool",
-      "tool",
-      "tool",
-      "text",
-    ]);
-    const shell = toRows(transcript.items).at(-2);
-    expect(shell).toMatchObject({ kind: "tool", call: { name: "bash" } });
+  it("reads conversations, their details, the demo's diffs and settings", async () => {
+    const host = createDemoHost(TEMPO);
+    const read = { cwd: TEMPO, session: "pantry" };
+    expect(
+      await host.request({ type: "read_session", ...read }),
+    ).not.toHaveLength(0);
+    expect(
+      await host.request({ type: "session_details", ...read }),
+    ).toMatchObject({ toolCalls: 3 });
+    expect(
+      await host.request({ type: "session_details", cwd: TEMPO, session: "x" }),
+    ).toBeNull();
+    const diff = await host.request({
+      type: "git_diff",
+      repo: TEMPO,
+      range: "staged",
+      path: "src/theme.ts",
+    });
+    expect(diff).toMatch(/^@@ -0,0 \+1,/);
+    expect(await host.request({ type: "session_state" })).toBe(DEMO_STATE);
+    expect(await host.request({ type: "mcp_list" })).toHaveLength(2);
+    expect(await host.request({ type: "abort" })).toBeUndefined();
   });
 
-  it("has every tool call finished", () => {
-    for (const call of calls) {
-      expect(transcript.tools[call.id]?.status).toBe("done");
-    }
-    expect(transcript.running).toBe(false);
-  });
-
-  it("shows the model the composer shows", () => {
-    expect(DEMO_STATE.models).toContain(DEMO_STATE.model);
-    expect(DEMO_STATE.thinkingLevels).toContain(DEMO_STATE.thinkingLevel);
-  });
-
-  it("writes the theme file exactly as it is in demo/tempo", () => {
-    const write = calls.find((c) => c.name === "write")!;
-    expect(write.arguments.content).toBe(file("src/theme.ts"));
-  });
-
-  it.each(Object.entries(DEMO_DIFFS))(
-    "matches demo/tempo/%s line for line",
-    (path, diff) => {
-      const lines = file(path).split("\n");
-      for (const line of parseDiff(diff)) {
-        // Removed lines are numbered in the old file, which is gone.
-        if (line.kind === "gap" || line.kind === "del") continue;
-        expect(lines[line.num - 1]).toBe(line.text);
-      }
-    },
-  );
-
-  it("shows removed lines as well as added ones", () => {
-    const kinds = Object.values(DEMO_DIFFS).flatMap((d) =>
-      parseDiff(d).map((l) => l.kind),
-    );
-    expect(kinds).toContain("del");
-    expect(kinds).toContain("add");
+  it("searches the demo's conversations and files", async () => {
+    const host = createDemoHost(TEMPO);
+    const found = await host.request({
+      type: "command_search",
+      text: "dark",
+      folders: [TEMPO, PANTRY],
+      kinds: ["conversation", "file"],
+      limit: 5,
+    });
+    expect(found.conversations[0]).toMatchObject({
+      id: "tempo",
+      folder: TEMPO,
+    });
+    const files = await host.request({
+      type: "command_search",
+      text: "timer",
+      folders: [TEMPO, "/else"],
+      kinds: ["file"],
+      limit: 5,
+    });
+    expect(files.conversations).toEqual([]);
+    expect(files.files[0]).toEqual({ folder: TEMPO, path: "src/timer.ts" });
   });
 });

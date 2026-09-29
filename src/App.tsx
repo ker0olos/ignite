@@ -23,7 +23,7 @@ import { useTextSize } from "@/hooks/useTextSize";
 import { codeThemesFor } from "@/lib/codeThemes";
 import { needingSignIn } from "@/lib/mcpServers";
 import { approvalSetting } from "@/lib/settings";
-import { DEMO_FOLDER, shownRows, shownSession } from "@/lib/demo";
+import { OPEN_HOST, shownRows, shownSession } from "@/lib/demo";
 import { basename } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 
@@ -41,15 +41,15 @@ export default function App() {
   } = useFolders();
   const [settings, setSettings] = useSettings();
   useTextSize(settings, setSettings);
-  const providers = useProviders();
+  // In demo mode a scripted host stands in for the sidecar.
+  const providers = useProviders(OPEN_HOST);
+  const { host } = providers;
   const connectScreen = useConnectScreen(providers.statuses);
-  // The demo folder shows a fixed conversation; pi never runs in it.
-  const live = DEMO_FOLDER ? null : current;
-  const agent = useAgentSession(providers.host, live, providers.statuses);
-  const session = shownSession(agent, providers.hostError, current);
-  const mcp = useMcpServers(providers.host, live);
-  const list = useConversationList(providers.host);
-  const chats = useConversations(providers.host, current, agent, {
+  const agent = useAgentSession(host, current, providers.statuses);
+  const session = shownSession(agent, providers.hostError);
+  const mcp = useMcpServers(host, current);
+  const list = useConversationList(host);
+  const chats = useConversations(host, current, agent, {
     select: addFolder,
     dismiss: dismissFolder,
     forget: list.forget,
@@ -141,7 +141,7 @@ export default function App() {
       />
       <AppCommandCenter
         {...{ command, home, rows, settings, openFile }}
-        host={providers.host}
+        host={host}
         folders={folders}
         conversations={chats}
         openFolder={addFolder}

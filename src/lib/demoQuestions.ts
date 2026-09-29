@@ -5,7 +5,6 @@
 import type { AgentMessage } from "../../shared/agentTypes";
 import { ASK_TOOL } from "../../shared/questions";
 import { assistant, call, result, T } from "./demoTranscript";
-import { fromHistory, requestApproval, type Transcript } from "./transcript";
 
 const readServer = call("p1", "read", { path: "src/server.ts" });
 const readRecipes = call("p2", "read", { path: "src/recipes.ts" });
@@ -106,10 +105,3 @@ export const DEMO_QUESTION_MESSAGES: AgentMessage[] = [
     DEMO_QUESTIONS,
   ]),
 ];
-
-/** The pantry conversation as the app shows it: running, its questions waiting. */
-export function demoQuestionTranscript(): Transcript {
-  return requestApproval(fromHistory(DEMO_QUESTION_MESSAGES, true), {
-    toolCallId: DEMO_QUESTIONS.id,
-  });
-}
