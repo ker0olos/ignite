@@ -1,10 +1,22 @@
 /**
- * Tells an agent working in its own git worktree where it is and how its work
- * reaches the user: a branch, a pull request, and the user's folder brought
- * up to date once it's merged.
+ * How an agent uses git: where it works (its own worktree, or the user's own
+ * checkouts), and how its work reaches the user: a branch and a pull request
+ * per repository, never merged or pushed to the default branch by itself.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
 import { folderOf, gitOr } from "./worktreeGit.ts";
+
+export const GIT_GUIDANCE = `## Using git
+Run git and GitHub commands with the ${GIT_TOOL} and ${GH_TOOL} tools, one command per call; in a folder with several repositories, name the one you mean with -C <repo>.
+Deliver work as a pull request, one per repository you changed:
+1. Look first: \`status\`, \`branch --show-current\`, and \`log --oneline -5\` for the commit message style.
+2. Create a branch named for the change (e.g. fix/realtime-toast) and commit to it. Stage your own files by path; don't use -a or \`add .\` when the tree has changes that aren't yours.
+3. Push it with \`push -u origin <branch>\`, then open the pull request with \`pr create\`. Later changes to it are more commits pushed to the same branch.
+4. Stop there. Don't merge the pull request, merge into or push the default branch, or pull the default branch into yours, unless the user asks.
+Never force push, rewrite pushed history, or delete branches. If a push is rejected, say why and stop.`;
+
+const SHARED = `You work in the user's own folder: its repositories are the user's checkouts. Before you create a branch in one, note the branch it's on; leave their uncommitted changes out of your commits, and switch back to that branch once your pull request is open.`;
 
 /** The system prompt's note for an agent in `cwd`, a worktree of `folder`. */
 export function guidance(cwd: string, folder: string, branch: string | null) {
@@ -24,10 +36,16 @@ export function guidance(cwd: string, folder: string, branch: string | null) {
 export default function worktreeGuidance(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event, ctx) => {
     const folder = folderOf(ctx.cwd);
-    if (folder === ctx.cwd) return;
-    const branch = await gitOr(folder, ["branch", "--show-current"]);
+    const where =
+      folder === ctx.cwd
+        ? SHARED
+        : guidance(
+            ctx.cwd,
+            folder,
+            (await gitOr(folder, ["branch", "--show-current"])) || null,
+          );
     return {
-      systemPrompt: `${event.systemPrompt}\n\n${guidance(ctx.cwd, folder, branch || null)}`,
+      systemPrompt: `${event.systemPrompt}\n\n${GIT_GUIDANCE}\n\n${where}`,
     };
   });
 }
