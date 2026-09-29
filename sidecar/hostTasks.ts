@@ -1,6 +1,7 @@
 import { applyUpdate, type Task } from "../shared/tasks.ts";
 import { current, type HostContext, type Session } from "./hostTypes.ts";
-import { launch, prompt } from "./hostSession.ts";
+import { close, launch, prompt } from "./hostSession.ts";
+import { describeError } from "./wire.ts";
 import type { TaskAsk } from "./taskExtension.ts";
 import { createTaskStore, type TaskStore } from "./taskStore.ts";
 import type { HostMessage } from "../shared/hostProtocol.ts";
@@ -36,24 +37,69 @@ async function runOn(s: Session, { model, effort }: Task) {
  * Tasks view follows it, the chat isn't switched), and sends it the task.
  */
 export async function startTask(ctx: HostContext, cwd: string, id: string) {
+  if (ctx.starting.has(id)) throw new Error("That task is already starting.");
+  ctx.starting.add(id);
+  try {
+    return await begin(ctx, cwd, id);
+  } finally {
+    ctx.starting.delete(id);
+  }
+}
+
+async function begin(ctx: HostContext, cwd: string, id: string) {
   const task = (await ctx.tasks.list(cwd)).find((t) => t.id === id);
   if (!task) throw new Error("That task no longer exists.");
-  if (task.session && ctx.agents.has(task.session)) {
-    throw new Error("That task is already running.");
-  }
+  if (task.session) throw new Error("That task was already started.");
   const session = ctx.sessions.create();
   // Saved first, so the conversation finds its task when its run starts.
-  const started = { ...task, session, step: undefined, updated: Date.now() };
-  const tasks = await ctx.tasks.save(cwd, started);
-  await launch(ctx, cwd, session);
-  await runOn(await current(ctx, session), task);
-  const images = task.images.map(({ type, data, mimeType }) => ({
-    type,
-    data,
-    mimeType,
-  }));
-  await prompt(ctx, taskPrompt(task), images, session);
+  const started: Task = {
+    ...task,
+    session,
+    step: undefined,
+    planned: undefined,
+    pr: undefined,
+    done: undefined,
+    error: undefined,
+    subtasks: task.subtasks.map((s) => ({ ...s, status: "todo" })),
+    updated: Date.now(),
+  };
+  const tasks = await ctx.tasks.change(cwd, (all) =>
+    all.map((t) => (t.id === id ? started : t)),
+  );
+  const fail = (error: unknown) =>
+    ctx.tasks.change(cwd, (all) =>
+      all.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              session: undefined,
+              error: describeError(error),
+              updated: Date.now(),
+            }
+          : t,
+      ),
+    );
+  try {
+    await launch(ctx, cwd, session);
+    await runOn(await current(ctx, session), task);
+    const images = task.images.map(({ type, data, mimeType }) => ({
+      type,
+      data,
+      mimeType,
+    }));
+    await prompt(ctx, taskPrompt(task), images, session, fail);
+  } catch (error) {
+    await close(ctx, cwd, session).catch(() => {});
+    return fail(error);
+  }
   return tasks;
+}
+
+/** Ends task `id`'s conversation if it's open here, then removes the task. */
+export async function deleteTask(ctx: HostContext, cwd: string, id: string) {
+  const task = (await ctx.tasks.list(cwd)).find((t) => t.id === id);
+  if (task?.session) await close(ctx, cwd, task.session);
+  return ctx.tasks.remove(cwd, id);
 }
 
 /** The tasks under `dir`, every change pushed to the app. */

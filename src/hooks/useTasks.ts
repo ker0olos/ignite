@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentStatus } from "../../shared/hostProtocol";
-import type { Task } from "../../shared/tasks";
+import type { Task, TaskEdit } from "../../shared/tasks";
 import type { HostClient } from "@/lib/piHost";
 import { taskFromDraft, withStatus, type TaskDraft } from "@/lib/tasks";
 
@@ -71,10 +71,8 @@ export function useTasks(
     error,
     start,
     /** Changes a task's fields, e.g. `{ done: true }` or its notes. */
-    edit: (taskId: string, patch: Partial<Omit<Task, "id">>) => {
-      const task = tasks.find((t) => t.id === taskId);
-      return task ? save({ ...task, ...patch }) : Promise.resolve();
-    },
+    edit: (taskId: string, patch: TaskEdit) =>
+      run(host?.request({ type: "task_edit", cwd, taskId, patch })),
     /** Saves a new task from the sheet, and starts it when `now`. */
     create: async (draft: TaskDraft, now: boolean) => {
       const task = taskFromDraft(draft);

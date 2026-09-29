@@ -183,3 +183,9 @@ describe("workingLine", () => {
     expect(workingLine(task)).toBe("Planning the subtasks");
   });
 });
+
+describe("taskStatus after a failed start", () => {
+  it("is todo again when the task has an error and no conversation", () => {
+    expect(taskStatus({ ...task, error: "No model" })).toBe("todo");
+  });
+});

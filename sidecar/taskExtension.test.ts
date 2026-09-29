@@ -96,6 +96,29 @@ describe("askTask", () => {
   });
 });
 
+describe("task_update", () => {
+  it("passes on only the subtask, status and add it defines", async () => {
+    const { asks, run } = load(task);
+    await run({
+      subtask: 2,
+      status: "done",
+      add: ["c"],
+      pr: "https://evil/pull/1",
+      step: "x",
+    });
+    expect(asks.at(-1)).toMatchObject({
+      kind: "update",
+      update: { subtask: 2, status: "done", add: ["c"], planned: true },
+    });
+    expect(Object.keys(asks.at(-1)!.update!).sort()).toEqual([
+      "add",
+      "planned",
+      "status",
+      "subtask",
+    ]);
+  });
+});
+
 describe("tool_call", () => {
   it("reports a task's step from each tool call", async () => {
     const { asks, call } = load(task);

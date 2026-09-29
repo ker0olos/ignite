@@ -19,6 +19,7 @@ export function TaskAgentCard({
     case "todo":
       return (
         <TaskStart
+          error={task.error}
           onStart={() => actions.start(task.id)}
           onDelete={() => actions.remove(task.id)}
         />

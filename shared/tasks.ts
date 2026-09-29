@@ -29,12 +29,30 @@ export type Task = {
   planned?: boolean;
   /** The pull request its work was delivered in. */
   pr?: string;
+  /** Why its last start failed; cleared when it starts again. */
+  error?: string;
   /** The user marked it done. */
   done?: boolean;
   /** What its conversation runs on; unset uses the saved defaults. */
   model?: { provider: string; id: string };
   effort?: ThinkingLevel;
 };
+
+/** The fields a user may change on a task; the agent's progress is never one of them. */
+export const USER_FIELDS = [
+  "title",
+  "notes",
+  "images",
+  "subtasks",
+  "done",
+  "model",
+  "effort",
+] as const;
+
+export type TaskEdit = Partial<Pick<Task, (typeof USER_FIELDS)[number]>>;
+
+/** Which task to edit, and the user's changes to it. */
+export type TaskPatch = { taskId: string; patch: TaskEdit };
 
 /** What a task's agent may change with the task tool (see TASK_TOOL). */
 export type TaskUpdate = {

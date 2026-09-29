@@ -80,16 +80,17 @@ describe("useTasks", () => {
     ]);
   });
 
-  it("edits by merging into the saved task", async () => {
+  it("edits by sending only the patch", async () => {
     const host = fakeHost(async () => [task]);
     const { result } = renderHook(() => useTasks(host, "/p", []));
     await waitFor(() => expect(result.current.tasks).toHaveLength(1));
     await act(() => result.current.edit("t1", { done: true }));
-    const saved = requests(host).at(-1)!;
-    expect(saved.type).toBe("task_save");
-    expect(saved.task).toMatchObject({ id: "t1", title: "Fix it", done: true });
-    await act(() => result.current.edit("nope", { done: true }));
-    expect(requests(host)).toHaveLength(2);
+    expect(requests(host).at(-1)).toEqual({
+      type: "task_edit",
+      cwd: "/p",
+      taskId: "t1",
+      patch: { done: true },
+    });
   });
 
   it("shows a failed request", async () => {

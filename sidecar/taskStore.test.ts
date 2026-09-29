@@ -1,5 +1,12 @@
 // @vitest-environment node
-import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,20 +34,69 @@ describe.each([
   ["memory", () => null],
   ["files", () => dir],
 ])("task store (%s)", (_name, where) => {
-  it("adds, replaces and removes, reporting each result", async () => {
+  it("adds and removes, reporting each result", async () => {
     const changed = vi.fn();
     const store = createTaskStore(where(), changed);
     expect(await store.list("/a")).toEqual([]);
     await store.save("/a", task("1"));
     await store.save("/a", task("2"));
-    const replaced = await store.save("/a", task("1", { title: "new" }));
-    expect(replaced.map((t) => t.title)).toEqual(["new", "2"]);
-    expect(await store.remove("/a", "2")).toEqual([
-      task("1", { title: "new" }),
-    ]);
-    expect(changed).toHaveBeenCalledTimes(4);
+    expect(await store.remove("/a", "2")).toEqual([task("1")]);
+    expect(changed).toHaveBeenCalledTimes(3);
     expect(changed).toHaveBeenLastCalledWith("/a", await store.list("/a"));
     expect(await store.list("/b")).toEqual([]);
+  });
+
+  it("refuses to save over an existing task", async () => {
+    const store = createTaskStore(where());
+    await store.save("/a", task("1"));
+    await expect(store.save("/a", task("1", { title: "x" }))).rejects.toThrow(
+      "That task already exists.",
+    );
+    expect(await store.list("/a")).toEqual([task("1")]);
+  });
+
+  it("edits only the user's fields, keeping the agent's progress", async () => {
+    const changed = vi.fn();
+    const store = createTaskStore(where(), changed);
+    const agent = {
+      session: "s1",
+      step: "Editing a.ts",
+      planned: true,
+      pr: "https://x/pull/1",
+      subtasks: [{ title: "a", status: "done" as const }],
+    };
+    await store.save("/a", task("1", agent));
+    changed.mockClear();
+    const [edited] = await store.edit("/a", "1", {
+      title: "New",
+      done: true,
+      // a client sending more than it may
+      ...({
+        session: "evil",
+        step: "x",
+        planned: false,
+        pr: "",
+        id: "9",
+      } as object),
+    });
+    expect(edited).toEqual({
+      ...task("1", agent),
+      title: "New",
+      done: true,
+      updated: expect.any(Number),
+    });
+    expect(edited.updated).toBeGreaterThan(1);
+    expect(changed).toHaveBeenCalledTimes(1);
+    expect(await store.list("/a")).toEqual([edited]);
+  });
+
+  it("neither writes nor reports an edit of a missing task", async () => {
+    const changed = vi.fn();
+    const store = createTaskStore(where(), changed);
+    await store.save("/a", task("1"));
+    changed.mockClear();
+    await store.edit("/a", "nope", { title: "x" });
+    expect(changed).not.toHaveBeenCalled();
   });
 
   it("edits only the task running in the session", async () => {
@@ -82,13 +138,23 @@ describe("task store files", () => {
     expect((await readdir(dir)).every((f) => f.endsWith(".json"))).toBe(true);
   });
 
-  it("lists a corrupt file as empty, and saves over it", async () => {
+  it("throws on a corrupt file, naming it, and never overwrites it", async () => {
     const store = createTaskStore(dir);
     await store.save("/a", task("1"));
     const [file] = await readdir(dir);
     await writeFile(join(dir, file), "{nope");
-    expect(await store.list("/a")).toEqual([]);
-    expect(await store.save("/a", task("2"))).toEqual([task("2")]);
+    await expect(store.list("/a")).rejects.toThrow(file);
+    await expect(store.save("/a", task("2"))).rejects.toThrow(file);
+    expect(await readFile(join(dir, file), "utf8")).toBe("{nope");
+  });
+
+  it("throws on a read error other than a missing file", async () => {
+    const store = createTaskStore(dir);
+    await store.save("/a", task("1"));
+    const [file] = await readdir(dir);
+    await rm(join(dir, file));
+    await mkdir(join(dir, file));
+    await expect(store.list("/a")).rejects.toThrow(file);
   });
 
   it("creates its folder on first write", async () => {

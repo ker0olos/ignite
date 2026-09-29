@@ -184,6 +184,8 @@ export type HostContext = {
   trust: TrustStore;
   skills: SkillStore;
   tasks: TaskStore;
+  /** Tasks being started right now, by id. */
+  starting: Set<string>;
   /** Active sign-in's abort controller, or null. */
   activeLogin: AbortController | null;
   /** Every conversation open in this window, by id. */

@@ -2768,3 +2768,108 @@ describe("tasks", () => {
     expect(session.setThinkingLevel).not.toHaveBeenCalled();
   });
 });
+
+describe("task_edit and task_save", () => {
+  const task = (over: Partial<Task> = {}): Task => ({
+    id: "t1",
+    title: "Fix it",
+    notes: "",
+    images: [],
+    subtasks: [],
+    created: 1,
+    updated: 1,
+    ...over,
+  });
+
+  it("edits the user's fields and keeps what the agent wrote since", async () => {
+    const { tasks, request, responses } = setup(fakeRuntime().runtime);
+    await tasks.save("/work", task());
+    await tasks.change("/work", (all) =>
+      all.map((t) => ({ ...t, step: "go", planned: true, session: "s1" })),
+    );
+    await request({
+      id: 1,
+      type: "task_edit",
+      cwd: "/work",
+      taskId: "t1",
+      patch: { title: "New", session: "evil" } as never,
+    });
+    const [saved] = (responses().at(-1) as unknown as { data: Task[] }).data;
+    expect(saved).toMatchObject({
+      title: "New",
+      step: "go",
+      planned: true,
+      session: "s1",
+    });
+    expect(await tasks.list("/work")).toEqual([saved]);
+  });
+
+  it("refuses to save over an existing task", async () => {
+    const { request, sent } = setup(fakeRuntime().runtime);
+    const save = () =>
+      request({ id: 1, type: "task_save", cwd: "/work", task: task() });
+    await save();
+    await save();
+    expect(sent.at(-1)).toMatchObject({
+      type: "response",
+      error: expect.stringContaining("That task already exists."),
+    });
+  });
+});
+
+describe("task start and delete", () => {
+  const task = (over: Partial<Task> = {}): Task => ({
+    id: "t1",
+    title: "Fix it",
+    notes: "",
+    images: [],
+    subtasks: [],
+    created: 1,
+    updated: 1,
+    ...over,
+  });
+  const start = { type: "task_start", cwd: "/work", taskId: "t1" } as const;
+
+  it("starts one conversation for two quick starts", async () => {
+    const openSession = vi.fn(async () => fakeSession());
+    const { tasks, request, sent } = setup(fakeRuntime().runtime, openSession);
+    await tasks.save("/work", task());
+    await Promise.all([
+      request({ id: 1, ...start }),
+      request({ id: 2, ...start }),
+    ]);
+    expect(openSession).toHaveBeenCalledTimes(1);
+    expect(sent.filter((m) => m.type === "response" && !m.ok)).toHaveLength(1);
+  });
+
+  it("shows a failed start on the task, which becomes startable again", async () => {
+    const { tasks, request } = setup(fakeRuntime().runtime, async () => {
+      throw new Error("no model");
+    });
+    await tasks.save("/work", task());
+    await request({ id: 1, ...start });
+    const [t] = await tasks.list("/work");
+    expect(t.session).toBeUndefined();
+    expect(t.error).toContain("no model");
+  });
+
+  it("ends a running task's conversation when the task is deleted", async () => {
+    const workspaces = fakeWorkspaces();
+    const { tasks, request } = setup(
+      fakeRuntime().runtime,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      workspaces,
+    );
+    await tasks.save("/work", task());
+    await request({ id: 1, ...start });
+    await request({ id: 2, type: "task_delete", cwd: "/work", taskId: "t1" });
+    expect(workspaces.close).toHaveBeenCalledWith("/work", "new1");
+    expect(await tasks.list("/work")).toEqual([]);
+  });
+});

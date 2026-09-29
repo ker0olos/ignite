@@ -1,7 +1,8 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task } from "../shared/tasks.ts";
-import { answerTask, startTask, taskPrompt } from "./hostTasks.ts";
+import { answerTask, deleteTask, startTask, taskPrompt } from "./hostTasks.ts";
+import { close, launch, prompt } from "./hostSession.ts";
 import type { HostContext } from "./hostTypes.ts";
 import type { TaskAsk } from "./taskExtension.ts";
 import { createTaskStore, type TaskStore } from "./taskStore.ts";
@@ -16,6 +17,14 @@ const task = (over: Partial<Task> = {}): Task => ({
   updated: 1,
   ...over,
 });
+
+vi.mock("./hostSession.ts", () => ({
+  launch: vi.fn(async () => {}),
+  prompt: vi.fn(async () => {}),
+  close: vi.fn(async () => {}),
+}));
+
+beforeEach(() => vi.clearAllMocks());
 
 describe("taskPrompt", () => {
   it("is the title alone when there is nothing else", () => {
@@ -101,13 +110,22 @@ describe("answerTask", () => {
 describe("startTask", () => {
   const ctx = (agents: string[] = []) => {
     const tasks = createTaskStore(null);
+    const opening = Promise.resolve({
+      modelRuntime: { getAvailable: async () => [] },
+    });
     return {
       tasks,
       ctx: {
         tasks,
-        agents: new Map(agents.map((id) => [id, {}])),
+        starting: new Set(),
+        sessions: { create: () => "s1" },
+        agents: new Map(agents.map((id) => [id, { opening }])),
       } as unknown as HostContext,
     };
+  };
+  const setUp = () => {
+    const c = ctx(["s1"]);
+    return c;
   };
 
   it("rejects an unknown task", async () => {
@@ -116,11 +134,91 @@ describe("startTask", () => {
     );
   });
 
-  it("rejects a task whose conversation is open", async () => {
-    const { ctx: c, tasks } = ctx(["s1"]);
+  it("rejects a task that was already started", async () => {
+    const { ctx: c, tasks } = ctx();
     await tasks.save("/a", task({ session: "s1" }));
     await expect(startTask(c, "/a", "t1")).rejects.toThrow(
-      "That task is already running.",
+      "That task was already started.",
     );
+  });
+
+  it("refuses a second start while the first is under way", async () => {
+    const { ctx: c, tasks } = setUp();
+    await tasks.save("/a", task());
+    const first = startTask(c, "/a", "t1");
+    await expect(startTask(c, "/a", "t1")).rejects.toThrow("already starting");
+    await first;
+    expect(launch).toHaveBeenCalledTimes(1);
+    expect(c.starting.size).toBe(0);
+  });
+
+  it("resets what an earlier run left", async () => {
+    const { ctx: c, tasks } = setUp();
+    await tasks.save(
+      "/a",
+      task({
+        step: "old",
+        planned: true,
+        pr: "https://x/pull/1",
+        done: true,
+        error: "boom",
+        subtasks: [{ title: "One", status: "done" }],
+      }),
+    );
+    await startTask(c, "/a", "t1");
+    const [t] = await tasks.list("/a");
+    expect(t.session).toBe("s1");
+    expect(t.subtasks).toEqual([{ title: "One", status: "todo" }]);
+    for (const key of ["step", "planned", "pr", "done", "error"] as const) {
+      expect(t[key]).toBeUndefined();
+    }
+  });
+
+  it("records a launch failure and lets the task start again", async () => {
+    const { ctx: c, tasks } = setUp();
+    await tasks.save("/a", task());
+    vi.mocked(launch).mockRejectedValueOnce(new Error("no worktree"));
+    await startTask(c, "/a", "t1");
+    const [t] = await tasks.list("/a");
+    expect(t.session).toBeUndefined();
+    expect(t.error).toContain("no worktree");
+    await startTask(c, "/a", "t1");
+    expect((await tasks.list("/a"))[0]).toMatchObject({ session: "s1" });
+    expect((await tasks.list("/a"))[0].error).toBeUndefined();
+  });
+
+  it("records a run's failure, which nobody else would report", async () => {
+    const { ctx: c, tasks } = setUp();
+    await tasks.save("/a", task());
+    let fail: (e: unknown) => unknown = () => {};
+    vi.mocked(prompt).mockImplementationOnce(async (...args) => {
+      fail = args[4]!;
+    });
+    await startTask(c, "/a", "t1");
+    await fail(new Error("no key"));
+    const [t] = await tasks.list("/a");
+    expect(t.session).toBeUndefined();
+    expect(t.error).toContain("no key");
+  });
+});
+
+describe("deleteTask", () => {
+  it("ends the task's conversation, then removes it", async () => {
+    const tasks = createTaskStore(null);
+    await tasks.save("/a", task({ session: "s1" }));
+    const left = await deleteTask(
+      { tasks } as unknown as HostContext,
+      "/a",
+      "t1",
+    );
+    expect(close).toHaveBeenCalledWith(expect.anything(), "/a", "s1");
+    expect(left).toEqual([]);
+  });
+
+  it("leaves conversations alone for a task never started", async () => {
+    const tasks = createTaskStore(null);
+    await tasks.save("/a", task());
+    await deleteTask({ tasks } as unknown as HostContext, "/a", "t1");
+    expect(close).not.toHaveBeenCalled();
   });
 });

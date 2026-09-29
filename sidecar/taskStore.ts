@@ -1,9 +1,14 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Task } from "../shared/tasks.ts";
+import { USER_FIELDS, type Task, type TaskEdit } from "../shared/tasks.ts";
 
 type Saved = { cwd: string; tasks: Task[] };
+
+const pickUser = (patch: TaskEdit): TaskEdit =>
+  Object.fromEntries(
+    USER_FIELDS.filter((k) => k in patch).map((k) => [k, patch[k]]),
+  );
 
 /**
  * Each folder's tasks, one JSON file per folder under `dir` (null keeps them
@@ -28,8 +33,12 @@ export function createTaskStore(
     if (!dir) return memory.get(cwd) ?? [];
     try {
       return (JSON.parse(await readFile(file(cwd), "utf8")) as Saved).tasks;
-    } catch {
-      return [];
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw new Error(
+        `Can't read the tasks file ${file(cwd)}: ${(e as Error).message}`,
+        { cause: e },
+      );
     }
   }
 
@@ -63,12 +72,23 @@ export function createTaskStore(
   return {
     list,
     change,
-    /** Adds the task, or replaces the one with its id. */
+    /** Adds a new task; an existing id throws. */
     save: (cwd: string, task: Task) =>
+      change(cwd, (tasks) => {
+        if (tasks.some((t) => t.id === task.id))
+          throw new Error("That task already exists.");
+        return [...tasks, task];
+      }),
+    /** Merges the user's fields into the task inside the queue, so the agent's progress survives. */
+    edit: (cwd: string, id: string, patch: TaskEdit) =>
       change(cwd, (tasks) =>
-        tasks.some((t) => t.id === task.id)
-          ? tasks.map((t) => (t.id === task.id ? task : t))
-          : [...tasks, task],
+        tasks.some((t) => t.id === id)
+          ? tasks.map((t) =>
+              t.id === id
+                ? { ...t, ...pickUser(patch), updated: Date.now() }
+                : t,
+            )
+          : tasks,
       ),
     remove: (cwd: string, id: string) =>
       change(cwd, (tasks) => tasks.filter((t) => t.id !== id)),

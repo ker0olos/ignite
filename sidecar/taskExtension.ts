@@ -97,7 +97,12 @@ export default function tasks(pi: ExtensionAPI) {
       "Report progress on this conversation's task: add subtasks, confirm them (call with no changes), or set a subtask's status.",
     parameters: Params,
     async execute(_toolCallId, params) {
-      const task = await askTask(pi, "update", { ...params, planned: true });
+      const task = await askTask(pi, "update", {
+        subtask: params.subtask,
+        status: params.status,
+        add: params.add,
+        planned: true,
+      });
       const text = task ? progressText(task) : "This conversation has no task.";
       return { content: [{ type: "text", text }], details: undefined };
     },

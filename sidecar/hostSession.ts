@@ -238,12 +238,13 @@ export async function closeAll(ctx: HostContext) {
 
 // pi's prompt() resolves when the whole run ends; the app follows the run
 // through events, so only a failure is reported here.
-/** Sends a prompt to the shown conversation. */
+/** Sends a prompt to the shown conversation, or `session`; a failure goes to `onError` if given. */
 export async function prompt(
   ctx: HostContext,
   text: string,
   images?: ImageContent[],
   session?: string,
+  onError?: (error: unknown) => void,
 ) {
   const agent = target(ctx, session);
   const s = await current(ctx, session);
@@ -255,7 +256,7 @@ export async function prompt(
     ...(s.isStreaming && { streamingBehavior: "steer" as const }),
     ...(images?.length ? { images } : {}),
   };
-  s.prompt(text, options).catch(reportTo(ctx, agent!));
+  s.prompt(text, options).catch(onError ?? reportTo(ctx, agent!));
 }
 
 /** Shows a run's failure, if its conversation is the one shown. */
