@@ -1,4 +1,4 @@
-import type { McpCatalog } from "../../../shared/hostProtocol";
+import type { McpCatalog } from "../../../shared/mcpCatalog";
 import { Added } from "@/components/mcp/Added";
 import { AppIcon } from "@/components/mcp/AppIcon";
 import { AsyncButton } from "@/components/mcp/AsyncButton";

@@ -171,6 +171,7 @@ describe("useSettings", () => {
       approval: { mode: "auto" },
       subagents: { enabled: true, max: 2 },
       power: { keep_awake: true },
+      chrome: { enabled: true, disabled_tools: [] },
     };
     act(() => void result.current[1](next));
     expect(result.current[0]).toEqual(next);

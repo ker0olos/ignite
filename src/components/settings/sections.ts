@@ -4,11 +4,13 @@ import {
   Brain,
   Code,
   FolderTree,
+  Globe,
   Info,
   MessageSquare,
   Palette,
   Plug,
   Server,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,6 +30,16 @@ export const SECTIONS = {
     icon: Server,
     brief: "Tools from other apps",
     blurb: "Tools the agent can use from other apps and services.",
+  },
+  Skills: {
+    icon: Sparkles,
+    brief: "Know-how the agent loads",
+    blurb: "Instructions the agent reads when a task calls for them.",
+  },
+  Chrome: {
+    icon: Globe,
+    brief: "Browser tools",
+    blurb: "Tools that let the agent see and drive Chrome.",
   },
   Memory: {
     icon: Brain,

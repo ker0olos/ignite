@@ -27,6 +27,7 @@ src/                     React frontend (almost all logic lives here)
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              Recent cmem observations for the Memory settings
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
+    skills/              Skill and plugin rows, import UI from other apps
     providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos
   hooks/
     useFolders.ts        Recent folders, this window's open projects and the shown one
@@ -50,6 +51,7 @@ src/                     React frontend (almost all logic lives here)
     useOpenFile.ts       Opens a file in any folder, switching to it first
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
+    useSkills.ts         The app's skills and plugins, and other apps' to import, while Settings is open
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
     useAbout.ts          The commit the app runs from; Check for updates, reloading every window
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
@@ -76,6 +78,7 @@ src/                     React frontend (almost all logic lives here)
     toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands, parses edit diffs
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
+    skills.ts            Skills settings text: counts
     memory.ts            Memory settings text: cmem status line, relative times
     about.ts             About text: version line, update button states, the macOS About panel
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
@@ -133,11 +136,16 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   lines.ts               LF-only JSONL splitting
   mcpConfig.ts           pi-mcp-adapter's mcp.json: read, edit servers, cached tool names
   mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
+  skillStore.ts          The app's skills and plugins (bundles of skills): list, on/off, remove, import;
+                         the only skills sessions load besides the folder's own
+  skillCatalog.ts        Other apps' skills to import: Claude Code, Codex, Cursor, ~/.agents, Claude Code plugins
   cmem.ts           cmem: finds its worker, the app's on/off setting, recent observations
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
   subagentExtension.ts   subagent tool: hands tasks to a smaller model from the same provider and talks with it
   keepAwake.ts           Keeps the Mac from idle-sleeping (caffeinate) while an agent works
+  chrome.ts              Chrome over CDP: the user's own (port 9222), else one the app starts
+  chromeExtension.ts     chrome_* tools: tabs, screenshot, eval, navigate, raw CDP calls
   gitExtension.ts        git and gh tools: run outside the sandbox, ask for themselves, redirect bash's
   gitRun.ts              Runs git and gh with prompts, pagers and (unless approved) hooks off
   gitReview.ts           A commit's or push's changed files and commits; one file's diff (git_diff)
@@ -153,6 +161,8 @@ shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/validation.ts     Checks on typed API keys and MCP servers (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
 shared/conversations.ts  Saved conversations, their details, command search hits (used by both)
+shared/skills.ts         Skills, plugins and importable skills as they cross the wire, and their requests
+shared/mcpCatalog.ts     MCP presets and other apps' servers the MCP settings offer
 shared/memory.ts         cmem status and observations as they cross the wire
 shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
 shared/commandSearch.ts  Ranks conversations and files for the command center (sidecar and demo)
@@ -175,6 +185,7 @@ src-tauri/               Rust shell: registers plugins, nothing else
   capabilities/          Permissions the frontend may use
   tests/config.rs        Guards on the config (write scope, hidden window)
 .github/workflows/ci.yml Build, typecheck, lint, format check, tests on macOS, for pull requests to main
+.github/dependabot.yml   Daily PRs for new pi and pi-claude-bridge versions (new models arrive through them)
 ```
 
 Two places hold persisted data:
@@ -206,6 +217,9 @@ Two places hold persisted data:
 - **Power settings** (`[power]`): `keep_awake` (on by default, macOS only)
   runs `caffeinate -i` while any folder's agent works, and ends it when
   every agent finishes or waits on the user (`sidecar/keepAwake.ts`).
+- **Chrome settings** (`[chrome]`): `enabled` (on by default) gives the
+  agent the `chrome_*` tools; `disabled_tools` lists ones it doesn't get
+  (`shared/chrome.ts`). Read before each run (`sidecar/chromeSettings.ts`).
 - **Approval settings** (`[approval]`): `mode`, `"auto"` (default) or
   `"manual"`, set from the composer. The sidecar reads it on every tool call.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
@@ -288,6 +302,16 @@ tab (`git_diff`). The sandbox already refuses writes to `.git/config` and
 ran without asking run with hooks off. Bash commands that commit, push, pull,
 fetch, clone or run gh are blocked with a pointer to the tools.
 
+The `chrome_*` tools (`sidecar/chromeExtension.ts`) drive Chrome over the
+DevTools protocol from the sidecar. They attach to the user's own Chrome
+when port 9222 answers (chrome://inspect's "Allow remote debugging" toggle,
+or `--remote-debugging-port`), with its real logins; otherwise they start a
+separate Chrome on port 9333 with its own profile in `~/.ignition/chrome`
+(Chrome refuses debugging on the default profile). All sessions share one
+connection, kept on `globalThis` since extensions load afresh per session,
+because Chrome asks "Allow?" per connection. Auto runs them without asking,
+like MCP tools; Manual asks.
+
 The `subagent` tool (`sidecar/subagentExtension.ts`) lets the agent start
 another pi session on a task: a smaller model from its own provider (cheaper
 per output token in pi's catalog; claude-bridge models are priced by their
@@ -351,6 +375,17 @@ Settings offers presets (the adapter's list plus a few of ours) and imports
 servers already set up in Claude Code (user, this folder's local scope,
 `.mcp.json`), Cursor, Codex and Claude Desktop. Those files are only read,
 when the MCP settings load; importing copies the entry into the app's mcp.json.
+
+Skills are the app's own, in `~/.ignition/pi/skills` (standalone) and
+`~/.ignition/pi/plugins/<plugin>/` (a plugin is only a bundle of skills, no
+code); which are off is kept in `skills.json` (`sidecar/skillStore.ts`).
+pi would also load `~/.agents/skills`; the loader's `skillsOverride` keeps
+only the folder's project skills (once trusted) and the app's that are on.
+pi already loads skills lazily (only descriptions enter the prompt).
+Settings imports skills from Claude Code (its skills folder and installed
+plugins' skills), Codex, Cursor and `~/.agents/skills` by copying them
+(symlinks followed); other apps' files are only read. Changes reload the
+sessions, like an MCP change.
 
 When [cmem](https://cmem.ai) (claude-mem, also used by Codex, Cursor and
 other agents) is installed and its worker is running,

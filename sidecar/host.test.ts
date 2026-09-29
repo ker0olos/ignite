@@ -27,6 +27,7 @@ import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
 import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
 import { memoryStatus } from "./cmem.ts";
 import type { TrustStore } from "./trust.ts";
+import type { SkillStore } from "./skillStore.ts";
 
 const MEMORY = { state: "stopped", observations: [] } as const;
 vi.mock("./cmem.ts", () => ({ memoryStatus: vi.fn(async () => MEMORY) }));
@@ -216,6 +217,7 @@ function setup(
   workspaces: HostContext["workspaces"] = fakeWorkspaces(),
   draft: HostContext["draft"] = async () => fakeSession(),
   search?: HostContext["search"],
+  skills?: SkillStore,
 ) {
   const sent: HostMessage[] = [];
   const host = createHost(
@@ -229,6 +231,7 @@ function setup(
     mcpStore,
     catalog,
     trust,
+    skills as SkillStore,
     undefined,
     search,
   );
@@ -2592,5 +2595,81 @@ describe("MCP catalog", () => {
       ok: false,
       error: "Those servers are no longer there.",
     });
+  });
+});
+
+describe("skills", () => {
+  const LIST = [
+    { id: "skills/a", name: "a", description: "A.", enabled: true },
+  ];
+
+  async function withSkills() {
+    const session = fakeSession();
+    const skills = {
+      list: vi.fn(async () => LIST),
+      setEnabled: vi.fn(async () => {}),
+      remove: vi.fn(async () => {}),
+      importSkills: vi.fn(async () => {}),
+      catalog: vi.fn(async () => ({ sources: [] })),
+    } as unknown as SkillStore;
+    const host = setup(
+      fakeRuntime().runtime,
+      async () => session,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      skills,
+    );
+    await host.request({
+      id: 1,
+      type: "open_session",
+      cwd: "/w",
+      session: "s",
+    });
+    host.sent.length = 0;
+    return { ...host, session, skills };
+  }
+
+  it("saves a change, reloads open sessions and answers with the list", async () => {
+    const { request, responses, session, skills } = await withSkills();
+    await request({
+      id: 2,
+      type: "skills_set_enabled",
+      skill: "skills/a",
+      enabled: false,
+    });
+    await request({ id: 3, type: "skills_remove", skill: "skills/a" });
+    await request({
+      id: 4,
+      type: "skills_import",
+      source: "/src",
+      names: ["a"],
+    });
+    expect(skills.setEnabled).toHaveBeenCalledWith("skills/a", false);
+    expect(skills.remove).toHaveBeenCalledWith("skills/a");
+    expect(skills.importSkills).toHaveBeenCalledWith("/src", ["a"]);
+    expect(session.reload).toHaveBeenCalledTimes(3);
+    expect(responses().map((r) => (r as { data: unknown }).data)).toEqual([
+      LIST,
+      LIST,
+      LIST,
+    ]);
+  });
+
+  it("lists skills and the catalog without reloading", async () => {
+    const { request, responses, session } = await withSkills();
+    await request({ id: 2, type: "skills_list" });
+    await request({ id: 3, type: "skills_catalog" });
+    expect(session.reload).not.toHaveBeenCalled();
+    expect(responses()).toMatchObject([
+      { ok: true, data: LIST },
+      { ok: true, data: { sources: [] } },
+    ]);
   });
 });

@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # New models reach the app only through pi's catalog and the Claude bridge.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: daily
+    allow:
+      - dependency-name: "@earendil-works/pi-coding-agent"
+      - dependency-name: "pi-claude-bridge"
+    groups:
+      pi:
+        patterns: ["@earendil-works/pi-coding-agent", "pi-claude-bridge"]
+    commit-message:
+      prefix: build
+      include: scope

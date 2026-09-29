@@ -7,18 +7,21 @@ import { SectionExtras } from "@/components/settings/SectionExtras";
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import type { useMcpServers } from "@/hooks/useMcpServers";
 import type { useMemory } from "@/hooks/useMemory";
+import type { useSkills } from "@/hooks/useSkills";
 
 /** The dialog's right side: the visible settings, grouped by section. */
 export function SettingsSections({
   query,
   groups,
   mcp,
+  skills,
   memory,
   folder,
 }: {
   query: string;
   groups: (readonly [Section, Item[]])[];
   mcp: ReturnType<typeof useMcpServers>;
+  skills: ReturnType<typeof useSkills>;
   memory: ReturnType<typeof useMemory>;
   folder: string | null;
 }) {
@@ -52,6 +55,7 @@ export function SettingsSections({
           <SectionExtras
             section={s}
             mcp={mcp}
+            skills={skills}
             memory={memory}
             folder={folder}
           />

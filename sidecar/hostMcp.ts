@@ -70,14 +70,19 @@ export async function changeMcp(
   check: string[] = [],
 ) {
   await edit();
+  await reloadSessions(ctx);
+  const s = shown(ctx)?.session;
+  if (s && !s.isStreaming) await checkUrlServers(ctx, check);
+  return mcpServers(ctx);
+}
+
+/** Reloads every open session, or once its run ends if it's running. */
+export async function reloadSessions(ctx: HostContext) {
   for (const agent of ctx.agents.values()) {
     const s = agent.session;
     if (s?.isStreaming) agent.reloadWhenSettled = true;
     else await s?.reload();
   }
-  const s = shown(ctx)?.session;
-  if (s && !s.isStreaming) await checkUrlServers(ctx, check);
-  return mcpServers(ctx);
 }
 
 /** Marks the URL servers among `names` as checking, then checks them in the background. */

@@ -134,6 +134,21 @@ describe("loadSettings", () => {
     expect((await loadSettings()).subagents.max).toBe(2);
   });
 
+  it("reads Chrome settings, keeping only named tools", async () => {
+    fakeFs({
+      [FILE]: '[chrome]\nenabled = false\ndisabled_tools = ["chrome_cdp", 3]\n',
+    });
+    expect((await loadSettings()).chrome).toEqual({
+      enabled: false,
+      disabled_tools: ["chrome_cdp"],
+    });
+  });
+
+  it("falls back to Chrome on with every tool for bad values", async () => {
+    fakeFs({ [FILE]: '[chrome]\nenabled = "no"\ndisabled_tools = "x"\n' });
+    expect((await loadSettings()).chrome).toEqual(DEFAULT_SETTINGS.chrome);
+  });
+
   it("fills in missing keys from defaults", async () => {
     fakeFs({ [FILE]: 'theme = "nord"\n' });
     expect(await loadSettings()).toEqual({
@@ -190,6 +205,7 @@ describe("saveSettings", () => {
     approval: { mode: "manual" },
     subagents: { enabled: false, max: 4 },
     power: { keep_awake: false },
+    chrome: { enabled: false, disabled_tools: ["chrome_cdp"] },
   };
 
   it("creates the settings directory first", async () => {

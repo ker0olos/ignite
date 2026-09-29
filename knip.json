@@ -10,5 +10,5 @@
   "project": ["src/**/*.{ts,tsx,css}", "sidecar/**/*.ts", "shared/**/*.ts"],
   "ignore": ["src/components/ui/**", "sidecar/types/**"],
   "ignoreDependencies": ["pi-claude-bridge", "tree-sitter-bash"],
-  "ignoreBinaries": ["caffeinate"]
+  "ignoreBinaries": ["caffeinate", "osascript"]
 }

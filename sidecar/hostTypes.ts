@@ -17,6 +17,7 @@ import type { ClaudeCode } from "./claudeCode.ts";
 import type { McpStore } from "./mcpConfig.ts";
 import type { Preset, ImportSource } from "./mcpCatalog.ts";
 import type { TrustStore } from "./trust.ts";
+import type { SkillStore } from "./skillStore.ts";
 import type { Workspaces } from "./worktrees.ts";
 import type { DraftPick } from "./draftSession.ts";
 import type { createSearch } from "./search.ts";
@@ -169,6 +170,7 @@ export type HostContext = {
   mcpStore: McpStore;
   catalog: McpCatalogSource;
   trust: TrustStore;
+  skills: SkillStore;
   /** Active sign-in's abort controller, or null. */
   activeLogin: AbortController | null;
   /** Every conversation open in this window, by id. */

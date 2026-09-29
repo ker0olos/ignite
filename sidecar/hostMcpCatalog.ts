@@ -1,5 +1,5 @@
 import { needsSignIn } from "./mcpCatalog.ts";
-import type { McpCatalog } from "../shared/hostProtocol.ts";
+import type { McpCatalog } from "../shared/mcpCatalog.ts";
 import type { HostContext } from "./hostTypes.ts";
 import { changeMcp } from "./hostMcp.ts";
 import { copySignIn } from "./hostMcpSignIn.ts";

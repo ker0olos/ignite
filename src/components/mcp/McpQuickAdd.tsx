@@ -1,4 +1,4 @@
-import type { McpCatalog } from "../../../shared/hostProtocol";
+import type { McpCatalog } from "../../../shared/mcpCatalog";
 import { Added } from "@/components/mcp/Added";
 import { AsyncButton } from "@/components/mcp/AsyncButton";
 import { PresetTile } from "@/components/mcp/PresetTile";

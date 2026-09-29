@@ -34,6 +34,7 @@ export function AppSettingsDialog({
       providers={providers.statuses}
       providersError={providers.hostError}
       mcp={mcp}
+      skills={dialog.skills}
       memory={dialog.memory}
       about={dialog.about}
       folder={folder}
