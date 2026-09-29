@@ -6,7 +6,7 @@ import { AgentPanel } from "@/components/agent/AgentPanel";
 import { DiffView } from "@/components/files/DiffView";
 import { FileView } from "@/components/files/FileView";
 import { Sidebar } from "@/components/sidebar/Sidebar";
-import type { ProjectListProps } from "@/components/sidebar/ProjectList";
+import type { ProjectListProps } from "@/components/sidebar/FolderList";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { OpenTabContext } from "@/hooks/useOpenTab";
 import type { useAgentSession } from "@/hooks/useAgentSession";

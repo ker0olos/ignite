@@ -5,7 +5,7 @@
  * Nothing is saved or run, so clearing sessions or app state never loses it.
  */
 import type {
-  ProjectStatus,
+  AgentStatus,
   ProjectTrust,
   SessionState,
 } from "../../shared/hostProtocol";
@@ -43,6 +43,7 @@ export const DEMO_STATE: SessionState = {
 };
 
 type View = {
+  session: string | null;
   state: SessionState | null;
   transcript: Transcript | null;
   trust: ProjectTrust | null;
@@ -63,6 +64,7 @@ export function shownSession<S extends View>(
   if (!demo) return { ...session, error: session.error ?? hostError };
   return {
     ...session,
+    session: current === pantry(demo) ? "pantry" : "tempo",
     state: DEMO_STATE,
     transcript:
       current === pantry(demo)
@@ -73,12 +75,31 @@ export function shownSession<S extends View>(
   };
 }
 
-/** Open projects' statuses; in demo mode, pantry waits on its questions. */
-export function shownStatuses(
-  statuses: Record<string, ProjectStatus>,
+/**
+ * A folder's listed conversations; in demo mode fixed ones: Tempo's with a
+ * second working in the background, and Pantry's waiting on its questions.
+ */
+export function shownRows(
+  rows: (cwd: string) => AgentStatus[],
   demo: string | null = DEMO_FOLDER,
-): Record<string, ProjectStatus> {
-  if (!demo) return statuses;
-  const cwd = pantry(demo);
-  return { [cwd]: { cwd, running: true, waiting: true } };
+): (cwd: string) => AgentStatus[] {
+  if (!demo) return rows;
+  const idle = { cwd: demo, running: false, waiting: false };
+  const all = [
+    {
+      cwd: pantry(demo),
+      session: "pantry",
+      title: "Let people sign in to Pantry",
+      running: true,
+      waiting: true,
+    },
+    { ...idle, session: "tempo", title: "Add a dark mode to Tempo" },
+    {
+      ...idle,
+      session: "tempo-tests",
+      title: "Write tests for recurring tasks",
+      running: true,
+    },
+  ];
+  return (cwd) => all.filter((a) => a.cwd === cwd);
 }

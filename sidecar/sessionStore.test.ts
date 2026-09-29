@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtempSync, rmSync, utimesSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -18,12 +18,9 @@ afterEach(() => {
   rmSync(agentDir, { recursive: true, force: true });
 });
 
-// Listing orders by the last message's time, continuing by the file's.
-const touch = (id: string, at: number) =>
-  utimesSync(sessionFor(cwd, id).getSessionFile()!, at, at);
-
-const say = (id: string, text: string, at: number) => {
-  const s = sessionFor(cwd, id);
+/** A conversation with one exchange, last active at `at`. */
+const say = (id: string, text: string, at: number, workdir = cwd) => {
+  const s = sessionFor(cwd, workdir, id);
   s.appendMessage({ role: "user", content: text, timestamp: at });
   s.appendMessage({
     role: "assistant",
@@ -42,27 +39,40 @@ const say = (id: string, text: string, at: number) => {
     stopReason: "stop",
     timestamp: at,
   });
-  touch(id, at);
+  return s;
 };
 
 describe("sessions", () => {
-  it("continues the newest conversation, even an empty one just started", () => {
-    say("first", "hello", 1000);
-    expect(sessions.latest(cwd)).toBe("first");
-    const empty = sessions.create();
-    touch(empty, 2000);
-    expect(sessions.latest(cwd)).toBe(empty);
-    expect(sessionFor(cwd, "first").getSessionId()).toBe("first");
+  it("reopens a saved conversation by its id, or starts one with it", () => {
+    const saved = say("first", "hello", 1000);
+    const again = sessionFor(cwd, cwd, "first");
+    expect(again.getSessionFile()).toBe(saved.getSessionFile());
+    expect(again.buildSessionContext().messages).toHaveLength(2);
+    const fresh = sessionFor(cwd, cwd, "second");
+    expect(fresh.getSessionId()).toBe("second");
+    expect(fresh.buildSessionContext().messages).toHaveLength(0);
   });
 
-  it("starts a folder with no conversations on a new one", () => {
-    expect(sessions.latest(cwd)).toMatch(/\w/);
+  it("keeps a conversation worked on in a worktree with its folder's", async () => {
+    const s = say("a", "in a worktree", 1000, "/worktrees/work-1/a");
+    expect(s.getCwd()).toBe("/worktrees/work-1/a");
+    expect((await sessions.list(cwd)).map((l) => l.id)).toEqual(["a"]);
+    expect(sessionFor(cwd, "/worktrees/work-1/a", "a").getSessionFile()).toBe(
+      s.getSessionFile(),
+    );
+  });
+
+  it("reads a saved conversation's messages, and none of one never saved", async () => {
+    say("first", "hello", 1000);
+    const read = await sessions.read(cwd, "first");
+    expect(read.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(await sessions.read(cwd, "missing")).toEqual([]);
   });
 
   it("lists conversations with messages, newest first", async () => {
     say("second", "again", 2000);
     say("first", "hello", 1000);
-    touch(sessions.create(), 3000);
+    sessionFor(cwd, cwd, sessions.create());
     const listed = await sessions.list(cwd);
     expect(listed.map((s) => [s.id, s.title])).toEqual([
       ["second", "again"],

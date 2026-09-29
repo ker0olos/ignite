@@ -17,15 +17,17 @@ export function byFolder(agents: AgentStatus[]): Record<string, ProjectStatus> {
 }
 
 /**
- * What each project open in this window is doing, as the sidecar reports it.
- * Keeps the sidecar in step with `projects`: one closed here ends its sessions.
+ * What each project open in this window is doing, as the sidecar reports it:
+ * per folder, and per open conversation. Keeps the sidecar in step with
+ * `projects`: one closed here ends its sessions.
  */
 export function useProjects(host: HostClient | null, projects: string[]) {
   const [pushed, setPushed] = useState<{
     host: HostClient;
     agents: AgentStatus[];
   } | null>(null);
-  const statuses = byFolder(pushed?.host === host ? pushed.agents : []);
+  const agents = pushed?.host === host ? pushed.agents : [];
+  const statuses = byFolder(agents);
   const closed = Object.keys(statuses).filter((cwd) => !projects.includes(cwd));
   const closedKey = JSON.stringify(closed);
 
@@ -45,5 +47,5 @@ export function useProjects(host: HostClient | null, projects: string[]) {
     }
   }, [host, closedKey]);
 
-  return statuses;
+  return { statuses, agents };
 }

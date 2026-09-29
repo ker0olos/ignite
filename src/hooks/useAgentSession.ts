@@ -1,105 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  ModelInfo,
-  OpenedSession,
-  ProjectTrust,
-  ProviderStatus,
-  SessionState,
-  ThinkingLevel,
-} from "../../shared/hostProtocol";
-import type { ImageContent } from "../../shared/agentTypes";
+import type { OpenedSession, ProviderStatus } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
-import { useSessionEvents } from "@/hooks/useSessionEvents";
+import { useComposerActions } from "@/hooks/useComposerActions";
+import { useDraftState } from "@/hooks/useDraftState";
+import type { AgentMessage } from "../../shared/agentTypes";
 import {
-  applyError,
-  fromHistory,
-  requestApproval,
-  type Transcript,
-} from "@/lib/transcript";
-
-type Opened = {
-  host: HostClient;
-  folder: string;
-  state: SessionState;
-  trust: ProjectTrust;
-  transcript: Transcript;
-};
-
-const toOpened = (
-  host: HostClient,
-  folder: string,
-  {
-    messages,
-    running,
-    trust,
-    modelWarning,
-    approvals,
-    ...state
-  }: OpenedSession,
-): Opened => {
-  const transcript = approvals.reduce(
-    requestApproval,
-    fromHistory(messages, running),
-  );
-  return {
-    host,
-    folder,
-    state,
-    trust,
-    transcript: modelWarning
-      ? applyError(transcript, modelWarning)
-      : transcript,
-  };
-};
-
-/** What the app sees of the session; every field is null until it's open. */
-const view = (s: Opened | null) => ({
-  state: s?.state ?? null,
-  /** The conversation. */
-  transcript: s?.transcript ?? null,
-  /** Whether the folder's own pi resources load. */
-  trust: s?.trust ?? null,
-  /** The session's host, for requests outside the conversation (e.g. a diff). */
-  host: s?.host ?? null,
-});
-
-/**
- * Every open folder's last known session, so switching back shows it at once;
- * each is tagged with its host, so a stale one never shows.
- */
-function useSessionCache(host: HostClient | null, folder: string | null) {
-  const [sessions, setSessions] = useState<Record<string, Opened>>({});
-  // Events only apply once the sidecar has answered for this folder.
-  const synced = useRef<string | null>(null);
-  const cached = folder ? sessions[folder] : undefined;
-  const current = cached?.host === host ? cached : null;
-  const opened = current?.host ?? null;
-  const put = useCallback(
-    (o: Opened) => setSessions((all) => ({ ...all, [o.folder]: o })),
-    [],
-  );
-  const patch = useCallback(
-    (f: (o: Opened) => Opened) =>
-      setSessions((all) => {
-        const o = folder ? all[folder] : undefined;
-        return o ? { ...all, [o.folder]: f(o) } : all;
-      }),
-    [folder],
-  );
-  const setState = useCallback(
-    (state: SessionState) => patch((o) => ({ ...o, state })),
-    [patch],
-  );
-  const update = useCallback(
-    (f: (t: Transcript) => Transcript) => {
-      if (synced.current !== folder) return;
-      patch((o) => ({ ...o, transcript: f(o.transcript) }));
-    },
-    [patch, folder],
-  );
-
-  return { current, opened, synced, put, patch, setState, update };
-}
+  toEntry,
+  toStarting,
+  useSessionCache,
+  view,
+} from "@/hooks/useSessionCache";
+import { useSessionEvents } from "@/hooks/useSessionEvents";
+import { useSessionSwitch } from "@/hooks/useSessionSwitch";
 
 /**
  * The pi session for the open folder: the conversation, sending and stopping,
@@ -112,31 +24,57 @@ export function useAgentSession(
   folder: string | null,
   statuses: ProviderStatus[] | null,
 ) {
-  const { current, opened, synced, put, patch, setState, update } =
+  const { current, opened, shownRef, synced, put, patch, setState, update } =
     useSessionCache(host, folder);
   const [error, setError] = useState<string | null>(null);
+  // What a folder about to be selected shows instead of its last conversation:
+  // a new one, or the one picked in the sidebar.
+  const showIn = useRef<{ folder: string; target: string | null } | null>(null);
+  const [fresh, setFresh] = useState(0);
+
+  const putIn = useCallback(
+    (cwd: string, s: OpenedSession | null) =>
+      host && put(toEntry(host, cwd, s)),
+    [host, put],
+  );
+  const preview = useCallback(
+    (cwd: string, session: string, messages: AgentMessage[]) =>
+      host && put(toStarting(host, cwd, session, messages)),
+    [host, put],
+  );
+  const { reveal, show, close } = useSessionSwitch({
+    host,
+    folder,
+    put: putIn,
+    preview,
+    setError,
+  });
 
   useEffect(() => {
     if (!host || !folder) return;
     let live = true;
-    host
-      .request({ type: "open_session", cwd: folder })
-      .then((s) => {
-        if (!live) return;
-        synced.current = folder;
-        put(toOpened(host, folder, s));
-      })
-      .catch((e: Error) => live && setError(e.message));
+    const pick = showIn.current?.folder === folder ? showIn.current : null;
+    showIn.current = null;
+    if (pick?.target) void reveal(folder, pick.target);
+    else if (pick) putIn(folder, null);
+    else {
+      host
+        .request({ type: "open_session", cwd: folder })
+        .then((s) => live && putIn(folder, s))
+        .catch((e: Error) => live && setError(e.message));
+    }
     return () => {
       live = false;
       synced.current = null;
       // An error belongs to the folder it happened in.
       setError(null);
     };
-  }, [host, folder, put, synced]);
+  }, [host, folder, putIn, reveal, synced]);
+
+  const shown = current?.session ?? null;
 
   useEffect(() => {
-    if (!opened || !statuses) return;
+    if (!opened || !shown || !statuses) return;
     let live = true;
     opened
       .request({ type: "session_state" })
@@ -145,9 +83,9 @@ export function useAgentSession(
     return () => {
       live = false;
     };
-  }, [opened, statuses, setState]);
+  }, [opened, shown, statuses, setState]);
 
-  const answer = useSessionEvents(opened, update, setError);
+  const answer = useSessionEvents(opened, shownRef, update, setError);
 
   const setTrust = useCallback(
     async (trusted: boolean) => {
@@ -161,72 +99,55 @@ export function useAgentSession(
     [opened, folder, patch],
   );
 
-  const send = useCallback(
-    async (text: string, images: ImageContent[] = []) => {
-      if (!opened || (!text.trim() && !images.length)) return;
-      setError(null);
-      try {
-        await opened.request({
-          type: "prompt",
-          text,
-          ...(images.length > 0 && { images }),
-        });
-      } catch (e) {
-        setError((e as Error).message);
-      }
-    },
-    [opened],
+  const putOpened = useCallback(
+    (s: OpenedSession | null) => folder && putIn(folder, s),
+    [folder, putIn],
   );
 
-  const clear = useCallback(async () => {
-    if (!opened || !folder) return;
-    setError(null);
-    try {
-      const s = await opened.request({ type: "clear_session" });
-      put(toOpened(opened, folder, s));
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, [opened, folder, put]);
+  const none = current?.session === null;
+  const actions = useComposerActions({
+    opened,
+    folder,
+    none,
+    start: putOpened,
+    setState,
+    setError,
+  });
 
-  const stop = useCallback(async () => {
-    await opened?.request({ type: "abort" }).catch(() => {});
-  }, [opened]);
-
-  const change = useCallback(
-    async (
-      request:
-        | { type: "set_model"; provider: string; modelId: string }
-        | { type: "set_thinking_level"; level: ThinkingLevel },
-    ) => {
-      if (!opened) return;
-      setError(null);
-      try {
-        setState(await opened.request(request));
-      } catch (e) {
-        setError((e as Error).message);
-      }
-    },
-    [opened, setState],
-  );
+  const draft = useDraftState(opened, none, actions.pending, statuses);
 
   return {
-    ...view(current),
+    ...view(current, draft),
     error,
-    send,
-    stop,
-    /** Starts an empty conversation; the old one stays saved. */
-    clear,
+    send: actions.send,
+    stop: actions.stop,
+    /** The shown conversation's id; the folder may have others open. */
+    session: shown,
+    /**
+     * Shows one of the conversations of `cwd` (the shown folder by default),
+     * open or saved; another folder shows it once selected.
+     */
+    show: (session: string, cwd = folder) => {
+      if (cwd === folder) return show(session);
+      if (cwd) showIn.current = { folder: cwd, target: session };
+    },
+    /**
+     * Shows a new conversation in `cwd` (the shown folder by default), which
+     * starts with its first message; another folder shows it once selected.
+     */
+    create: (cwd = folder) => {
+      setFresh((n) => n + 1);
+      if (cwd !== folder && cwd) showIn.current = { folder: cwd, target: null };
+      else if (cwd) putIn(cwd, null);
+    },
+    /** Counts new conversations asked for, so the composer can take focus for each. */
+    fresh,
+    /** Closes a conversation (it stays saved); `open` is the folder's open ones, in order. */
+    close: (session: string, open: string[]) => close(session, shown, open),
     /** Approves or denies a tool call that waits for the user. */
     answer,
     setTrust,
-    setModel: (model: ModelInfo) =>
-      change({
-        type: "set_model",
-        provider: model.provider,
-        modelId: model.id,
-      }),
-    setThinkingLevel: (level: ThinkingLevel) =>
-      change({ type: "set_thinking_level", level }),
+    setModel: actions.setModel,
+    setThinkingLevel: actions.setThinkingLevel,
   };
 }

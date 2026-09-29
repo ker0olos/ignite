@@ -13,6 +13,8 @@ import type { ClaudeCode } from "./claudeCode.ts";
 import type { McpStore } from "./mcpConfig.ts";
 import type { Preset, ImportSource } from "./mcpCatalog.ts";
 import type { TrustStore } from "./trust.ts";
+import type { Workspaces } from "./worktrees.ts";
+import type { DraftPick } from "./draftSession.ts";
 
 /** What the MCP settings offer to add in one click. */
 export type McpCatalogSource = {
@@ -43,11 +45,12 @@ export type Runtime = {
     interaction: Interaction,
   ): Promise<unknown>;
   logout(providerId: string): Promise<void>;
-  getAvailable(): Promise<readonly ModelInfo[]>;
 };
 
 /** The slice of pi's AgentSession the host needs; tests pass a fake. */
 export type Session = {
+  /** Its own, since each session registers its own pi-claude-bridge. */
+  readonly modelRuntime: { getAvailable(): Promise<readonly ModelInfo[]> };
   readonly model: ModelInfo | undefined;
   readonly thinkingLevel: ThinkingLevel;
   getAvailableThinkingLevels(): ThinkingLevel[];
@@ -81,11 +84,12 @@ export type McpStatusSnapshot = {
 
 /**
  * Opens the folder's saved conversation `id`, or starts an empty one with
- * that id; the adapter's status snapshots go to `onMcpStatus`, tool calls
- * waiting for the user to `onApproval`.
+ * that id, working in `workdir`; the adapter's status snapshots go to
+ * `onMcpStatus`, tool calls waiting for the user to `onApproval`.
  */
 export type OpenSession = (
   cwd: string,
+  workdir: string,
   id: string,
   onMcpStatus: (snapshot: McpStatusSnapshot) => void,
   onApproval: (ask: ApprovalAsk) => void,
@@ -93,12 +97,12 @@ export type OpenSession = (
 
 /** The conversations pi saved for each folder. */
 export type SessionStore = {
-  /** The folder's most recently used conversation, or a new id if it has none. */
-  latest(cwd: string): string;
   /** A new conversation id. */
   create(): string;
   /** The folder's conversations with at least one message, newest first. */
   list(cwd: string): Promise<Omit<SavedSession, "open">[]>;
+  /** A saved conversation's messages; none if it has no file yet. */
+  read(cwd: string, id: string): Promise<AgentMessage[]>;
 };
 
 /**
@@ -109,6 +113,12 @@ export type Agent = {
   /** pi's session id, which names its saved conversation. */
   id: string;
   cwd: string;
+  /** Where it works: its own worktree, or `cwd` when the folder isn't in git. */
+  workdir: string;
+  /** Its first user message, which names it in the sidebar. */
+  title: string;
+  /** Settles once its worktree has the folder's ignored files (dependencies, builds). */
+  ready: Promise<void>;
   /** Null while it opens. */
   session: Session | null;
   opening: Promise<Session>;
@@ -132,6 +142,9 @@ export type HostContext = {
   send: (m: HostMessage) => void;
   openSession: OpenSession;
   sessions: SessionStore;
+  workspaces: Pick<Workspaces, "open" | "close">;
+  /** The session that shows what a new conversation would start with. */
+  draft: (pick: DraftPick) => Promise<Session>;
   local: LocalLogins;
   mcpStore: McpStore;
   catalog: McpCatalogSource;
@@ -152,6 +165,11 @@ export type HostContext = {
   prompts: Map<number, Pending>;
   /** Counter for the next auth prompt id. */
   nextPromptId: number;
+  /**
+   * Claude Code's last known sign-in and when it was checked; the model list
+   * uses it rather than wait on `claude auth status` each time.
+   */
+  claudeLogin: { loggedIn: boolean; at: number } | null;
   /** Told whether any folder's agent is working (running, not waiting on the user). */
   keepAwake: (working: boolean) => Promise<void>;
 };

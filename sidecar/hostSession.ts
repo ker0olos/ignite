@@ -18,7 +18,8 @@ import type { ApprovalAsk } from "./approvalExtension.ts";
 import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
 import { signOut } from "./hostMcpSignIn.ts";
 import { askApproval, denyAll } from "./hostApproval.ts";
-import { pushProjects } from "./hostProjects.ts";
+import { claudeLoggedIn } from "./hostAuth.ts";
+import { firstTitle, pushProjects, titleOf } from "./hostProjects.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -35,13 +36,11 @@ export async function sessionState(
 ): Promise<SessionState> {
   s ??= await current(ctx);
   const [models, claude] = await Promise.all([
-    ctx.runtime.getAvailable(),
-    ctx.local.claudeCode.status(),
+    s.modelRuntime.getAvailable(),
+    claudeLoggedIn(ctx),
   ]);
   // The bridge lists its models whether or not Claude Code is signed in.
-  const usable = models.filter(
-    (m) => m.provider !== "claude-bridge" || claude.loggedIn,
-  );
+  const usable = models.filter((m) => m.provider !== "claude-bridge" || claude);
   return {
     models: usable.map(info),
     model: s.model && info(s.model),
@@ -57,7 +56,7 @@ export async function setModel(
   modelId: string,
 ) {
   const s = await current(ctx);
-  const model = (await ctx.runtime.getAvailable()).find(
+  const model = (await s.modelRuntime.getAvailable()).find(
     (m) => m.provider === provider && m.id === modelId,
   );
   if (!model) throw new Error(`${modelId} isn't available.`);
@@ -66,23 +65,28 @@ export async function setModel(
   return sessionState(ctx);
 }
 
-// The last one shown, else another one open, else the most recent saved one.
-function reopened(ctx: HostContext, cwd: string): string {
+// The last one shown, else another one open; a folder may have none.
+function reopened(ctx: HostContext, cwd: string): string | undefined {
   const last = ctx.lastShown.get(cwd);
   if (last && ctx.agents.has(last)) return last;
-  const open = [...ctx.agents.values()].find((a) => a.cwd === cwd);
-  return open?.id ?? ctx.sessions.latest(cwd);
+  return [...ctx.agents.values()].find((a) => a.cwd === cwd)?.id;
 }
 
 /**
- * Shows one of a folder's conversations (see `reopened` when `id` is unset),
- * starting its session unless it's already open, and returns its state.
+ * Shows one of a folder's conversations, starting its session unless it's
+ * already open, and returns its state. Without `id`, the one `reopened`
+ * finds, or null: showing a folder never starts a conversation.
  */
 export async function open(
   ctx: HostContext,
   cwd: string,
   id = reopened(ctx, cwd),
-): Promise<OpenedSession> {
+): Promise<OpenedSession | null> {
+  if (id === undefined) {
+    ctx.shown = null;
+    await pushMcpServers(ctx);
+    return null;
+  }
   ctx.shown = id;
   ctx.lastShown.set(cwd, id);
   ctx.checking.clear();
@@ -98,6 +102,7 @@ export async function open(
   return {
     ...(await sessionState(ctx, s)),
     session: id,
+    workdir: agent.workdir,
     trust: ctx.trust.get(cwd),
     messages: s.messages,
     running: s.isStreaming,
@@ -106,18 +111,13 @@ export async function open(
   };
 }
 
-/** Ends the shown conversation and shows an empty one in its place; the old one stays saved. */
-export async function clear(ctx: HostContext): Promise<OpenedSession> {
-  const agent = shown(ctx);
-  await current(ctx);
-  await end(ctx, agent!);
-  return open(ctx, agent!.cwd, ctx.sessions.create());
-}
-
 function start(ctx: HostContext, cwd: string, id: string): Agent {
   const agent = {
     id,
     cwd,
+    workdir: cwd,
+    title: "",
+    ready: Promise.resolve(),
     session: null,
     running: false,
     unsubscribe: () => {},
@@ -140,11 +140,14 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
     live() ? askApproval(ctx, agent, ask) : ask.answer(false);
   ctx.agents.set(id, agent);
   pushProjects(ctx);
-  agent.opening = ctx
-    .openSession(cwd, id, onMcpStatus, onApproval)
+  agent.opening = inWorkspace(ctx, agent, (workdir) =>
+    ctx.openSession(cwd, workdir, id, onMcpStatus, onApproval),
+  )
     .then((s) => {
       agent.session = s;
       agent.running = s.isStreaming;
+      agent.title = firstTitle(s.messages);
+      pushProjects(ctx);
       agent.unsubscribe = s.subscribe((event) => follow(ctx, agent, event));
       return s;
     })
@@ -153,6 +156,23 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
       throw error;
     });
   return agent;
+}
+
+// A session that fails to open takes its new worktree with it.
+async function inWorkspace(
+  ctx: HostContext,
+  agent: Agent,
+  open: (workdir: string) => Promise<Session>,
+) {
+  const ws = await ctx.workspaces.open(agent.cwd, agent.id);
+  agent.workdir = ws.dir;
+  agent.ready = ws.ready;
+  try {
+    return await open(ws.dir);
+  } catch (error) {
+    await ctx.workspaces.close(agent.cwd, agent.id).catch(() => {});
+    throw error;
+  }
 }
 
 // Only the shown conversation's events reach the app; the rest keep running unseen.
@@ -166,6 +186,12 @@ function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
   }
   if (event.type === "agent_start" || event.type === "agent_settled") {
     agent.running = event.type === "agent_start";
+    pushProjects(ctx);
+  }
+  // The first message names the conversation; pi stores it only afterwards.
+  const first = event.type === "message_start" && !agent.title;
+  if (first && event.message.role === "user") {
+    agent.title = titleOf(event.message);
     pushProjects(ctx);
   }
   if (event.type === "agent_settled" && agent.reloadWhenSettled) {
@@ -200,6 +226,13 @@ async function end(ctx: HostContext, agent: Agent) {
   // dispose() alone leaves extensions running (MCP server processes).
   await s.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
   s.dispose();
+  // Its work stays saved with the conversation; see worktrees.ts.
+  await ctx.workspaces.close(agent.cwd, agent.id).catch(() => {});
+}
+
+/** Ends every conversation, as the app quits. */
+export async function closeAll(ctx: HostContext) {
+  await Promise.all([...ctx.agents.values()].map((a) => end(ctx, a)));
 }
 
 /** The folder's saved conversations, newest first, marking the open ones. */
@@ -218,6 +251,7 @@ export async function prompt(
 ) {
   const agent = shown(ctx);
   const s = await current(ctx);
+  await agent!.ready;
   // A message sent mid-run steers the agent rather than waiting for the end.
   const options = {
     ...(s.isStreaming && { streamingBehavior: "steer" as const }),

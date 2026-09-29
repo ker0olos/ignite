@@ -29,8 +29,15 @@ function fakeHost(answer: (req: { type: string }) => Promise<unknown>) {
   const host = {
     request: vi.fn(async (req: { type: string }) => {
       const data = await answer(req);
-      return req.type === "open_session"
-        ? { messages: [], running: false, approvals: [], ...(data as object) }
+      if (data === null) return null;
+      return req.type === "open_session" || req.type === "new_session"
+        ? {
+            session: "s1",
+            messages: [],
+            running: false,
+            approvals: [],
+            ...(data as object),
+          }
         : data;
     }) as unknown as HostClient["request"],
     send: vi.fn(async () => {}),
@@ -427,35 +434,279 @@ describe("useAgentSession", () => {
       expect(types(host)).toContain("abort");
     });
 
-    it("clears the conversation, and says why if it can't", async () => {
-      const hello = { role: "user", content: "hello", timestamp: 1 };
-      let fail = false;
-      const host = fakeHost(async (req) => {
-        if (req.type === "open_session") return { ...STATE, messages: [hello] };
-        if (fail) throw new Error("Disk full");
-        return {
-          ...STATE,
-          messages: [],
-          running: false,
-          approvals: [],
-          trust: "ask",
-        };
-      });
-      const { result } = renderHook(() => useAgentSession(host, "/work", null));
-      await waitFor(() => expect(result.current.transcript).not.toBeNull());
-      expect(result.current.transcript).not.toEqual(fromHistory([], false));
-      await act(() => result.current.clear());
-      expect(host.request).toHaveBeenLastCalledWith({ type: "clear_session" });
-      expect(result.current.transcript).toEqual(fromHistory([], false));
-      fail = true;
-      await act(() => result.current.clear());
-      expect(result.current.error).toBe("Disk full");
-    });
-
     it("stops the run", async () => {
       const { host, result } = await opened();
       await act(() => result.current.stop());
       expect(host.request).toHaveBeenCalledWith({ type: "abort" });
+    });
+  });
+});
+
+describe("several conversations in a folder", () => {
+  const hello = { role: "user", content: "hello", timestamp: 1 };
+  /** A folder whose open_session shows `session` (its saved one, "s1", by default). */
+  const folder = (fail = false) => {
+    const host = fakeHost(async (req) => {
+      const r = req as { type: string; session?: string };
+      if (fail && r.type !== "open_session") throw new Error("Disk full");
+      if (r.type === "new_session") return { ...STATE, session: "s2" };
+      if (r.type === "list_sessions") {
+        return [
+          {
+            id: "s1",
+            title: "hello",
+            modified: 2,
+            messageCount: 2,
+            open: true,
+          },
+          {
+            id: "s0",
+            title: "older",
+            modified: 1,
+            messageCount: 4,
+            open: false,
+          },
+        ];
+      }
+      if (r.type === "close_session") return undefined;
+      return { ...STATE, session: r.session ?? "s1", messages: [hello] };
+    });
+    const hook = renderHook(() => useAgentSession(host, "/work", null));
+    return { host, ...hook };
+  };
+
+  it("shows a new conversation that starts with its first message, and switches back", async () => {
+    const { host, result } = folder();
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    act(() => result.current.create());
+    expect(result.current.none).toBe(true);
+    expect(types(host)).not.toContain("new_session");
+    await act(() => result.current.send("Another thing"));
+    expect(types(host).slice(-2)).toEqual(["new_session", "prompt"]);
+    expect(result.current.session).toBe("s2");
+    expect(result.current.transcript).toEqual(fromHistory([], false));
+    await act(() => result.current.show("s1"));
+    expect(host.request).toHaveBeenLastCalledWith({
+      type: "open_session",
+      cwd: "/work",
+      session: "s1",
+    });
+    expect(result.current.transcript?.items).toHaveLength(1);
+  });
+
+  it("applies only the shown conversation's events", async () => {
+    const { host, result } = folder();
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    host.emit({ type: "session_error", session: "s2", error: "Elsewhere" });
+    expect(result.current.transcript?.items).toHaveLength(1);
+    host.emit({ type: "session_error", session: "s1", error: "Here" });
+    expect(result.current.transcript?.items).toHaveLength(2);
+  });
+
+  it("shows a neighbour when the shown conversation closes, and none after the last", async () => {
+    const { host, result } = folder();
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    await act(() => result.current.close("s1", ["s0", "s1", "s3"]));
+    expect(host.request).toHaveBeenCalledWith({
+      type: "close_session",
+      cwd: "/work",
+      session: "s1",
+    });
+    expect(host.request).toHaveBeenLastCalledWith({
+      type: "open_session",
+      cwd: "/work",
+      session: "s3",
+    });
+    await act(() => result.current.close("s3", ["s3"]));
+    expect(host.request).toHaveBeenCalledWith({
+      type: "close_session",
+      cwd: "/work",
+      session: "s3",
+    });
+    expect(result.current.none).toBe(true);
+    expect(result.current.session).toBeNull();
+  });
+
+  it("closes a conversation in the background without switching", async () => {
+    const { host, result } = folder();
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    await act(() => result.current.close("s9", ["s1", "s9"]));
+    expect(host.request).toHaveBeenLastCalledWith({
+      type: "close_session",
+      cwd: "/work",
+      session: "s9",
+    });
+    expect(result.current.session).toBe("s1");
+  });
+
+  it("shows a folder with no conversation as a new one, with what it would start with", async () => {
+    let first = true;
+    const host = fakeHost(async (req) => {
+      if (req.type === "draft_state") return { ...STATE, model: mini };
+      if (req.type !== "open_session") return undefined;
+      const answer = first ? { ...STATE, session: "s1" } : null;
+      first = false;
+      return answer;
+    });
+    const { result, rerender } = renderHook(
+      ({ folder }) => useAgentSession(host, folder, null),
+      { initialProps: { folder: "/work" } },
+    );
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    rerender({ folder: "/fresh" });
+    await waitFor(() => expect(result.current.state?.model).toEqual(mini));
+    expect(result.current.none).toBe(true);
+    expect(result.current.transcript).toBeNull();
+  });
+
+  it("starts the conversation with the first message, taking choices made before it", async () => {
+    const host = fakeHost(async (req) => {
+      if (req.type === "open_session") return null;
+      if (req.type === "new_session") return { ...STATE, session: "s2" };
+      if (req.type === "set_model") return { ...STATE, model: mini };
+      return undefined;
+    });
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.none).toBe(true));
+    await act(() => result.current.setModel(mini));
+    await waitFor(() =>
+      expect(host.request).toHaveBeenCalledWith({
+        type: "draft_state",
+        model: { provider: "openai", id: "mini" },
+      }),
+    );
+    const sent = () => types(host).filter((t) => t !== "draft_state");
+    expect(sent()).toEqual(["open_session"]);
+    await act(() => result.current.send("Build it"));
+    expect(sent()).toEqual([
+      "open_session",
+      "new_session",
+      "set_model",
+      "prompt",
+    ]);
+    expect(result.current.session).toBe("s2");
+    expect(result.current.state?.model).toEqual(mini);
+  });
+
+  it("applies the new conversation's first events at once", async () => {
+    const host = fakeHost(async (req) => {
+      if (req.type === "open_session") return null;
+      if (req.type === "new_session") return { ...STATE, session: "s2" };
+      if (req.type === "prompt") {
+        host.emit({
+          type: "session_error",
+          session: "s2",
+          error: "First event",
+        });
+      }
+      return undefined;
+    });
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.none).toBe(true));
+    await act(() => result.current.send("Build it"));
+    expect(result.current.transcript?.items).toHaveLength(1);
+  });
+
+  it("says why a conversation couldn't be started", async () => {
+    const { result } = folder(true);
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    act(() => result.current.create());
+    await act(() => result.current.send("Build it"));
+    expect(result.current.error).toBe("Disk full");
+  });
+
+  it("shows a new conversation in another folder once it's selected", async () => {
+    const host = fakeHost(async (req) =>
+      req.type === "open_session" ? { ...STATE, session: "s1" } : undefined,
+    );
+    const { result, rerender } = renderHook(
+      ({ folder }) => useAgentSession(host, folder, null),
+      { initialProps: { folder: "/work" } },
+    );
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    act(() => result.current.create("/other"));
+    rerender({ folder: "/other" });
+    await waitFor(() => expect(result.current.none).toBe(true));
+    expect(types(host).filter((t) => t !== "draft_state")).toEqual([
+      "open_session",
+    ]);
+  });
+});
+
+describe("reopening a conversation", () => {
+  const said = (text: string) => [
+    { role: "user", content: text, timestamp: 1 },
+  ];
+  /** A folder whose open_session waits for `start`, per session. */
+  const slow = () => {
+    const starts = new Map<string, () => void>();
+    const host = fakeHost(async (req) => {
+      const r = req as { type: string; session?: string };
+      if (r.type === "read_session") return said(`saved ${r.session}`);
+      if (r.type !== "open_session") return undefined;
+      if (!r.session) return { ...STATE, session: "s1" };
+      await new Promise<void>((go) => starts.set(r.session!, go));
+      return {
+        ...STATE,
+        session: r.session,
+        messages: said(`live ${r.session}`),
+      };
+    });
+    return { host, start: (id: string) => starts.get(id)!() };
+  };
+  const text = (t: ReturnType<typeof useAgentSession>["transcript"]) =>
+    JSON.stringify(t?.items);
+
+  it("shows the saved transcript while the session starts, then the live one", async () => {
+    const { host, start } = slow();
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    act(() => void result.current.show("s2"));
+    await waitFor(() =>
+      expect(text(result.current.transcript)).toContain("saved s2"),
+    );
+    expect(result.current.state).toBeNull();
+    await act(async () => start("s2"));
+    await waitFor(() =>
+      expect(text(result.current.transcript)).toContain("live s2"),
+    );
+    expect(result.current.state).toEqual(STATE);
+  });
+
+  it("shows only the last conversation picked, whichever starts first", async () => {
+    const { host, start } = slow();
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    act(() => void result.current.show("a"));
+    act(() => void result.current.show("b"));
+    await waitFor(() =>
+      expect(text(result.current.transcript)).toContain("saved b"),
+    );
+    await act(async () => start("a"));
+    expect(result.current.session).toBe("b");
+    await act(async () => start("b"));
+    await waitFor(() =>
+      expect(text(result.current.transcript)).toContain("live b"),
+    );
+  });
+
+  it("shows a conversation picked in another folder once that folder is selected", async () => {
+    const { host, start } = slow();
+    const { result, rerender } = renderHook(
+      ({ folder }) => useAgentSession(host, folder, null),
+      { initialProps: { folder: "/work" } },
+    );
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    act(() => void result.current.show("s9", "/other"));
+    rerender({ folder: "/other" });
+    await waitFor(() =>
+      expect(text(result.current.transcript)).toContain("saved s9"),
+    );
+    await act(async () => start("s9"));
+    await waitFor(() => expect(result.current.session).toBe("s9"));
+    expect(host.request).not.toHaveBeenCalledWith({
+      type: "open_session",
+      cwd: "/other",
     });
   });
 });

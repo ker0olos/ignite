@@ -4,12 +4,14 @@ import { load } from "@tauri-apps/plugin-store";
 const FILE = "state.json";
 
 /**
- * App state (recent folders, last open folder), shared by every window.
- * User preferences live in settings.toml instead; see settings.ts.
+ * App state (folders, the last one shown, each folder's listed
+ * conversations), shared by every window. User preferences live in
+ * settings.toml instead; see settings.ts.
  */
 export const store = load(FILE);
 
-export type StoreKey = "folders" | "current" | "connectScreenSeen";
+export type StoreKey =
+  "folders" | "dismissed" | "current" | "conversations" | "connectScreenSeen";
 
 // Store's own onKeyChange filters by a per-webview resource id, so it misses other windows.
 export function onStoreChange(cb: (key: StoreKey, value: unknown) => void) {

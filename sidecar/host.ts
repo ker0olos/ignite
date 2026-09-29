@@ -19,8 +19,8 @@ import {
   sessionState,
   setModel,
   open,
-  clear,
   close,
+  closeAll,
   list,
   prompt,
 } from "./hostSession.ts";
@@ -59,9 +59,13 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   open_session: (ctx, r) => open(ctx, r.cwd, r.session),
   new_session: (ctx, r) => open(ctx, r.cwd, ctx.sessions.create()),
   close_session: (ctx, r) => close(ctx, r.cwd, r.session),
-  clear_session: (ctx) => clear(ctx),
   list_sessions: (ctx, r) => list(ctx, r.cwd),
+  read_session: (ctx, r) =>
+    ctx.agents.get(r.session)?.session?.messages ??
+    ctx.sessions.read(r.cwd, r.session),
   session_state: (ctx) => sessionState(ctx),
+  draft_state: async (ctx, r) =>
+    sessionState(ctx, await ctx.draft({ model: r.model, level: r.level })),
   set_model: (ctx, r) => setModel(ctx, r.provider, r.modelId),
   set_thinking_level: async (ctx, r) => {
     (await current(ctx)).setThinkingLevel(r.level, { persist: true });
@@ -115,6 +119,8 @@ export function createHost(
   send: (m: HostMessage) => void,
   openSession: OpenSession,
   sessions: SessionStore,
+  workspaces: HostContext["workspaces"],
+  draft: HostContext["draft"],
   local: LocalLogins,
   mcpStore: McpStore,
   catalog: McpCatalogSource,
@@ -126,11 +132,14 @@ export function createHost(
     send,
     openSession,
     sessions,
+    workspaces,
+    draft,
     local,
     mcpStore,
     catalog,
     trust,
     activeLogin: null,
+    claudeLogin: null,
     agents: new Map(),
     shown: null,
     lastShown: new Map(),
@@ -174,5 +183,5 @@ export function createHost(
     }
   }
 
-  return { handle };
+  return { handle, shutdown: () => closeAll(ctx) };
 }

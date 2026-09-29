@@ -14,7 +14,7 @@ import {
   DENIED,
   type ApprovalAsk,
 } from "./approvalExtension.ts";
-import gitTools, { USE_TOOLS, needsTools } from "./gitExtension.ts";
+import gitTools, { USE_TOOLS, delivers, needsTools } from "./gitExtension.ts";
 import { resultText, run } from "./gitRun.ts";
 
 let home: string;
@@ -151,6 +151,16 @@ describe("the gh tool", () => {
     });
     asks[0].answer(false);
     await expect(done).rejects.toThrow(DENIED);
+  });
+});
+
+describe("delivers", () => {
+  it("spots calls that put the agent's work on the remote", () => {
+    expect(delivers("git", ["push", "-u", "origin", "fix/x"])).toBe(true);
+    expect(delivers("git", ["-C", "sub", "push"])).toBe(true);
+    expect(delivers("gh", ["pr", "merge", "3", "--merge"])).toBe(true);
+    expect(delivers("git", ["commit", "-m", "x"])).toBe(false);
+    expect(delivers("gh", ["pr", "create"])).toBe(false);
   });
 });
 

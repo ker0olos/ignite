@@ -22,17 +22,18 @@ function fakeHost() {
 const a = { cwd: "/a", running: true, waiting: false };
 const b = { cwd: "/b", running: false, waiting: true };
 const agents = [
-  { ...a, session: "a1" },
-  { ...b, session: "b1" },
+  { ...a, session: "a1", title: "" },
+  { ...b, session: "b1", title: "" },
 ];
 
 describe("useProjects", () => {
   it("reports what each open project is doing", () => {
     const host = fakeHost();
     const { result } = renderHook(() => useProjects(host, ["/a", "/b"]));
-    expect(result.current).toEqual({});
+    expect(result.current.statuses).toEqual({});
     host.emit({ type: "agents", agents });
-    expect(result.current).toEqual({ "/a": a, "/b": b });
+    expect(result.current.statuses).toEqual({ "/a": a, "/b": b });
+    expect(result.current.agents).toEqual(agents);
   });
 
   it("ends the session of a project closed in the app", () => {
@@ -57,15 +58,15 @@ describe("useProjects", () => {
     );
     first.emit({ type: "agents", agents: [agents[0]] });
     rerender({ host: null });
-    expect(result.current).toEqual({});
+    expect(result.current).toEqual({ statuses: {}, agents: [] });
   });
 });
 
 describe("byFolder", () => {
   it("shows a folder working or waiting if any of its conversations is", () => {
     const [x, y] = [
-      { cwd: "/a", session: "1", running: true, waiting: false },
-      { cwd: "/a", session: "2", running: false, waiting: true },
+      { cwd: "/a", session: "1", title: "", running: true, waiting: false },
+      { cwd: "/a", session: "2", title: "", running: false, waiting: true },
     ];
     expect(byFolder([x, y])).toEqual({
       "/a": { cwd: "/a", running: true, waiting: true },

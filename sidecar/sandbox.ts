@@ -11,6 +11,7 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
+import { gitWritable } from "./worktreeGit.ts";
 
 // ponytail: fixed lists; make them settings once someone needs another host
 // or cache.
@@ -70,14 +71,22 @@ export const CACHES = [
   ".m2/repository",
 ];
 
-/** The sandbox for commands run in `cwd`. */
+/**
+ * The sandbox for commands run in `cwd`. In an agent's worktree, git also
+ * writes its private git dir and objects in the user's repository.
+ */
 export function sandboxConfig(cwd: string, home: string): SandboxRuntimeConfig {
   const temp = [...new Set([tmpdir(), "/tmp", "/private/tmp"])];
   return {
     network: { allowedDomains: ALLOWED_DOMAINS, deniedDomains: [] },
     filesystem: {
       denyRead: CREDENTIALS.map((p) => join(home, p)),
-      allowWrite: [cwd, ...temp, ...CACHES.map((p) => join(home, p))],
+      allowWrite: [
+        cwd,
+        ...gitWritable(cwd),
+        ...temp,
+        ...CACHES.map((p) => join(home, p)),
+      ],
       denyWrite: [],
     },
     // macOS denies this to every sandboxed process; it breaks nothing.

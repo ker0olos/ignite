@@ -103,6 +103,8 @@ export type ApprovalRequest = {
 export type OpenedSession = SessionState & {
   /** The conversation's id; a folder can have several. */
   session: string;
+  /** Where its agent works: its own git worktree, or the folder itself. */
+  workdir: string;
   trust: ProjectTrust;
   /** The conversation so far, when an earlier session is continued. */
   messages: AgentMessage[];
@@ -123,7 +125,11 @@ export type ProjectStatus = {
 };
 
 /** One of a folder's open conversations. */
-export type AgentStatus = ProjectStatus & { session: string };
+export type AgentStatus = ProjectStatus & {
+  session: string;
+  /** The first line of its first message; empty until it has one. */
+  title: string;
+};
 
 /** A conversation pi saved for a folder. */
 export type SavedSession = {
@@ -237,7 +243,8 @@ export type HostRequest =
   | { id: number; type: "logout"; provider: ProviderId }
   /**
    * Shows one of a folder's conversations, opening it unless it's open.
-   * Without `session`: the one last shown, else the most recent saved one.
+   * Without `session`: the folder's last shown open one, else null (showing a
+   * folder never starts a conversation).
    */
   | { id: number; type: "open_session"; cwd: string; session?: string }
   /** Starts another, empty conversation in the folder and shows it. */
@@ -247,11 +254,24 @@ export type HostRequest =
    * waiting tool calls are denied. Saved conversations stay.
    */
   | { id: number; type: "close_session"; cwd: string; session?: string }
-  /** Ends the shown conversation and starts an empty one in its place; it stays saved. */
-  | { id: number; type: "clear_session" }
   /** The folder's saved conversations, newest first. */
   | { id: number; type: "list_sessions"; cwd: string }
+  /**
+   * A conversation's messages, read from its file (or its running session)
+   * without starting it, so it shows while it starts.
+   */
+  | { id: number; type: "read_session"; cwd: string; session: string }
   | { id: number; type: "session_state" }
+  /**
+   * What a new conversation would start with (models, model, effort), for a
+   * folder with none; `model` and `level` stand in for the saved defaults.
+   */
+  | {
+      id: number;
+      type: "draft_state";
+      model?: { provider: string; id: string };
+      level?: ThinkingLevel;
+    }
   | { id: number; type: "set_model"; provider: string; modelId: string }
   | { id: number; type: "set_thinking_level"; level: ThinkingLevel }
   /** Resolves once pi has accepted the message; the run streams as events. */
@@ -307,12 +327,13 @@ export type HostResponses = {
   login: ProviderStatus;
   cancel_login: undefined;
   logout: ProviderStatus;
-  open_session: OpenedSession;
+  open_session: OpenedSession | null;
   new_session: OpenedSession;
   close_session: undefined;
-  clear_session: OpenedSession;
   list_sessions: SavedSession[];
+  read_session: AgentMessage[];
   session_state: SessionState;
+  draft_state: SessionState;
   set_model: SessionState;
   set_thinking_level: SessionState;
   prompt: undefined;

@@ -1,5 +1,5 @@
 import { SettingsButton } from "@/components/app/SettingsButton";
-import { Welcome } from "@/components/app/Welcome";
+import { WelcomeScreen } from "@/components/app/WelcomeScreen";
 import { Workspace } from "@/components/app/Workspace";
 import { ConnectProviders } from "@/components/providers/ConnectProviders";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
@@ -10,7 +10,8 @@ import { useAppMenu } from "@/hooks/useAppMenu";
 import { useConnectScreen } from "@/hooks/useConnectScreen";
 import { useFolders } from "@/hooks/useFolders";
 import { useMcpServers } from "@/hooks/useMcpServers";
-import { useProjects } from "@/hooks/useProjects";
+import { useConversationList } from "@/hooks/useConversationList";
+import { useConversations } from "@/hooks/useConversations";
 import { useProviders } from "@/hooks/useProviders";
 import { useSettings } from "@/hooks/useSettings";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
@@ -18,16 +19,17 @@ import { useTabs } from "@/hooks/useTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
 import { needingSignIn } from "@/lib/mcpServers";
 import { approvalSetting } from "@/lib/settings";
-import { DEMO_FOLDER, shownSession, shownStatuses } from "@/lib/demo";
+import { DEMO_FOLDER, shownRows, shownSession } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
 export default function App() {
   const {
     loaded,
     folders,
-    projects,
+    shownFolders,
     current,
     addFolder,
+    dismissFolder,
     openFolder,
     closeFolder,
     clearFolders,
@@ -40,7 +42,12 @@ export default function App() {
   const agent = useAgentSession(providers.host, live, providers.statuses);
   const session = shownSession(agent, providers.hostError, current);
   const mcp = useMcpServers(providers.host, live);
-  const statuses = shownStatuses(useProjects(providers.host, projects));
+  const list = useConversationList(providers.host);
+  const chats = useConversations(providers.host, current, agent, {
+    select: addFolder,
+    dismiss: dismissFolder,
+    forget: list.forget,
+  });
   const tabs = useTabs(current);
   const dragging = useFolderDrop(addFolder);
   const dialog = useSettingsDialog(providers.host, current);
@@ -90,12 +97,12 @@ export default function App() {
           approval={approvalSetting(settings, setSettings)}
           actions={settingsButton}
           projectList={{
-            folders,
-            projects,
-            statuses,
+            folders: shownFolders,
+            rows: shownRows(list.rows),
+            shown: session.session,
+            conversations: chats,
             home,
-            onSelect: addFolder,
-            onClose: closeFolder,
+            onDismiss: chats.dismiss,
             onOpenFolder: openFolder,
           }}
           banner={
@@ -108,20 +115,13 @@ export default function App() {
           session={session}
         />
       ) : (
-        <div className="flex flex-1 flex-col">
-          <div
-            data-tauri-drag-region
-            className="flex h-13 shrink-0 items-center justify-end px-2"
-          >
-            {settingsButton}
-          </div>
-          <Welcome
-            folders={folders}
-            home={home}
-            onOpenFolder={openFolder}
-            onSelectFolder={addFolder}
-          />
-        </div>
+        <WelcomeScreen
+          settingsButton={settingsButton}
+          folders={folders}
+          home={home}
+          onOpenFolder={openFolder}
+          onSelectFolder={addFolder}
+        />
       )}
       <SettingsDialog
         key={dialog.section}

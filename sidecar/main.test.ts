@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import {
   mkdir,
@@ -104,7 +104,7 @@ describe("sidecar process", () => {
 
   it("opens a pi session for a folder with the connected provider's models", async () => {
     const { messages } = await run(
-      JSON.stringify({ id: 1, type: "open_session", cwd: home }) + "\n",
+      JSON.stringify({ id: 1, type: "new_session", cwd: home }) + "\n",
       { OPENAI_API_KEY: "sk-test" },
     );
     const response = messages.find((m) => m.type === "response");
@@ -116,7 +116,19 @@ describe("sidecar process", () => {
     expect(state.thinkingLevels).toContain(state.thinkingLevel);
   }, 30_000);
 
-  it("clears a folder's saved conversations and starts an empty one", async () => {
+  it("tells what a new conversation would start with, before one exists", async () => {
+    const { messages } = await run(
+      JSON.stringify({ id: 1, type: "draft_state" }) + "\n",
+      { OPENAI_API_KEY: "sk-test" },
+    );
+    const response = messages.find((m) => m.type === "response");
+    expect(response).toMatchObject({ id: 1, ok: true });
+    const state = (response as { data: SessionState }).data;
+    expect(state.models.length).toBeGreaterThan(0);
+    expect(state.thinkingLevels).toContain(state.thinkingLevel);
+  }, 30_000);
+
+  it("keeps several conversations open in a folder, and saved ones to go back to", async () => {
     process.env.PI_CODING_AGENT_DIR = join(home, `.${APP_NAME}`, "pi");
     const { SessionManager } = await import("@earendil-works/pi-coding-agent");
     const saved = SessionManager.create(home);
@@ -146,17 +158,88 @@ describe("sidecar process", () => {
         (m): m is Extract<HostMessage, { type: "response" }> =>
           m.type === "response" && m.id === id,
       );
-      return (r as { data: { messages: unknown[] } }).data.messages;
+      return (r as { data: { session: string; messages: unknown[] } }).data;
     };
-    sidecar.send({ id: 1, type: "open_session", cwd: home });
-    expect(await answer(1)).toHaveLength(2);
-    sidecar.send({ id: 2, type: "clear_session" });
-    expect(await answer(2)).toHaveLength(0);
-    // Reopening the folder finds nothing to continue.
-    sidecar.send({ id: 3, type: "open_session", cwd: home });
-    expect(await answer(3)).toHaveLength(0);
+    sidecar.send({
+      id: 1,
+      type: "open_session",
+      cwd: home,
+      session: saved.getSessionId(),
+    });
+    const first = await answer(1);
+    expect(first.messages).toHaveLength(2);
+    sidecar.send({ id: 2, type: "new_session", cwd: home });
+    const second = await answer(2);
+    expect(second.messages).toHaveLength(0);
+    expect(second.session).not.toBe(first.session);
+    // Both stay open; the first is still saved to go back to.
+    sidecar.send({
+      id: 3,
+      type: "close_session",
+      cwd: home,
+      session: second.session,
+    });
+    await answer(3).catch(() => {});
+    sidecar.send({ id: 4, type: "list_sessions", cwd: home });
+    expect(await answer(4)).toMatchObject([
+      { id: first.session, title: "hello", open: true },
+    ]);
+    sidecar.send({
+      id: 5,
+      type: "open_session",
+      cwd: home,
+      session: first.session,
+    });
+    expect((await answer(5)).messages).toHaveLength(2);
     await sidecar.stop();
   }, 30_000);
+
+  it("gives each conversation in a git folder its own worktree, and removes them on quit", async () => {
+    const project = join(home, "project");
+    await mkdir(project);
+    const git = (...args: string[]) =>
+      execFileSync(
+        "git",
+        ["-c", "user.name=t", "-c", "user.email=t@t", ...args],
+        {
+          cwd: project,
+        },
+      );
+    git("init", "-q", "-b", "main");
+    await writeFile(join(project, "app.ts"), "one\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "init");
+    const gitDir = dirname(
+      execFileSync("which", ["git"], { encoding: "utf8" }).trim(),
+    );
+    const sidecar = start({
+      OPENAI_API_KEY: "sk-test",
+      PATH: `${dirname(process.execPath)}:${gitDir}`,
+    });
+    const answer = async (id: number) => {
+      const r = await sidecar.next(
+        (m): m is Extract<HostMessage, { type: "response" }> =>
+          m.type === "response" && m.id === id,
+      );
+      return (r as { data: { workdir: string } }).data;
+    };
+    const worktrees = join(home, `.${APP_NAME}`, "worktrees");
+    sidecar.send({ id: 1, type: "new_session", cwd: project });
+    const a = (await answer(1)).workdir;
+    sidecar.send({ id: 2, type: "new_session", cwd: project });
+    const b = (await answer(2)).workdir;
+    expect(a.startsWith(worktrees)).toBe(true);
+    expect(b.startsWith(worktrees)).toBe(true);
+    expect(a).not.toBe(b);
+    expect(await readFile(join(b, "app.ts"), "utf8")).toBe("one\n");
+    await sidecar.stop();
+    expect(existsSync(a) || existsSync(b)).toBe(false);
+    const refs = execFileSync("git", ["for-each-ref", `refs/${APP_NAME}`], {
+      cwd: project,
+      encoding: "utf8",
+    });
+    expect(refs.trim().split("\n")).toHaveLength(2);
+  }, 60_000);
 
   it("loads mods/ files in place of the ones they override", async () => {
     const mods = join(home, "mods");
@@ -191,7 +274,7 @@ describe("sidecar process", () => {
       ),
     );
     const { messages } = await run(
-      JSON.stringify({ id: 1, type: "open_session", cwd: home }) + "\n",
+      JSON.stringify({ id: 1, type: "new_session", cwd: home }) + "\n",
       { IGNITION_MODS: mods, OPENAI_API_KEY: "sk-test" },
     );
     expect(messages[0]).toEqual({ type: "modded" });
@@ -275,7 +358,7 @@ describe("MCP servers in the sidecar", () => {
     await sidecar.next(
       (m): m is HostMessage => m.type === "response" && m.id === 1,
     );
-    sidecar.send({ id: 2, type: "open_session", cwd: home });
+    sidecar.send({ id: 2, type: "new_session", cwd: home });
     const pushed = await sidecar.next(
       (m): m is Extract<HostMessage, { type: "mcp_servers" }> =>
         m.type === "mcp_servers" && m.servers[0]?.status === "connected",
@@ -333,7 +416,7 @@ describe("project trust in the sidecar", () => {
       m.type === "response" && m.id === id;
 
     const sidecar = start();
-    sidecar.send({ id: 1, type: "open_session", cwd: project });
+    sidecar.send({ id: 1, type: "new_session", cwd: project });
     const opened = await sidecar.next((m): m is HostMessage => response(1)(m));
     expect(opened).toMatchObject({ ok: true, data: { trust: "ask" } });
     expect(existsSync(marker)).toBe(false);
