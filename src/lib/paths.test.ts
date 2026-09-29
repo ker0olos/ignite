@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { basename, dirname, tildify } from "./paths";
+import { basename, dirname, sortedByName, tildify } from "./paths";
 
 describe("basename", () => {
   it("returns the last segment", () => {
@@ -54,5 +54,27 @@ describe("tildify", () => {
 
   it("is a no-op before the home directory is known", () => {
     expect(tildify("/Users/me/Projects", "")).toBe("/Users/me/Projects");
+  });
+});
+
+describe("sortedByName", () => {
+  it("sorts by folder name, ignoring case and counting numbers, then by path", () => {
+    expect(
+      sortedByName([
+        "/work/motr",
+        "/work/Ignition",
+        "/b/app10",
+        "/a/app2",
+        "/z/api",
+        "/a/api",
+      ]),
+    ).toEqual([
+      "/a/api",
+      "/z/api",
+      "/a/app2",
+      "/b/app10",
+      "/work/Ignition",
+      "/work/motr",
+    ]);
   });
 });

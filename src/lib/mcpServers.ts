@@ -1,9 +1,9 @@
-import {
-  mcpServerProblem,
-  type McpServer,
-  type McpServerConfig,
-  type McpServerStatus,
+import type {
+  McpServer,
+  McpServerConfig,
+  McpServerStatus,
 } from "../../shared/hostProtocol";
+import { mcpServerProblem } from "../../shared/validation";
 
 /** One name/value row of the form (an environment variable or a header). */
 export type Pair = { key: string; value: string };

@@ -13,12 +13,14 @@ export function CodeLines({
   max,
   editor,
   codeThemes,
+  className,
 }: {
   lines: DiffLine[];
   path: string;
   max: number;
   editor: Editor;
   codeThemes: CodeThemes;
+  className?: string;
 }) {
   const [all, setAll] = useState(false);
   const [tokens, setTokens] = useState<Token[][] | null>(null);
@@ -39,17 +41,25 @@ export function CodeLines({
   return (
     <div>
       <div
-        className="tool-code overflow-x-auto rounded-md border py-1 text-[12px] leading-[18px] text-foreground"
+        className={cn(
+          "tool-code overflow-x-auto rounded-md border py-1 text-[12px] leading-[18px] text-foreground",
+          className,
+        )}
         style={{ fontFamily: editor.font_family }}
       >
         {shown.map((line, i) =>
           line.kind === "gap" ? (
-            <div key={i} className="pl-12 text-muted-foreground select-none">
+            <div
+              key={i}
+              data-row={i}
+              className="pl-12 text-muted-foreground select-none"
+            >
               ⋯
             </div>
           ) : (
             <div
               key={i}
+              data-row={i}
               className={cn(
                 "flex min-w-fit",
                 line.kind === "add" && "bg-success/15",

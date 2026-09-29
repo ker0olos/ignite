@@ -5,6 +5,13 @@
  * the AbortSignals that can't cross a process boundary.
  */
 import type { AgentMessage, ImageContent, SessionEvent } from "./agentTypes.ts";
+import type { GitReview } from "./git.ts";
+import type { MemoryStatus } from "./memory.ts";
+import type {
+  CommandSearch,
+  CommandSearchResult,
+  SessionDetails,
+} from "./conversations.ts";
 import type { QuestionAnswer } from "./questions.ts";
 
 /**
@@ -94,10 +101,16 @@ export type ApprovalRequest = {
   toolCallId: string;
   /** Why Auto stopped for it; unset in Manual, which asks for everything. */
   reason?: string;
+  /** What a commit or push would change. */
+  review?: GitReview;
 };
 
 /** What opening a folder's session returns: its settings and its history. */
 export type OpenedSession = SessionState & {
+  /** The conversation's id; a folder can have several. */
+  session: string;
+  /** Where its agent works: its own git worktree, or the folder itself. */
+  workdir: string;
   trust: ProjectTrust;
   /** The conversation so far, when an earlier session is continued. */
   messages: AgentMessage[];
@@ -109,9 +122,12 @@ export type OpenedSession = SessionState & {
   approvals: ApprovalRequest[];
 };
 
-/** A folder open in this window, which may be working while another is shown. */
-export type ProjectStatus = {
+/** One of a folder's open conversations, which may be working while another is shown. */
+export type AgentStatus = {
   cwd: string;
+  session: string;
+  /** The first line of its first message; empty until it has one. */
+  title: string;
   running: boolean;
   /** A tool call waits for the user. */
   waiting: boolean;
@@ -177,32 +193,14 @@ export type McpCatalog = {
   }[];
 };
 
-/** Something claude-mem recorded, as its worker lists it. */
-export type MemoryObservation = {
-  id: number;
-  /** claude-mem's kind: "bugfix", "feature", "decision", "discovery"… */
-  type: string;
-  title: string;
-  subtitle?: string;
-  /** Milliseconds since the epoch. */
-  createdAt: number;
-  /** The tool that recorded it: "claude", "codex", this app's name… */
-  platform: string;
-};
-
-/** claude-mem on this Mac, for the open folder if any. */
-export type MemoryStatus = {
-  state: "not-installed" | "stopped" | "excluded" | "running";
-  /** The worker's web viewer, while it runs. */
-  viewerUrl?: string;
-  /** The open folder's latest observations, newest first. */
-  observations: MemoryObservation[];
-};
-
 /** The commit the app runs from; `date` is ISO 8601. */
 export type AppVersion = { sha: string; date: string; subject: string };
 
-/** Messages the app sends. Those with an `id` get exactly one `response`. */
+/**
+ * Messages the app sends. Those with an `id` get exactly one `response`.
+ * `session`, where a request takes one, names the conversation it's for
+ * (else the shown one), so it can't land in another shown since it was sent.
+ */
 export type HostRequest =
   | { id: number; type: "status" }
   | {
@@ -215,18 +213,60 @@ export type HostRequest =
     }
   | { id: number; type: "cancel_login" }
   | { id: number; type: "logout"; provider: ProviderId }
-  /** Shows a folder, starting its session unless it's already open. */
-  | { id: number; type: "open_session"; cwd: string }
-  /** Ends a folder's session; its waiting tool calls are denied. */
-  | { id: number; type: "close_session"; cwd: string }
-  /** Deletes the open folder's saved conversations and starts an empty one. */
-  | { id: number; type: "clear_session" }
-  | { id: number; type: "session_state" }
-  | { id: number; type: "set_model"; provider: string; modelId: string }
-  | { id: number; type: "set_thinking_level"; level: ThinkingLevel }
+  /**
+   * Shows one of a folder's conversations, opening it unless it's open.
+   * Without `session`: the folder's last shown open one, else null (showing a
+   * folder never starts a conversation).
+   */
+  | { id: number; type: "open_session"; cwd: string; session?: string }
+  /** Starts another, empty conversation in the folder and shows it. */
+  | { id: number; type: "new_session"; cwd: string }
+  /**
+   * Ends a conversation, or without `session` all of the folder's; their
+   * waiting tool calls are denied. Saved conversations stay.
+   */
+  | { id: number; type: "close_session"; cwd: string; session?: string }
+  /**
+   * A conversation's messages, read from its file (or its running session)
+   * without starting it, so it shows while it starts.
+   */
+  | { id: number; type: "read_session"; cwd: string; session: string }
+  | ({ id: number; type: "command_search" } & CommandSearch)
+  /** What a saved conversation did: model, cost, files, cmem's summary… */
+  | { id: number; type: "session_details"; cwd: string; session: string }
+  | { id: number; type: "session_state"; session?: string }
+  /**
+   * What a new conversation would start with (models, model, effort), for a
+   * folder with none; `model` and `level` stand in for the saved defaults.
+   */
+  | {
+      id: number;
+      type: "draft_state";
+      model?: { provider: string; id: string };
+      level?: ThinkingLevel;
+    }
+  | {
+      id: number;
+      type: "set_model";
+      provider: string;
+      modelId: string;
+      session?: string;
+    }
+  | {
+      id: number;
+      type: "set_thinking_level";
+      level: ThinkingLevel;
+      session?: string;
+    }
   /** Resolves once pi has accepted the message; the run streams as events. */
-  | { id: number; type: "prompt"; text: string; images?: ImageContent[] }
-  | { id: number; type: "abort" }
+  | {
+      id: number;
+      type: "prompt";
+      text: string;
+      images?: ImageContent[];
+      session?: string;
+    }
+  | { id: number; type: "abort"; session?: string }
   | { id: number; type: "mcp_list" }
   /** Adds a server, or replaces `previousName` (which may differ, to rename). */
   | {
@@ -256,6 +296,8 @@ export type HostRequest =
   | { id: number; type: "memory_changed" }
   /** Saves the folder's trust; trusting it reloads the session. */
   | { id: number; type: "set_trust"; cwd: string; trusted: boolean }
+  /** One file's diff in a review's range (see GitReview). */
+  | { id: number; type: "git_diff"; repo: string; range: string; path: string }
   | { id: number; type: "app_version" }
   /** Pulls the latest code; `updated` is false when it was already current. */
   | { id: number; type: "app_update" }
@@ -275,10 +317,14 @@ export type HostResponses = {
   login: ProviderStatus;
   cancel_login: undefined;
   logout: ProviderStatus;
-  open_session: OpenedSession;
+  open_session: OpenedSession | null;
+  new_session: OpenedSession;
   close_session: undefined;
-  clear_session: OpenedSession;
+  read_session: AgentMessage[];
+  session_details: SessionDetails;
+  command_search: CommandSearchResult;
   session_state: SessionState;
+  draft_state: SessionState;
   set_model: SessionState;
   set_thinking_level: SessionState;
   prompt: undefined;
@@ -294,6 +340,7 @@ export type HostResponses = {
   memory_status: MemoryStatus;
   memory_changed: undefined;
   set_trust: undefined;
+  git_diff: string;
   app_version: AppVersion;
   app_update: { updated: boolean };
 };
@@ -307,53 +354,14 @@ export type HostMessage =
   | { type: "auth_prompt"; promptId: number; prompt: AuthPromptData }
   /** The flow no longer needs this prompt (e.g. the browser callback won). */
   | { type: "auth_prompt_closed"; promptId: number }
-  | { type: "session_event"; event: SessionEvent }
+  | { type: "session_event"; session: string; event: SessionEvent }
   /** A run pi accepted but couldn't carry out (e.g. no model or credentials). */
-  | { type: "session_error"; error: string }
+  | { type: "session_error"; session: string; error: string }
   /** An extension reported a problem (e.g. an MCP sign-in that failed). */
   | { type: "extension_error"; message: string }
   /** A tool call waits for the user (see ApprovalMode). */
-  | { type: "approval_request"; request: ApprovalRequest }
-  /** A project started or finished a run, or began or stopped waiting. */
-  | { type: "projects"; projects: ProjectStatus[] }
+  | { type: "approval_request"; session: string; request: ApprovalRequest }
+  /** A conversation opened, closed, started or finished a run, or began or stopped waiting. */
+  | { type: "agents"; agents: AgentStatus[] }
   /** The MCP servers changed (a status, or a saved change). */
   | { type: "mcp_servers"; servers: McpServer[] };
-
-/**
- * pi interprets stored keys: a leading `!` runs a shell command and `$NAME`
- * reads an env var. A key typed by the user must stay literal, so refuse
- * those (real provider keys never contain them). Returns a message, or null.
- */
-export function apiKeyProblem(key: string): string | null {
-  const trimmed = key.trim();
-  if (!trimmed) return "Enter an API key.";
-  if (trimmed.startsWith("!") || trimmed.includes("$")) {
-    return "That doesn't look like an API key.";
-  }
-  if (/\s/.test(trimmed)) return "API keys can't contain spaces.";
-  return null;
-}
-
-/**
- * Checks a server before it is saved; `taken` holds the other servers' names.
- * Names become part of tool names, so they stay simple. Returns a message, or
- * null.
- */
-export function mcpServerProblem(
-  name: string,
-  config: McpServerConfig,
-  taken: readonly string[],
-): string | null {
-  if (!name) return "Enter a name.";
-  if (!/^[A-Za-z0-9_-]+$/.test(name)) {
-    return "Use only letters, numbers, - and _ in the name.";
-  }
-  if (taken.includes(name)) return `There is already a server named ${name}.`;
-  if (config.type === "stdio") {
-    return config.command.trim() ? null : "Enter a command.";
-  }
-  return URL.canParse(config.url) &&
-    ["http:", "https:"].includes(new URL(config.url).protocol)
-    ? null
-    : "Enter an http:// or https:// URL.";
-}

@@ -4,6 +4,7 @@ import {
   type ToolProps,
 } from "@/components/conversation/shared";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
+import { RunningLine } from "@/components/conversation/RunningLine";
 import { diffSummary, parseDiff } from "@/lib/toolRows";
 import type { ToolRun } from "@/lib/transcript";
 
@@ -21,7 +22,11 @@ export function EditToolBody({
 }) {
   const diff = (run.result?.details as { diff?: string } | undefined)?.diff;
   if (!diff)
-    return run.status === "running" ? null : <OutputPreview text={text} />;
+    return run.status === "running" ? (
+      <RunningLine />
+    ) : (
+      <OutputPreview text={text} />
+    );
   const lines = parseDiff(diff);
   return (
     <>

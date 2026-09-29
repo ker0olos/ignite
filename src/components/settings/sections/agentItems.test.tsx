@@ -47,4 +47,28 @@ describe("agentItems", () => {
       subagents: { ...settings.subagents, max: 5 },
     });
   });
+
+  it("toggles keeping the Mac awake, and shows it only on macOS", () => {
+    const onChange = vi.fn();
+    const items = agentItems({
+      settings: DEFAULT_SETTINGS,
+      onChange,
+      isMac: true,
+    });
+    const awake = items.at(-1)!;
+    expect(awake.title).toBe("Keep Mac awake");
+    const { checked, onCheckedChange } = props<SwitchProps>(awake);
+    expect(checked).toBe(true);
+    onCheckedChange(false);
+    expect(onChange).toHaveBeenCalledWith({
+      ...DEFAULT_SETTINGS,
+      power: { keep_awake: false },
+    });
+    const other = agentItems({
+      settings: DEFAULT_SETTINGS,
+      onChange,
+      isMac: false,
+    });
+    expect(other).toHaveLength(items.length - 1);
+  });
 });

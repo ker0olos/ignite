@@ -55,13 +55,13 @@ describe("useFolders", () => {
       expect(result.current.current).toBeNull();
     });
 
-    it("opens the demo folders in demo mode without remembering them", async () => {
+    it("lists and shows the demo folders in demo mode without remembering them", async () => {
       const { result, store } = await setup({
         saved: savedState,
         demo: "/repo/demo/tempo",
       });
       expect(result.current.current).toBe("/repo/demo/tempo");
-      expect(result.current.projects).toEqual([
+      expect(result.current.folders).toEqual([
         "/repo/demo/pantry",
         "/repo/demo/tempo",
       ]);
@@ -87,43 +87,54 @@ describe("useFolders", () => {
     });
   });
 
-  describe("open projects", () => {
-    it("keeps each opened folder open, including the restored one", async () => {
-      const { result } = await setup({ saved: savedState });
-      expect(result.current.projects).toEqual(["/b"]);
-      act(() => result.current.addFolder("/a"));
-      act(() => result.current.addFolder("/b"));
-      expect(result.current.projects).toEqual(["/b", "/a"]);
+  describe("dismissFolder", () => {
+    it("takes a folder off the sidebar but keeps it recent, and remembers that", async () => {
+      const { result, store } = await setup({ saved: savedState });
+      act(() => result.current.dismissFolder("/a"));
+      expect(result.current.shownFolders).toEqual(["/b"]);
+      expect(result.current.folders).toEqual(["/a", "/b"]);
+      await waitFor(() => expect(store.data.get("dismissed")).toEqual(["/a"]));
     });
 
-    it("closes a hidden project, keeping the shown one", async () => {
-      const { result } = await setup({ saved: savedState });
-      act(() => result.current.addFolder("/a"));
-      act(() => result.current.closeFolder("/b"));
-      expect(result.current.current).toBe("/a");
-      expect(result.current.projects).toEqual(["/a"]);
-    });
-
-    it("shows the last opened project after closing the shown one", async () => {
+    it("shows the first folder left when the shown one is dismissed", async () => {
       const { result } = await setup({
-        saved: { folders: ["/a", "/b", "/c"] },
+        saved: { folders: ["/c", "/b", "/a"], current: "/b" },
+        tree: { "/a": null, "/b": null, "/c": null },
       });
-      act(() => result.current.addFolder("/a"));
-      act(() => result.current.addFolder("/b"));
-      act(() => result.current.addFolder("/c"));
-      act(() => result.current.addFolder("/b"));
-      act(() => result.current.closeFolder());
-      expect(result.current.current).toBe("/c");
-      act(() => result.current.closeFolder());
-      act(() => result.current.closeFolder());
+      act(() => result.current.dismissFolder("/b"));
+      expect(result.current.current).toBe("/a");
+      act(() => result.current.dismissFolder("/a"));
+      act(() => result.current.dismissFolder("/c"));
       expect(result.current.current).toBeNull();
-      expect(result.current.projects).toEqual([]);
     });
 
-    it("closes projects dropped from the recent list", async () => {
-      const { result } = await setup({ saved: savedState });
+    it("brings a folder back when it's opened again", async () => {
+      const { result } = await setup({
+        saved: { ...savedState, dismissed: ["/a"] },
+      });
+      expect(result.current.shownFolders).toEqual(["/b"]);
+      act(() => result.current.addFolder("/a"));
+      expect(result.current.shownFolders).toEqual(["/a", "/b"]);
+    });
+
+    it("forgets dismissed folders when the recent list is cleared", async () => {
+      const { result, store } = await setup({
+        saved: { ...savedState, dismissed: ["/a"] },
+      });
       act(() => result.current.clearFolders());
-      expect(result.current.projects).toEqual([]);
+      await waitFor(() => expect(store.data.get("dismissed")).toEqual([]));
+    });
+
+    it("follows dismissals from other windows", async () => {
+      const { result } = await setup({ saved: savedState });
+      await act(() =>
+        emit("store://change", {
+          path: STORE_PATH,
+          key: "dismissed",
+          value: ["/b"],
+        }),
+      );
+      expect(result.current.shownFolders).toEqual(["/a"]);
     });
   });
 

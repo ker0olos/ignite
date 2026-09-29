@@ -1,7 +1,14 @@
 // @vitest-environment node
 import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -16,6 +23,7 @@ import {
   sandboxConfig,
   type Sandbox,
 } from "./sandbox.ts";
+import { createWorkspaces } from "./worktrees.ts";
 
 describe("sandboxConfig", () => {
   const config = sandboxConfig("/Users/me/app", "/Users/me");
@@ -159,10 +167,10 @@ describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
   });
 
   /** Runs a command in the sandbox; its output, explained on failure. */
-  const run = async (command: string, id: string) => {
-    const wrapped = await sandbox.wrap(command, cwd, id);
+  const run = async (command: string, id: string, dir = cwd) => {
+    const wrapped = await sandbox.wrap(command, dir, id);
     try {
-      return { ok: true, out: (await sh(wrapped, { cwd })).stdout };
+      return { ok: true, out: (await sh(wrapped, { cwd: dir })).stdout };
     } catch (error) {
       const stderr = (error as { stderr: string }).stderr;
       return { ok: false, out: await sandbox.explain(id, stderr) };
@@ -185,6 +193,35 @@ describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
       /file-write|Operation not permitted/,
     );
   });
+
+  it("lets git work in an agent's worktree, but not repoint it", async () => {
+    const repo = join(home, "repo");
+    await mkdir(repo);
+    await sh(
+      "git init -q -b main && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m init",
+      { cwd: repo },
+    );
+    const workspaces = createWorkspaces();
+    const id = `sandbox-test-${process.pid}`;
+    const { dir } = await workspaces.open(repo, id);
+    try {
+      await writeFile(join(dir, "made.ts"), "x");
+      expect((await run("git add made.ts", "git-add", dir)).ok).toBe(true);
+      const own = join(repo, ".git", "worktrees", id);
+      for (const file of [join(dir, ".git"), join(own, "commondir")]) {
+        const before = await readFile(file, "utf8");
+        const { ok } = await run(
+          `echo gitdir: /tmp > "${file}"`,
+          "repoint",
+          dir,
+        );
+        expect(ok).toBe(false);
+        expect(await readFile(file, "utf8")).toBe(before);
+      }
+    } finally {
+      await workspaces.close(repo, id);
+    }
+  }, 30_000);
 
   it("blocks reading credentials", async () => {
     const { ok, out } = await run(`cat ${home}/.ssh/id_test`, "read");

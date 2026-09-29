@@ -1,7 +1,7 @@
 import { FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/** Opens a folder from the sidebar's title strip, shown only in projects mode. */
+/** Opens a folder from the sidebar's title strip. */
 export function OpenFolderButton({ onClick }: { onClick: () => void }) {
   return (
     <Button

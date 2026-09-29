@@ -11,24 +11,27 @@ export function FileView({
   root,
   themes,
   editor,
+  lines,
 }: {
   path: string;
   root: string;
   themes: CodeThemes;
   editor: Settings["editor"];
+  /** Show only the first this many lines. */
+  lines?: number;
 }) {
   const [loaded, setLoaded] = useState<FileContent | null>(null);
   const { light, dark } = themes;
 
   useEffect(() => {
     let cancelled = false;
-    readForView(path, { light, dark }).then(
+    readForView(path, { light, dark }, lines).then(
       (result) => !cancelled && setLoaded(result),
     );
     return () => {
       cancelled = true;
     };
-  }, [path, light, dark]);
+  }, [path, light, dark, lines]);
 
   const crumbs = path.slice(root.length + 1).split("/");
 

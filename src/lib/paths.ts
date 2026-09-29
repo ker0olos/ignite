@@ -11,3 +11,14 @@ export const tildify = (path: string, home: string) =>
   (path === home || [home + "/", home + "\\"].some((h) => path.startsWith(h)))
     ? "~" + path.slice(home.length)
     : path;
+
+const byName = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+/** Folders sorted by name (then full path), so their order doesn't follow use. */
+export const sortedByName = (paths: string[]) =>
+  [...paths].sort(
+    (a, b) => byName.compare(basename(a), basename(b)) || byName.compare(a, b),
+  );

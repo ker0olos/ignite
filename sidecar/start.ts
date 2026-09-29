@@ -3,12 +3,10 @@
  * stdin/stdout using shared/hostProtocol.ts. Stdout carries protocol messages
  * only; logs go to stderr. Closing stdin ends the process.
  */
-import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  type AgentSession,
   createAgentSession,
   createEventBus,
   DefaultResourceLoader,
@@ -24,6 +22,15 @@ import { codexBackend, withCodexLogin } from "./credentials.ts";
 import { createHeadlessUI } from "./headlessUI.ts";
 import { createHost } from "./host.ts";
 import type { McpStatusSnapshot, Runtime, Session } from "./hostTypes.ts";
+import { sessionFor, sessions } from "./sessionStore.ts";
+import { createWorkspaces } from "./worktrees.ts";
+import { createDraft } from "./draftSession.ts";
+import {
+  freshExtensions,
+  reselectModel,
+  runtimeFor,
+  savedModel,
+} from "./sessionRuntime.ts";
 import { createLineSplitter } from "./lines.ts";
 import { findImports, PRESETS } from "./mcpCatalog.ts";
 import { createMcpStore, MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";
@@ -33,6 +40,7 @@ import {
   WORKER,
   type SubagentAsk,
 } from "./subagentExtension.ts";
+import { createKeepAwake } from "./keepAwake.ts";
 import { createTrustStore } from "./trust.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
@@ -85,6 +93,8 @@ const mcpExtension = sibling("./mcpExtension.ts");
 const cmemExtension = sibling("./cmemExtension.ts");
 const askExtension = sibling("./askExtension.ts");
 const subagentExtension = sibling("./subagentExtension.ts");
+const gitExtension = sibling("./gitExtension.ts");
+const worktreeExtension = sibling("./worktreeExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
 const approvalExtension = sibling("./approvalExtension.ts");
 const trust = createTrustStore(agentDir);
@@ -95,77 +105,21 @@ const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
 // pi-mcp-adapter throws on reload if none is set.
 initTheme("dark");
 
-function sameModel(
-  a: { provider: string; id: string } | undefined,
-  b: { provider: string; id: string },
-): boolean {
-  return !!a && a.provider === b.provider && a.id === b.id;
-}
-
-const MODEL_WAIT_MS = 10_000;
-
-// Read before createAgentSession, which saves its own fallback into an empty
-// session and would hide this choice.
-function savedModel(
-  sessionManager: SessionManager,
-  settingsManager: SettingsManager,
-) {
-  const saved = sessionManager.buildSessionContext().model;
-  const provider = saved?.provider ?? settingsManager.getDefaultProvider();
-  const id = saved?.modelId ?? settingsManager.getDefaultModel();
-  return provider && id ? { provider, id } : undefined;
-}
-
-async function whenAvailable(provider: string, id: string) {
-  const deadline = Date.now() + MODEL_WAIT_MS;
-  for (;;) {
-    const model = runtime.getModel(provider, id);
-    if (model && (await runtime.checkAuth(provider))) return model;
-    if (Date.now() >= deadline) return undefined;
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-}
-
-// pi picks the model before extensions register their providers, so a saved
-// claude-bridge model isn't found yet; wait for it, then pick it again.
-/** Returns a warning when the saved model never became available. */
-async function reselectModel(
-  wanted: { provider: string; id: string } | undefined,
-  session: AgentSession,
-): Promise<string | undefined> {
-  if (!wanted || sameModel(session.model, wanted)) return;
-  const model = await whenAvailable(wanted.provider, wanted.id);
-  if (model) {
-    await session.setModel(model);
-    return;
-  }
-  const using = session.model ? `; using ${session.model.name}` : "";
-  return `${wanted.id} isn't available${using}.`;
-}
-
-// Continues the folder's last conversation, saved under agentDir/sessions.
-// Clearing deletes all of them, or reopening would pick up an older one.
-async function sessionFor(cwd: string, fresh: boolean) {
-  if (!fresh) return SessionManager.continueRecent(cwd);
-  for (const { path } of await SessionManager.list(cwd)) {
-    await rm(path, { force: true });
-  }
-  return SessionManager.create(cwd);
-}
-
+// pi works in `workdir` (the agent's worktree); trust and saved
+// conversations stay the folder's.
 async function openSession(
+  folder: string,
   cwd: string,
+  id: string,
   onMcpStatus: (snapshot: McpStatusSnapshot) => void,
   onApproval: (ask: ApprovalAsk) => void,
-  fresh: boolean,
 ): Promise<Session> {
-  // pi-claude-bridge runs Claude Code in process.cwd() (pi doesn't pass the
-  // session's), which would load this app's CLAUDE.md instead of the folder's.
-  // Each window has its own sidecar with one session, so this is safe.
+  // Claude calls get the session's cwd (runtimeFor), but pi-claude-bridge
+  // still reads process.cwd() for its project config and AskClaude.
   process.chdir(cwd);
   // Project .pi/ resources load only once the user trusts the folder.
   const settingsManager = SettingsManager.create(cwd, agentDir, {
-    projectTrusted: trust.get(cwd) === "trusted",
+    projectTrusted: trust.get(folder) === "trusted",
   });
   // One bus per session, so a closed session's listeners go with it.
   const eventBus = createEventBus();
@@ -178,7 +132,7 @@ async function openSession(
   eventBus.on(APPROVAL_EVENT, (data) => onApproval(data as ApprovalAsk));
   eventBus.on(SUBAGENT_EVENT, (data) => {
     const ask = data as SubagentAsk;
-    ask.reply(openSubagent(cwd, ask, eventBus));
+    ask.reply(openSubagent(folder, cwd, ask, eventBus));
   });
   const resourceLoader = new DefaultResourceLoader({
     cwd,
@@ -191,16 +145,19 @@ async function openSession(
       cmemExtension,
       askExtension,
       subagentExtension,
+      gitExtension,
+      worktreeExtension,
       approvalExtension,
     ],
   });
+  freshExtensions();
   await resourceLoader.reload();
-  const sessionManager = await sessionFor(cwd, fresh);
+  const sessionManager = sessionFor(folder, cwd, id);
   const wanted = savedModel(sessionManager, settingsManager);
   const { session } = await createAgentSession({
     cwd,
     agentDir,
-    modelRuntime: runtime,
+    modelRuntime: await runtimeFor(logins.store, cwd),
     sessionManager,
     settingsManager,
     resourceLoader,
@@ -214,6 +171,11 @@ async function openSession(
   });
   const modelWarning = await reselectModel(wanted, session);
   if (modelWarning) log(modelWarning);
+  const reload = session.reload.bind(session);
+  session.reload = () => {
+    freshExtensions();
+    return reload();
+  };
   return Object.assign(session as unknown as Session, { modelWarning });
 }
 
@@ -221,13 +183,14 @@ async function openSession(
 // default. Its tool calls reach the app through the main session's bus.
 // ponytail: no MCP servers or cmem in subagents; add their extensions if needed.
 async function openSubagent(
+  folder: string,
   cwd: string,
   { model, effort }: SubagentAsk,
   eventBus: ReturnType<typeof createEventBus>,
 ) {
   const settingsManager = SettingsManager.inMemory(
     {},
-    { projectTrusted: trust.get(cwd) === "trusted" },
+    { projectTrusted: trust.get(folder) === "trusted" },
   );
   const resourceLoader = new DefaultResourceLoader({
     cwd,
@@ -237,11 +200,12 @@ async function openSubagent(
     additionalExtensionPaths: [claudeBridge, approvalExtension],
     appendSystemPromptOverride: (base) => [...base, WORKER],
   });
+  freshExtensions();
   await resourceLoader.reload();
   const { session } = await createAgentSession({
     cwd,
     agentDir,
-    modelRuntime: runtime,
+    modelRuntime: await runtimeFor(logins.store, cwd),
     model,
     thinkingLevel: effort,
     sessionManager: SessionManager.inMemory(cwd),
@@ -252,15 +216,29 @@ async function openSubagent(
   return session;
 }
 
+const workspaces = createWorkspaces();
+const draft = createDraft({
+  agentDir,
+  claudeBridge,
+  credentials: logins.store,
+  uiContext: headlessUI,
+});
+// Worktrees left by an app that crashed or was killed; this one's are locked to it.
+void workspaces.sweep();
+
 // pi's types are pi-ai's; they match Runtime and Session structurally.
 const host = createHost(
   runtime as unknown as Runtime,
   send,
   openSession,
+  sessions,
+  workspaces,
+  draft,
   { claudeCode: createClaudeCode(), usesCodexLogin: logins.usesCodex },
   createMcpStore(join(agentDir, "mcp.json")),
   { presets: PRESETS, findImports: (cwd) => findImports(homedir(), cwd) },
   trust,
+  createKeepAwake(),
 );
 
 const inFlight = new Set<Promise<void>>();
@@ -289,12 +267,15 @@ const lines = createLineSplitter((line) => {
 });
 
 process.stdin.on("data", lines.push);
-// Finish answering what was already asked, then exit.
+// Finish answering what was already asked, save and remove the worktrees, then exit.
 process.stdin.on("end", async () => {
   lines.end();
   await Promise.allSettled(inFlight);
+  await host.shutdown();
   process.exit(0);
 });
 
 send({ type: "ready" });
+// Opened now, so a new conversation's model menu is ready when first shown.
+void draft({}).catch(() => {});
 log("ready");

@@ -10,11 +10,8 @@ import {
   getMetadataCachePath,
   loadMetadataCache,
 } from "pi-mcp-adapter/metadata-cache";
-import {
-  mcpServerProblem,
-  type McpServer,
-  type McpServerConfig,
-} from "../shared/hostProtocol.ts";
+import type { McpServer, McpServerConfig } from "../shared/hostProtocol.ts";
+import { mcpServerProblem } from "../shared/validation.ts";
 
 /** Our sign-in command, registered by mcpExtension.ts next to the adapter. */
 export const MCP_SIGN_IN_COMMAND = "app-mcp-sign-in";

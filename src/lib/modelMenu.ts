@@ -56,7 +56,7 @@ const FEATURED: Featured[] = [
   },
 ];
 
-export type MenuModel = ModelInfo & { label: string; description?: string };
+type MenuModel = ModelInfo & { label: string; description?: string };
 export type MenuGroup = { name: string; models: MenuModel[] };
 
 /** Whether two entries name the same model. */

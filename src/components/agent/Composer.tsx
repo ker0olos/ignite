@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import type { ImageContent } from "../../../shared/agentTypes";
 import type { ApprovalMode } from "../../../shared/hostProtocol";
@@ -32,8 +32,15 @@ export function Composer({
   const { state } = session;
   const [text, setText] = useState("");
   const [images, setImages] = useState<ImageContent[]>([]);
+  const input = useRef<HTMLTextAreaElement>(null);
 
-  const canSend = !!state && (!!text.trim() || images.length > 0);
+  // A new conversation is ready to type in.
+  useEffect(() => {
+    if (session.fresh) input.current?.focus();
+  }, [session.fresh]);
+
+  const canSend =
+    (!!state || session.none) && (!!text.trim() || images.length > 0);
   const handleSend = () => {
     if (!canSend) return;
     setText("");
@@ -59,6 +66,7 @@ export function Composer({
           }
         />
         <Textarea
+          ref={input}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onPaste={(e) => {

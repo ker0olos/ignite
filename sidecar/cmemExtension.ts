@@ -10,6 +10,8 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { APP_NAME } from "../src/lib/app.ts";
 import { findWorker, memoryEnabled, projectOf } from "./cmem.ts";
+// An agent works in its worktree; its memories are its folder's.
+import { folderOf } from "./worktreeGit.ts";
 
 type Content = { type: string; text?: string }[];
 
@@ -59,11 +61,12 @@ export default function cmem(pi: ExtensionAPI) {
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
-    url = (await memoryEnabled()) ? (await findWorker(ctx.cwd)).url : undefined;
+    const folder = folderOf(ctx.cwd);
+    url = (await memoryEnabled()) ? (await findWorker(folder)).url : undefined;
     if (!url) return;
-    context ??= (await recall(url, ctx.cwd)).trim();
+    context ??= (await recall(url, folder)).trim();
     initialized = post("/api/sessions/init", ctx, {
-      project: projectOf(ctx.cwd),
+      project: projectOf(folder),
       prompt: event.prompt,
     });
     if (context) {
@@ -79,7 +82,7 @@ export default function cmem(pi: ExtensionAPI) {
         tool_input: event.input,
         tool_response: textOf(event.content),
         tool_use_id: event.toolCallId,
-        cwd: ctx.cwd,
+        cwd: folderOf(ctx.cwd),
       }),
     );
   });
@@ -98,7 +101,7 @@ export default function cmem(pi: ExtensionAPI) {
     if (!url || event.reason === "reload") return;
     void post("/api/sessions/session-end", ctx, {
       reason: event.reason,
-      cwd: ctx.cwd,
+      cwd: folderOf(ctx.cwd),
     });
   });
 }

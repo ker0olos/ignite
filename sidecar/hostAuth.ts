@@ -1,12 +1,35 @@
-import {
-  apiKeyProblem,
-  type AuthPromptData,
-  type AuthEventData,
-  type AuthMethod,
-  type ProviderStatus,
-  type ProviderId,
+import type {
+  AuthPromptData,
+  AuthEventData,
+  AuthMethod,
+  ProviderStatus,
+  ProviderId,
 } from "../shared/hostProtocol.ts";
+import { apiKeyProblem } from "../shared/validation.ts";
 import type { HostContext } from "./hostTypes.ts";
+
+/** Checks Claude Code's install and sign-in, remembering the sign-in. */
+async function claudeCodeStatus(ctx: HostContext) {
+  const checked = await ctx.local.claudeCode.status();
+  ctx.claudeLogin = { loggedIn: checked.loggedIn, at: Date.now() };
+  return checked;
+}
+
+const RECHECK_MS = 30_000;
+
+/**
+ * Whether Claude Code is signed in: the last answer at once, checked again
+ * behind it when it's older than RECHECK_MS (a change shows next time).
+ */
+export async function claudeLoggedIn(ctx: HostContext): Promise<boolean> {
+  const known = ctx.claudeLogin;
+  if (!known) return (await claudeCodeStatus(ctx)).loggedIn;
+  if (Date.now() - known.at > RECHECK_MS) {
+    known.at = Date.now();
+    void claudeCodeStatus(ctx).catch(() => {});
+  }
+  return known.loggedIn;
+}
 
 /** Checks authentication status for a provider. */
 export async function status(
@@ -14,7 +37,7 @@ export async function status(
   id: ProviderId,
 ): Promise<ProviderStatus> {
   if (id === "claude-code") {
-    const { installed, loggedIn } = await ctx.local.claudeCode.status();
+    const { installed, loggedIn } = await claudeCodeStatus(ctx);
     return loggedIn
       ? { id, connected: true, method: "oauth", installed }
       : { id, connected: false, installed };

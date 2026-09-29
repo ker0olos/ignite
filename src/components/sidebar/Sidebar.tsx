@@ -1,18 +1,13 @@
 import type { ComponentProps, ReactNode } from "react";
-import { useState } from "react";
-import { ChevronLeft } from "lucide-react";
 import { FileTree } from "@/components/files/FileTree";
 import { OpenFolderButton } from "@/components/sidebar/OpenFolderButton";
-import { OpenProjects } from "@/components/sidebar/OpenProjects";
 import {
-  ProjectList,
+  FolderList,
   type ProjectListProps,
-} from "@/components/sidebar/ProjectList";
-import { Button } from "@/components/ui/button";
+} from "@/components/sidebar/FolderList";
 import { basename } from "@/lib/paths";
-import { cn } from "@/lib/utils";
 
-/** Left column: title-bar strip beside the traffic lights, then the file tree or project list. */
+/** Left column: title-bar strip beside the traffic lights, every folder, then the shown folder's files. */
 export function Sidebar({
   folder,
   actions,
@@ -26,67 +21,39 @@ export function Sidebar({
   banner?: ReactNode;
   projectList: ProjectListProps;
 }) {
-  const [mode, setMode] = useState<"files" | "projects">("files");
-  const showingProjects = mode === "projects";
-
   return (
     <aside className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       {/* The name sits beside the traffic lights and wraps below them when it doesn't fit. */}
       <div className="relative shrink-0">
         <div
           data-tauri-drag-region
-          className={cn(
-            "flex flex-wrap items-center pb-1",
-            showingProjects ? "pr-20" : "pr-10",
-          )}
+          className="flex flex-wrap items-center pr-20 pb-1"
         >
           {/* Room for the traffic lights; Windows has none. */}
           <div
             data-tauri-drag-region
-            className="h-13 w-20 shrink-0 in-[.windows]:w-2"
+            className="h-13 w-22 shrink-0 in-[.windows]:w-2"
           />
-          {!showingProjects && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Projects"
-              title="Projects"
-              onClick={() => setMode("projects")}
-            >
-              <ChevronLeft />
-            </Button>
-          )}
           <span
             data-tauri-drag-region
             className="min-w-0 truncate px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase"
           >
-            {showingProjects ? "Projects" : basename(folder)}
+            {basename(folder)}
           </span>
         </div>
         <div className="absolute top-0 right-2 flex h-13 items-center gap-1">
-          {showingProjects && (
-            <OpenFolderButton onClick={projectList.onOpenFolder} />
-          )}
+          <OpenFolderButton onClick={projectList.onOpenFolder} />
           {actions}
         </div>
       </div>
       {banner}
-      {!showingProjects && projectList.projects.length > 1 && (
-        <div className="mb-2 shrink-0 border-b border-sidebar-border px-2 pb-2">
-          <OpenProjects folder={folder} {...projectList} />
-        </div>
-      )}
+      {/* Every folder's conversations stay in sight, to follow them from anywhere. */}
+      <div className="mb-2 max-h-[40%] shrink-0 overflow-y-auto border-b border-sidebar-border px-2 pb-2">
+        <FolderList folder={folder} {...projectList} />
+      </div>
       <nav className="min-h-0 flex-1 overscroll-contain overflow-y-auto">
         <div className="always-bounce px-2 pb-2">
-          {showingProjects ? (
-            <ProjectList
-              folder={folder}
-              onShowFiles={() => setMode("files")}
-              {...projectList}
-            />
-          ) : (
-            <FileTree root={folder} {...treeProps} />
-          )}
+          <FileTree root={folder} {...treeProps} />
         </div>
       </nav>
     </aside>

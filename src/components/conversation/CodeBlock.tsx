@@ -42,7 +42,7 @@ export function CodeBlock({
         "code-view my-2 overflow-x-auto rounded-lg border [&_pre]:w-max [&_pre]:min-w-full [&_pre]:pr-4",
         className,
       )}
-      style={{ fontFamily: editor.font_family }}
+      style={{ fontFamily: editor.font_family, fontSize: "0.92em" }}
     >
       {html ? (
         <div dangerouslySetInnerHTML={{ __html: html }} />

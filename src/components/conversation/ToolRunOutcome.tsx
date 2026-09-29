@@ -2,6 +2,8 @@ import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL, readSubagent } from "../../../shared/subagents";
 import { ApprovalPrompt } from "@/components/conversation/ApprovalPrompt";
 import { ApprovalCommand } from "@/components/conversation/ApprovalCommand";
+import { useIsFirstApproval } from "@/hooks/useFirstApproval";
+import { GitChanges } from "@/components/conversation/GitChanges";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
 import type { ToolProps } from "@/components/conversation/shared";
 import { QuestionPrompt } from "@/components/conversation/QuestionPrompt";
@@ -21,6 +23,7 @@ export function ToolRunOutcome({
   tools,
   onApprove,
 }: Omit<ToolProps, "run"> & { run: ToolRun; text: string }) {
+  const first = useIsFirstApproval(call.id);
   if (run.approval && call.name === ASK_TOOL) {
     return (
       <QuestionPrompt
@@ -33,9 +36,11 @@ export function ToolRunOutcome({
     return (
       <ApprovalPrompt
         reason={run.approval.reason}
+        shortcuts={first}
         onAnswer={(approved) => onApprove(call.id, approved)}
       >
         <ApprovalCommand call={call} editor={editor} codeThemes={codeThemes} />
+        {run.approval.review && <GitChanges review={run.approval.review} />}
       </ApprovalPrompt>
     );
   }

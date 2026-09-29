@@ -1,4 +1,4 @@
-import type { MemoryObservation } from "../../../shared/hostProtocol";
+import type { MemoryObservation } from "../../../shared/memory";
 import { CircleDot } from "lucide-react";
 import { OBSERVATION_ICONS } from "@/components/memory/observationIcons";
 import { platformName, timeAgo } from "@/lib/memory";

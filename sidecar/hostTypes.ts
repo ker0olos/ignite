@@ -6,6 +6,7 @@ import type {
   AuthPromptData,
   HostMessage,
 } from "../shared/hostProtocol.ts";
+import type { SavedSession, SessionDetails } from "../shared/conversations.ts";
 import type {
   AgentMessage,
   SessionEvent,
@@ -16,6 +17,9 @@ import type { ClaudeCode } from "./claudeCode.ts";
 import type { McpStore } from "./mcpConfig.ts";
 import type { Preset, ImportSource } from "./mcpCatalog.ts";
 import type { TrustStore } from "./trust.ts";
+import type { Workspaces } from "./worktrees.ts";
+import type { DraftPick } from "./draftSession.ts";
+import type { createSearch } from "./search.ts";
 
 /** What the MCP settings offer to add in one click. */
 export type McpCatalogSource = {
@@ -46,11 +50,12 @@ export type Runtime = {
     interaction: Interaction,
   ): Promise<unknown>;
   logout(providerId: string): Promise<void>;
-  getAvailable(): Promise<readonly ModelInfo[]>;
 };
 
 /** The slice of pi's AgentSession the host needs; tests pass a fake. */
 export type Session = {
+  /** Its own, since each session registers its own pi-claude-bridge. */
+  readonly modelRuntime: { getAvailable(): Promise<readonly ModelInfo[]> };
   readonly model: ModelInfo | undefined;
   readonly thinkingLevel: ThinkingLevel;
   getAvailableThinkingLevels(): ThinkingLevel[];
@@ -91,19 +96,47 @@ export type McpStatusSnapshot = {
 };
 
 /**
- * Opens a folder's session; the adapter's status snapshots go to
+ * Opens the folder's saved conversation `id`, or starts an empty one with
+ * that id, working in `workdir`; the adapter's status snapshots go to
  * `onMcpStatus`, tool calls waiting for the user to `onApproval`.
  */
 export type OpenSession = (
   cwd: string,
+  workdir: string,
+  id: string,
   onMcpStatus: (snapshot: McpStatusSnapshot) => void,
   onApproval: (ask: ApprovalAsk) => void,
-  /** Deletes the folder's saved conversations and starts an empty one. */
-  fresh: boolean,
 ) => Promise<Session>;
 
-/** A folder's session, which keeps running while the app shows another folder. */
-export type Project = {
+/** The conversations pi saved for each folder. */
+export type SessionStore = {
+  /** A new conversation id. */
+  create(): string;
+  /** The folder's conversations with at least one message, newest first, with all their text. */
+  list(cwd: string): Promise<(SavedSession & { text: string })[]>;
+  /** A saved conversation's messages; none if it has no file yet. */
+  read(cwd: string, id: string): Promise<AgentMessage[]>;
+  /** What's known of it beyond its messages: its branch, cmem's summary. */
+  extras(
+    cwd: string,
+    id: string,
+  ): Promise<Pick<SessionDetails, "branch" | "summary">>;
+};
+
+/**
+ * One conversation in a folder, which keeps running while the app shows
+ * another; a folder can have several.
+ */
+export type Agent = {
+  /** pi's session id, which names its saved conversation. */
+  id: string;
+  cwd: string;
+  /** Where it works: its own worktree, or `cwd` when the folder isn't in git. */
+  workdir: string;
+  /** Its first user message, which names it in the sidebar. */
+  title: string;
+  /** Settles once its worktree has the folder's ignored files (dependencies, builds). */
+  ready: Promise<void>;
   /** Null while it opens. */
   session: Session | null;
   opening: Promise<Session>;
@@ -126,16 +159,24 @@ export type HostContext = {
   runtime: Runtime;
   send: (m: HostMessage) => void;
   openSession: OpenSession;
+  sessions: SessionStore;
+  workspaces: Pick<Workspaces, "open" | "close">;
+  /** The command center's search over folders' conversations and files. */
+  search: ReturnType<typeof createSearch>;
+  /** The session that shows what a new conversation would start with. */
+  draft: (pick: DraftPick) => Promise<Session>;
   local: LocalLogins;
   mcpStore: McpStore;
   catalog: McpCatalogSource;
   trust: TrustStore;
   /** Active sign-in's abort controller, or null. */
   activeLogin: AbortController | null;
-  /** Every folder opened in this window, by path. */
-  projects: Map<string, Project>;
-  /** The folder the app shows. */
-  cwd: string | null;
+  /** Every conversation open in this window, by id. */
+  agents: Map<string, Agent>;
+  /** The conversation the app shows. */
+  shown: string | null;
+  /** Each folder's last shown conversation, shown again when the folder is. */
+  lastShown: Map<string, string>;
   /** Removed servers whose saved sign-in still has to be deleted. */
   pendingSignOuts: Set<string>;
   /** URL servers being connected once after setup. */
@@ -144,16 +185,37 @@ export type HostContext = {
   prompts: Map<number, Pending>;
   /** Counter for the next auth prompt id. */
   nextPromptId: number;
+  /**
+   * Claude Code's last known sign-in and when it was checked; the model list
+   * uses it rather than wait on `claude auth status` each time.
+   */
+  claudeLogin: { loggedIn: boolean; at: number } | null;
+  /** Told whether any folder's agent is working (running, not waiting on the user). */
+  keepAwake: (working: boolean) => Promise<void>;
 };
 
-/** Returns the shown folder's project, if it has one. */
-export function shown(ctx: HostContext): Project | undefined {
-  return ctx.cwd === null ? undefined : ctx.projects.get(ctx.cwd);
+/** Returns the conversation the app shows, if any. */
+export function shown(ctx: HostContext): Agent | undefined {
+  return ctx.shown === null ? undefined : ctx.agents.get(ctx.shown);
 }
 
-/** Returns the shown folder's session once it's open; throws if none is. */
-export async function current(ctx: HostContext): Promise<Session> {
-  const project = shown(ctx);
-  if (!project) throw new Error("No folder is open.");
-  return project.opening;
+/** Whether the app shows this conversation. */
+export function isShown(ctx: HostContext, agent: Agent): boolean {
+  return shown(ctx) === agent;
+}
+
+/** The open conversation `id` names, else the one the app shows. */
+export function target(ctx: HostContext, id?: string): Agent | undefined {
+  return id === undefined ? shown(ctx) : ctx.agents.get(id);
+}
+
+/** Returns that conversation's session once it's open; throws if it isn't. */
+export async function current(ctx: HostContext, id?: string): Promise<Session> {
+  const agent = target(ctx, id);
+  if (!agent) {
+    throw new Error(
+      id ? "That conversation isn't open." : "No folder is open.",
+    );
+  }
+  return agent.opening;
 }

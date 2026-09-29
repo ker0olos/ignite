@@ -34,7 +34,7 @@ export function UserBubble({ message }: { message: UserMessage }) {
         </div>
       )}
       {text && (
-        <div className="max-w-[85%] rounded-2xl bg-muted px-3 py-2 whitespace-pre-wrap">
+        <div className="max-w-[85%] rounded-2xl bg-muted px-3 py-2 text-[length:var(--message-text,14px)] whitespace-pre-wrap">
           {text}
         </div>
       )}
