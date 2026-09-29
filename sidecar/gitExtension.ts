@@ -134,9 +134,10 @@ async function waitsOn(
   const auto =
     tool === GIT_TOOL ? gitApproval(args, place) : ghGate(args, place);
   const manual = (await approvalMode()) === "manual";
-  if (manual) return { auto, manual };
-  if (!auto || (auto.review && (await taskMayRun(pi, args, cwd)))) return null;
-  return { auto, manual };
+  if (manual) return { auto, manual, alone: false };
+  if (!auto) return null;
+  const alone = !!auto.review && (await taskMayRun(pi, args, cwd));
+  return { auto, manual, alone };
 }
 
 /** Whether a call puts the agent's work on the remote: a push, or a merged pull request. */
@@ -175,8 +176,10 @@ export default function gitTools(pi: ExtensionAPI) {
   ) {
     const waits = await waitsOn(pi, tool, args, cwd);
     if (!waits) return { allowed: true, asked: false };
-    const { auto, manual } = waits;
+    const { auto, manual, alone } = waits;
+    // Taken before it runs, so the row shows what a task's commit or push changed.
     const shown = auto?.review && (await review(auto.review, args, cwd));
+    if (alone) return { allowed: true, asked: false, shown };
     const request = {
       toolCallId,
       ...(auto && !manual && !shown && { reason: auto.reason }),

@@ -189,9 +189,20 @@ describe("a task's conversation", () => {
     const { asks, call } = load(mine);
     await writeFile(join(repo, "b.txt"), "b\n");
     await call("git", ["add", "b.txt"]);
-    await call("git", ["commit", "-m", "second"]);
-    await call("git", ["push", "-u", "origin", "feat/x"]);
+    const commit = await call("git", ["commit", "-m", "second"]);
+    const push = await call("git", ["push", "-u", "origin", "feat/x"]);
     expect(asks).toEqual([]);
+    // Reviewed before running, so the rows still show what they changed.
+    expect(commit.details).toMatchObject({
+      kind: "commit",
+      files: [{ path: "b.txt", status: "A" }],
+    });
+    expect(push.details).toMatchObject({
+      kind: "push",
+      commits: expect.arrayContaining([
+        expect.objectContaining({ subject: "second" }),
+      ]),
+    });
     expect(git("ls-remote", "origin", "feat/x").toString()).toContain(
       "refs/heads/feat/x",
     );
