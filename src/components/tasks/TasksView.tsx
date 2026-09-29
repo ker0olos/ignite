@@ -5,6 +5,7 @@ import { NewTaskRow } from "@/components/tasks/NewTaskRow";
 import { TaskGroup } from "@/components/tasks/TaskGroup";
 import { useNewTaskSheet } from "@/hooks/useNewTaskSheet";
 import { useTasks } from "@/hooks/useTasks";
+import { DEMO_OPEN_TASK } from "@/lib/demo";
 import type { HostClient } from "@/lib/piHost";
 import { TASK_GROUPS, tasksLead, type TaskDraft } from "@/lib/tasks";
 
@@ -21,7 +22,7 @@ export function TasksView({
   onOpenChat: (session: string) => void;
 }) {
   const { tasks, error, create, ...rest } = useTasks(host, folder, agents);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(DEMO_OPEN_TASK);
   const [sheet, setSheet] = useNewTaskSheet();
 
   const add = (draft: TaskDraft, now: boolean) => {

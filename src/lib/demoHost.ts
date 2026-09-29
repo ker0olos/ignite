@@ -25,6 +25,7 @@ import {
   demoConversations,
   type DemoConversation,
 } from "./demoConversations";
+import { demoTasks, tasksAnswers } from "./demoTasks";
 import { assistant } from "./demoTranscript";
 import { basename } from "./paths";
 import type { HostClient } from "./piHost";
@@ -182,6 +183,7 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
     git_diff: (r: { path: string }) => DEMO_GIT_DIFFS[r.path] ?? "",
     prompt: (r: { text: string; session?: string }) =>
       r.session && reply(r.session, r.text),
+    ...tasksAnswers(demoTasks(tempo)),
   };
 
   return {

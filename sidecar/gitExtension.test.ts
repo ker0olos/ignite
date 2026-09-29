@@ -21,6 +21,10 @@ import { TASK_EVENT, type TaskAsk } from "./taskExtension.ts";
 
 let home: string;
 let repo: string;
+
+// A review runs several git commands before it asks, slow under a full test run.
+const asked = (asks: unknown[]) =>
+  vi.waitFor(() => expect(asks).toHaveLength(1), { timeout: 5000 });
 beforeEach(async () => {
   home = await realpath(await mkdtemp(join(tmpdir(), "git-tools-")));
   repo = join(home, "app");
@@ -97,7 +101,7 @@ describe("the git tool", () => {
     const { asks, call } = load();
     await call("git", ["add", "a.txt"]);
     const done = call("git", ["commit", "-m", "first"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     expect(asks[0].request).not.toHaveProperty("reason");
     expect(asks[0].request).toMatchObject({
       toolCallId: "t1",
@@ -139,7 +143,7 @@ describe("the git tool", () => {
     const { asks, call } = load();
     await call("git", ["add", "a.txt"]);
     const done = call("git", ["commit", "-m", "first"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     asks[0].answer(false);
     await expect(done).rejects.toThrow(DENIED);
     await expect(call("git", ["log"])).rejects.toThrow(/Exited with code/);
@@ -153,7 +157,7 @@ describe("the git tool", () => {
     );
     const { asks, call } = load();
     const done = call("git", ["status"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     expect(asks[0].request).toEqual({ toolCallId: "t1" });
     asks[0].answer(true);
     await done;
@@ -164,7 +168,7 @@ describe("the gh tool", () => {
   it("asks before changing something on GitHub", async () => {
     const { asks, call } = load();
     const done = call("gh", ["pr", "merge", "3"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     expect(asks[0].request).toEqual({
       toolCallId: "t1",
       reason: "Changes something on GitHub",
@@ -212,7 +216,7 @@ describe("a task's conversation", () => {
     await withRemote();
     const { asks, call } = load(mine);
     const done = call("git", ["push", "origin", "HEAD:main"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     asks[0].answer(false);
     await expect(done).rejects.toThrow(DENIED);
   });
@@ -221,7 +225,7 @@ describe("a task's conversation", () => {
     await withRemote();
     const { asks, call } = load();
     const done = call("git", ["commit", "--allow-empty", "-m", "x"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     asks[0].answer(false);
     await expect(done).rejects.toThrow(DENIED);
   });
@@ -237,7 +241,7 @@ describe("a task's conversation", () => {
     vi.stubEnv("PATH", `${bin}:${process.env.PATH}`);
     const { asks, updates, call } = load(mine);
     const done = call("gh", ["pr", "create", "--fill"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     asks[0].answer(true);
     const result = await done;
     expect(result.content[0].text).toContain("/pull/41");
@@ -253,7 +257,7 @@ describe("a task's conversation", () => {
     vi.stubEnv("PATH", `${bin}:${process.env.PATH}`);
     const { asks, updates, call } = load();
     const done = call("gh", ["pr", "create"]);
-    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await asked(asks);
     asks[0].answer(true);
     await done;
     expect(updates).toEqual([]);
