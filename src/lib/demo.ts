@@ -1,105 +1,59 @@
 /**
- * Demo mode (`npm run demo`): the app opens demo/tempo and demo/pantry and
- * shows fixed conversations instead of pi sessions, for screenshots and
- * trying the UI. Pantry's waits on the agent's questions.
- * Nothing is saved or run, so clearing sessions or app state never loses it.
+ * Demo mode (`npm run demo`): the app opens demo/tempo and demo/pantry, and a
+ * demo host (demoHost.ts) stands in for the sidecar, so everything shown is
+ * scripted: providers, models, conversations, search, git. Tempo has three
+ * conversations at once: one delivered through git, one waiting on its
+ * commit's review, one still working; Pantry's waits on the agent's
+ * questions. Whatever is typed into the composer comes out as DEMO_PROMPT.
  */
-import type {
-  AgentStatus,
-  ProjectTrust,
-  SessionState,
-} from "../../shared/hostProtocol";
-import { demoQuestionTranscript } from "./demoQuestions";
-import { DEMO_MESSAGES } from "./demoTranscript";
+import type { AgentStatus } from "../../shared/hostProtocol";
+import { demoConversations } from "./demoConversations";
+import { createDemoHost } from "./demoHost";
 import { dirname } from "./paths";
-import { fromHistory, type Transcript } from "./transcript";
+import { openPiHost, type HostClient } from "./piHost";
 
 /** The demo project's folder while in demo mode, otherwise null. */
 export const DEMO_FOLDER: string | null = __DEMO_FOLDER__;
 
-const pantry = (demo: string) => `${dirname(demo)}/pantry`;
-
 /** The projects demo mode opens, the shown one last. */
-export const demoProjects = (demo: string) => [pantry(demo), demo];
+export const demoProjects = (demo: string) => [`${dirname(demo)}/pantry`, demo];
 
-const claude = (id: string, name: string) => ({
-  provider: "claude-bridge",
-  id,
-  name,
-});
-const OPUS = claude("claude-opus-5-5", "Claude Opus 5.5");
+/** What the composer types in demo mode, a letter per key pressed. */
+export const DEMO_PROMPT = "Add a short summary of this project to the README.";
 
-/** The composer's model and effort in the demo. */
-export const DEMO_STATE: SessionState = {
-  models: [
-    claude("claude-fable-5-1", "Claude Fable 5.1"),
-    OPUS,
-    claude("claude-sonnet-5", "Claude Sonnet 5"),
-    claude("claude-haiku-4-5", "Claude Haiku 4.5"),
-  ],
-  model: OPUS,
-  thinkingLevel: "high",
-  thinkingLevels: ["off", "low", "medium", "high", "xhigh", "max"],
-};
+/** The composer's text after a change: in demo mode, as much of DEMO_PROMPT as was typed. */
+export const typedText = (value: string, demo = DEMO_FOLDER) =>
+  demo ? DEMO_PROMPT.slice(0, value.length) : value;
 
-type View = {
-  session: string | null;
-  state: SessionState | null;
-  transcript: Transcript | null;
-  trust: ProjectTrust | null;
-  error: string | null;
-};
+/** Starts the app's host: the sidecar, or in demo mode the demo host. */
+export const hostOpener = (demo = DEMO_FOLDER): (() => Promise<HostClient>) =>
+  demo ? async () => createDemoHost(demo) : openPiHost;
 
-/**
- * The session as the workspace shows it: in demo mode the shown folder's demo
- * conversation in place of pi's; otherwise with the host's error when the
- * sidecar didn't start, since the session then never opens.
- */
-export function shownSession<S extends View>(
+/** This run's host opener (stable, as useProviders needs). */
+export const OPEN_HOST = hostOpener();
+
+/** The session as the workspace shows it: with the host's error when the sidecar didn't start, since the session then never opens. */
+export function shownSession<S extends { error: string | null }>(
   session: S,
   hostError: string | null,
-  current: string | null,
-  demo: string | null = DEMO_FOLDER,
 ): S {
-  if (!demo) return { ...session, error: session.error ?? hostError };
-  return {
-    ...session,
-    session: current === pantry(demo) ? "pantry" : "tempo",
-    state: DEMO_STATE,
-    transcript:
-      current === pantry(demo)
-        ? demoQuestionTranscript()
-        : fromHistory(DEMO_MESSAGES, false),
-    trust: "trusted",
-    error: null,
-  };
+  return { ...session, error: session.error ?? hostError };
 }
 
-/**
- * A folder's listed conversations; in demo mode fixed ones: Tempo's with a
- * second working in the background, and Pantry's waiting on its questions.
- */
+/** A folder's listed conversations; in demo mode the demo's open ones. */
 export function shownRows(
   rows: (cwd: string) => AgentStatus[],
   demo: string | null = DEMO_FOLDER,
 ): (cwd: string) => AgentStatus[] {
   if (!demo) return rows;
-  const idle = { cwd: demo, running: false, waiting: false };
-  const all = [
-    {
-      cwd: pantry(demo),
-      session: "pantry",
-      title: "Let people sign in to Pantry",
-      running: true,
-      waiting: true,
-    },
-    { ...idle, session: "tempo", title: "Add a dark mode to Tempo" },
-    {
-      ...idle,
-      session: "tempo-tests",
-      title: "Write tests for recurring tasks",
-      running: true,
-    },
-  ];
+  const all = demoConversations(demo)
+    .filter((c) => c.open)
+    .map((c) => ({
+      cwd: c.cwd,
+      session: c.id,
+      title: c.title,
+      running: !!c.running,
+      waiting: !!c.approvals?.length,
+    }));
   return (cwd) => all.filter((a) => a.cwd === cwd);
 }

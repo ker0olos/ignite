@@ -83,8 +83,14 @@ src/                     React frontend (almost all logic lives here)
     gitDiff.ts           Unified diffs into diff lines; stepping through their changes
     diffTabs.ts          Diff tabs beside file tabs (encoded ids, labels), reading a git review
     dangerousCommands.ts Regex denylist of risky shell commands that Auto still asks about
-    demo.ts              Demo mode (`npm run demo`): its folder, model state, shown session
-    demoTranscript.ts    The demo's fixed conversation
+    demo.ts              Demo mode (`npm run demo`): its folders, host, sidebar rows, scripted typing
+    demoHost.ts          The demo's stand-in for the sidecar: scripted answers and replies, nothing runs
+    demoAnswers.ts       The demo's providers, MCP servers, memory, version and files
+    demoConversations.ts Every demo conversation (open and saved), with details and git diffs
+    demoTranscript.ts    The dark mode conversation's work: edits whose diffs match demo/tempo
+    demoDarkMode.ts      Its delivery through git: commit, push, pull request
+    demoTempoWork.ts     Tempo's other conversations: a commit awaiting review, one still working
+    demoGit.ts           Unified diffs and commit reviews for the demo
     demoQuestions.ts     The demo's second project, waiting on the agent's questions
     questions.ts         ask_user answers being picked: options, own answer, per-option notes
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
@@ -103,7 +109,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostProjects.ts        Tells the app which open conversations are working or waiting (pushProjects)
   hostResume.ts          Resumes a run a reload or quit cut off: pending calls marked not run, agent continues
   sessionStore.ts        pi's saved conversations per folder: the latest, new ids, the list
-  search.ts              command_search: ranks conversations (title, full text) and files across folders
+  search.ts              command_search: each folder's conversations and files, cached, ranked by shared/commandSearch.ts
   fileIndex.ts           A folder's files for search (git ls-files, else a capped walk)
   sessionRuntime.ts      Each session's own model runtime (passes its cwd to providers); saved model
   draftSession.ts        What a new conversation would start with (models, effort) before one exists
@@ -149,6 +155,7 @@ shared/agentTypes.ts     pi's messages and session events as they cross the wire
 shared/conversations.ts  Saved conversations, their details, command search hits (used by both)
 shared/memory.ts         cmem status and observations as they cross the wire
 shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
+shared/commandSearch.ts  Ranks conversations and files for the command center (sidecar and demo)
 shared/questions.ts      ask_user's questions and answers (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
@@ -387,10 +394,13 @@ Without the variable nothing changes.
 ## Commands
 
 - Dev app: `npm run tauri dev` (frontend hot-reloads; `src-tauri/` changes relaunch)
-- Demo for screenshots: `npm run demo` opens `demo/tempo` with a fixed
-  conversation (`lib/demoTranscript.ts`) instead of a pi session. No sign-in,
-  nothing runs or is saved, so clearing sessions or app state never loses it.
-  `demo.test.ts` keeps its diffs in line with the files in `demo/tempo`.
+- Demo for screenshots: `npm run demo` opens `demo/tempo` and `demo/pantry`
+  with the sidecar replaced by a scripted host (`lib/demoHost.ts`): made-up
+  providers, models, conversations, search and git reviews. The composer types
+  a fixed prompt whatever the keys, and sending gets a fixed reply. Nothing
+  runs or is saved, so clearing sessions or app state never loses it.
+  `demoConversations.test.ts` keeps its diffs in line with the files in
+  `demo/tempo`.
 - Verify before finishing any change: `npm run check` (tsc, ESLint, clippy,
   Prettier, rustfmt, Vitest, cargo test). CI runs the same steps.
 - Tests only: `npm run test`; watch mode: `npm run test:watch`
