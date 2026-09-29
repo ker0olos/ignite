@@ -1,5 +1,5 @@
 [package]
-name = "ignition"
+name = "ignite"
 version = "0.1.0"
 description = "A native macOS harness for AI coding agents"
 edition = "2021"

@@ -5,7 +5,7 @@
  */
 
 /** Where browsers open their WebSocket. */
-export const REMOTE_SOCKET = "/__ignition";
+export const REMOTE_SOCKET = "/__ignite";
 
 /** The `[remote]` settings the main window sends; `enabled: false` stops the server. */
 export type RemoteConfig = { enabled: boolean; port: number; token: string };

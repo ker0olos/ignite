@@ -1713,7 +1713,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ignition"
+name = "ignite"
 version = "0.1.0"
 dependencies = [
  "serde",

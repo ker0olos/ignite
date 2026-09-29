@@ -25,10 +25,10 @@ async function put(path: string, text = "") {
 }
 
 describe("overlayFromEnv", () => {
-  it("is off unless IGNITION_MODS is set", () => {
-    vi.stubEnv("IGNITION_MODS", "");
+  it("is off unless IGNITE_MODS is set", () => {
+    vi.stubEnv("IGNITE_MODS", "");
     expect(overlayFromEnv("/repo")).toBeNull();
-    vi.stubEnv("IGNITION_MODS", "/mods");
+    vi.stubEnv("IGNITE_MODS", "/mods");
     expect(overlayFromEnv("/repo")).toEqual({ root: "/repo", mods: "/mods" });
     vi.unstubAllEnvs();
   });

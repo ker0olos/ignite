@@ -271,7 +271,7 @@ describe("sidecar process", () => {
     );
     await run(
       '{"id":1,"type":"login","provider":"openai","method":"api_key","apiKey":"sk-test"}\n',
-      { IGNITION_MODS: mods },
+      { IGNITE_MODS: mods },
     );
     expect(existsSync(join(home, ".modded/pi/auth.json"))).toBe(true);
   }, 30_000);
@@ -289,7 +289,7 @@ describe("sidecar process", () => {
     );
     const { messages } = await run(
       JSON.stringify({ id: 1, type: "new_session", cwd: home }) + "\n",
-      { IGNITION_MODS: mods, OPENAI_API_KEY: "sk-test" },
+      { IGNITE_MODS: mods, OPENAI_API_KEY: "sk-test" },
     );
     expect(messages[0]).toEqual({ type: "modded" });
     expect(messages.find((m) => m.type === "response")).toMatchObject({

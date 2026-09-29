@@ -112,7 +112,7 @@ src/                     React frontend (almost all logic lives here)
   test/                  Test setup, fake Tauri backends (fakeFs, fakeStore), shared shell command cases
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
   main.ts                Entry: turns on mods/ overrides, then loads start.ts
-  start.ts               stdio wiring; pi's files live in ~/.ignition/pi
+  start.ts               stdio wiring; pi's files live in ~/.ignite/pi
   modsHooks.ts           Node resolve hooks that load mods/ files in place of the repo's
   host.ts                Request dispatch; createHost builds the handler
   hostTypes.ts           Shared types and HostContext; per-function context instead of closures
@@ -152,7 +152,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   cmem.ts           cmem: finds its worker, the app's on/off setting, recent observations
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
-  taskStore.ts           Each folder's tasks in ~/.ignition/tasks, written one at a time, pushed on change
+  taskStore.ts           Each folder's tasks in ~/.ignite/tasks, written one at a time, pushed on change
   hostTasks.ts           Starts a task in a background conversation; answers the task extension
   taskExtension.ts       task_update, and a task conversation's plan, work and wrap-up phases
   taskSteps.ts           A tool call as a task's current step ("Editing src/app.ts")
@@ -187,12 +187,12 @@ shared/questions.ts      ask_user's questions and answers (used by both)
 shared/tasks.ts          Tasks and the agent's updates to them (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
-shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITION_MODS)
+shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
 launcher/                How users run the app (not maintainers; see README)
-  setup.sh               `npm run setup`: makes ~/Applications/Ignition.app
-  launch.sh              What that app runs: update, start with ~/.ignition/mods,
+  setup.sh               `npm run setup`: makes ~/Applications/Ignite.app
+  launch.sh              What that app runs: update, start with ~/.ignite/mods,
                          fall back to the last good version, then to no mods
 .todo                    Planned work
 src-tauri/               Rust shell: registers plugins, nothing else
@@ -209,12 +209,12 @@ src-tauri/               Rust shell: registers plugins, nothing else
 
 Two places hold persisted data:
 
-- **User settings** in `~/.ignition/settings.toml` (`lib/settings.ts`).
+- **User settings** in `~/.ignite/settings.toml` (`lib/settings.ts`).
   Human-editable; add new options to the `Settings` type and `DEFAULT_SETTINGS`.
 - **Themes:** the `theme` setting is `"system"` (GitHub Light/Dark following
   macOS) or a theme id. The chosen theme colours code and decides light or dark
   mode. Themes come from Shiki, from extensions installed in VS Code, VSCodium,
-  Cursor or Windsurf, or from `~/.ignition/themes/*.json`. Picking an
+  Cursor or Windsurf, or from `~/.ignite/themes/*.json`. Picking an
   editor theme copies it (includes merged) into that folder and saves the
   copy's id, so uninstalling the editor later can't break it; the copy records
   `importedFrom`, and the picker lists it once. Never read other editors'
@@ -246,7 +246,7 @@ Two places hold persisted data:
 - **Approval settings** (`[approval]`): `mode`, `"auto"` (default) or
   `"manual"`, set from the composer. The sidecar reads it on every tool call.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
-- **pi's own files** in `~/.ignition/pi`: credentials (`auth.json`),
+- **pi's own files** in `~/.ignite/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
   default for new sessions, and `sessions/`, one JSONL file per
   conversation. A folder can have several open at once, each keyed by pi's
@@ -326,7 +326,7 @@ ran without asking run with hooks off. Bash commands that commit, push, pull,
 fetch, clone or run gh are blocked with a pointer to the tools.
 
 Tasks (the sidebar's Tasks view) hand work to an agent that runs on its own.
-Each folder's tasks live in `~/.ignition/tasks/` (`sidecar/taskStore.ts`,
+Each folder's tasks live in `~/.ignite/tasks/` (`sidecar/taskStore.ts`,
 one JSON file per folder, images inline). Starting one opens a conversation
 in the background on the task's model and effort (never saved as defaults)
 and sends it the title, notes, subtasks and images. `taskExtension.ts` gives
@@ -344,7 +344,7 @@ The `chrome_*` tools (`sidecar/chromeExtension.ts`) drive Chrome over the
 DevTools protocol from the sidecar. They attach to the user's own Chrome
 when port 9222 answers (chrome://inspect's "Allow remote debugging" toggle,
 or `--remote-debugging-port`), with its real logins; otherwise they start a
-separate Chrome on port 9333 with its own profile in `~/.ignition/chrome`
+separate Chrome on port 9333 with its own profile in `~/.ignite/chrome`
 (Chrome refuses debugging on the default profile). All sessions share one
 connection, kept on `globalThis` since extensions load afresh per session,
 because Chrome asks "Allow?" per connection. Auto runs them without asking,
@@ -364,7 +364,7 @@ again with its id. Subagents end with their session and aren't restored
 after a reload.
 
 Each agent (conversation) works in its own git worktree, under
-`~/.ignition/worktrees/<repo>-<hash>/<session id>` (`sidecar/worktrees.ts`),
+`~/.ignite/worktrees/<repo>-<hash>/<session id>` (`sidecar/worktrees.ts`),
 so agents in one folder never edit each other's files or the user's. It
 starts detached at the remote's default branch, freshly fetched (the
 folder's HEAD without a remote), so the user's uncommitted work never ends
@@ -382,7 +382,7 @@ of its own, pushed with a pull request, and after a successful push or
 --ff-only`, `updateFolder`), leaving it alone when that isn't clean; the
 tool result tells the agent which. Ending a conversation (closing it or
 its folder, quitting) saves its state as a commit under
-`refs/ignition/sessions/<id>` and removes the worktree; reopening the
+`refs/ignite/sessions/<id>` and removes the worktree; reopening the
 conversation brings it back. Worktrees are locked with the sidecar's pid,
 and each sidecar start sweeps (saves and removes) those whose process is
 gone; on Windows that also retries a worktree whose files were held open.
@@ -414,8 +414,8 @@ servers already set up in Claude Code (user, this folder's local scope,
 `.mcp.json`), Cursor, Codex and Claude Desktop. Those files are only read,
 when the MCP settings load; importing copies the entry into the app's mcp.json.
 
-Skills are the app's own, in `~/.ignition/pi/skills` (standalone) and
-`~/.ignition/pi/plugins/<plugin>/` (a plugin is only a bundle of skills, no
+Skills are the app's own, in `~/.ignite/pi/skills` (standalone) and
+`~/.ignite/pi/plugins/<plugin>/` (a plugin is only a bundle of skills, no
 code); which are off is kept in `skills.json` (`sidecar/skillStore.ts`).
 pi would also load `~/.agents/skills`; the loader's `skillsOverride` keeps
 only the folder's project skills (once trusted) and the app's that are on.
@@ -429,7 +429,7 @@ When [cmem](https://cmem.ai) (claude-mem, also used by Codex, Cursor and
 other agents) is installed and its worker is running,
 `sidecar/cmemExtension.ts` does what its agent hooks do, over the worker's
 local HTTP API (port from `~/.claude-mem/worker.pid`): each prompt, tool
-result and finished run is recorded under platform `ignition`, and the
+result and finished run is recorded under platform `ignite`, and the
 folder's recalled context (from every agent, not just this app) is appended
 to the system prompt. The Memory settings section turns it on or off
 (`[memory] cmem`), shows its status and previews the folder's latest memories. It honours
@@ -450,7 +450,7 @@ has none of its own; token refreshes are written back to that file.
 ## Users and mods
 
 Users run the app through `launcher/` (README "Install"), and maintainers run
-`npm run tauri dev`. For users, `IGNITION_MODS` points at `~/.ignition/mods`:
+`npm run tauri dev`. For users, `IGNITE_MODS` points at `~/.ignite/mods`:
 a file there replaces the file at the same path under `src/`, `sidecar/` or
 `shared/` (Vite through `shared/modsVitePlugin.ts`, Node through
 `sidecar/modsHooks.ts`), so their changes never conflict with upstream.
@@ -461,7 +461,7 @@ Without the variable nothing changes.
 - Load sibling files through `import.meta.resolve`, not `import.meta.dirname`,
   so they are still found when the importing file is a mod.
 - The launcher counts a start as good once `reportHealthy()` (`lib/health.ts`)
-  writes `IGNITION_HEALTH_FILE`, after the sidecar answers. Keep that call on
+  writes `IGNITE_HEALTH_FILE`, after the sidecar answers. Keep that call on
   the startup path, or every update looks broken and gets rolled back.
 
 ## Commands

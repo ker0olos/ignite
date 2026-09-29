@@ -1,4 +1,4 @@
-# Ignition
+# Ignite
 
 A native macOS app for running AI coding agents on your projects.
 
@@ -27,7 +27,7 @@ request, stopping only when it needs you.
 
 <p align="center">
   <img src="docs/questions.png" alt="The agent asking how people should sign in, with three options and their trade-offs, one question of three, while the conversation shows it's waiting for you" width="49%">
-  <img src="docs/settings.png" alt="Ignition settings on the Providers section, with Claude and ChatGPT connected through their subscriptions" width="49%">
+  <img src="docs/settings.png" alt="Ignite settings on the Providers section, with Claude and ChatGPT connected through their subscriptions" width="49%">
 </p>
 
 When something is open, the agent asks, with a few options and what each one
@@ -56,23 +56,23 @@ Needs macOS, [Node.js](https://nodejs.org) 22.18 or newer,
 (`xcode-select --install`).
 
 ```sh
-git clone https://github.com/ker0olos/ignition.git
-cd ignition
+git clone https://github.com/ker0olos/ignite.git
+cd ignite
 npm install
 npm run setup
 ```
 
-Ignition is now in `~/Applications`. It updates itself each time it opens,
+Ignite is now in `~/Applications`. It updates itself each time it opens,
 and goes back to the last working version if an update fails to start.
 
 ## Make it yours
 
-Ask its agent to change Ignition itself: a different look, a missing feature.
-Your changes survive every update, and if one breaks something, Ignition still
+Ask its agent to change Ignite itself: a different look, a missing feature.
+Your changes survive every update, and if one breaks something, Ignite still
 opens and tells you.
 
 ## Develop
 
 `npm install`, then `npm run tauri dev`, which never updates itself and
-ignores `~/.ignition/mods`. `npm run demo` opens two sample projects with
+ignores `~/.ignite/mods`. `npm run demo` opens two sample projects with
 scripted conversations and tasks; no agent runs and nothing is saved.

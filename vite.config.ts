@@ -27,9 +27,9 @@ export default defineConfig(() => ({
     ),
     // `npm run demo` opens the sample project with a fixed conversation.
     __DEMO_FOLDER__: JSON.stringify(
-      process.env.IGNITION_DEMO ? path("./demo/tempo") : null,
+      process.env.IGNITE_DEMO ? path("./demo/tempo") : null,
     ),
-    __HEALTH_FILE__: JSON.stringify(process.env.IGNITION_HEALTH_FILE || null),
+    __HEALTH_FILE__: JSON.stringify(process.env.IGNITE_HEALTH_FILE || null),
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

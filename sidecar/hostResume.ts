@@ -39,7 +39,7 @@ export async function resume(s: Session) {
   for (const result of results) s.sessionManager.appendMessage(result);
   s.agent.state.messages = [...s.agent.state.messages, ...results];
   await s.sendCustomMessage(
-    { customType: "ignition-resume", content: RESUME, display: false },
+    { customType: "ignite-resume", content: RESUME, display: false },
     { triggerTurn: true },
   );
 }

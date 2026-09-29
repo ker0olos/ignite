@@ -17,11 +17,9 @@ const req = (headers: Record<string, string>) =>
 
 describe("allowed", () => {
   it("needs the token's cookie, and a socket from the page itself", () => {
-    const cookie = `other=1; ignition_remote=${TOKEN}`;
+    const cookie = `other=1; ignite_remote=${TOKEN}`;
     expect(allowed(req({ cookie }), TOKEN)).toBe(true);
-    expect(allowed(req({ cookie: "ignition_remote=wrong" }), TOKEN)).toBe(
-      false,
-    );
+    expect(allowed(req({ cookie: "ignite_remote=wrong" }), TOKEN)).toBe(false);
     expect(allowed(req({}), TOKEN)).toBe(false);
     expect(allowed(req({ cookie, origin }), TOKEN, true)).toBe(true);
     expect(
@@ -33,7 +31,7 @@ describe("allowed", () => {
   it("refuses a same-length token whose bytes differ in length, without throwing", () => {
     const sneaky = "é".padEnd(TOKEN.length, "x");
     expect(sneaky.length).toBe(TOKEN.length);
-    expect(allowed(req({ cookie: `ignition_remote=${sneaky}` }), TOKEN)).toBe(
+    expect(allowed(req({ cookie: `ignite_remote=${sneaky}` }), TOKEN)).toBe(
       false,
     );
   });
@@ -57,7 +55,7 @@ describe("createRemote", () => {
     );
   };
 
-  const connect = async (cookie = `ignition_remote=${TOKEN}`) => {
+  const connect = async (cookie = `ignite_remote=${TOKEN}`) => {
     const ws = new WebSocket(`ws://localhost:${PORT}${REMOTE_SOCKET}`, {
       headers: { cookie, origin },
     });
@@ -88,7 +86,7 @@ describe("createRemote", () => {
     } as never);
     await vi.waitFor(() => expect(toApp).toHaveBeenCalledTimes(2));
     await expect(connect()).rejects.toThrow();
-    await expect(connect("ignition_remote=new-token")).resolves.toBeTruthy();
+    await expect(connect("ignite_remote=new-token")).resolves.toBeTruthy();
   });
 
   it("sets the cookie from the link, and refuses pages without it", async () => {
@@ -102,11 +100,9 @@ describe("createRemote", () => {
       redirect: "manual",
     });
     expect([200, 502]).toContain(link.status);
-    expect(link.headers.get("set-cookie")).toContain(
-      `ignition_remote=${TOKEN}`,
-    );
+    expect(link.headers.get("set-cookie")).toContain(`ignite_remote=${TOKEN}`);
     expect(link.headers.get("set-cookie")).toContain("SameSite=Lax");
-    await expect(connect("ignition_remote=wrong")).rejects.toThrow();
+    await expect(connect("ignite_remote=wrong")).rejects.toThrow();
   });
 
   it("answers a browser's request to that browser, under its own id", async () => {

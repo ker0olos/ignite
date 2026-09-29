@@ -54,7 +54,7 @@
       "identifier": "fs:allow-write-text-file",
       "allow": [
         {
-          "path": "$HOME/.ignition/**"
+          "path": "$HOME/.ignite/**"
         }
       ]
     },
@@ -62,10 +62,10 @@
       "identifier": "fs:allow-mkdir",
       "allow": [
         {
-          "path": "$HOME/.ignition"
+          "path": "$HOME/.ignite"
         },
         {
-          "path": "$HOME/.ignition/**"
+          "path": "$HOME/.ignite/**"
         }
       ]
     },

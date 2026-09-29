@@ -1,18 +1,18 @@
 #!/bin/bash
-# `npm run setup`: adds an Ignition app to ~/Applications that runs this
+# `npm run setup`: adds an Ignite app to ~/Applications that runs this
 # checkout through launcher/launch.sh. Safe to rerun.
 set -euo pipefail
 app=$(cd "$(dirname "$0")/.." && pwd)
-bundle="$HOME/Applications/Ignition.app"
+bundle="$HOME/Applications/Ignite.app"
 
 command -v cargo >/dev/null ||
-  { echo "Ignition needs Rust: https://rustup.rs" >&2; exit 1; }
+  { echo "Ignite needs Rust: https://rustup.rs" >&2; exit 1; }
 # Mods need Node's registerHooks, and the sidecar runs TypeScript directly.
 node -e 'const [a, b] = process.versions.node.split(".").map(Number);
   process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)' ||
-  { echo "Ignition needs Node.js 22.18 or newer." >&2; exit 1; }
+  { echo "Ignite needs Node.js 22.18 or newer." >&2; exit 1; }
 
-mkdir -p "$HOME/.ignition/mods" "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
+mkdir -p "$HOME/.ignite/mods" "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 cp "$app/src-tauri/icons/icon.icns" "$bundle/Contents/Resources/icon.icns"
 
 # Apps opened from Finder get a bare PATH; keep the one that found node and cargo.
@@ -30,8 +30,8 @@ cat >"$bundle/Contents/Info.plist" <<EOF
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key><string>launch</string>
-  <key>CFBundleIdentifier</key><string>com.ignition.launcher</string>
-  <key>CFBundleName</key><string>Ignition</string>
+  <key>CFBundleIdentifier</key><string>com.ignite.launcher</string>
+  <key>CFBundleName</key><string>Ignite</string>
   <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSUIElement</key><true/>
@@ -39,5 +39,5 @@ cat >"$bundle/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-echo "Ignition is in ~/Applications. Opening it now."
+echo "Ignite is in ~/Applications. Opening it now."
 open "$bundle"
