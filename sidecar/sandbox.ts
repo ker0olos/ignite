@@ -11,6 +11,13 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
+import {
+  allowedFile,
+  loadAllowed,
+  NOTHING_ALLOWED,
+  type Allowed,
+  type AllowRule,
+} from "./sandboxAllow.ts";
 import { gitAccess } from "./worktreeGit.ts";
 
 // ponytail: fixed lists; make them settings once someone needs another host
@@ -55,6 +62,20 @@ const CREDENTIALS = [
   `.${APP_NAME}/pi/auth.json`,
 ];
 
+/**
+ * Whether "Always allow" is worth offering for `rule`: never for credentials,
+ * and not again once saved, since the sandbox's own protections (a worktree's
+ * git files, shell rc files) outrank the allowlist.
+ */
+export async function canAllow(rule: AllowRule, home: string) {
+  const secret = CREDENTIALS.map((p) => join(home, p)).some(
+    (p) => rule.target === p || rule.target.startsWith(p + "/"),
+  );
+  if (secret) return false;
+  const allowed = await loadAllowed(allowedFile(home));
+  return !allowed[rule.kind].includes(rule.target);
+}
+
 /** Package manager caches under the home folder, which installs write to. */
 const CACHES = [
   ".npm",
@@ -72,22 +93,33 @@ const CACHES = [
 ];
 
 /**
- * The sandbox for commands run in `cwd`. In an agent's worktree, git also
- * writes its private git dir and objects in the user's repository, but never
- * the files that say which repository that is (see gitAccess).
+ * The sandbox for commands run in `cwd`, with what the user always allows.
+ * In an agent's worktree, git also writes its private git dir and objects in
+ * the user's repository, but never the files that say which repository that
+ * is (see gitAccess).
  */
-export function sandboxConfig(cwd: string, home: string): SandboxRuntimeConfig {
+export function sandboxConfig(
+  cwd: string,
+  home: string,
+  allowed: Allowed = NOTHING_ALLOWED,
+): SandboxRuntimeConfig {
   const temp = [...new Set([tmpdir(), "/tmp", "/private/tmp"])];
   const git = gitAccess(cwd);
   return {
-    network: { allowedDomains: ALLOWED_DOMAINS, deniedDomains: [] },
+    network: {
+      allowedDomains: [...ALLOWED_DOMAINS, ...allowed.hosts],
+      deniedDomains: [],
+      allowUnixSockets: allowed.sockets,
+    },
     filesystem: {
       denyRead: CREDENTIALS.map((p) => join(home, p)),
+      allowRead: allowed.read,
       allowWrite: [
         cwd,
         ...git.allow,
         ...temp,
         ...CACHES.map((p) => join(home, p)),
+        ...allowed.write,
       ],
       denyWrite: git.deny,
     },
@@ -106,9 +138,10 @@ export function blockedSummary(output: string): string | null {
   // for their own reasons made, e.g. a grep with no match; only a file or
   // network denial is worth asking to run outside the sandbox.
   const first = lines.find((l) => /file-|network/.test(l));
-  // "touch(123) deny(1) file-write-create /path" → "file-write-create /path"
+  // "touch(123) deny(1) file-write-create /path" → "file-write-create /path",
+  // and the proxy's "deny network-outbound host:443 (…)" → "network-outbound …".
   return first
-    ? first.replace(/^\S+\(\d+\)\s+deny\(\d+\)\s+/, "").trim()
+    ? first.replace(/^(?:\S+\(\d+\)\s+)?deny(?:\(\d+\))?\s+/, "").trim()
     : null;
 }
 
@@ -125,10 +158,12 @@ export function blockedAction(summary: string, home: string): string | null {
   const [, op, target] = /^(\S+) (.+)$/.exec(summary) ?? [];
   const verb = op && BLOCKED_VERBS.find(([re]) => re.test(op))?.[1];
   if (!verb) return null;
-  const shown = target.startsWith(home + "/")
-    ? "~" + target.slice(home.length)
-    : target;
-  return `${verb} ${shown}`;
+  return `${verb} ${shortHome(target, home)}`;
+}
+
+/** `path` with `home` shown as ~. */
+export function shortHome(path: string, home: string): string {
+  return path.startsWith(home + "/") ? "~" + path.slice(home.length) : path;
 }
 
 /**
@@ -194,14 +229,19 @@ export async function createSandbox(
   );
   return {
     // pipefail: agents pipe through head/tail, which would hide a block.
-    wrap: (command, cwd, id) =>
-      SandboxManager.wrapWithSandbox(
+    // Hosts and sockets are the proxy's and profile's global config, so the
+    // allowlist goes there too; it's cheap to swap.
+    wrap: async (command, cwd, id) => {
+      const allowed = await loadAllowed(allowedFile(home));
+      SandboxManager.updateConfig(sandboxConfig(tmpdir(), home, allowed));
+      return SandboxManager.wrapWithSandbox(
         `set -o pipefail; ${command}`,
         undefined,
-        { filesystem: sandboxConfig(cwd, home).filesystem },
+        { filesystem: sandboxConfig(cwd, home, allowed).filesystem },
         undefined,
         { commandId: id },
-      ),
+      );
+    },
     explain: (id, output) =>
       explainWhenReported(
         (text) => SandboxManager.annotateStderrWithSandboxFailures(id, text),

@@ -144,6 +144,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
   bashParser.ts          Parses bash (tree-sitter) into pipelines for the approval rules
   sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts
+  sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
   hostMcpCatalog.ts      MCP presets and imports (toServerName, target, mcpCatalog, addPreset, importServers)
   hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, copySignIn), run in the MCP session
@@ -311,10 +312,16 @@ other bash command runs without asking inside an OS sandbox
 on macOS, bubblewrap on Linux). It may write only in the folder, temp
 folders and package caches, can't read credentials (`~/.ssh`, `~/.aws`,
 keychains, auth files) and reaches only package registries and git hosts
-through the runtime's proxy, which runs in the sidecar. When a failed command
-was blocked, the same call asks the user before it ends; approved, the
+through the runtime's proxy, which runs in the sidecar. Commands run with
+`pipefail`. When a command was blocked (it failed, or its output says so),
+the same call asks the user before it ends; approved, the
 extension runs it outside the sandbox and that output is the result, declined,
-the model gets the sandbox's report. Approving a denylisted command also runs it outside. Where the
+the model gets the sandbox's report. When the sandbox named what it blocked
+(a host, Unix socket, or path read or written; never a credential, nor
+one already on the list), the prompt also offers
+**Always allow**, which adds it to `~/.ignite/sandbox.json`
+(`sidecar/sandboxAllow.ts`, read before every command) and runs this one
+outside. Approving a denylisted command also runs it outside. Where the
 sandbox can't start, Auto instead asks for bash commands naming absolute, `~`
 or `..` paths outside the folder. On Windows (no sandbox, and a denylist
 written for Unix) Auto asks for every bash and PowerShell command; file

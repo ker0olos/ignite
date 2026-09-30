@@ -108,6 +108,8 @@ export type ApprovalRequest = {
   reason?: string;
   /** What a commit or push would change. */
   review?: GitReview;
+  /** What the sandbox blocked that the user may always allow (a host, socket or path). */
+  allow?: string;
 };
 
 /** What opening a folder's session returns: its settings and its history. */
@@ -293,12 +295,16 @@ export type HostRequest =
   | { id: number; type: "app_update" }
   | { type: "prompt_answer"; promptId: number; value: string }
   | { type: "prompt_cancel"; promptId: number }
-  /** `answers` replies to an ask_user call; declining one lets the agent decide. */
+  /**
+   * `answers` replies to an ask_user call; declining one lets the agent decide.
+   * `always` also allows the request's `allow` from now on.
+   */
   | {
       type: "approval_answer";
       toolCallId: string;
       approved: boolean;
       answers?: QuestionAnswer[];
+      always?: boolean;
     };
 
 /** What each request resolves to. */

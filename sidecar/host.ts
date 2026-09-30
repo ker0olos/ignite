@@ -206,6 +206,7 @@ export function createHost(
         request.toolCallId,
         request.approved,
         request.answers,
+        request.always,
       );
       return;
     }

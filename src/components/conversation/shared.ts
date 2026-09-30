@@ -14,11 +14,12 @@ export type ToolProps = {
   codeThemes: CodeThemes;
   /** The conversation's tool runs, so a subagent's nested calls find their approvals. */
   tools?: Record<string, ToolRun>;
-  /** Approves or denies a call that waits for the user, or answers its questions. */
+  /** Approves or denies a call that waits for the user, or answers its questions; `always` allows what it hit from now on. */
   onApprove: (
     toolCallId: string,
     approved: boolean,
     answers?: QuestionAnswer[],
+    always?: boolean,
   ) => void;
 };
 

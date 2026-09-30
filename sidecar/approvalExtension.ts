@@ -14,6 +14,7 @@ import {
   type ExtensionAPI,
   type ExtensionContext,
   type ToolCallEvent,
+  type ToolResultEvent,
 } from "@earendil-works/pi-coding-agent";
 import { parse as parseToml } from "smol-toml";
 import type { ApprovalMode, ApprovalRequest } from "../shared/hostProtocol.ts";
@@ -26,11 +27,14 @@ import { loadBashParser } from "./bashParser.ts";
 import {
   blockedAction,
   blockedSummary,
+  canAllow,
   createSandbox,
   mayBeBlocked,
   refusedLine,
+  shortHome,
   type Sandbox,
 } from "./sandbox.ts";
+import { allowAlways, allowRuleFor } from "./sandboxAllow.ts";
 
 // Without these, commands are still checked: as raw text, and for paths
 // outside the folder instead of in the sandbox.
@@ -49,7 +53,8 @@ export const APPROVAL_EVENT = "app/approval";
 /** An approval question on the event bus; `answer` settles it. */
 export type ApprovalAsk = {
   request: ApprovalRequest;
-  answer(approved: boolean, answers?: QuestionAnswer[]): void;
+  /** `always`: the user also allowed the request's `allow` from now on. */
+  answer(approved: boolean, answers?: QuestionAnswer[], always?: boolean): void;
   /** Called when the user declined it, not when a stop, close or message denied it. */
   declined?(): void;
 };
@@ -133,14 +138,54 @@ export default function approval(pi: ExtensionAPI) {
   const sandboxed = new Map<string, string>();
 
   const ask = (request: ApprovalRequest, ctx: ExtensionContext) =>
-    new Promise<boolean>((resolve) => {
+    new Promise<{ approved: boolean; always?: boolean }>((resolve) => {
       // Stopping the run denies it.
-      ctx.signal?.addEventListener("abort", () => resolve(false));
+      ctx.signal?.addEventListener("abort", () => resolve({ approved: false }));
       pi.events.emit(APPROVAL_EVENT, {
         request,
-        answer: resolve,
+        answer: (approved, _answers, always) => resolve({ approved, always }),
       } satisfies ApprovalAsk);
     });
+
+  /** Asks to run a blocked command outside, offering to always allow what it hit. */
+  async function askOutside(
+    event: ToolResultEvent,
+    ctx: ExtensionContext,
+    command: string,
+    explained: string,
+    what: string,
+  ) {
+    const summary = blockedSummary(explained);
+    const found = summary ? allowRuleFor(summary) : null;
+    const rule = found && (await canAllow(found, homedir())) ? found : null;
+    const { approved, always } = await ask(
+      {
+        toolCallId: event.toolCallId,
+        reason: blockedReason(what),
+        ...(rule && { allow: shortHome(rule.target, homedir()) }),
+      },
+      ctx,
+    );
+    if (!approved) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `${explained}\n\n${DECLINED_OUTSIDE}`,
+          },
+        ],
+      };
+    }
+    // The user approved this run either way; a failed save only loses "always".
+    if (always && rule) {
+      await allowAlways(rule).catch((error: unknown) => {
+        process.stderr.write(
+          `pi-host: sandbox allowlist not saved: ${error}\n`,
+        );
+      });
+    }
+    return runOutside(event.toolCallId, { ...event.input, command }, ctx);
+  }
 
   /** Why the call waits for the user, or null to let it run. */
   async function needed(
@@ -166,7 +211,9 @@ export default function approval(pi: ExtensionAPI) {
     const wait = await needed(event, ctx, mode, box);
     if (wait) {
       const request = { toolCallId: event.toolCallId, ...wait };
-      if (!(await ask(request, ctx))) return { block: true, reason: DENIED };
+      if (!(await ask(request, ctx)).approved) {
+        return { block: true, reason: DENIED };
+      }
       // An approved command runs as is, outside the sandbox.
       return;
     }
@@ -191,15 +238,6 @@ export default function approval(pi: ExtensionAPI) {
     const explained = await box.explain(event.toolCallId, text);
     const what = blockedSummary(explained) ?? refusedLine(text);
     if (!what) return;
-    const request = {
-      toolCallId: event.toolCallId,
-      reason: blockedReason(what),
-    };
-    if (await ask(request, ctx)) {
-      return runOutside(event.toolCallId, { ...event.input, command }, ctx);
-    }
-    return {
-      content: [{ type: "text", text: `${explained}\n\n${DECLINED_OUTSIDE}` }],
-    };
+    return askOutside(event, ctx, command, explained, what);
   });
 }

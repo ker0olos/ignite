@@ -36,11 +36,22 @@ export function useSessionEvents(
   }, [opened, session, update]);
 
   return useCallback(
-    (toolCallId: string, approved: boolean, answers?: QuestionAnswer[]) => {
+    (
+      toolCallId: string,
+      approved: boolean,
+      answers?: QuestionAnswer[],
+      always?: boolean,
+    ) => {
       if (!opened) return;
       update((t) => settleApproval(t, toolCallId));
       opened
-        .send({ type: "approval_answer", toolCallId, approved, answers })
+        .send({
+          type: "approval_answer",
+          toolCallId,
+          approved,
+          answers,
+          always,
+        })
         .catch((e: Error) => onError(e.message));
     },
     [opened, update, onError],

@@ -22,13 +22,14 @@ export function answerApproval(
   toolCallId: string,
   approved: boolean,
   answers?: QuestionAnswer[],
+  always?: boolean,
 ) {
   for (const agent of ctx.agents.values()) {
     const ask = agent.approvals.get(toolCallId);
     if (!ask) continue;
     agent.approvals.delete(toolCallId);
     if (!approved) ask.declined?.();
-    ask.answer(approved, answers);
+    ask.answer(approved, answers, always);
     pushProjects(ctx);
   }
 }

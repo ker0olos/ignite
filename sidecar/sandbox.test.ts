@@ -9,6 +9,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
+import { createServer } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -17,6 +18,7 @@ import {
   ALLOWED_DOMAINS,
   blockedAction,
   blockedSummary,
+  canAllow,
   createSandbox,
   explainWhenReported,
   mayBeBlocked,
@@ -24,6 +26,7 @@ import {
   sandboxConfig,
   type Sandbox,
 } from "./sandbox.ts";
+import { allowAlways, allowedFile, type AllowRule } from "./sandboxAllow.ts";
 import { createWorkspaces } from "./worktrees.ts";
 
 describe("sandboxConfig", () => {
@@ -53,6 +56,43 @@ describe("sandboxConfig", () => {
     expect(ALLOWED_DOMAINS).toContain("registry.npmjs.org");
     expect(ALLOWED_DOMAINS).toContain("github.com");
   });
+
+  it("adds what the user always allows", () => {
+    const allowed = sandboxConfig("/Users/me/app", "/Users/me", {
+      hosts: ["example.com"],
+      sockets: ["/Users/me/.docker/run/docker.sock"],
+      read: ["/Users/me/.docker/config.json"],
+      write: ["/Users/me/.zshrc"],
+    });
+    expect(allowed.network.allowedDomains).toContain("example.com");
+    expect(allowed.network.allowUnixSockets).toEqual([
+      "/Users/me/.docker/run/docker.sock",
+    ]);
+    expect(allowed.filesystem.allowRead).toEqual([
+      "/Users/me/.docker/config.json",
+    ]);
+    expect(allowed.filesystem.allowWrite).toContain("/Users/me/.zshrc");
+  });
+});
+
+describe("canAllow", () => {
+  it("never offers credentials, nor what's already allowed", async () => {
+    const home = await mkdtemp(join(tmpdir(), "can-allow-"));
+    try {
+      const key = { kind: "read", target: join(home, ".ssh/id_ed25519") };
+      expect(await canAllow(key as AllowRule, home)).toBe(false);
+      const docker = join(home, ".docker/config.json");
+      expect(await canAllow({ kind: "read", target: docker }, home)).toBe(
+        false,
+      );
+      const sock = { kind: "sockets", target: join(home, "x.sock") } as const;
+      expect(await canAllow(sock, home)).toBe(true);
+      await allowAlways(sock, allowedFile(home));
+      expect(await canAllow(sock, home)).toBe(false);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("blockedSummary", () => {
@@ -80,12 +120,12 @@ describe("blockedSummary", () => {
     ).toBeNull();
   });
 
-  it("keeps a line in another format as is", () => {
+  it("reads the network proxy's format too", () => {
     expect(
       blockedSummary(
-        "<sandbox_violations>\ndeny network-outbound example.com:443\n</sandbox_violations>",
+        "<sandbox_violations>\ndeny network-outbound example.com:443 (host is not on the allow list)\n</sandbox_violations>",
       ),
-    ).toBe("deny network-outbound example.com:443");
+    ).toBe("network-outbound example.com:443 (host is not on the allow list)");
   });
 
   it("is null without a report", () => {
@@ -214,6 +254,24 @@ describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
     expect(blockedSummary(out) ?? refusedLine(out)).toMatch(
       /file-write|Operation not permitted/,
     );
+  });
+
+  it("lets through the sockets and paths the user always allows", async () => {
+    const sock = join(home, "s.sock");
+    const server = createServer((c) =>
+      c.end("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"),
+    );
+    await new Promise<void>((resolve) => server.listen(sock, resolve));
+    try {
+      const curl = `curl -sS --unix-socket ${sock} http://x/`;
+      expect((await run(curl, "sock-blocked")).ok).toBe(false);
+      await allowAlways({ kind: "sockets", target: sock }, allowedFile(home));
+      expect(await run(curl, "sock-allowed")).toEqual({ ok: true, out: "ok" });
+    } finally {
+      server.close();
+    }
+    await allowAlways({ kind: "write", target: escape }, allowedFile(home));
+    expect((await run(`touch ${escape}`, "write-allowed")).ok).toBe(true);
   });
 
   it("lets git work in an agent's worktree, but not repoint it", async () => {
