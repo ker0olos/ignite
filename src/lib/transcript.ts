@@ -18,7 +18,7 @@ export type ToolRun = {
   /** Latest partial output while running, then the final result. */
   result?: ToolResult;
   /** Set while the call waits for the user to approve it. */
-  approval?: { reason?: string; review?: GitReview };
+  approval?: { reason?: string; review?: GitReview; allow?: string };
   /** The review the user approved, shown until the result arrives. */
   review?: GitReview;
 };
@@ -76,12 +76,14 @@ function applyToolExecutionEvent(
 /** Marks a tool call as waiting for the user. */
 export function requestApproval(
   t: Transcript,
-  { toolCallId, reason, review }: ApprovalRequest,
+  { toolCallId, reason, review, allow }: ApprovalRequest,
 ): Transcript {
   return setTool(t, toolCallId, {
     status: t.tools[toolCallId]?.status ?? "running",
     // A review says what the call does; a reason under it would repeat it.
-    approval: review ? { review } : reason ? { reason } : {},
+    approval: review
+      ? { review }
+      : { ...(reason && { reason }), ...(allow && { allow }) },
   });
 }
 

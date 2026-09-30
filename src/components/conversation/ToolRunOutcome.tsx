@@ -36,8 +36,11 @@ export function ToolRunOutcome({
     return (
       <ApprovalPrompt
         reason={run.approval.reason}
+        allow={run.approval.allow}
         shortcuts={first}
-        onAnswer={(approved) => onApprove(call.id, approved)}
+        onAnswer={(approved, always) =>
+          onApprove(call.id, approved, undefined, always)
+        }
       >
         <ApprovalCommand call={call} editor={editor} codeThemes={codeThemes} />
         {run.approval.review && <GitChanges review={run.approval.review} />}

@@ -48,5 +48,10 @@ it("shows the subagent's task and a nested approval, forwarding the nested id", 
   expect(screen.getByText("Rename the helper")).toBeTruthy();
   expect(screen.getByText("Deletes files")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-  expect(onApprove).toHaveBeenCalledWith("nested-1", true);
+  expect(onApprove).toHaveBeenCalledWith(
+    "nested-1",
+    true,
+    undefined,
+    undefined,
+  );
 });

@@ -252,6 +252,18 @@ describe("applyEvent", () => {
     });
   });
 
+  it("keeps what a blocked command may always allow", () => {
+    const waiting = requestApproval(EMPTY, {
+      toolCallId: "c1",
+      reason: "Auto mode stopped this",
+      allow: "example.com",
+    });
+    expect(waiting.tools.c1.approval).toEqual({
+      reason: "Auto mode stopped this",
+      allow: "example.com",
+    });
+  });
+
   it("keeps a commit or push's review while it waits for approval", () => {
     const review = {
       kind: "commit" as const,

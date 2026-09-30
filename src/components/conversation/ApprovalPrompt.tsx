@@ -6,15 +6,18 @@ import { approvalHints } from "@/lib/approvalKeys";
 /** Approve or deny a tool call that waits for the user, with why it waits and what it runs. */
 export function ApprovalPrompt({
   reason,
+  allow,
   children,
   shortcuts = false,
   onAnswer,
 }: {
   reason?: string;
+  /** What the sandbox blocked, which the user may always allow. */
+  allow?: string;
   children?: ReactNode;
   /** Takes ⌘↩ and ⌘⌫, and shows them: only the first waiting call does. */
   shortcuts?: boolean;
-  onAnswer: (approved: boolean) => void;
+  onAnswer: (approved: boolean, always?: boolean) => void;
 }) {
   useApprovalKeys(shortcuts, onAnswer);
   const hints = shortcuts ? approvalHints() : null;
@@ -36,6 +39,17 @@ export function ApprovalPrompt({
             </span>
           )}
         </Button>
+        {allow && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-w-0 px-3"
+            title={allow}
+            onClick={() => onAnswer(true, true)}
+          >
+            <span className="truncate">Always allow {allow}</span>
+          </Button>
+        )}
         <Button
           size="sm"
           variant="outline"

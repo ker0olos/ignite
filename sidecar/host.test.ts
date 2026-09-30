@@ -1972,7 +1972,7 @@ describe("tool approval", () => {
       toolCallId: "t1",
       approved: true,
     });
-    expect(answer).toHaveBeenCalledWith(true, undefined);
+    expect(answer).toHaveBeenCalledWith(true, undefined, undefined);
     // Answered once; a second answer finds nothing waiting.
     await request({
       type: "approval_answer",
@@ -1994,7 +1994,19 @@ describe("tool approval", () => {
       approved: true,
       answers,
     });
-    expect(answer).toHaveBeenCalledWith(true, answers);
+    expect(answer).toHaveBeenCalledWith(true, answers, undefined);
+  });
+
+  it("passes on that the user always allows what was blocked", async () => {
+    const { ask, request } = await opened();
+    const answer = ask("t1");
+    await request({
+      type: "approval_answer",
+      toolCallId: "t1",
+      approved: true,
+      always: true,
+    });
+    expect(answer).toHaveBeenCalledWith(true, undefined, true);
   });
 
   it("tells a call the user declined it, but not when the run is stopped", async () => {

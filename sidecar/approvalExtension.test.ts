@@ -23,6 +23,7 @@ import approval, {
   type ApprovalAsk,
 } from "./approvalExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
+import { loadAllowed } from "./sandboxAllow.ts";
 import { WINDOWS_SHELL } from "../src/lib/approvalPolicy.ts";
 
 // A fake sandbox: wrapping marks the command, and `violation` is what it
@@ -244,6 +245,7 @@ describe("the sandbox in Auto", () => {
     expect(asks[0].request).toEqual({
       toolCallId: "t1",
       reason: "Auto mode stopped this because it tried to create /Users/me/x.",
+      allow: "/Users/me/x",
     });
     asks[0].answer(true);
     const ran = (await outcome) as Outcome;
@@ -307,6 +309,52 @@ describe("the sandbox in Auto", () => {
     );
     asks[0].answer(false);
     await outcome;
+  });
+
+  it("always allows what it hit when the user says so, then runs it outside", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "echo outside" });
+    fake.violation = `network-outbound ${home}/.docker/run/docker.sock`;
+    const outcome = result("permission denied", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.allow).toBe("~/.docker/run/docker.sock");
+    asks[0].answer(true, undefined, true);
+    const ran = (await outcome) as Outcome;
+    expect(ran.content[0].text.trim()).toBe("outside");
+    expect(await loadAllowed()).toMatchObject({
+      sockets: [`${home}/.docker/run/docker.sock`],
+    });
+  });
+
+  it("runs an approved command even when the allowlist can't be saved", async () => {
+    await writeFile(join(home, `.${APP_NAME}`), "a file, not a folder");
+    const { asks, call, result } = load();
+    await call("bash", { command: "echo outside" });
+    fake.violation = "network-outbound example.com:443";
+    const outcome = result("permission denied", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    asks[0].answer(true, undefined, true);
+    const ran = (await outcome) as Outcome;
+    expect(ran.content[0].text.trim()).toBe("outside");
+  });
+
+  it("doesn't offer to always allow reading a credential", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "ssh-add -l" });
+    fake.violation = `file-read-data ${home}/.ssh/id_ed25519`;
+    void result("Operation not permitted", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.allow).toBeUndefined();
+    asks[0].answer(false);
+  });
+
+  it("offers nothing to always allow when only the output said so", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "touch ~/x" });
+    void result("touch: x: Operation not permitted", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.allow).toBeUndefined();
+    asks[0].answer(false);
   });
 
   it("ignores a successful command's own permission errors", async () => {
