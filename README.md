@@ -42,8 +42,8 @@ once.
 - With [cmem](https://cmem.ai), agents remember what they learned about a
   project.
 - Code shows in any theme from VS Code, VSCodium, Cursor or Windsurf.
-- Use it from your phone on the same Wi-Fi: Settings → Remote, then scan the
-  QR code.
+- Use it from your phone on the same Wi-Fi:
+  Settings → Remote, then scan the QR code.
 
 ## Install
 
