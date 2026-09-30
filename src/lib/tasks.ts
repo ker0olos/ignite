@@ -1,12 +1,17 @@
-import type { AgentStatus, SessionState } from "../../shared/hostProtocol";
+import type {
+  AgentStatus,
+  ApprovalRequest,
+  SessionState,
+} from "../../shared/hostProtocol";
 import type { Task, TaskImage } from "../../shared/tasks";
 import { toImage } from "@/lib/images";
 
-/** Where a task stands: not started, the agent on it, waiting on the user, its work to review, or done. */
-export type TaskStatus = "todo" | "working" | "waiting" | "review" | "done";
+/** Where a task stands: not started, the agent on it, waiting on the user, its pull request declined, its work to review, or done. */
+export type TaskStatus =
+  "todo" | "working" | "waiting" | "declined" | "review" | "done";
 
-/** A task with where it stands, as the Tasks view shows it. */
-export type ShownTask = Task & { status: TaskStatus };
+/** A task with where it stands, and the pull request waiting for review, as the Tasks view shows it. */
+export type ShownTask = Task & { status: TaskStatus; review?: ApprovalRequest };
 
 /**
  * A task's status from its conversation's: a started one whose conversation
@@ -18,21 +23,25 @@ export function taskStatus(task: Task, agent?: AgentStatus): TaskStatus {
   if (agent?.waiting) return "waiting";
   // Just started: open, but its first message hasn't arrived yet.
   if (agent && (agent.running || !agent.title)) return "working";
-  return "review";
+  return task.declined ? "declined" : "review";
 }
 
 /** Each task with its status, from the folder's conversations. */
 export function withStatus(tasks: Task[], agents: AgentStatus[]): ShownTask[] {
   const bySession = new Map(agents.map((a) => [a.session, a]));
-  return tasks.map((t) => ({
-    ...t,
-    status: taskStatus(t, t.session ? bySession.get(t.session) : undefined),
-  }));
+  return tasks.map((t) => {
+    const agent = t.session ? bySession.get(t.session) : undefined;
+    const status = taskStatus(t, agent);
+    // A pull request waiting for approval is the work, ready for review.
+    return status === "waiting" && agent?.review
+      ? { ...t, status: "review" as const, review: agent.review }
+      : { ...t, status };
+  });
 }
 
 /** The Tasks view's groups, in the order they show. */
 export const TASK_GROUPS: { label: string; statuses: TaskStatus[] }[] = [
-  { label: "Needs you", statuses: ["waiting"] },
+  { label: "Needs you", statuses: ["waiting", "declined"] },
   { label: "In progress", statuses: ["working"] },
   { label: "Up next", statuses: ["review", "todo"] },
   { label: "Done", statuses: ["done"] },

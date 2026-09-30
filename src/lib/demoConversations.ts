@@ -10,9 +10,9 @@ import { DEMO_QUESTION_MESSAGES, DEMO_QUESTIONS } from "./demoQuestions";
 import {
   RELOAD_EDIT,
   RELOAD_MESSAGES,
-  TESTS_COMMIT,
   TESTS_DIFFS,
   TESTS_MESSAGES,
+  TESTS_PR,
   testsReview,
 } from "./demoTempoWork";
 import { assistant } from "./demoTranscript";
@@ -99,12 +99,12 @@ function openConversations(
       messages: TESTS_MESSAGES,
       open: true,
       running: true,
-      approvals: [{ toolCallId: TESTS_COMMIT.id, review: testsReview(tempo) }],
+      approvals: [{ toolCallId: TESTS_PR.id, review: testsReview(tempo) }],
       details: {
         ...claude,
         files: Object.keys(TESTS_DIFFS),
-        toolCalls: 4,
-        cost: 0.21,
+        toolCalls: 7,
+        cost: 0.24,
         branch: "test/settings",
       },
     },
@@ -184,6 +184,23 @@ function savedConversations(
           learned:
             "setInterval's first tick comes a full second after it starts, so the first value has to be drawn up front.",
         },
+      },
+    },
+    {
+      id: "tempo-streak",
+      cwd: tempo,
+      title: "Show how many days in a row I've practised",
+      modified: now - 3 * HOUR,
+      messages: saved(
+        "Show how many days in a row I've practised.",
+        "You declined the pull request, so I've stopped here. Tell me what to change and I'll pick it up.",
+      ),
+      details: {
+        ...claude,
+        files: ["src/history.ts", "tests/history.test.ts"],
+        toolCalls: 11,
+        cost: 0.27,
+        branch: "feat/streak",
       },
     },
     {

@@ -72,6 +72,11 @@ describe("taskStatus", () => {
     expect(taskStatus(started, agent())).toBe("review");
     expect(taskStatus(started)).toBe("review");
   });
+  it("is declined when the user declined its pull request, until it runs again", () => {
+    const declined = { ...started, declined: true };
+    expect(taskStatus(declined)).toBe("declined");
+    expect(taskStatus(declined, agent({ running: true }))).toBe("working");
+  });
 });
 
 describe("withStatus", () => {
@@ -82,6 +87,20 @@ describe("withStatus", () => {
       [agent({ running: true }), agent({ session: "x", waiting: true })],
     );
     expect(shown.map((t) => t.status)).toEqual(["working", "todo"]);
+  });
+
+  it("shows a pull request waiting for approval as ready for review", () => {
+    const review = { toolCallId: "c1" };
+    const [waiting] = withStatus(
+      [started],
+      [agent({ waiting: true, running: true, review })],
+    );
+    expect(waiting).toMatchObject({ status: "review", review });
+    const [done] = withStatus(
+      [{ ...started, done: true }],
+      [agent({ waiting: true, review })],
+    );
+    expect(done).not.toHaveProperty("review");
   });
 });
 

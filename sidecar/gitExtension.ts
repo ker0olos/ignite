@@ -59,6 +59,9 @@ export function needsTools(words: string[][]): boolean {
   });
 }
 
+export const PR_DECLINED =
+  "The user declined this pull request. Stop here: they'll update the task and tell you what to change.";
+
 const bashParser = loadBashParser().catch(() => undefined);
 
 type Tool = typeof GIT_TOOL | typeof GH_TOOL;
@@ -159,12 +162,14 @@ const roughWords = (command: string) =>
   command.split(/[;&|()\n`]+/).map((part) => part.trim().split(/\s+/));
 
 export default function gitTools(pi: ExtensionAPI) {
+  // "declined" only when the user answered no; a stop or close is "denied".
   const ask = (request: ApprovalRequest, signal?: AbortSignal) =>
-    new Promise<boolean>((resolve) => {
-      signal?.addEventListener("abort", () => resolve(false));
+    new Promise<"approved" | "denied" | "declined">((resolve) => {
+      signal?.addEventListener("abort", () => resolve("denied"));
       pi.events.emit(APPROVAL_EVENT, {
         request,
-        answer: resolve,
+        answer: (approved) => resolve(approved ? "approved" : "denied"),
+        declined: () => resolve("declined"),
       } satisfies ApprovalAsk);
     });
 
@@ -187,7 +192,13 @@ export default function gitTools(pi: ExtensionAPI) {
       ...(auto && !manual && !shown && { reason: auto.reason }),
       ...(shown && { review: shown }),
     };
-    return { allowed: await ask(request, signal), asked: true, shown };
+    const answer = await ask(request, signal);
+    return {
+      allowed: answer === "approved",
+      declined: answer === "declined",
+      asked: true,
+      shown,
+    };
   }
 
   function register(tool: Tool, description: string) {
@@ -198,7 +209,13 @@ export default function gitTools(pi: ExtensionAPI) {
       parameters: Params,
       async execute(toolCallId, { args }, signal, _onUpdate, ctx) {
         const gated = await gate(tool, args, ctx.cwd, toolCallId, signal);
-        if (!gated.allowed) throw new Error(DENIED);
+        if (!gated.allowed) {
+          const task =
+            gated.declined &&
+            createsPr(tool, args) &&
+            (await askTask(pi, "update", { declined: true }));
+          throw new Error(task ? PR_DECLINED : DENIED);
+        }
         const before = await headBefore(tool, args, ctx.cwd);
         const result = await run(tool, args, {
           cwd: ctx.cwd,

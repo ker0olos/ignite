@@ -75,7 +75,7 @@ describe("the demo host", () => {
       cwd: TEMPO,
       session: "tempo-tests",
     });
-    expect(waiting!.approvals[0].review).toMatchObject({ kind: "commit" });
+    expect(waiting!.approvals[0].review).toMatchObject({ kind: "pr" });
     const made = await host.request({ type: "new_session", cwd: TEMPO });
     expect(made).toMatchObject({ session: "demo-1", messages: [] });
     expect(

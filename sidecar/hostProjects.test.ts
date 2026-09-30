@@ -3,24 +3,42 @@ import { firstTitle, pushProjects, titleOf } from "./hostProjects.ts";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
 
-const agent = (running: boolean, waiting: boolean) =>
+const agent = (running: boolean, waiting: boolean, ...requests: object[]) =>
   ({
     running,
-    approvals: new Map(waiting ? [["t1", {}]] : []),
+    approvals: new Map(
+      (waiting && !requests.length ? [{ toolCallId: "t1" }] : requests).map(
+        (request, i) => [`t${i}`, { request }],
+      ),
+    ),
   }) as unknown as Agent;
 
-const push = (agents: Record<string, Agent>) => {
+const pushed = (agents: Record<string, Agent>) => {
   const keepAwake = vi.fn(async () => {});
+  const send = vi.fn();
   const ctx = {
-    send: vi.fn(),
+    send,
     agents: new Map(Object.entries(agents)),
     keepAwake,
   } as unknown as HostContext;
   pushProjects(ctx);
-  return keepAwake.mock.calls[0];
+  return { awake: keepAwake.mock.calls[0], message: send.mock.calls[0][0] };
 };
 
+const push = (agents: Record<string, Agent>) => pushed(agents).awake;
+
 describe("pushProjects", () => {
+  it("passes on a waiting pull request's review, and no other call's", () => {
+    const pr = { toolCallId: "p", review: { kind: "pr" } };
+    const commit = { toolCallId: "c", review: { kind: "commit" } };
+    const [withPr, without] = pushed({
+      a: agent(true, true, commit, pr),
+      b: agent(true, true, commit),
+    }).message.agents;
+    expect(withPr.review).toEqual(pr);
+    expect(without).not.toHaveProperty("review");
+  });
+
   it("keeps the Mac awake only while some agent works, not while it waits", () => {
     expect(push({ "/a": agent(true, false) })).toEqual([true]);
     expect(push({ "/a": agent(true, true) })).toEqual([false]);

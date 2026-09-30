@@ -48,6 +48,8 @@ export const APPROVAL_EVENT = "app/approval";
 export type ApprovalAsk = {
   request: ApprovalRequest;
   answer(approved: boolean, answers?: QuestionAnswer[]): void;
+  /** Called when the user declined it, not when a stop, close or message denied it. */
+  declined?(): void;
 };
 
 export const DENIED = "The user denied this tool call.";

@@ -345,9 +345,14 @@ out or confirmed the subtasks (`planned`), each tool call becomes its step,
 and a run that ends with subtasks open or no pull request gets one wrap-up
 message. In a task, a commit and a plain push of its own branch run without
 asking (`taskRunsAlone` in `lib/gitPolicy.ts`); `gh pr create` still waits
-for review, and its URL is saved on the task. A task's status comes from its
+for review, shown on the task's card (the conversation's status carries the
+waiting review). Approved, the pull request opens, its URL is saved and the
+task is done. Declined, the task is marked `declined`, the agent is told to
+stop and isn't nudged, and the card takes what to change and resumes the
+conversation (`task_resume`). A task's status comes from its
 conversation (`lib/tasks.ts`): working, waiting on the user, finished (to
-review) once idle or closed, done when the user marks it.
+review) once idle or closed, done once its pull request opens or the user
+marks it.
 
 The `chrome_*` tools (`sidecar/chromeExtension.ts`) drive Chrome over the
 DevTools protocol from the sidecar. They attach to the user's own Chrome

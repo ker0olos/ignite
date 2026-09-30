@@ -87,12 +87,23 @@ export function useTasks(
     },
     remove: (taskId: string) =>
       run(host?.request({ type: "task_delete", cwd, taskId })),
+    /** Approves or declines the pull request a task's agent waits on. */
+    answer: (toolCallId: string, approved: boolean) =>
+      host
+        ?.send({ type: "approval_answer", toolCallId, approved })
+        .catch((e: Error) => setError(e.message)),
+    /** Tells a started task's agent what to change, and lets it carry on. */
+    resume: (taskId: string, text: string) =>
+      run(host?.request({ type: "task_resume", cwd, taskId, text })),
   };
 }
 
 type Tasks = ReturnType<typeof useTasks>;
 
 /** What a task's row can do: the task actions, and opening its conversation. */
-export type TaskActions = Pick<Tasks, "start" | "stop" | "edit" | "remove"> & {
+export type TaskActions = Pick<
+  Tasks,
+  "start" | "stop" | "edit" | "remove" | "answer" | "resume"
+> & {
   onOpenChat: (session: string) => void;
 };

@@ -77,6 +77,17 @@ describe("applyUpdate", () => {
     const kept = applyUpdate(next, { step: "s" }, 3);
     expect(kept).toMatchObject({ planned: true, pr: "https://x/pull/1" });
   });
+
+  it("completes the task with its pull request, clearing a decline", () => {
+    const declined = applyUpdate(task, { declined: true }, 2);
+    expect(declined).toMatchObject({ declined: true });
+    expect(declined.done).toBeUndefined();
+    expect(applyUpdate(declined, { declined: false }, 3).declined).toBe(false);
+    expect(applyUpdate(declined, { pr: "https://x/pull/2" }, 3)).toMatchObject({
+      done: true,
+      declined: false,
+    });
+  });
 });
 
 describe("unfinished", () => {
@@ -94,6 +105,10 @@ describe("unfinished", () => {
   it("is false with a pull request and every subtask done", () => {
     expect(unfinished({ ...task, subtasks: done, pr })).toBe(false);
     expect(unfinished({ ...task, subtasks: [], pr })).toBe(false);
+  });
+
+  it("is false once the user declined its pull request", () => {
+    expect(unfinished({ ...task, declined: true })).toBe(false);
   });
 });
 

@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import type { TaskStatus } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
@@ -6,6 +6,7 @@ const MARKS: Record<TaskStatus, string> = {
   todo: "border-[1.5px] border-muted-foreground/60",
   working: "animate-spin border-[1.5px] border-warning border-r-transparent",
   waiting: "bg-warning text-[10px] leading-none font-extrabold text-background",
+  declined: "bg-destructive",
   review: "bg-success",
   done: "bg-muted-foreground/55",
 };
@@ -30,6 +31,9 @@ export function TaskStatusIcon({
       {status === "waiting" && "!"}
       {status === "review" && (
         <span className="size-[5px] rounded-full bg-background" />
+      )}
+      {status === "declined" && (
+        <X className="size-2.5 text-background" strokeWidth={4} />
       )}
       {status === "done" && (
         <Check className="size-2.5 text-background" strokeWidth={4} />

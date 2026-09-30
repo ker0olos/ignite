@@ -105,11 +105,12 @@ describe("the demo's git diffs", () => {
 });
 
 describe("tempo's other conversations", () => {
-  it("waits on the tests' commit, showing what it adds", () => {
+  it("waits on the tests' pull request, showing what it adds", () => {
     const tests = shown("tempo-tests");
-    const [commit] = callsOf("tempo-tests").slice(-1);
-    const run = tests.tools[commit.id];
+    const [pr] = callsOf("tempo-tests").slice(-1);
+    const run = tests.tools[pr.id];
     expect(run?.status).toBe("running");
+    expect(run?.approval?.review?.kind).toBe("pr");
     expect(run?.approval?.review?.files).toEqual([
       {
         path: "tests/settings.test.ts",

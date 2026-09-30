@@ -1,8 +1,9 @@
 /**
  * The demo's tasks. Started ones point at the demo's conversations, whose
- * state gives theirs: the tests conversation waits on its commit's review,
- * the reload one is working, dark mode is delivered in #12, and two saved
- * ones are done. Two more wait to be started.
+ * state gives theirs: the tests conversation waits on its pull request's
+ * review, the reload one is working, the streak one's pull request was
+ * declined, and dark mode (#12) and two saved ones are done. Two more wait
+ * to be started.
  */
 import type { Subtask, Task } from "../../shared/tasks";
 import {
@@ -67,7 +68,7 @@ function tempoTasks(now: number): Task[] {
       ),
       session: "tempo-tests",
       planned: true,
-      step: "Running git commit -m test(settings): cover load and save",
+      step: "Running gh pr create",
       updated: now - 5 * MINUTE,
     },
     {
@@ -107,8 +108,20 @@ function tempoTasks(now: number): Task[] {
       session: "tempo",
       planned: true,
       pr: `${PR}/12`,
+      done: true,
       shown: [{ ...DARK_MOCKUP, name: "tempo-dark.png" }],
       updated: now - 20 * MINUTE,
+    },
+    {
+      ...base,
+      id: "task-streak",
+      title: "Show how many days in a row I've practised",
+      notes: "A small flame with the count on the History screen.",
+      subtasks: subtasks(2, ["Count the streak", "Show it on History"]),
+      session: "tempo-streak",
+      planned: true,
+      declined: true,
+      updated: now - 3 * HOUR,
     },
     {
       ...base,
@@ -132,6 +145,13 @@ function tempoTasks(now: number): Task[] {
       subtasks: [],
       updated: now - DAY,
     },
+    ...mergedTasks(now),
+  ];
+}
+
+// Delivered and merged long ago.
+function mergedTasks(now: number): Task[] {
+  return [
     {
       ...base,
       id: "task-ci",
@@ -178,5 +198,6 @@ export function tasksAnswers(byFolder: Record<string, Task[]>) {
         list(cwd).filter((t) => t.id !== taskId),
       ),
     task_start: (r: { cwd: string }) => list(r.cwd),
+    task_resume: (r: { cwd: string }) => list(r.cwd),
   };
 }

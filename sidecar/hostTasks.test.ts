@@ -1,7 +1,13 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task } from "../shared/tasks.ts";
-import { answerTask, deleteTask, startTask, taskPrompt } from "./hostTasks.ts";
+import {
+  answerTask,
+  deleteTask,
+  resumeTask,
+  startTask,
+  taskPrompt,
+} from "./hostTasks.ts";
 import { close, launch, prompt } from "./hostSession.ts";
 import type { HostContext } from "./hostTypes.ts";
 import type { TaskAsk } from "./taskExtension.ts";
@@ -199,6 +205,32 @@ describe("startTask", () => {
     const [t] = await tasks.list("/a");
     expect(t.session).toBeUndefined();
     expect(t.error).toContain("no key");
+  });
+});
+
+describe("resumeTask", () => {
+  it("reopens the task's conversation and sends it the text", async () => {
+    const tasks = createTaskStore(null);
+    await tasks.save("/a", task({ session: "s1", declined: true }));
+    const ctx = { tasks } as unknown as HostContext;
+    const left = await resumeTask(ctx, "/a", "t1", "Use a flame icon");
+    expect(launch).toHaveBeenCalledWith(ctx, "/a", "s1");
+    expect(prompt).toHaveBeenCalledWith(
+      ctx,
+      "Use a flame icon",
+      undefined,
+      "s1",
+    );
+    expect(left).toHaveLength(1);
+  });
+
+  it("refuses a task never started", async () => {
+    const tasks = createTaskStore(null);
+    await tasks.save("/a", task());
+    await expect(
+      resumeTask({ tasks } as unknown as HostContext, "/a", "t1", "x"),
+    ).rejects.toThrow("hasn't started");
+    expect(prompt).not.toHaveBeenCalled();
   });
 });
 
