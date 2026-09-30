@@ -23,7 +23,7 @@ describe("demoTasks", () => {
     const rows = shownRows(() => [], tempo)(tempo);
     const statuses = withStatus(byFolder[tempo], rows).map((t) => t.status);
     expect(new Set(statuses)).toEqual(
-      new Set(["waiting", "working", "review", "todo", "done"]),
+      new Set(["working", "review", "declined", "todo", "done"]),
     );
   });
 

@@ -38,7 +38,7 @@ import { listFiles } from "./fileIndex.ts";
 import { createSearch } from "./search.ts";
 import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
-import { deleteTask, startTask } from "./hostTasks.ts";
+import { deleteTask, resumeTask, startTask } from "./hostTasks.ts";
 import type { TaskStore } from "./taskStore.ts";
 
 type IdRequest = Extract<HostRequest, { id: number }>;
@@ -140,6 +140,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   task_edit: (ctx, r) => ctx.tasks.edit(r.cwd, r.taskId, r.patch),
   task_delete: (ctx, r) => deleteTask(ctx, r.cwd, r.taskId),
   task_start: (ctx, r) => startTask(ctx, r.cwd, r.taskId),
+  task_resume: (ctx, r) => resumeTask(ctx, r.cwd, r.taskId, r.text),
   app_version: () => appVersion(),
   app_update: () => appUpdate(),
 };

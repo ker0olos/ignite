@@ -1,5 +1,7 @@
 import { TaskDone } from "@/components/tasks/TaskDone";
+import { TaskPrReview } from "@/components/tasks/TaskPrReview";
 import { TaskProgress } from "@/components/tasks/TaskProgress";
+import { TaskResume } from "@/components/tasks/TaskResume";
 import { TaskReview } from "@/components/tasks/TaskReview";
 import { TaskStart } from "@/components/tasks/TaskStart";
 import { TaskWaiting } from "@/components/tasks/TaskWaiting";
@@ -15,6 +17,7 @@ export function TaskAgentCard({
   actions: TaskActions;
 }) {
   const open = () => task.session && actions.onOpenChat(task.session);
+  const markDone = () => actions.edit(task.id, { done: true });
   switch (task.status) {
     case "todo":
       return (
@@ -34,12 +37,27 @@ export function TaskAgentCard({
       );
     case "waiting":
       return <TaskWaiting onOpenChat={open} />;
+    case "declined":
     case "review":
-      return (
-        <TaskReview
-          pr={task.pr}
+      if (task.review?.review) {
+        return (
+          <TaskPrReview
+            review={task.review.review}
+            onAnswer={(approved) =>
+              actions.answer(task.review!.toolCallId, approved)
+            }
+            onOpenChat={open}
+          />
+        );
+      }
+      return task.pr ? (
+        <TaskReview pr={task.pr} onOpenChat={open} onDone={markDone} />
+      ) : (
+        <TaskResume
+          declined={task.status === "declined"}
+          onResume={(text) => actions.resume(task.id, text)}
           onOpenChat={open}
-          onDone={() => actions.edit(task.id, { done: true })}
+          onDone={markDone}
         />
       );
     case "done":

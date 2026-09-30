@@ -58,6 +58,7 @@ async function begin(ctx: HostContext, cwd: string, id: string) {
     step: undefined,
     planned: undefined,
     pr: undefined,
+    declined: undefined,
     shown: undefined,
     done: undefined,
     error: undefined,
@@ -94,6 +95,20 @@ async function begin(ctx: HostContext, cwd: string, id: string) {
     return fail(error);
   }
   return tasks;
+}
+
+/** Sends started task `id`'s conversation `text`, reopening it if it closed. */
+export async function resumeTask(
+  ctx: HostContext,
+  cwd: string,
+  id: string,
+  text: string,
+) {
+  const task = (await ctx.tasks.list(cwd)).find((t) => t.id === id);
+  if (!task?.session) throw new Error("That task hasn't started.");
+  await launch(ctx, cwd, task.session);
+  await prompt(ctx, text, undefined, task.session);
+  return ctx.tasks.list(cwd);
 }
 
 /** Ends task `id`'s conversation if it's open here, then removes the task. */

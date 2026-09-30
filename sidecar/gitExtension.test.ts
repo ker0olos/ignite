@@ -15,7 +15,12 @@ import {
   DENIED,
   type ApprovalAsk,
 } from "./approvalExtension.ts";
-import gitTools, { USE_TOOLS, delivers, needsTools } from "./gitExtension.ts";
+import gitTools, {
+  PR_DECLINED,
+  USE_TOOLS,
+  delivers,
+  needsTools,
+} from "./gitExtension.ts";
 import { resultText, run } from "./gitRun.ts";
 import { TASK_EVENT, type TaskAsk } from "./taskExtension.ts";
 
@@ -254,6 +259,33 @@ describe("a task's conversation", () => {
     const result = await done;
     expect(result.content[0].text).toContain("/pull/41");
     expect(updates).toEqual([{ pr: "https://github.com/a/b/pull/41" }]);
+  });
+
+  it("records a declined pull request on the task and tells the agent to stop", async () => {
+    const { asks, updates, call } = load(mine);
+    const done = call("gh", ["pr", "create", "--fill"]);
+    await asked(asks);
+    asks[0].declined!();
+    asks[0].answer(false);
+    await expect(done).rejects.toThrow(PR_DECLINED);
+    expect(updates).toEqual([{ declined: true }]);
+  });
+
+  it("doesn't count a stop or close as declining the pull request", async () => {
+    const { asks, updates, call } = load(mine);
+    const done = call("gh", ["pr", "create", "--fill"]);
+    await asked(asks);
+    asks[0].answer(false);
+    await expect(done).rejects.toThrow(DENIED);
+    expect(updates).toEqual([]);
+  });
+
+  it("denies a pull request plainly without a task", async () => {
+    const { asks, call } = load();
+    const done = call("gh", ["pr", "create", "--fill"]);
+    await asked(asks);
+    asks[0].declined!();
+    await expect(done).rejects.toThrow(DENIED);
   });
 
   it("doesn't report a pull request without a task", async () => {

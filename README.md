@@ -8,7 +8,7 @@ once.
 
 <p align="center">
   <img src="docs/conversation.png" alt="An agent that added dark mode opening its pull request, with its commit and the four files it changes, and one file's diff open beside the conversation; the sidebar shows the project's other conversations, one waiting for review and one still working" width="32%">
-  <img src="docs/tasks.png" alt="The Tasks view: one task needs you, one is in progress with a screenshot attached, its subtasks and the file it's editing, one is ready for review as pull request 12, two are still to do, and two are done" width="32%">
+  <img src="docs/tasks.png" alt="The Tasks view: one task's pull request was declined, one is in progress with a screenshot attached, its subtasks and the file it's editing, one waits for approval of its pull request, two are still to do, and dark mode is done as pull request 12" width="32%">
   <img src="docs/markup.png" alt="A screenshot the agent took of a timer app, open full size with an arrow drawn to the time and two lines under it; below it, the markup toolbar with pen, highlighter, arrow, box, ellipse and text, ink colours and sizes, and Add to chat" width="32%">
 </p>
 <p align="center">
@@ -24,8 +24,8 @@ once.
 - Work comes back as a pull request, every file's diff a click away, and your
   folder updates when it merges.
 - Write a task, attach screenshots or sketches, pick a model and start it.
-  The agent plans the subtasks, works through them on its own and opens a pull
-  request, stopping only when it needs you.
+  The agent plans the subtasks, works through them on its own and brings you
+  its pull request to approve, stopping only when it needs you.
 - Click any image, yours or one the agent took, and draw on it: pen,
   highlighter, arrows, boxes and text, zooming in for detail. Then add it to
   the chat or a task to show the agent what you mean.

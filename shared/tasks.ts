@@ -29,6 +29,8 @@ export type Task = {
   planned?: boolean;
   /** The pull request its work was delivered in. */
   pr?: string;
+  /** The user declined its pull request; cleared when its agent runs again. */
+  declined?: boolean;
   /** Images the agent showed with show_image, newest last. */
   shown?: TaskImage[];
   /** Why its last start failed; cleared when it starts again. */
@@ -54,7 +56,29 @@ export const USER_FIELDS = [
 export type TaskEdit = Partial<Pick<Task, (typeof USER_FIELDS)[number]>>;
 
 /** Which task to edit, and the user's changes to it. */
-export type TaskPatch = { taskId: string; patch: TaskEdit };
+type TaskPatch = { taskId: string; patch: TaskEdit };
+
+/** The app's requests about a folder's tasks. */
+export type TaskRequest =
+  | { id: number; type: "tasks_list"; cwd: string }
+  /** Adds a new task; an existing id is an error. */
+  | { id: number; type: "task_save"; cwd: string; task: Task }
+  /** Changes the task's user fields only, keeping the agent's progress. */
+  | ({ id: number; type: "task_edit"; cwd: string } & TaskPatch)
+  | { id: number; type: "task_delete"; cwd: string; taskId: string }
+  /** Starts the task in a new background conversation and sends it the task. */
+  | { id: number; type: "task_start"; cwd: string; taskId: string }
+  /** Sends a started task's conversation `text`, reopening it if it closed. */
+  | {
+      id: number;
+      type: "task_resume";
+      cwd: string;
+      taskId: string;
+      text: string;
+    };
+
+/** Each task request resolves to the folder's tasks. */
+export type TaskResponses = Record<TaskRequest["type"], Task[]>;
 
 /** What a task's agent may change with the task tool (see TASK_TOOL). */
 export type TaskUpdate = {
@@ -65,7 +89,9 @@ export type TaskUpdate = {
   add?: string[];
   step?: string;
   planned?: true;
+  /** The pull request the user approved, which completes the task. */
   pr?: string;
+  declined?: boolean;
   /** An image the agent showed, added to the task. */
   image?: TaskImage;
 };
@@ -97,20 +123,25 @@ export function applyUpdate(task: Task, update: TaskUpdate, now: number): Task {
   for (const title of update.add ?? []) {
     if (title.trim()) subtasks.push({ title: title.trim(), status: "todo" });
   }
-  const { step, planned, pr, image } = update;
+  const { step, planned, pr, declined, image } = update;
   return {
     ...task,
     subtasks,
     ...(step !== undefined && { step: step.trim() }),
     ...(planned && { planned }),
-    ...(pr && { pr }),
+    ...(declined !== undefined && { declined }),
+    ...(pr && { pr, done: true, declined: false }),
     ...(image && { shown: addShown(task.shown ?? [], image) }),
     updated: now,
   };
 }
 
-/** Whether the task still has work to wrap up: subtasks not done, or no pull request. */
+/**
+ * Whether the task still has work to wrap up: subtasks not done, or no pull
+ * request. A declined one waits for the user instead.
+ */
 export function unfinished(task: Task): boolean {
+  if (task.declined) return false;
   return !task.pr || task.subtasks.some((s) => s.status !== "done");
 }
 

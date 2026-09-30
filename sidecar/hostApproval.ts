@@ -27,6 +27,7 @@ export function answerApproval(
     const ask = agent.approvals.get(toolCallId);
     if (!ask) continue;
     agent.approvals.delete(toolCallId);
+    if (!approved) ask.declined?.();
     ask.answer(approved, answers);
     pushProjects(ctx);
   }

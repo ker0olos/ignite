@@ -1803,6 +1803,23 @@ describe("tool approval", () => {
     expect(answer).toHaveBeenCalledWith(true, answers);
   });
 
+  it("tells a call the user declined it, but not when the run is stopped", async () => {
+    const { request, reopen } = await opened();
+    const declined = vi.fn();
+    const answer = vi.fn();
+    reopen()({ request: { toolCallId: "t1" }, answer, declined });
+    reopen()({ request: { toolCallId: "t2" }, answer, declined });
+    await request({
+      type: "approval_answer",
+      toolCallId: "t1",
+      approved: false,
+    });
+    expect(declined).toHaveBeenCalledOnce();
+    await request({ id: 2, type: "abort" });
+    expect(answer).toHaveBeenCalledTimes(2);
+    expect(declined).toHaveBeenCalledOnce();
+  });
+
   it("denies waiting calls when the run is stopped", async () => {
     const { ask, request, session } = await opened();
     const answer = ask("t1");

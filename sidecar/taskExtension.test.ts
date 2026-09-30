@@ -202,6 +202,14 @@ describe("agent_end", () => {
     expect(sent).toEqual([]);
   });
 
+  it("doesn't nudge after the user declined the pull request", async () => {
+    const { start, end, sent, set } = load(task);
+    await start();
+    set({ ...task, declined: true });
+    await end("stop");
+    expect(sent).toEqual([]);
+  });
+
   it("doesn't nudge a conversation without a task", async () => {
     const { start, end, sent } = load(null);
     await start();
@@ -253,6 +261,17 @@ describe("before_agent_start", () => {
     expect(result!.systemPrompt).toBe(
       `Base\n\n${AUTONOMOUS}\n\n${TASK_GUIDANCE}\n${CHROME_GUIDANCE}`,
     );
+  });
+
+  it("clears a declined pull request when the agent runs again", async () => {
+    const { start, asks } = load({ ...task, declined: true });
+    await start("Use a flame icon");
+    expect(asks).toContainEqual(
+      expect.objectContaining({ kind: "update", update: { declined: false } }),
+    );
+    const fresh = load(task);
+    await fresh.start();
+    expect(fresh.asks.map((a) => a.kind)).toEqual(["get"]);
   });
 
   it("removes the task tool and changes nothing without a task", async () => {

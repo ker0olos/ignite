@@ -16,7 +16,7 @@ import type { QuestionAnswer } from "./questions.ts";
 import type { McpCatalog } from "./mcpCatalog.ts";
 import type { SkillRequest, SkillResponses } from "./skills.ts";
 import type { RemoteEvent, RemoteInvoke, RemoteStatus } from "./remote.ts";
-import type { Task, TaskPatch } from "./tasks.ts";
+import type { Task, TaskRequest, TaskResponses } from "./tasks.ts";
 
 /**
  * pi's providers, plus "claude-code": the user's own Claude Code login, which
@@ -135,6 +135,8 @@ export type AgentStatus = {
   running: boolean;
   /** A tool call waits for the user. */
   waiting: boolean;
+  /** The pull request waiting for the user's review, if one is. */
+  review?: ApprovalRequest;
 };
 
 /** How to reach an MCP server: a local command (stdio) or a URL (HTTP). */
@@ -277,14 +279,7 @@ export type HostRequest =
   | { id: number; type: "set_trust"; cwd: string; trusted: boolean }
   /** One file's diff in a review's range (see GitReview). */
   | { id: number; type: "git_diff"; repo: string; range: string; path: string }
-  | { id: number; type: "tasks_list"; cwd: string }
-  /** Adds a new task; an existing id is an error. */
-  | { id: number; type: "task_save"; cwd: string; task: Task }
-  /** Changes the task's user fields only, keeping the agent's progress. */
-  | ({ id: number; type: "task_edit"; cwd: string } & TaskPatch)
-  | { id: number; type: "task_delete"; cwd: string; taskId: string }
-  /** Starts the task in a new background conversation and sends it the task. */
-  | { id: number; type: "task_start"; cwd: string; taskId: string }
+  | TaskRequest
   | { id: number; type: "app_version" }
   /** Pulls the latest code; `updated` is false when it was already current. */
   | { id: number; type: "app_update" }
@@ -299,43 +294,39 @@ export type HostRequest =
     };
 
 /** What each request resolves to. */
-export type HostResponses = SkillResponses & {
-  status: ProviderStatus[];
-  login: ProviderStatus;
-  cancel_login: undefined;
-  logout: ProviderStatus;
-  open_session: OpenedSession | null;
-  new_session: OpenedSession;
-  close_session: undefined;
-  read_session: AgentMessage[];
-  session_details: SessionDetails;
-  command_search: CommandSearchResult;
-  session_state: SessionState;
-  draft_state: SessionState;
-  set_model: SessionState;
-  set_thinking_level: SessionState;
-  prompt: undefined;
-  abort: undefined;
-  mcp_list: McpServer[];
-  mcp_save: McpServer[];
-  mcp_remove: McpServer[];
-  mcp_set_enabled: McpServer[];
-  mcp_sign_in: McpServer[];
-  mcp_catalog: McpCatalog;
-  mcp_add_preset: McpServer[];
-  mcp_import: McpServer[];
-  memory_status: MemoryStatus;
-  memory_changed: undefined;
-  set_trust: undefined;
-  git_diff: string;
-  tasks_list: Task[];
-  task_save: Task[];
-  task_edit: Task[];
-  task_delete: Task[];
-  task_start: Task[];
-  app_version: AppVersion;
-  app_update: { updated: boolean };
-};
+export type HostResponses = SkillResponses &
+  TaskResponses & {
+    status: ProviderStatus[];
+    login: ProviderStatus;
+    cancel_login: undefined;
+    logout: ProviderStatus;
+    open_session: OpenedSession | null;
+    new_session: OpenedSession;
+    close_session: undefined;
+    read_session: AgentMessage[];
+    session_details: SessionDetails;
+    command_search: CommandSearchResult;
+    session_state: SessionState;
+    draft_state: SessionState;
+    set_model: SessionState;
+    set_thinking_level: SessionState;
+    prompt: undefined;
+    abort: undefined;
+    mcp_list: McpServer[];
+    mcp_save: McpServer[];
+    mcp_remove: McpServer[];
+    mcp_set_enabled: McpServer[];
+    mcp_sign_in: McpServer[];
+    mcp_catalog: McpCatalog;
+    mcp_add_preset: McpServer[];
+    mcp_import: McpServer[];
+    memory_status: MemoryStatus;
+    memory_changed: undefined;
+    set_trust: undefined;
+    git_diff: string;
+    app_version: AppVersion;
+    app_update: { updated: boolean };
+  };
 
 /** Messages the sidecar sends. */
 export type HostMessage =
