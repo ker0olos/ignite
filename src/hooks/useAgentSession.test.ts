@@ -36,6 +36,7 @@ function fakeHost(answer: (req: { type: string }) => Promise<unknown>) {
             messages: [],
             running: false,
             approvals: [],
+            queue: { steering: [], followUp: [] },
             ...(data as object),
           }
         : data;
@@ -379,6 +380,7 @@ describe("useAgentSession", () => {
         ],
         tools: {},
         running: false,
+        queued: [],
       });
     });
 
@@ -446,6 +448,77 @@ describe("useAgentSession", () => {
         session: "s1",
       });
     });
+
+    it("queues a message for after the run", async () => {
+      const { host, result } = await opened();
+      await act(() => result.current.send("Later", [], "followUp"));
+      expect(host.request).toHaveBeenCalledWith({
+        type: "prompt",
+        text: "Later",
+        session: "s1",
+        queue: "followUp",
+      });
+    });
+
+    it("lists what's queued, from opening and then from pi", async () => {
+      const { host, result } = await opened({
+        ...STATE,
+        queue: { steering: ["a"], followUp: [] },
+      });
+      expect(result.current.transcript?.queued).toEqual([
+        { kind: "steer", text: "a" },
+      ]);
+      host.emit({
+        type: "session_event",
+        session: "s1",
+        event: { type: "queue_update", steering: [], followUp: ["b"] },
+      });
+      expect(result.current.transcript?.queued).toEqual([
+        { kind: "followUp", text: "b" },
+      ]);
+    });
+
+    it("gives back what stopping took from the queue", async () => {
+      const taken = [{ text: "a" }];
+      const host = fakeHost(async (req) =>
+        req.type === "abort" ? taken : STATE,
+      );
+      const { result } = renderHook(() => useAgentSession(host, "/work", null));
+      await waitFor(() => expect(result.current.transcript).not.toBeNull());
+      await expect(result.current.stop()).resolves.toEqual(taken);
+    });
+
+    it("takes a queued message back, or moves it up", async () => {
+      const host = fakeHost(async (req) =>
+        req.type === "unqueue" ? { text: "a" } : STATE,
+      );
+      const { result } = renderHook(() => useAgentSession(host, "/work", null));
+      await waitFor(() => expect(result.current.transcript).not.toBeNull());
+      const q = { kind: "followUp" as const, text: "a" };
+      await expect(result.current.unqueue(q)).resolves.toEqual({ text: "a" });
+      await act(() => result.current.unqueue(q, "up"));
+      expect(host.request).toHaveBeenLastCalledWith({
+        type: "unqueue",
+        kind: "followUp",
+        text: "a",
+        action: "up",
+        session: "s1",
+      });
+    });
+
+    it("shows why a queued message couldn't be taken back", async () => {
+      const host = fakeHost(async (req) => {
+        if (req.type === "unqueue") throw new Error("No folder is open.");
+        return STATE;
+      });
+      const { result } = renderHook(() => useAgentSession(host, "/work", null));
+      await waitFor(() => expect(result.current.transcript).not.toBeNull());
+      const q = { kind: "steer" as const, text: "a" };
+      await act(async () => {
+        await expect(result.current.unqueue(q)).resolves.toBeNull();
+      });
+      expect(result.current.error).toBe("No folder is open.");
+    });
   });
 });
 
@@ -473,7 +546,10 @@ describe("several conversations in a folder", () => {
     await act(() => result.current.send("Another thing"));
     expect(types(host).slice(-2)).toEqual(["new_session", "prompt"]);
     expect(result.current.session).toBe("s2");
-    expect(result.current.transcript).toEqual(fromHistory([], false));
+    expect(result.current.transcript).toEqual({
+      ...fromHistory([], false),
+      queued: [],
+    });
     await act(() => result.current.show("s1"));
     expect(host.request).toHaveBeenLastCalledWith({
       type: "open_session",

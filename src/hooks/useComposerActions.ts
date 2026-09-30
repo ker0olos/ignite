@@ -6,7 +6,9 @@ import type {
   ThinkingLevel,
 } from "../../shared/hostProtocol";
 import type { ImageContent } from "../../shared/agentTypes";
+import type { QueueKind, QueuedMessage, Unqueue } from "../../shared/queue";
 import type { HostClient } from "@/lib/piHost";
+import type { Queued } from "@/lib/queue";
 
 /** Model and effort picked before a folder's first message, applied once its session starts. */
 export type Pending = { model?: ModelInfo; level?: ThinkingLevel };
@@ -66,7 +68,7 @@ export function useComposerActions({
   }, [opened, folder, start, pending, setState]);
 
   const send = useCallback(
-    async (text: string, images: ImageContent[] = []) => {
+    async (text: string, images: ImageContent[] = [], queue?: QueueKind) => {
       if (!opened || (!text.trim() && !images.length)) return;
       setError(null);
       try {
@@ -76,6 +78,7 @@ export function useComposerActions({
           text,
           ...(images.length > 0 && { images }),
           ...(to && { session: to }),
+          ...(queue && { queue }),
         });
       } catch (e) {
         setError((e as Error).message);
@@ -100,16 +103,40 @@ export function useComposerActions({
     [opened, none, session, setState, setError],
   );
 
-  const stop = useCallback(async () => {
-    await opened
+  /** Stops the run; resolves to the queued messages it took back. */
+  const stop = useCallback(async (): Promise<QueuedMessage[]> => {
+    const taken = await opened
       ?.request({ type: "abort", ...(session && { session }) })
-      .catch(() => {});
+      .catch(() => []);
+    return taken ?? [];
   }, [opened, session]);
+
+  /** Takes a queued message back, moves it up or sends it now (see Unqueue). */
+  const unqueue = useCallback(
+    async ({ kind, text }: Queued, action?: Unqueue["action"]) => {
+      if (!opened) return null;
+      setError(null);
+      try {
+        return await opened.request({
+          type: "unqueue",
+          kind,
+          text,
+          ...(action && { action }),
+          ...(session && { session }),
+        });
+      } catch (e) {
+        setError((e as Error).message);
+        return null;
+      }
+    },
+    [opened, session, setError],
+  );
 
   return {
     pending,
     send,
     stop,
+    unqueue,
     setModel: (model: ModelInfo) =>
       change(
         { type: "set_model", provider: model.provider, modelId: model.id },

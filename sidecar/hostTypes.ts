@@ -9,6 +9,7 @@ import type {
 import type { SavedSession, SessionDetails } from "../shared/conversations.ts";
 import type {
   AgentMessage,
+  ImageContent,
   SessionEvent,
   ToolResultMessage,
 } from "../shared/agentTypes.ts";
@@ -80,6 +81,14 @@ export type Session = {
     options: { streamingBehavior?: "steer" | "followUp"; images?: unknown[] },
   ): Promise<void>;
   abort(): Promise<void>;
+  /** Queue a message whether or not a run is going; neither starts one. */
+  steer(text: string, images?: ImageContent[]): Promise<void>;
+  followUp(text: string, images?: ImageContent[]): Promise<void>;
+  /** Empties both queues, returning their messages' text. */
+  clearQueue(): { steering: string[]; followUp: string[] };
+  getSteeringMessages(): readonly string[];
+  getFollowUpMessages(): readonly string[];
+  readonly pendingMessageCount: number;
   /** Reloads extensions, which re-reads mcp.json. */
   reload(): Promise<void>;
   /** Whether a reload loads the folder's own pi resources. */
@@ -158,6 +167,11 @@ export type Agent = {
   reloadWhenSettled: boolean;
   /** Tool calls waiting for the user, by tool call id. */
   approvals: Map<string, ApprovalAsk>;
+  /**
+   * Queued messages' images by their text, which is all pi's queue lists;
+   * oldest first, as pi delivers and removes the first match.
+   */
+  queuedImages: Map<string, ImageContent[][]>;
 };
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };

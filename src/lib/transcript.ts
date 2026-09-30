@@ -1,4 +1,5 @@
 import type { ApprovalRequest } from "../../shared/hostProtocol";
+import { applyQueue, type Queued } from "@/lib/queue";
 import type {
   AgentMessage,
   AssistantMessage,
@@ -26,6 +27,8 @@ export type Transcript = {
   items: Item[];
   tools: Record<string, ToolRun>;
   running: boolean;
+  /** Messages sent mid-run, in delivery order; unset while nothing ever queued. */
+  queued?: Queued[];
 };
 
 export const EMPTY: Transcript = { items: [], tools: {}, running: false };
@@ -160,6 +163,8 @@ function applyBackgroundEvent(t: Transcript, event: SessionEvent): Transcript {
     case "compaction_start":
     case "compaction_end":
       return applyCompactionEvent(t, event);
+    case "queue_update":
+      return applyQueue(t, event);
     default:
       return t;
   }

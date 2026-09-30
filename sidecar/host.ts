@@ -5,7 +5,6 @@ import {
 } from "../shared/hostProtocol.ts";
 import {
   current,
-  target,
   type HostContext,
   type OpenSession,
   type OpenMcpSession,
@@ -29,8 +28,9 @@ import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
 import { describeError } from "./wire.ts";
 import { memoryStatus } from "./cmem.ts";
-import { answerApproval, denyAll } from "./hostApproval.ts";
+import { answerApproval } from "./hostApproval.ts";
 import { setTrust } from "./hostTrust.ts";
+import { stop, unqueue } from "./hostQueue.ts";
 import { appUpdate, appVersion } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
 import { describeSession } from "./describeSession.ts";
@@ -93,16 +93,11 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     return sessionState(ctx, s);
   },
   prompt: async (ctx, r) => {
-    await prompt(ctx, r.text, r.images, r.session);
+    await prompt(ctx, r.text, r.images, r.session, undefined, r.queue);
     return undefined;
   },
-  abort: async (ctx, r) => {
-    const agent = target(ctx, r.session);
-    const s = await current(ctx, r.session);
-    if (agent) denyAll(ctx, agent);
-    await s.abort();
-    return undefined;
-  },
+  abort: (ctx, r) => stop(ctx, r.session),
+  unqueue: (ctx, r) => unqueue(ctx, r),
   mcp_list: (ctx) => mcpServers(ctx),
   mcp_save: (ctx, r) =>
     changeMcp(ctx, () => ctx.mcpStore.save(r.name, r.config, r.previousName), [

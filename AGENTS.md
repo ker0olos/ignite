@@ -107,6 +107,7 @@ src/                     React frontend (almost all logic lives here)
     demoQuestions.ts     The demo's second project, waiting on the agent's questions
     questions.ts         ask_user answers being picked: options, own answer, per-option notes
     tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
+    queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
     demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
@@ -136,6 +137,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   worktreeGit.ts         Worktree paths, snapshots of a working state, folderOf / gitWritable
   worktreeClone.ts       Copy-on-write clones of the folder's ignored files into a worktree
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
+  hostQueue.ts           Messages sent mid-run: stop takes them back; one taken back, moved up or sent now
+  queuedImages.ts        Queued messages' images (pi's queue lists only text), forgotten once delivered
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
@@ -195,6 +198,7 @@ shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
 shared/commandSearch.ts  Ranks conversations and files for the command center (sidecar and demo)
 shared/questions.ts      ask_user's questions and answers (used by both)
 shared/tasks.ts          Tasks and the agent's updates to them (used by both)
+shared/queue.ts          Messages sent mid-run: how they wait, and taking one back (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)

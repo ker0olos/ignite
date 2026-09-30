@@ -343,7 +343,19 @@ describe("applyEvent", () => {
 
   it("ignores events it doesn't show", () => {
     expect(run([{ type: "turn_start" }, { type: "turn_end" }])).toBe(EMPTY);
-    expect(applyEvent(EMPTY, { type: "queue_update" } as never)).toBe(EMPTY);
+    expect(applyEvent(EMPTY, { type: "session_info" } as never)).toBe(EMPTY);
+  });
+
+  it("lists queued messages in delivery order, steering first", () => {
+    const t = applyEvent(EMPTY, {
+      type: "queue_update",
+      steering: ["now"],
+      followUp: ["later"],
+    });
+    expect(t.queued).toEqual([
+      { kind: "steer", text: "now" },
+      { kind: "followUp", text: "later" },
+    ]);
   });
 });
 

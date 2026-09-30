@@ -68,6 +68,9 @@ const textOf = (c: DemoConversation) =>
     })
     .join("\n");
 
+const queueOf = (c: DemoConversation | undefined) =>
+  c?.queue ?? { steering: [], followUp: [] };
+
 const opened = (
   session: string,
   c: DemoConversation | undefined,
@@ -79,6 +82,7 @@ const opened = (
   messages: c?.messages ?? [],
   running: c?.running ?? false,
   approvals: c?.approvals ?? [],
+  queue: queueOf(c),
 });
 
 /** A host that shows the demo's conversations, with `tempo` the demo folder. */

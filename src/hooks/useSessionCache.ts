@@ -6,6 +6,7 @@ import type {
 } from "../../shared/hostProtocol";
 import type { AgentMessage } from "../../shared/agentTypes";
 import type { HostClient } from "@/lib/piHost";
+import { applyQueue } from "@/lib/queue";
 import {
   applyError,
   fromHistory,
@@ -62,12 +63,13 @@ const toOpened = (
     trust,
     modelWarning,
     approvals,
+    queue,
     ...state
   }: OpenedSession,
 ): Opened => {
   const transcript = approvals.reduce(
     requestApproval,
-    fromHistory(messages, running),
+    applyQueue(fromHistory(messages, running), queue),
   );
   return {
     host,

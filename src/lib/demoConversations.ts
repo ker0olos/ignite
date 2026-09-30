@@ -4,7 +4,7 @@
  */
 import type { AgentMessage, ToolCall } from "../../shared/agentTypes";
 import type { SessionDetails } from "../../shared/conversations";
-import type { ApprovalRequest } from "../../shared/hostProtocol";
+import type { ApprovalRequest, OpenedSession } from "../../shared/hostProtocol";
 import { darkModeMessages, DARK_MODE_DIFFS } from "./demoDarkMode";
 import { DEMO_QUESTION_MESSAGES, DEMO_QUESTIONS } from "./demoQuestions";
 import { DEMO_TASK_ADD, DEMO_TASK_ADD_MESSAGES } from "./demoTaskAdd";
@@ -32,6 +32,8 @@ export type DemoConversation = {
   approvals?: ApprovalRequest[];
   /** A tool call still running, which history alone can't show. */
   working?: ToolCall;
+  /** Messages sent while it works, not yet read. */
+  queue?: OpenedSession["queue"];
 };
 
 const HOUR = 3_600_000;
@@ -118,6 +120,10 @@ function openConversations(
       open: true,
       running: true,
       working: RELOAD_EDIT,
+      queue: {
+        steering: ["Save it to localStorage, not a cookie."],
+        followUp: ["Then add a test that reloads mid-countdown."],
+      },
       details: { ...claude, files: [], toolCalls: 3, cost: 0.09 },
     },
     {

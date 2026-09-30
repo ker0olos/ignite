@@ -95,8 +95,38 @@ function fakeSession() {
       return () => void session.listeners.delete(cb);
     }),
     emit: (e: SessionEvent) => session.listeners.forEach((cb) => cb(e)),
-    prompt: vi.fn(async () => {}),
-    abort: vi.fn(async () => {}),
+    queue: { steering: [] as string[], followUp: [] as string[] },
+    // Like pi: a prompt sent while it streams waits in a queue.
+    prompt: vi.fn(
+      async (
+        text: string,
+        o: { streamingBehavior?: "steer" | "followUp" } = {},
+      ) => {
+        if (!session.isStreaming) return;
+        const kind =
+          o.streamingBehavior === "followUp" ? "followUp" : "steering";
+        session.queue[kind].push(text);
+      },
+    ),
+    steer: vi.fn(async (text: string) => {
+      session.queue.steering.push(text);
+    }),
+    followUp: vi.fn(async (text: string) => {
+      session.queue.followUp.push(text);
+    }),
+    abort: vi.fn(async () => {
+      session.isStreaming = false;
+    }),
+    clearQueue: vi.fn(() => {
+      const taken = session.queue;
+      session.queue = { steering: [], followUp: [] };
+      return taken;
+    }),
+    getSteeringMessages: () => session.queue.steering,
+    getFollowUpMessages: () => session.queue.followUp,
+    get pendingMessageCount() {
+      return session.queue.steering.length + session.queue.followUp.length;
+    },
     reload: vi.fn(async () => {}),
     settingsManager: { setProjectTrusted: vi.fn() },
     extensionRunner: {
@@ -786,6 +816,7 @@ describe("sessions", () => {
         messages: [],
         running: false,
         approvals: [],
+        queue: { steering: [], followUp: [] },
       },
     });
   });
@@ -1515,7 +1546,170 @@ describe("sessions", () => {
     });
     await request({ id: 2, type: "abort" });
     expect(session.abort).toHaveBeenCalled();
-    expect(responses()[1]).toEqual({ type: "response", id: 2, ok: true });
+    expect(responses()[1]).toEqual({
+      type: "response",
+      id: 2,
+      ok: true,
+      data: [],
+    });
+  });
+
+  describe("queued messages", () => {
+    const image = {
+      type: "image" as const,
+      data: "AA==",
+      mimeType: "image/png",
+    };
+
+    async function working() {
+      const session = fakeSession();
+      session.isStreaming = true;
+      const host = setup(fakeRuntime().runtime, async () => session);
+      await host.request({
+        id: 1,
+        type: "open_session",
+        cwd: "/work",
+        session: "/work:saved",
+      });
+      await host.request({ id: 2, type: "prompt", text: "a" });
+      await host.request({
+        id: 3,
+        type: "prompt",
+        text: "b",
+        images: [image],
+        queue: "followUp",
+      });
+      await host.request({
+        id: 4,
+        type: "prompt",
+        text: "c",
+        queue: "followUp",
+      });
+      return { session, ...host, data: (i: number) => host.responses()[i] };
+    }
+
+    it("waits for the run's end when asked to", async () => {
+      const { session } = await working();
+      expect(session.prompt).toHaveBeenCalledWith("b", {
+        streamingBehavior: "followUp",
+        images: [image],
+      });
+      expect(session.queue).toEqual({ steering: ["a"], followUp: ["b", "c"] });
+    });
+
+    it("lists what's queued when a conversation is shown again", async () => {
+      const { request, data } = await working();
+      await request({
+        id: 5,
+        type: "open_session",
+        cwd: "/work",
+        session: "/work:saved",
+      });
+      expect(data(4)).toMatchObject({
+        data: { queue: { steering: ["a"], followUp: ["b", "c"] } },
+      });
+    });
+
+    it("takes the queue back, with its images, when stopped", async () => {
+      const { request, session, data } = await working();
+      await request({ id: 5, type: "abort" });
+      expect(data(4)).toMatchObject({
+        data: [{ text: "a" }, { text: "b", images: [image] }, { text: "c" }],
+      });
+      expect(session.queue).toEqual({ steering: [], followUp: [] });
+    });
+
+    it("takes one message back and keeps the rest queued in order", async () => {
+      const { request, session, data } = await working();
+      await request({ id: 5, type: "unqueue", kind: "followUp", text: "b" });
+      expect(data(4)).toMatchObject({ data: { text: "b", images: [image] } });
+      expect(session.queue).toEqual({ steering: ["a"], followUp: ["c"] });
+      expect(session.abort).not.toHaveBeenCalled();
+    });
+
+    it("moves one up a place, each place keeping its kind", async () => {
+      const { request, session } = await working();
+      const up = (id: number, kind: "steer" | "followUp", text: string) =>
+        request({ id, type: "unqueue", kind, text, action: "up" });
+      await up(5, "followUp", "c");
+      expect(session.queue).toEqual({ steering: ["a"], followUp: ["c", "b"] });
+      await up(6, "followUp", "c");
+      expect(session.queue).toEqual({ steering: ["c"], followUp: ["a", "b"] });
+      await up(7, "steer", "c");
+      expect(session.queue).toEqual({ steering: ["c"], followUp: ["a", "b"] });
+      expect(session.abort).not.toHaveBeenCalled();
+    });
+
+    it("sends one now, stopping the run", async () => {
+      const { request, session } = await working();
+      await request({
+        id: 5,
+        type: "unqueue",
+        kind: "steer",
+        text: "a",
+        action: "now",
+      });
+      expect(session.abort).toHaveBeenCalled();
+      expect(session.prompt).toHaveBeenLastCalledWith("a", {});
+      expect(session.queue).toEqual({ steering: [], followUp: ["b", "c"] });
+    });
+
+    it("answers null for a message already delivered", async () => {
+      const { request, session, data } = await working();
+      await request({ id: 5, type: "unqueue", kind: "steer", text: "gone" });
+      expect(data(4)).toMatchObject({ data: null });
+      expect(session.queue).toEqual({ steering: ["a"], followUp: ["b", "c"] });
+    });
+
+    it("keeps the rest queued, not run, once the run has ended", async () => {
+      const { request, session } = await working();
+      session.isStreaming = false;
+      const prompts = session.prompt.mock.calls.length;
+      await request({ id: 5, type: "unqueue", kind: "steer", text: "a" });
+      expect(session.queue).toEqual({ steering: [], followUp: ["b", "c"] });
+      expect(session.prompt).toHaveBeenCalledTimes(prompts);
+    });
+
+    it("keeps each message's own images, even with the same text", async () => {
+      const { request, data } = await working();
+      const other = { ...image, data: "BB==" };
+      await request({ id: 5, type: "prompt", text: "", images: [image] });
+      await request({ id: 6, type: "prompt", text: "", images: [other] });
+      await request({ id: 7, type: "abort" });
+      expect(data(6)).toMatchObject({
+        data: [
+          { text: "a" },
+          { text: "" },
+          { text: "" },
+          { text: "b", images: [image] },
+          { text: "c" },
+        ],
+      });
+      const taken = (data(6) as { data: { images?: unknown }[] }).data;
+      expect(taken[1].images).toEqual([image]);
+      expect(taken[2].images).toEqual([other]);
+    });
+
+    it("forgets a delivered message's images", async () => {
+      const { request, session, data } = await working();
+      session.queue.followUp.shift();
+      session.emit({
+        type: "message_start",
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "b" }, image],
+          timestamp: 1,
+        },
+      } as SessionEvent);
+      await request({ id: 5, type: "prompt", text: "b", queue: "followUp" });
+      await request({ id: 6, type: "abort" });
+      expect(data(5)).toMatchObject({
+        data: [{ text: "a" }, { text: "c" }, { text: "b" }],
+      });
+      expect(
+        (data(5) as { data: { images?: unknown }[] }).data[2].images,
+      ).toBeUndefined();
+    });
   });
 
   it.each([

@@ -4,6 +4,7 @@ import type {
   OpenedSession,
 } from "../shared/hostProtocol.ts";
 import type { ImageContent, SessionEvent } from "../shared/agentTypes.ts";
+import type { QueueKind } from "../shared/queue.ts";
 import {
   current,
   isShown,
@@ -20,6 +21,7 @@ import { askApproval, denyAll } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { firstTitle, pushProjects, titleOf } from "./hostProjects.ts";
 import { resume } from "./hostResume.ts";
+import { delivered, rememberImages } from "./queuedImages.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -112,6 +114,10 @@ export async function open(
     running: s.isStreaming,
     ...(s.modelWarning && { modelWarning: s.modelWarning }),
     approvals: [...agent.approvals.values()].map((ask) => ask.request),
+    queue: {
+      steering: [...s.getSteeringMessages()],
+      followUp: [...s.getFollowUpMessages()],
+    },
   };
 }
 
@@ -133,6 +139,7 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
     mcpStatus: new Map(),
     reloadWhenSettled: false,
     approvals: new Map(),
+    queuedImages: new Map(),
   } as Omit<Agent, "opening"> as Agent;
   const live = () => ctx.agents.get(id) === agent;
   // Status can arrive while the session is still opening; it's kept, and
@@ -197,16 +204,21 @@ function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
     agent.running = event.type === "agent_start";
     pushProjects(ctx);
   }
+  if (event.type === "message_start") delivered(agent, event.message);
   // The first message names the conversation; pi stores it only afterwards.
   const first = event.type === "message_start" && !agent.title;
   if (first && event.message.role === "user") {
     agent.title = titleOf(event.message);
     pushProjects(ctx);
   }
-  if (event.type === "agent_settled" && agent.reloadWhenSettled) {
-    agent.reloadWhenSettled = false;
-    agent.session?.reload().catch(reportTo(ctx, agent));
-  }
+  if (event.type === "agent_settled") settle(ctx, agent);
+}
+
+function settle(ctx: HostContext, agent: Agent) {
+  if (!agent.session?.pendingMessageCount) agent.queuedImages.clear();
+  if (!agent.reloadWhenSettled) return;
+  agent.reloadWhenSettled = false;
+  agent.session?.reload().catch(reportTo(ctx, agent));
 }
 
 /** Ends conversation `id`, or all of the folder's, denying their waiting tool calls. */
@@ -245,15 +257,16 @@ export async function prompt(
   images?: ImageContent[],
   session?: string,
   onError?: (error: unknown) => void,
+  queue: QueueKind = "steer",
 ) {
   const agent = target(ctx, session);
   const s = await current(ctx, session);
   await agent!.ready;
   // Writing instead of answering declines what waits; the message says what to do instead.
   denyAll(ctx, agent!);
-  // A message sent mid-run steers the agent rather than waiting for the end.
+  if (s.isStreaming) rememberImages(agent!, text, images);
   const options = {
-    ...(s.isStreaming && { streamingBehavior: "steer" as const }),
+    ...(s.isStreaming && { streamingBehavior: queue }),
     ...(images?.length ? { images } : {}),
   };
   s.prompt(text, options).catch(onError ?? reportTo(ctx, agent!));
