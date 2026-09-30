@@ -206,7 +206,7 @@ src-tauri/               Rust shell: registers plugins, nothing else
                          and delete the android/, ios/ and 64x64.png it also writes
   capabilities/          Permissions the frontend may use
   tests/config.rs        Guards on the config (write scope, hidden window)
-.github/workflows/ci.yml Build, typecheck, lint, format check, tests on macOS, for pull requests to main
+.github/workflows/ci.yml Build, typecheck, lint, format check, tests on macOS, for pull requests to main and pushes to it (main saves the Rust cache PRs restore)
 .github/dependabot.yml   Daily PRs for new pi and pi-claude-bridge versions (new models arrive through them)
 ```
 
