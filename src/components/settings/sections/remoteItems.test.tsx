@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS } from "@/lib/settings";
 
 const on = {
   ...DEFAULT_SETTINGS,
-  remote: { enabled: true, port: 4280, token: "t" },
+  remote: { enabled: true, port: 4280 },
 };
 const titles = (status: Parameters<typeof remoteItems>[0]["status"]) =>
   remoteItems({ settings: on, onChange: vi.fn(), status }).map((i) => i.title);
@@ -26,12 +26,27 @@ describe("remoteItems", () => {
       onChange: vi.fn(),
       status: {
         type: "remote_status",
-        urls: ["http://192.168.1.2:4280/?token=t"],
+        urls: ["http://192.168.1.2:4280/"],
         devices: 0,
       },
     });
     expect(rows.map((i) => i.title)).toEqual(["Remote access", "Port", "Link"]);
     expect(rows[2].description).toContain("192.168.1.2:4280");
+  });
+
+  it("adds the Tailscale link only when Tailscale is connected", () => {
+    const rows = remoteItems({
+      settings: on,
+      onChange: vi.fn(),
+      status: {
+        type: "remote_status",
+        urls: ["http://192.168.1.2:4280/"],
+        tailscale: "http://100.101.102.103:4280/",
+        devices: 0,
+      },
+    });
+    expect(rows.at(-1)?.title).toBe("Tailscale");
+    expect(rows.at(-1)?.description).toContain("100.101.102.103:4280");
   });
 
   it("says why there's no link", () => {

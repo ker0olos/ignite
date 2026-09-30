@@ -180,7 +180,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
   testMcpServer.ts       A one-tool stdio MCP server for tests
   remote.ts              Remote access: browsers share this sidecar; replies routed by id, events to all
-  remoteServer.ts        Its HTTP server: token link sets a cookie, proxies the UI from Vite, WebSocket
+  remoteServer.ts        Its HTTP server: proxies the UI from Vite, WebSocket; its links (network, Tailscale)
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
 demo/tempo/, demo/pantry/ Sample projects `npm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
@@ -246,9 +246,10 @@ Two places hold persisted data:
 - **Power settings** (`[power]`): `keep_awake` (on by default, macOS only)
   runs `caffeinate -i` while any folder's agent works, and ends it when
   every agent finishes or waits on the user (`sidecar/keepAwake.ts`).
-- **Remote settings** (`[remote]`): `enabled` (off by default), `port` (4280),
-  and `token`. The main window's sidecar serves the UI to browsers on the
-  network holding the token's link; their Tauri calls run in
+- **Remote settings** (`[remote]`): `enabled` (off by default) and `port`
+  (4280). The main window's sidecar serves the UI to any browser that
+  reaches the port, with no password; when Tailscale is connected (a
+  100.64/10 address), Settings also shows its link. Their Tauri calls run in
   the main window, limited to `REMOTE_COMMANDS` (`shared/remote.ts`).
 - **Chrome settings** (`[chrome]`): `enabled` (on by default) gives the
   agent the `chrome_*` tools; `disabled_tools` lists ones it doesn't get

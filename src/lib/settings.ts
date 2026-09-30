@@ -39,8 +39,8 @@ export type Settings = {
   power: { keep_awake: boolean };
   /** `disabled_tools`: Chrome tools (shared/chrome.ts) the agent doesn't get. */
   chrome: { enabled: boolean; disabled_tools: string[] };
-  /** Remote access from browsers on other devices; `token` is in the link they open. */
-  remote: { enabled: boolean; port: number; token: string };
+  /** Remote access from browsers on other devices. */
+  remote: { enabled: boolean; port: number };
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -56,7 +56,7 @@ export const DEFAULT_SETTINGS: Settings = {
   subagents: { enabled: true, max: 2 },
   power: { keep_awake: true },
   chrome: { enabled: true, disabled_tools: [] },
-  remote: { enabled: false, port: 4280, token: "" },
+  remote: { enabled: false, port: 4280 },
 };
 
 export const MIN_TEXT_SIZE = 10;
@@ -123,7 +123,6 @@ const readRemote = (
     Number.isInteger(remote.port) && remote.port! > 0 && remote.port! < 65536
       ? remote.port!
       : DEFAULT_SETTINGS.remote.port,
-  token: typeof remote.token === "string" ? remote.token : "",
 });
 
 // Earlier versions stored the appearance itself; map it to the matching theme.

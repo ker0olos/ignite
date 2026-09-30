@@ -8,7 +8,7 @@
 export const REMOTE_SOCKET = "/__ignite";
 
 /** The `[remote]` settings the main window sends; `enabled: false` stops the server. */
-export type RemoteConfig = { enabled: boolean; port: number; token: string };
+export type RemoteConfig = { enabled: boolean; port: number };
 
 /** Tauri commands a browser may have the main window run; the rest are refused. */
 export const REMOTE_COMMANDS = new Set([
@@ -49,6 +49,8 @@ export type RemoteEvent = {
 export type RemoteStatus = {
   type: "remote_status";
   urls: string[];
+  /** The link over Tailscale, when it's connected on this machine. */
+  tailscale?: string;
   error?: string;
   /** Browsers connected now. */
   devices: number;

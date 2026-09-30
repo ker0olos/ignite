@@ -104,8 +104,8 @@ export function createRemote(
     });
   }
 
-  async function configure({ enabled, port, token }: RemoteConfig) {
-    const wanted = enabled && token ? `${port}:${token}` : "";
+  async function configure({ enabled, port }: RemoteConfig) {
+    const wanted = enabled ? String(port) : "";
     if (wanted === running) return;
     clearInterval(heartbeat);
     browsers.forEach((ws) => ws.close());
@@ -114,12 +114,12 @@ export function createRemote(
     running = "";
     if (!wanted) return report({ urls: [] });
     try {
-      server = await startServer(port, token, onSocket);
+      server = await startServer(port, onSocket);
       running = wanted;
       heartbeat = setInterval(ping, heartbeatMs);
       heartbeat.unref?.();
       log(`remote access on port ${port}`);
-      report({ urls: remoteUrls(port, token) });
+      report(remoteUrls(port));
     } catch (error) {
       report({ urls: [], error: String(error) });
     }

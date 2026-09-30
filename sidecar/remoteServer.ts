@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
 import {
   createServer,
   request as httpRequest,
@@ -12,67 +11,44 @@ import { REMOTE_SOCKET } from "../shared/remote.ts";
 
 // ponytail: the UI comes from the Vite dev server `tauri dev` runs; a built app would serve dist/
 const VITE = { host: "localhost", port: 1420 };
-const COOKIE = "ignite_remote";
-
-// Byte lengths, not string lengths: timingSafeEqual throws on a mismatch.
-const same = (a: string, b: string) => {
-  const [x, y] = [Buffer.from(a), Buffer.from(b)];
-  return x.length === y.length && timingSafeEqual(x, y);
-};
-
-// A path URL can't parse (`//[`) counts as having no token.
-const tokenIn = (url = "/") =>
-  URL.canParse(url, "http://x")
-    ? new URL(url, "http://x").searchParams.get("token")
-    : null;
-
-const cookieOf = (req: IncomingMessage) =>
-  /(?:^|;\s*)ignite_remote=([^;]+)/.exec(req.headers.cookie ?? "")?.[1] ?? "";
-
-/** Whether a browser has the token (in its cookie); a WebSocket must also come from this page. */
-export function allowed(req: IncomingMessage, token: string, socket = false) {
-  if (!same(cookieOf(req), token)) return false;
-  if (!socket) return true;
+/** Whether a WebSocket comes from this page, not another site open in the same browser. */
+export function allowed(req: IncomingMessage) {
   const origin = req.headers.origin;
   return (
     URL.canParse(origin ?? "") && new URL(origin!).host === req.headers.host
   );
 }
 
-/** This machine's addresses other devices on the network can open. */
-export function remoteUrls(port: number, token: string) {
-  return Object.values(networkInterfaces())
+// Tailscale gives each device an address in 100.64.0.0/10.
+const isTailscale = (address: string) => {
+  const [a, b] = address.split(".").map(Number);
+  return a === 100 && b >= 64 && b < 128;
+};
+
+/** Links other devices can open: on the local network, and over Tailscale when it's connected. */
+export function remoteUrls(port: number) {
+  const addresses = Object.values(networkInterfaces())
     .flat()
     .filter((a) => a && a.family === "IPv4" && !a.internal)
-    .map((a) => `http://${a!.address}:${port}/?token=${token}`);
+    .map((a) => a!.address);
+  const url = (address: string) => `http://${address}:${port}/`;
+  const tailscale = addresses.find(isTailscale);
+  return {
+    urls: addresses.filter((a) => !isTailscale(a)).map(url),
+    ...(tailscale && { tailscale: url(tailscale) }),
+  };
 }
 
-const DENIED =
-  "<!doctype html><meta name=viewport content='width=device-width'><p style='font:16px system-ui;padding:24px'>Open this page from the link or QR code in Ignite's Settings.</p>";
-
 /**
- * Serves the UI to browsers holding the token: `?token=` sets the cookie,
- * then everything is proxied to Vite, except REMOTE_SOCKET, handed to `onSocket`.
+ * Serves the UI to any browser that reaches `port`: everything is proxied to
+ * Vite, except REMOTE_SOCKET, handed to `onSocket`.
  */
 export function startServer(
   port: number,
-  token: string,
   onSocket: (ws: WebSocket) => void,
 ): Promise<{ close(): Promise<void> }> {
   const wss = new WebSocketServer({ noServer: true });
   const server = createServer((req, res) => {
-    // The link's token lets the page in and sets the cookie; no redirect, since
-    // a phone opening it from the camera is cross-site and would drop the cookie.
-    const given = tokenIn(req.url);
-    if (given !== null ? !same(given, token) : !allowed(req, token)) {
-      return void res.writeHead(401).end(DENIED);
-    }
-    if (given !== null) {
-      res.setHeader(
-        "set-cookie",
-        `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`,
-      );
-    }
     const upstream = httpRequest(
       { ...VITE, path: req.url, method: req.method, headers: viteHeaders(req) },
       (up) => {
@@ -84,7 +60,7 @@ export function startServer(
     req.pipe(upstream);
   });
   server.on("upgrade", (req, socket, head) => {
-    if (!allowed(req, token, true)) return void socket.destroy();
+    if (!allowed(req)) return void socket.destroy();
     if (req.url === REMOTE_SOCKET) {
       wss.handleUpgrade(req, socket, head, onSocket);
     } else {
@@ -108,7 +84,7 @@ export function startServer(
   });
 }
 
-// Vite only answers its own host name, and never needs the token.
+// Vite only answers its own host name.
 function viteHeaders(req: IncomingMessage) {
   const headers = { ...req.headers };
   delete headers.cookie;

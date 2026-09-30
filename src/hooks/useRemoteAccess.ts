@@ -52,7 +52,7 @@ export async function answer(
  */
 export function useRemoteAccess(
   host: HostClient | null,
-  { enabled, port, token }: Settings["remote"],
+  { enabled, port }: Settings["remote"],
 ) {
   const [status, setStatus] = useState<RemoteStatus | null>(null);
   const serves = !!host && !isRemote() && getCurrentWindow().label === "main";
@@ -81,10 +81,10 @@ export function useRemoteAccess(
     if (serves) {
       void post(host, {
         type: "remote_config",
-        config: { enabled, port, token },
+        config: { enabled, port },
       });
     }
-  }, [serves, host, enabled, port, token]);
+  }, [serves, host, enabled, port]);
 
   return status;
 }
