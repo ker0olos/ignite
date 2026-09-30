@@ -35,7 +35,7 @@ export function RemoveButton({
       >
         <Trash2 />
       </DialogTrigger>
-      <DialogContent showCloseButton={false}>
+      <DialogContent size="sm" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Remove {name}?</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
