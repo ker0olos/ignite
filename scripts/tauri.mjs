@@ -71,13 +71,26 @@ async function findFreePort(start, reserved = new Set()) {
   throw new Error(`No free port found from ${start} to ${start + 99}.`);
 }
 
-function isPortFree(port) {
+async function isPortFree(port) {
+  const checks = await Promise.all([
+    canConnect(port, "127.0.0.1"),
+    canConnect(port, "::1"),
+  ]);
+  return !checks.some(Boolean);
+}
+
+function canConnect(port, host) {
   return new Promise((resolve) => {
-    const server = net.createServer();
-    server.unref();
-    server.once("error", () => resolve(false));
-    server.listen(port, () => {
-      server.close(() => resolve(true));
+    const socket = net.connect({ host, port });
+    socket.setTimeout(500);
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once("error", () => resolve(false));
+    socket.once("timeout", () => {
+      socket.destroy();
+      resolve(false);
     });
   });
 }

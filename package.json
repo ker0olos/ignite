@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port ${IGNITE_DEV_PORT:-1420}",
+    "dev": "node scripts/vite.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "node scripts/tauri.mjs",
