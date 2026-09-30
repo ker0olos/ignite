@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 
 type Session = ReturnType<typeof useAgentSession>;
 
+const QUEUE =
+  "flex items-center gap-2 outline-none hover:opacity-80 focus-visible:underline";
+
 /** The composer's right-hand controls: model/effort menus, status, and send/stop. */
 export function ComposerToolbar({
   session,
@@ -17,12 +20,14 @@ export function ComposerToolbar({
   running,
   canSend,
   approval,
+  onStop,
 }: {
   session: Session;
   loading: boolean;
   running: boolean;
   canSend: boolean;
   approval: Approval;
+  onStop: () => void;
 }) {
   const { state } = session;
   return (
@@ -50,13 +55,16 @@ export function ComposerToolbar({
         </span>
       )}
       {running ? (
-        <button
-          type="button"
-          className={ACTION}
-          onClick={() => void session.stop()}
-        >
-          Stop <Kbd>esc</Kbd>
-        </button>
+        <div className={ACTION}>
+          {canSend && (
+            <button type="submit" className={QUEUE}>
+              Queue <Kbd>↵</Kbd>
+            </button>
+          )}
+          <button type="button" className={QUEUE} onClick={onStop}>
+            Stop <Kbd>esc</Kbd>
+          </button>
+        </div>
       ) : (
         <button
           type="submit"

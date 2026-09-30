@@ -5,6 +5,7 @@
  * the AbortSignals that can't cross a process boundary.
  */
 import type { AgentMessage, ImageContent, SessionEvent } from "./agentTypes.ts";
+import type { QueueKind, QueuedMessage, Unqueue } from "./queue.ts";
 import type { GitReview } from "./git.ts";
 import type { MemoryStatus } from "./memory.ts";
 import type {
@@ -124,6 +125,8 @@ export type OpenedSession = SessionState & {
   modelWarning?: string;
   /** Tool calls asked while the folder wasn't shown, still waiting. */
   approvals: ApprovalRequest[];
+  /** Messages sent mid-run, not yet delivered. */
+  queue: { steering: string[]; followUp: string[] };
 };
 
 /** One of a folder's open conversations, which may be working while another is shown. */
@@ -245,8 +248,13 @@ export type HostRequest =
       text: string;
       images?: ImageContent[];
       session?: string;
+      /** While it works; `steer` when unset. */
+      queue?: QueueKind;
     }
+  /** Stops the run; resolves to the queued messages, taken back. */
   | { id: number; type: "abort"; session?: string }
+  /** Resolves to the message, or null when it was already delivered. */
+  | ({ id: number; type: "unqueue" } & Unqueue)
   | { id: number; type: "mcp_list" }
   /** Adds a server, or replaces `previousName` (which may differ, to rename). */
   | {
@@ -311,7 +319,8 @@ export type HostResponses = SkillResponses &
     set_model: SessionState;
     set_thinking_level: SessionState;
     prompt: undefined;
-    abort: undefined;
+    abort: QueuedMessage[];
+    unqueue: QueuedMessage | null;
     mcp_list: McpServer[];
     mcp_save: McpServer[];
     mcp_remove: McpServer[];

@@ -138,6 +138,8 @@ export type SessionEvent =
       success: boolean;
       finalError?: string;
     }
+  /** Messages sent mid-run that pi hasn't delivered yet, in delivery order. */
+  | { type: "queue_update"; steering: string[]; followUp: string[] }
   | { type: "compaction_start"; reason: string }
   | {
       type: "compaction_end";

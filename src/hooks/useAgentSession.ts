@@ -122,6 +122,7 @@ export function useAgentSession(
     error,
     send: actions.send,
     stop: actions.stop,
+    unqueue: actions.unqueue,
     /** The shown conversation's id; the folder may have others open. */
     session: shown,
     /**
