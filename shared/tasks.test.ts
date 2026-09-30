@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { applyUpdate, prUrl, unfinished, type Task } from "./tasks.ts";
+import {
+  applyUpdate,
+  prUrl,
+  proposedTask,
+  readProposed,
+  unfinished,
+  type Task,
+} from "./tasks.ts";
 
 const task: Task = {
   id: "t",
@@ -122,5 +129,28 @@ describe("prUrl", () => {
   it("is null without one", () => {
     expect(prUrl("https://github.com/a/b/issues/3")).toBeNull();
     expect(prUrl("")).toBeNull();
+  });
+});
+
+describe("readProposed", () => {
+  it("keeps tasks with a title", () => {
+    expect(
+      readProposed({ tasks: [{ title: "a" }, { title: " " }, { notes: "x" }] }),
+    ).toEqual([{ title: "a" }]);
+    expect(readProposed({})).toEqual([]);
+  });
+});
+
+describe("proposedTask", () => {
+  it("is a new task with no notes or subtasks when none are given", () => {
+    expect(proposedTask({ title: "a" }, "id", 5)).toEqual({
+      id: "id",
+      title: "a",
+      notes: "",
+      images: [],
+      subtasks: [],
+      created: 5,
+      updated: 5,
+    });
   });
 });

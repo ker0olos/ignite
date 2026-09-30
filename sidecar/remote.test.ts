@@ -8,7 +8,6 @@ import { REMOTE_SOCKET } from "../shared/remote.ts";
 import { createRemote } from "./remote.ts";
 import { allowed } from "./remoteServer.ts";
 
-const TOKEN = "secret-token";
 const PORT = 40000 + Math.floor(Math.random() * 20000);
 const origin = `http://localhost:${PORT}`;
 
@@ -16,24 +15,11 @@ const req = (headers: Record<string, string>) =>
   ({ headers: { host: `localhost:${PORT}`, ...headers } }) as IncomingMessage;
 
 describe("allowed", () => {
-  it("needs the token's cookie, and a socket from the page itself", () => {
-    const cookie = `other=1; ignite_remote=${TOKEN}`;
-    expect(allowed(req({ cookie }), TOKEN)).toBe(true);
-    expect(allowed(req({ cookie: "ignite_remote=wrong" }), TOKEN)).toBe(false);
-    expect(allowed(req({}), TOKEN)).toBe(false);
-    expect(allowed(req({ cookie, origin }), TOKEN, true)).toBe(true);
-    expect(
-      allowed(req({ cookie, origin: "http://evil.test" }), TOKEN, true),
-    ).toBe(false);
-    expect(allowed(req({ cookie, origin: "null" }), TOKEN, true)).toBe(false);
-  });
-
-  it("refuses a same-length token whose bytes differ in length, without throwing", () => {
-    const sneaky = "é".padEnd(TOKEN.length, "x");
-    expect(sneaky.length).toBe(TOKEN.length);
-    expect(allowed(req({ cookie: `ignite_remote=${sneaky}` }), TOKEN)).toBe(
-      false,
-    );
+  it("takes a socket only from the page itself", () => {
+    expect(allowed(req({ origin }))).toBe(true);
+    expect(allowed(req({ origin: "http://evil.test" }))).toBe(false);
+    expect(allowed(req({ origin: "null" }))).toBe(false);
+    expect(allowed(req({}))).toBe(false);
   });
 });
 
@@ -46,7 +32,7 @@ describe("createRemote", () => {
     remote = createRemote(handle, toApp, () => {}, heartbeatMs);
     remote.fromApp({
       type: "remote_config",
-      config: { enabled: true, port: PORT, token: TOKEN },
+      config: { enabled: true, port: PORT },
     } as never);
     await vi.waitFor(() =>
       expect(toApp).toHaveBeenCalledWith(
@@ -55,9 +41,9 @@ describe("createRemote", () => {
     );
   };
 
-  const connect = async (cookie = `ignite_remote=${TOKEN}`) => {
+  const connect = async () => {
     const ws = new WebSocket(`ws://localhost:${PORT}${REMOTE_SOCKET}`, {
-      headers: { cookie, origin },
+      headers: { origin },
     });
     const received: unknown[] = [];
     ws.on("message", (data) => received.push(JSON.parse(String(data))));
@@ -71,44 +57,38 @@ describe("createRemote", () => {
   afterEach(() => {
     remote?.fromApp({
       type: "remote_config",
-      config: { enabled: false, port: PORT, token: "" },
+      config: { enabled: false, port: PORT },
     } as never);
     vi.clearAllMocks();
   });
 
-  it("restarts with a new token while browsers are connected", async () => {
+  it("serves any browser, with no token", async () => {
+    await start();
+    // From Vite, or 502 without it; never refused.
+    const page = await fetch(`${origin}/`, { redirect: "manual" });
+    expect([200, 502]).toContain(page.status);
+    await expect(connect()).resolves.toBeTruthy();
+  });
+
+  it("restarts on a new port while browsers are connected", async () => {
     await start();
     await connect();
     await fetch(`${origin}/`); // a keep-alive connection
+    toApp.mockClear();
     remote.fromApp({
       type: "remote_config",
-      config: { enabled: true, port: PORT, token: "new-token" },
+      config: { enabled: true, port: PORT + 1 },
     } as never);
     await vi.waitFor(() =>
       expect(toApp).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          urls: [expect.stringContaining("new-token")],
+          urls: expect.arrayContaining([
+            expect.stringContaining(`:${PORT + 1}/`),
+          ]),
         }),
       ),
     );
     await expect(connect()).rejects.toThrow();
-    await expect(connect("ignite_remote=new-token")).resolves.toBeTruthy();
-  });
-
-  it("sets the cookie from the link, and refuses pages without it", async () => {
-    await start();
-    const denied = await fetch(`${origin}/`, { redirect: "manual" });
-    expect(denied.status).toBe(401);
-    const wrong = await fetch(`${origin}/?token=nope`, { redirect: "manual" });
-    expect(wrong.status).toBe(401);
-    // Served straight away (from Vite, or 502 without it), with the cookie; no redirect.
-    const link = await fetch(`${origin}/?token=${TOKEN}`, {
-      redirect: "manual",
-    });
-    expect([200, 502]).toContain(link.status);
-    expect(link.headers.get("set-cookie")).toContain(`ignite_remote=${TOKEN}`);
-    expect(link.headers.get("set-cookie")).toContain("SameSite=Lax");
-    await expect(connect("ignite_remote=wrong")).rejects.toThrow();
   });
 
   it("tells the app how many browsers are connected as they come and go", async () => {
@@ -251,13 +231,13 @@ describe("createRemote", () => {
         s.destroy();
       });
     });
-    expect(raw).toContain("401");
+    expect(raw).toMatch(/^HTTP\/1\.1 \d{3}/);
     const { ws } = await connect();
     // A text frame that isn't UTF-8 makes ws emit an error on the server's socket.
     (ws as unknown as { _socket: { write(b: Buffer): void } })._socket.write(
       Buffer.from([0x81, 0x82, 0, 0, 0, 0, 0xff, 0xfe]),
     );
     await new Promise((r) => setTimeout(r, 100));
-    expect((await fetch(`${origin}/`)).status).toBe(401);
+    expect([200, 502]).toContain((await fetch(`${origin}/`)).status);
   });
 });

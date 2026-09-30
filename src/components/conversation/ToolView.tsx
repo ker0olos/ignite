@@ -7,6 +7,7 @@ import {
 import { GH_TOOL, GIT_TOOL } from "../../../shared/git";
 import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL } from "../../../shared/subagents";
+import { TASK_ADD_TOOL, readProposed } from "../../../shared/tasks";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
 import type { ToolProps } from "@/components/conversation/shared";
 import { ToolHead } from "@/components/conversation/ToolHead";
@@ -41,6 +42,7 @@ const TOOL_TITLES: Record<string, string> = {
   [ASK_TOOL]: "Questions",
   [SUBAGENT_TOOL]: "Agent",
   [IMAGE_TOOL]: "Image",
+  [TASK_ADD_TOOL]: "Add tasks",
 };
 
 function pathArg(call: ToolCall, folder: string) {
@@ -81,6 +83,7 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   [ASK_TOOL]: questionsArg,
   [SUBAGENT_TOOL]: subagentArg,
   [IMAGE_TOOL]: pathArg,
+  [TASK_ADD_TOOL]: (call) => String(readProposed(call.arguments).length),
 };
 
 function toolArg(call: ToolCall, folder: string) {

@@ -6,10 +6,8 @@ import { Switch } from "@/components/ui/switch";
 import { isRemote } from "@/lib/remote";
 import type { Settings } from "@/lib/settings";
 
-const newToken = () => crypto.randomUUID().replaceAll("-", "");
-
-/** The network link, to scan, copy or replace; or why there's none. */
-function linkItem(status: RemoteStatus | null, onNewLink: () => void): Item {
+/** The network link, to scan or copy; or why there's none. */
+function linkItem(status: RemoteStatus | null): Item {
   const url = status?.urls[0];
   if (!url) {
     const description =
@@ -19,8 +17,19 @@ function linkItem(status: RemoteStatus | null, onNewLink: () => void): Item {
   return {
     section: "Remote",
     title: "Link",
-    description: `${new URL(url).host}. Scan it with your phone's camera, on the same Wi-Fi. A new link signs out every browser.`,
-    control: <RemoteLink url={url} onNewLink={onNewLink} />,
+    description: `${new URL(url).host}. Scan it with your phone's camera, on the same Wi-Fi.`,
+    control: <RemoteLink url={url} />,
+  };
+}
+
+/** The Tailscale link, which works from anywhere on your tailnet. */
+function tailscaleItem(url: string): Item {
+  return {
+    section: "Remote",
+    title: "Tailscale",
+    description: `${new URL(url).host}. Opens from any of your devices on Tailscale, on any network.`,
+    keywords: "tailscale vpn tailnet anywhere",
+    control: <RemoteLink url={url} />,
   };
 }
 
@@ -43,14 +52,12 @@ export function remoteItems({
       section: "Remote",
       title: "Remote access",
       description:
-        "Serve this app to browsers on your Wi-Fi network. Anyone with the link can use the agent as you.",
+        "Serve this app to browsers on your network. Anyone who can reach this Mac can use the agent as you, with no password.",
       keywords: "phone mobile browser lan network wifi web",
       control: (
         <Switch
           checked={remote.enabled}
-          onCheckedChange={(enabled) =>
-            save({ enabled, token: remote.token || newToken() })
-          }
+          onCheckedChange={(enabled) => save({ enabled })}
         />
       ),
     },
@@ -64,5 +71,10 @@ export function remoteItems({
     },
   ];
   if (!remote.enabled) return rows;
-  return [...rows, linkItem(status, () => save({ token: newToken() }))];
+  const tailscale = status?.tailscale;
+  return [
+    ...rows,
+    linkItem(status),
+    ...(tailscale ? [tailscaleItem(tailscale)] : []),
+  ];
 }

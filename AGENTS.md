@@ -161,6 +161,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   taskStore.ts           Each folder's tasks in ~/.ignite/tasks, written one at a time, pushed on change
   hostTasks.ts           Starts a task in a background conversation; answers the task extension
   taskExtension.ts       task_update, and a task conversation's plan, work and wrap-up phases
+  taskAddTool.ts         task_add: any other conversation proposes tasks, added unstarted once approved
   taskSteps.ts           A tool call as a task's current step ("Editing src/app.ts")
   subagentExtension.ts   subagent tool: hands tasks to a smaller model from the same provider and talks with it
   keepAwake.ts           Keeps the Mac from idle-sleeping (caffeinate) while an agent works
@@ -179,7 +180,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
   testMcpServer.ts       A one-tool stdio MCP server for tests
   remote.ts              Remote access: browsers share this sidecar; replies routed by id, events to all
-  remoteServer.ts        Its HTTP server: token link sets a cookie, proxies the UI from Vite, WebSocket
+  remoteServer.ts        Its HTTP server: proxies the UI from Vite, WebSocket; its links (network, Tailscale)
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
 demo/tempo/, demo/pantry/ Sample projects `npm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
@@ -245,9 +246,10 @@ Two places hold persisted data:
 - **Power settings** (`[power]`): `keep_awake` (on by default, macOS only)
   runs `caffeinate -i` while any folder's agent works, and ends it when
   every agent finishes or waits on the user (`sidecar/keepAwake.ts`).
-- **Remote settings** (`[remote]`): `enabled` (off by default), `port` (4280),
-  and `token`. The main window's sidecar serves the UI to browsers on the
-  network holding the token's link; their Tauri calls run in
+- **Remote settings** (`[remote]`): `enabled` (off by default) and `port`
+  (4280). The main window's sidecar serves the UI to any browser that
+  reaches the port, with no password; when Tailscale is connected (a
+  100.64/10 address), Settings also shows its link. Their Tauri calls run in
   the main window, limited to `REMOTE_COMMANDS` (`shared/remote.ts`).
 - **Chrome settings** (`[chrome]`): `enabled` (on by default) gives the
   agent the `chrome_*` tools; `disabled_tools` lists ones it doesn't get
@@ -343,7 +345,9 @@ only that conversation `task_update`, drops `ask_user`, points its
 `chrome_*` tools at the app's own Chrome, and runs it in phases: edits and writes are blocked until it has laid
 out or confirmed the subtasks (`planned`), each tool call becomes its step,
 and a run that ends with subtasks open or no pull request gets one wrap-up
-message. In a task, a commit and a plain push of its own branch run without
+message. Any other conversation can fill the list with `task_add`
+(`sidecar/taskAddTool.ts`): its row shows the proposed tasks as cards, and
+approving adds them unstarted. In a task, a commit and a plain push of its own branch run without
 asking (`taskRunsAlone` in `lib/gitPolicy.ts`); `gh pr create` still waits
 for review, shown on the task's card (the conversation's status carries the
 waiting review). Approved, the pull request opens, its URL is saved and the

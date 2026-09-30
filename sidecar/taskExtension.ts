@@ -12,12 +12,14 @@ import { Type } from "typebox";
 import { IMAGE_TOOL } from "../shared/agentTypes.ts";
 import { ASK_TOOL } from "../shared/questions.ts";
 import {
+  TASK_ADD_TOOL,
   TASK_TOOL,
   unfinished,
   type Task,
   type TaskUpdate,
 } from "../shared/tasks.ts";
 import { ASKING, AUTONOMOUS } from "./askExtension.ts";
+import { registerTaskAdd } from "./taskAddTool.ts";
 import { CHANGES_FILES, stepOf } from "./taskSteps.ts";
 
 /** pi event bus channel carrying a TaskAsk to the host. */
@@ -29,7 +31,10 @@ export const TASK_EVENT = "app/task";
  * `emit`), so a session nobody answers for isn't left waiting.
  */
 export type TaskAsk = { heard: boolean; reply(task: Task | null): void } & (
-  { kind: "get" } | { kind: "update"; update: TaskUpdate }
+  | { kind: "get" }
+  | { kind: "update"; update: TaskUpdate }
+  /** Adds new tasks to the folder's list; replies with the first, or null if they weren't saved. */
+  | { kind: "add"; tasks: Task[] }
 );
 
 /** Asks the host for this session's task, or updates it; null if it has none. */
@@ -95,6 +100,7 @@ export default function tasks(pi: ExtensionAPI) {
   // One wrap-up nudge per run the user started.
   let nudged = false;
 
+  registerTaskAdd(pi);
   pi.registerTool({
     name: TASK_TOOL,
     label: "Update the task",
@@ -119,8 +125,13 @@ export default function tasks(pi: ExtensionAPI) {
     if (event.prompt !== WRAP_UP) nudged = false;
     const others = pi
       .getActiveTools()
-      .filter((name) => name !== TASK_TOOL && !(task && name === ASK_TOOL));
-    pi.setActiveTools(task ? [...others, TASK_TOOL] : others);
+      .filter(
+        (name) =>
+          name !== TASK_TOOL &&
+          name !== TASK_ADD_TOOL &&
+          !(task && name === ASK_TOOL),
+      );
+    pi.setActiveTools([...others, task ? TASK_TOOL : TASK_ADD_TOOL]);
     if (!task) return;
     if (task.declined) void askTask(pi, "update", { declined: false });
     const prompt = event.systemPrompt.replace(ASKING, AUTONOMOUS);
