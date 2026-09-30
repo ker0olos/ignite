@@ -27,6 +27,7 @@ describe("remoteItems", () => {
       status: {
         type: "remote_status",
         urls: ["http://192.168.1.2:4280/?token=t"],
+        devices: 0,
       },
     });
     expect(rows.map((i) => i.title)).toEqual(["Remote access", "Port", "Link"]);
@@ -38,6 +39,7 @@ describe("remoteItems", () => {
       type: "remote_status",
       urls: [],
       error: "EADDRINUSE",
+      devices: 0,
     };
     const rows = remoteItems({
       settings: on,

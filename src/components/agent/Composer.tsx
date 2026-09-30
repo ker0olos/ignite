@@ -7,8 +7,10 @@ import { ImageAttachments } from "@/components/agent/ImageAttachments";
 import { MENU_TRIGGER } from "@/components/agent/styles";
 import { Textarea } from "@/components/ui/textarea";
 import type { useAgentSession } from "@/hooks/useAgentSession";
+import { useProvideImageTarget } from "@/hooks/useImageTarget";
 import { typedText } from "@/lib/demo";
 import { pastedImages, pickImages } from "@/lib/images";
+import { cn } from "@/lib/utils";
 
 type Session = ReturnType<typeof useAgentSession>;
 
@@ -50,6 +52,10 @@ export function Composer({
   };
   const attach = (added: ImageContent[]) =>
     setImages((current) => [...current, ...added]);
+  useProvideImageTarget("Add to chat", (image) => {
+    attach([image]);
+    input.current?.focus();
+  });
 
   return (
     <form
@@ -64,6 +70,11 @@ export function Composer({
           images={images}
           onRemove={(i) =>
             setImages((current) => current.filter((_, j) => j !== i))
+          }
+          onEdit={(i, marked) =>
+            setImages((current) =>
+              current.map((x, j) => (j === i ? marked : x)),
+            )
           }
         />
         <Textarea
@@ -95,14 +106,18 @@ export function Composer({
           rows={1}
           className="max-h-[calc(5lh+1.5rem)] min-h-0 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0.5 pt-4 pb-2 shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0 dark:bg-transparent"
         />
-        <div className="flex h-6 items-center gap-3.5 px-0.5">
+        <div className="flex h-6 items-center gap-3.5 px-0.5 max-sm:h-10">
           <button
             type="button"
             aria-label="Attach images"
-            className={MENU_TRIGGER}
+            // A finger-sized target on a phone, still flush with the text's edge.
+            className={cn(
+              MENU_TRIGGER,
+              "max-sm:-ml-2.5 max-sm:size-10 max-sm:justify-center",
+            )}
             onClick={() => void pickImages().then(attach)}
           >
-            <Plus className="size-3.5" />
+            <Plus className="size-3.5 max-sm:size-5" />
           </button>
           <ComposerToolbar
             session={session}

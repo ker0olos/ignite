@@ -27,7 +27,7 @@ export function DisconnectButton({
       >
         Disconnect
       </DialogTrigger>
-      <DialogContent showCloseButton={false}>
+      <DialogContent size="sm" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Disconnect {title}?</DialogTitle>
           <DialogDescription>

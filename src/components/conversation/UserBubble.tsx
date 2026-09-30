@@ -3,7 +3,7 @@ import type {
   TextContent,
   UserMessage,
 } from "../../../shared/agentTypes";
-import { imageUrl } from "@/lib/images";
+import { ZoomableImage } from "@/components/app/ZoomableImage";
 
 /** The user's turn: text bubble and any attached images, right-aligned. */
 export function UserBubble({ message }: { message: UserMessage }) {
@@ -24,10 +24,9 @@ export function UserBubble({ message }: { message: UserMessage }) {
       {images.length > 0 && (
         <div className="flex max-w-[85%] flex-wrap justify-end gap-2">
           {images.map((image, i) => (
-            <img
+            <ZoomableImage
               key={i}
-              src={imageUrl(image)}
-              alt=""
+              image={image}
               className="max-h-40 max-w-60 rounded-lg border object-contain"
             />
           ))}

@@ -1,17 +1,21 @@
 import { NewTaskForm } from "@/components/tasks/NewTaskForm";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { HostClient } from "@/lib/piHost";
+import type { TaskImage } from "../../../shared/tasks";
 import type { TaskDraft } from "@/lib/tasks";
 
 /** The new-task sheet: title, notes, images and subtasks in a dialog. */
 export function NewTaskDialog({
   host,
   open,
+  images,
   onOpenChange,
   onCreate,
 }: {
   host: HostClient | null;
   open: boolean;
+  /** Images the sheet opens with. */
+  images?: TaskImage[];
   onOpenChange: (open: boolean) => void;
   onCreate: (draft: TaskDraft, now: boolean) => void;
 }) {
@@ -22,7 +26,7 @@ export function NewTaskDialog({
         className="gap-0 overflow-hidden bg-background p-0 sm:max-w-[560px]"
       >
         <DialogTitle className="sr-only">New task</DialogTitle>
-        <NewTaskForm host={host} onCreate={onCreate} />
+        <NewTaskForm host={host} images={images} onCreate={onCreate} />
       </DialogContent>
     </Dialog>
   );

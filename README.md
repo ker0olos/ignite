@@ -1,40 +1,36 @@
 # Ignite
 
-A native macOS app for running AI coding agents on your projects.
+**The only AI coding app you'll need.** Hand off work, draw on what's wrong,
+review the pull request.
+
+A native macOS app for running AI coding agents on your projects, several at
+once.
 
 <p align="center">
-  <img src="docs/conversation.png" alt="An agent that added dark mode opening its pull request, with its commit and the four files it changes, and one file's diff open beside the conversation; the sidebar shows the project's other conversations, one waiting for review and one still working" width="100%">
+  <img src="docs/conversation.png" alt="An agent that added dark mode opening its pull request, with its commit and the four files it changes, and one file's diff open beside the conversation; the sidebar shows the project's other conversations, one waiting for review and one still working" width="32%">
+  <img src="docs/tasks.png" alt="The Tasks view: one task needs you, one is in progress with a screenshot attached, its subtasks and the file it's editing, one is ready for review as pull request 12, two are still to do, and two are done" width="32%">
+  <img src="docs/markup.png" alt="A screenshot the agent took of a timer app, open full size with an arrow drawn to the time and two lines under it; below it, the markup toolbar with pen, highlighter, arrow, box, ellipse and text, ink colours and sizes, and Add to chat" width="32%">
 </p>
-
-## Several agents at once
-
-Each conversation works in its own git worktree, so agents never touch each
-other's work or yours. The sidebar shows which are working, done or waiting
-for you. Work comes back as a pull request, every file's diff a click away,
-and your folder updates when it merges.
-
-## Tasks
-
 <p align="center">
-  <img src="docs/tasks.png" alt="The Tasks view: one task needs you, one is in progress with a screenshot attached, its subtasks and the file it's editing, one is ready for review as pull request 12, two are still to do, and two are done" width="80%">
+  <img src="docs/questions.png" alt="The agent asking how people should sign in, with three options and their trade-offs, one question of three, while the conversation shows it's waiting for you" width="32%">
+  <img src="docs/settings.png" alt="Ignite settings on the Providers section, with Claude and ChatGPT connected through their subscriptions" width="32%">
 </p>
-
-Write a task, attach screenshots or sketches, pick a model and start it. The
-agent plans the subtasks, works through them on its own and opens a pull
-request, stopping only when it needs you.
-
-## You make the calls
-
-<p align="center">
-  <img src="docs/questions.png" alt="The agent asking how people should sign in, with three options and their trade-offs, one question of three, while the conversation shows it's waiting for you" width="49%">
-  <img src="docs/settings.png" alt="Ignite settings on the Providers section, with Claude and ChatGPT connected through their subscriptions" width="49%">
-</p>
-
-When something is open, the agent asks, with a few options and what each one
-costs. Pick one, write your own answer, or leave it to the agent.
 
 ## Features
 
+- Run several agents at once. Each conversation works in its own git
+  worktree, so agents never touch each other's work or yours, and the sidebar
+  shows which are working, done or waiting for you.
+- Work comes back as a pull request, every file's diff a click away, and your
+  folder updates when it merges.
+- Write a task, attach screenshots or sketches, pick a model and start it.
+  The agent plans the subtasks, works through them on its own and opens a pull
+  request, stopping only when it needs you.
+- Click any image, yours or one the agent took, and draw on it: pen,
+  highlighter, arrows, boxes and text, zooming in for detail. Then add it to
+  the chat or a task to show the agent what you mean.
+- When a decision is open, the agent asks you, with a few options and what
+  each one costs. Pick one, write your own answer, or leave it to the agent.
 - Claude and ChatGPT through your Claude Code and Codex sign-ins, so you use
   the plans you already pay for. API keys work too.
 - Commands run in a sandbox: they write only inside the project, can't read

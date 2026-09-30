@@ -14,6 +14,7 @@ export function Sidebar({
   banner,
   viewSwitch,
   projectList,
+  footer,
   ...treeProps
 }: Omit<ComponentProps<typeof FileTree>, "root"> & {
   folder: string;
@@ -23,6 +24,8 @@ export function Sidebar({
   /** Above the folders: the switch between chat and tasks. */
   viewSwitch?: ReactNode;
   projectList: ProjectListProps;
+  /** Below the files, e.g. the devices using remote access. */
+  footer?: ReactNode;
 }) {
   return (
     <aside className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -64,6 +67,7 @@ export function Sidebar({
           <FileTree root={folder} {...treeProps} />
         </div>
       </nav>
+      {footer}
     </aside>
   );
 }

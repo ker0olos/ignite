@@ -70,6 +70,9 @@ export function NewTaskDrop({
               image={image}
               small
               onRemove={() => onChange(images.filter((_, j) => j !== i))}
+              onEdit={(marked) =>
+                onChange(images.map((x, j) => (j === i ? marked : x)))
+              }
             />
           ))}
           <button

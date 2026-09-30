@@ -16,7 +16,8 @@ src/                     React frontend (almost all logic lives here)
   index.css              Tailwind + shadcn theme tokens, code-view styles
   components/            UI only, one component per file; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
-    app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle
+    app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle,
+                         zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner
     files/               Lazy directory tree, read-only syntax-highlighted file view
@@ -61,6 +62,10 @@ src/                     React frontend (almost all logic lives here)
     useRemoteAccess.ts   Main window: starts the remote access server, runs browsers' allowed Tauri calls
     useTasks.ts          The folder's tasks, pushed by the sidecar, with status from their conversations
     useNewTaskSheet.ts   ⌘N / Ctrl+N opens the new-task sheet while the Tasks view shows
+    useMarkup.ts         An image's marks being drawn: tools, ink, selection, text, undo/redo;
+                         useMarkupKeys.ts its shortcuts, useMarkupImage.ts loading and fitting the image,
+                         useMarkupView.ts zooming and panning it
+    useImageTarget.ts    The showing input (chat, task sheet) marked-up images are added to
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -102,6 +107,7 @@ src/                     React frontend (almost all logic lives here)
     demoQuestions.ts     The demo's second project, waiting on the agent's questions
     questions.ts         ask_user answers being picked: options, own answer, per-option notes
     tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
+    markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
     demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
     window.ts            Window sizing and New Window

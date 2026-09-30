@@ -1,8 +1,10 @@
 import { useState } from "react";
 import type { AgentStatus } from "../../../shared/hostProtocol";
+import type { TaskImage } from "../../../shared/tasks";
 import { NewTaskDialog } from "@/components/tasks/NewTaskDialog";
 import { NewTaskRow } from "@/components/tasks/NewTaskRow";
 import { TaskGroup } from "@/components/tasks/TaskGroup";
+import { useProvideImageTarget } from "@/hooks/useImageTarget";
 import { useNewTaskSheet } from "@/hooks/useNewTaskSheet";
 import { useTasks } from "@/hooks/useTasks";
 import { DEMO_OPEN_TASK } from "@/lib/demo";
@@ -24,9 +26,19 @@ export function TasksView({
   const { tasks, error, create, ...rest } = useTasks(host, folder, agents);
   const [openId, setOpenId] = useState<string | null>(DEMO_OPEN_TASK);
   const [sheet, setSheet] = useNewTaskSheet();
+  const [seed, setSeed] = useState<TaskImage[]>([]);
+  // With the sheet closed, a marked-up image starts a new task.
+  useProvideImageTarget("Add to new task", (image, name) => {
+    setSeed([{ ...image, name }]);
+    setSheet(true);
+  });
+  const sheetChange = (open: boolean) => {
+    setSheet(open);
+    if (!open) setSeed([]);
+  };
 
   const add = (draft: TaskDraft, now: boolean) => {
-    setSheet(false);
+    sheetChange(false);
     void create(draft, now);
   };
 
@@ -56,7 +68,8 @@ export function TasksView({
       <NewTaskDialog
         host={host}
         open={sheet}
-        onOpenChange={setSheet}
+        images={seed}
+        onOpenChange={sheetChange}
         onCreate={add}
       />
     </div>

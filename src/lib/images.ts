@@ -1,6 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import type { ImageContent } from "../../shared/agentTypes";
+import { isRemote } from "@/lib/remote";
 
 const TYPES: Record<string, string> = {
   png: "image/png",
@@ -19,8 +20,14 @@ export function toImage(bytes: Uint8Array, mimeType: string): ImageContent {
   return { type: "image", data: btoa(binary), mimeType };
 }
 
-/** Asks for image files and reads them; empty if the picker is cancelled. */
-export async function pickImages(): Promise<ImageContent[]> {
+/**
+ * Asks for image files and reads them; empty if the picker is cancelled. In
+ * a browser using remote access, the browser's own picker (a phone's photos).
+ */
+export async function pickImages(
+  inBrowser = isRemote(),
+): Promise<ImageContent[]> {
+  if (inBrowser) return browserPick();
   const paths = await open({
     multiple: true,
     filters: [{ name: "Images", extensions: Object.keys(TYPES) }],
@@ -36,17 +43,32 @@ export async function pickImages(): Promise<ImageContent[]> {
   );
 }
 
-/** The images in a paste (screenshots, copied files). */
-export async function pastedImages(data: DataTransfer) {
-  const files = [...data.files].filter((f) =>
+function browserPick() {
+  return new Promise<ImageContent[]>((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = Object.values(TYPES).join(",");
+    input.multiple = true;
+    input.onchange = () => void fileImages(input.files ?? []).then(resolve);
+    input.oncancel = () => resolve([]);
+    input.click();
+  });
+}
+
+/** The images among `files`, read; other files are left out. */
+function fileImages(files: Iterable<File>) {
+  const images = [...files].filter((f) =>
     Object.values(TYPES).includes(f.type),
   );
   return Promise.all(
-    files.map(async (f) =>
+    images.map(async (f) =>
       toImage(new Uint8Array(await f.arrayBuffer()), f.type),
     ),
   );
 }
+
+/** The images in a paste (screenshots, copied files). */
+export const pastedImages = (data: DataTransfer) => fileImages(data.files);
 
 /** A data URL to show an image block. */
 export const imageUrl = (image: ImageContent) =>

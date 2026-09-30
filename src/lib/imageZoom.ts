@@ -23,3 +23,35 @@ export function zoomAt(
   const k = 1 - scale / zoom.scale;
   return { scale, x: zoom.x + at.x * k, y: zoom.y + at.y * k };
 }
+
+/** `zoom` panned no further than keeps the zoomed image covering a view of `size`. */
+export function clampPan(
+  zoom: Zoom,
+  size: { width: number; height: number },
+): Zoom {
+  const clamp = (v: number, min: number) => Math.min(0, Math.max(min, v));
+  return {
+    ...zoom,
+    x: clamp(zoom.x, size.width * (1 - zoom.scale)),
+    y: clamp(zoom.y, size.height * (1 - zoom.scale)),
+  };
+}
+
+type Point = { x: number; y: number };
+
+/** How two touches moved between `from` and `to`: the zoom, about their new midpoint, and how far that moved. */
+export function pinch(from: [Point, Point], to: [Point, Point]) {
+  const mid = ([a, b]: [Point, Point]) => ({
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+  });
+  const apart = ([a, b]: [Point, Point]) => Math.hypot(a.x - b.x, a.y - b.y);
+  const was = mid(from);
+  const at = mid(to);
+  return {
+    factor: apart(from) ? apart(to) / apart(from) : 1,
+    at,
+    dx: at.x - was.x,
+    dy: at.y - was.y,
+  };
+}

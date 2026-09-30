@@ -34,6 +34,7 @@ export function Workspace({
   actions,
   projectList,
   banner,
+  footer,
   session,
   host,
 }: {
@@ -47,6 +48,8 @@ export function Workspace({
   actions: ReactNode;
   projectList: ProjectListProps;
   banner?: ReactNode;
+  /** Shown at the sidebar's foot. */
+  footer?: ReactNode;
   session: ReturnType<typeof useAgentSession>;
   /** The sidecar, whether or not a conversation shows. */
   host: HostClient | null;
@@ -69,6 +72,7 @@ export function Workspace({
       actions={actions}
       projectList={projectList}
       banner={banner}
+      footer={footer}
       viewSwitch={<ViewSwitch view={view} onChange={setView} />}
       selected={active}
       onOpenFile={openFile}

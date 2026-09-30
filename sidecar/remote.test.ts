@@ -42,8 +42,8 @@ describe("createRemote", () => {
   const handle = vi.fn<(request: HostRequest) => Promise<void>>(async () => {});
   const toApp = vi.fn();
 
-  const start = async () => {
-    remote = createRemote(handle, toApp, () => {});
+  const start = async (heartbeatMs?: number) => {
+    remote = createRemote(handle, toApp, () => {}, heartbeatMs);
     remote.fromApp({
       type: "remote_config",
       config: { enabled: true, port: PORT, token: TOKEN },
@@ -84,7 +84,13 @@ describe("createRemote", () => {
       type: "remote_config",
       config: { enabled: true, port: PORT, token: "new-token" },
     } as never);
-    await vi.waitFor(() => expect(toApp).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() =>
+      expect(toApp).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          urls: [expect.stringContaining("new-token")],
+        }),
+      ),
+    );
     await expect(connect()).rejects.toThrow();
     await expect(connect("ignite_remote=new-token")).resolves.toBeTruthy();
   });
@@ -103,6 +109,35 @@ describe("createRemote", () => {
     expect(link.headers.get("set-cookie")).toContain(`ignite_remote=${TOKEN}`);
     expect(link.headers.get("set-cookie")).toContain("SameSite=Lax");
     await expect(connect("ignite_remote=wrong")).rejects.toThrow();
+  });
+
+  it("tells the app how many browsers are connected as they come and go", async () => {
+    await start();
+    const devices = () => toApp.mock.lastCall?.[0].devices;
+    expect(devices()).toBe(0);
+    const a = await connect();
+    await vi.waitFor(() => expect(devices()).toBe(1));
+    const b = await connect();
+    await vi.waitFor(() => expect(devices()).toBe(2));
+    // The links stay in the status while devices come and go.
+    expect(toApp.mock.lastCall?.[0].urls.length).toBeGreaterThan(0);
+    a.ws.close();
+    b.ws.close();
+    await vi.waitFor(() => expect(devices()).toBe(0));
+  });
+
+  it("drops a browser that stops answering pings, keeping one that answers", async () => {
+    await start(40);
+    const live = await connect();
+    const gone = await connect();
+    await vi.waitFor(() => expect(toApp.mock.lastCall?.[0].devices).toBe(2));
+    // A phone that went away without closing: its pongs never come.
+    gone.ws.pong = () => {};
+    (gone.ws as unknown as { autoPong: boolean }).autoPong = false;
+    await vi.waitFor(() => expect(toApp.mock.lastCall?.[0].devices).toBe(1));
+    await new Promise((r) => setTimeout(r, 150));
+    expect(live.ws.readyState).toBe(WebSocket.OPEN);
+    expect(toApp.mock.lastCall?.[0].devices).toBe(1);
   });
 
   it("answers a browser's request to that browser, under its own id", async () => {

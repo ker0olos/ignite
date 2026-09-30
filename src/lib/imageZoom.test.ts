@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_ZOOM, zoomAt } from "./imageZoom";
+import { clampPan, NO_ZOOM, pinch, zoomAt } from "./imageZoom";
 
 describe("zoomAt", () => {
   it("keeps the clicked point still", () => {
@@ -23,5 +23,47 @@ describe("zoomAt", () => {
       NO_ZOOM,
     );
     expect(back).toBe(NO_ZOOM);
+  });
+});
+
+describe("clampPan", () => {
+  const size = { width: 100, height: 50 };
+
+  it("keeps a zoomed image covering the view", () => {
+    expect(clampPan({ scale: 2, x: 30, y: -80 }, size)).toEqual({
+      scale: 2,
+      x: 0,
+      y: -50,
+    });
+    expect(clampPan({ scale: 2, x: -40, y: -10 }, size)).toEqual({
+      scale: 2,
+      x: -40,
+      y: -10,
+    });
+  });
+
+  it("allows no panning at 1x", () => {
+    expect(clampPan({ scale: 1, x: -5, y: 5 }, size)).toEqual(NO_ZOOM);
+  });
+});
+
+describe("pinch", () => {
+  it("zooms by how far the touches spread, about their midpoint, and pans with it", () => {
+    const step = pinch(
+      [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+      ],
+      [
+        { x: 0, y: 10 },
+        { x: 30, y: 10 },
+      ],
+    );
+    expect(step).toEqual({ factor: 3, at: { x: 15, y: 10 }, dx: 10, dy: 10 });
+  });
+
+  it("doesn't zoom from touches at one point", () => {
+    const p = { x: 4, y: 4 };
+    expect(pinch([p, p], [p, { x: 8, y: 4 }]).factor).toBe(1);
   });
 });
