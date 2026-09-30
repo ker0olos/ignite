@@ -41,9 +41,16 @@ describe("approvalHints", () => {
 });
 
 describe("isTyping", () => {
-  it("is true in text boxes only", () => {
-    expect(isTyping(document.createElement("textarea"))).toBe(true);
-    expect(isTyping(document.createElement("input"))).toBe(true);
+  it("is true in text boxes with text only", () => {
+    const area = document.createElement("textarea");
+    expect(isTyping(area)).toBe(false);
+    area.value = "hi";
+    expect(isTyping(area)).toBe(true);
+    const input = document.createElement("input");
+    expect(isTyping(input)).toBe(false);
+    input.value = "hi";
+    expect(isTyping(input)).toBe(true);
+    expect(isTyping(document.createElement("select"))).toBe(true);
     expect(isTyping(document.createElement("button"))).toBe(false);
     expect(isTyping(document.body)).toBe(false);
     expect(isTyping(null)).toBe(false);

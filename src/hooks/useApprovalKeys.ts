@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { approvalKey, isTyping } from "@/lib/approvalKeys";
 
-/** Answers a waiting call from the keyboard while `active`, unless a text box has focus (⌘↩ is a new line there). */
+/** Answers a waiting call from the keyboard while `active`, unless a text box with text has focus. */
 export function useApprovalKeys(
   active: boolean,
   onAnswer: (approved: boolean) => void,
