@@ -6,6 +6,7 @@ import {
   FolderTree,
   Globe,
   Info,
+  Keyboard,
   MessageSquare,
   Palette,
   Plug,
@@ -56,6 +57,11 @@ export const SECTIONS = {
     icon: MessageSquare,
     brief: "What replies show",
     blurb: "What the agent's replies show.",
+  },
+  "Keyboard Shortcuts": {
+    icon: Keyboard,
+    brief: "Hotkeys and actions",
+    blurb: "Keyboard shortcuts available in the app.",
   },
   Appearance: {
     icon: Palette,

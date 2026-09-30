@@ -14,6 +14,7 @@ import { appearanceItems } from "@/components/settings/sections/appearanceItems"
 import { conversationItems } from "@/components/settings/sections/conversationItems";
 import { editorItems } from "@/components/settings/sections/editorItems";
 import { filesItems } from "@/components/settings/sections/filesItems";
+import { hotkeysItems } from "@/components/settings/sections/hotkeysItems";
 import { mcpItems } from "@/components/settings/sections/mcpItems";
 import { memoryItems } from "@/components/settings/sections/memoryItems";
 import { providersItems } from "@/components/settings/sections/providersItems";
@@ -101,6 +102,7 @@ export function SettingsDialog({
     ...editorItems({ settings, onChange }),
     ...filesItems({ settings, onChange }),
     ...conversationItems({ settings, onChange }),
+    ...hotkeysItems(),
     ...aboutItems({ about }),
   ];
 

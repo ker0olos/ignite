@@ -1,4 +1,5 @@
 import { AppCommandCenter } from "@/components/app/AppCommandCenter";
+import { AppFileSearchPalette } from "@/components/app/AppFileSearchPalette";
 import { AppSettingsDialog } from "@/components/app/AppSettingsDialog";
 import { AppWorkspace } from "@/components/app/AppWorkspace";
 import { SettingsButton } from "@/components/app/SettingsButton";
@@ -6,6 +7,7 @@ import { WelcomeScreen } from "@/components/app/WelcomeScreen";
 import { ConnectProviders } from "@/components/providers/ConnectProviders";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
 import { useAgentSession } from "@/hooks/useAgentSession";
+import { useFileSearchPalette } from "@/hooks/useFileSearchPalette";
 import { useAppMenu } from "@/hooks/useAppMenu";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
 import { useOpenFile } from "@/hooks/useOpenFile";
@@ -56,6 +58,7 @@ export default function App() {
   const openFile = (folder: string, path: string) =>
     openIn(folder, `${folder}/${path}`);
   const command = useCommandCenter();
+  const fileSearch = useFileSearchPalette(current);
   const rows = shownRows(list.rows);
   const dragging = useFolderDrop(addFolder);
   const dialog = useSettingsDialog(providers.host, current);
@@ -124,6 +127,12 @@ export default function App() {
         folders={folders}
         conversations={chats}
         openFolder={addFolder}
+      />
+      <AppFileSearchPalette
+        palette={fileSearch}
+        host={host}
+        folder={current}
+        openFile={openFile}
       />
     </div>
   );
