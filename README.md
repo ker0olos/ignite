@@ -1,6 +1,10 @@
 # Ignite
 
-A native macOS app for running AI coding agents on your projects.
+**The only AI coding app you'll need.** Hand off work, draw on what's wrong,
+review the pull request.
+
+A native macOS app for running AI coding agents on your projects, several at
+once.
 
 <p align="center">
   <img src="docs/conversation.png" alt="An agent that added dark mode opening its pull request, with its commit and the four files it changes, and one file's diff open beside the conversation; the sidebar shows the project's other conversations, one waiting for review and one still working" width="32%">
