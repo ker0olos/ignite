@@ -15,7 +15,30 @@ const task: Task = {
   step: "old",
 };
 
+const image = (name: string, size = 0) => ({
+  type: "image" as const,
+  data: "x".repeat(size),
+  mimeType: "image/png",
+  name,
+});
+
 describe("applyUpdate", () => {
+  it("adds shown images, keeping the latest six", () => {
+    let t = task;
+    for (let i = 1; i <= 7; i++)
+      t = applyUpdate(t, { image: image(`${i}`) }, 1);
+    expect(t.shown?.map((s) => s.name)).toEqual(["2", "3", "4", "5", "6", "7"]);
+    expect(applyUpdate(task, {}, 1).shown).toBeUndefined();
+  });
+
+  it("drops the oldest shown images past 8 MB, and skips one that's alone too big", () => {
+    let t = applyUpdate(task, { image: image("a", 5_000_000) }, 1);
+    t = applyUpdate(t, { image: image("b", 5_000_000) }, 1);
+    expect(t.shown?.map((s) => s.name)).toEqual(["b"]);
+    t = applyUpdate(t, { image: image("huge", 9_000_000) }, 1);
+    expect(t.shown?.map((s) => s.name)).toEqual(["b"]);
+  });
+
   it("sets one subtask's status and stamps the time", () => {
     const next = applyUpdate(task, { subtask: 2, status: "done" }, 9);
     expect(next.subtasks.map((s) => s.status)).toEqual(["todo", "done"]);

@@ -3,6 +3,7 @@ import type { AgentStatus } from "../../shared/hostProtocol";
 import type { Task } from "../../shared/tasks";
 import {
   ago,
+  allImages,
   choicesOf,
   prLabel,
   taskFromDraft,
@@ -23,6 +24,20 @@ const task: Task = {
   created: 1,
   updated: 1,
 };
+describe("allImages", () => {
+  it("lists the user's images, then the agent's", () => {
+    const image = (name: string) => ({
+      type: "image" as const,
+      data: "",
+      mimeType: "image/png",
+      name,
+    });
+    expect(allImages(task)).toEqual([]);
+    const both = { ...task, images: [image("a")], shown: [image("b")] };
+    expect(allImages(both).map((i) => i.name)).toEqual(["a", "b"]);
+  });
+});
+
 const agent = (over: Partial<AgentStatus> = {}): AgentStatus => ({
   cwd: "/p",
   session: "s1",

@@ -2,6 +2,7 @@ import { GitPullRequest, ListChecks, Paperclip } from "lucide-react";
 import {
   ago,
   doneCount,
+  allImages,
   prLabel,
   workingLine,
   type ShownTask,
@@ -28,10 +29,10 @@ export function TaskMeta({ task }: { task: ShownTask }) {
           {doneCount(task)}/{task.subtasks.length}
         </span>
       )}
-      {task.images.length > 0 && (
+      {allImages(task).length > 0 && (
         <span className="flex items-center gap-1">
           <Paperclip className="size-3" />
-          {task.images.length}
+          {allImages(task).length}
         </span>
       )}
       <span>{ago(task.updated)}</span>

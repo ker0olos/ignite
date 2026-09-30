@@ -3,12 +3,14 @@
  * the sample project in demo/tempo. Its files are the finished result, so the
  * diffs here match them (checked in demo.test.ts).
  */
-import type {
-  AgentMessage,
-  AssistantMessage,
-  ToolCall,
-  ToolResultMessage,
+import {
+  IMAGE_TOOL,
+  type AgentMessage,
+  type AssistantMessage,
+  type ToolCall,
+  type ToolResultMessage,
 } from "../../shared/agentTypes";
+import { DARK_MOCKUP } from "./demoTaskImages";
 
 export const T = Date.UTC(2026, 8, 27, 9, 30);
 
@@ -47,6 +49,7 @@ export const result = (
 const readSettings = call("r1", "read", { path: "src/settings.ts" });
 const readStyles = call("r2", "read", { path: "src/styles.css" });
 const search = call("r3", "grep", { pattern: "prefers-color-scheme" });
+const showDark = call("i1", IMAGE_TOOL, { path: "/tmp/tempo-dark.png" });
 
 export const THEME = `export type Theme = "system" | "light" | "dark";
 
@@ -181,4 +184,9 @@ export const DEMO_WORK: AgentMessage[] = [
     runTests,
     " ✓ tests/timer.test.ts (2 tests) 3ms\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)",
   ),
+  assistant([
+    { type: "text", text: "Here's the Today screen in dark:" },
+    showDark,
+  ]),
+  result(showDark, "Shown to the user.", { image: DARK_MOCKUP }),
 ];

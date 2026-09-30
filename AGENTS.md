@@ -160,6 +160,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   keepAwake.ts           Keeps the Mac from idle-sleeping (caffeinate) while an agent works
   chrome.ts              Chrome over CDP: the user's own (port 9222), else one the app starts
   chromeExtension.ts     chrome_* tools: tabs, screenshot, eval, navigate, raw CDP calls
+  taskTabs.ts            Which Chrome tabs a task may use: only its own, named by id
+  imageExtension.ts      show_image: shows the user an image file from any path in its tool row
+                         and, in a task's conversation, on the task's card
   gitExtension.ts        git and gh tools: run outside the sandbox, ask for themselves, redirect bash's
   gitRun.ts              Runs git and gh with prompts, pagers and (unless approved) hooks off
   gitReview.ts           A commit's or push's changed files and commits; one file's diff (git_diff)
@@ -330,8 +333,8 @@ Each folder's tasks live in `~/.ignite/tasks/` (`sidecar/taskStore.ts`,
 one JSON file per folder, images inline). Starting one opens a conversation
 in the background on the task's model and effort (never saved as defaults)
 and sends it the title, notes, subtasks and images. `taskExtension.ts` gives
-only that conversation `task_update`, drops `ask_user` and the `chrome_*`
-tools, and runs it in phases: edits and writes are blocked until it has laid
+only that conversation `task_update`, drops `ask_user`, points its
+`chrome_*` tools at the app's own Chrome, and runs it in phases: edits and writes are blocked until it has laid
 out or confirmed the subtasks (`planned`), each tool call becomes its step,
 and a run that ends with subtasks open or no pull request gets one wrap-up
 message. In a task, a commit and a plain push of its own branch run without
@@ -347,8 +350,13 @@ or `--remote-debugging-port`), with its real logins; otherwise they start a
 separate Chrome on port 9333 with its own profile in `~/.ignite/chrome`
 (Chrome refuses debugging on the default profile). All sessions share one
 connection, kept on `globalThis` since extensions load afresh per session,
-because Chrome asks "Allow?" per connection. Auto runs them without asking,
-like MCP tools; Manual asks.
+because Chrome asks "Allow?" per connection. A task's conversation always
+uses the app's own Chrome (a second shared connection), never the user's,
+and may act freely in it, but only in tabs it opened, named by id
+(`sidecar/taskTabs.ts`; browser-wide `chrome_cdp` calls are refused).
+Other conversations never pick or list a task's tabs. Each screenshot is also saved to a temp file, so
+`show_image` can put it on the task. Auto runs them without asking, like MCP
+tools; Manual asks.
 
 The `subagent` tool (`sidecar/subagentExtension.ts`) lets the agent start
 another pi session on a task: a smaller model from its own provider (cheaper

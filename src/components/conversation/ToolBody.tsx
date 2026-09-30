@@ -1,9 +1,11 @@
+import { resultImages } from "../../../shared/agentTypes";
 import { EditToolBody } from "@/components/conversation/EditToolBody";
 import { GitReviewOutput } from "@/components/conversation/GitReviewOutput";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
 import { ReadToolBody } from "@/components/conversation/ReadToolBody";
 import { RunningLine } from "@/components/conversation/RunningLine";
 import type { ToolProps } from "@/components/conversation/shared";
+import { ToolImages } from "@/components/conversation/ToolImages";
 import { WriteToolBody } from "@/components/conversation/WriteToolBody";
 import { shownReview } from "@/lib/diffTabs";
 import type { ToolRun } from "@/lib/transcript";
@@ -53,6 +55,11 @@ export function ToolBody({
 
   if (call.name === "read") {
     return <ReadToolBody running={running} text={text} />;
+  }
+
+  const images = resultImages(run.result);
+  if (images.length) {
+    return <ToolImages images={images} text={text} tool={call.name} />;
   }
 
   if (!text) return running ? <RunningLine /> : <p>(No output)</p>;

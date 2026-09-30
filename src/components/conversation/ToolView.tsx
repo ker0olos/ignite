@@ -1,7 +1,8 @@
-import type {
-  TextContent,
-  ToolCall,
-  ToolResult,
+import {
+  IMAGE_TOOL,
+  type TextContent,
+  type ToolCall,
+  type ToolResult,
 } from "../../../shared/agentTypes";
 import { GH_TOOL, GIT_TOOL } from "../../../shared/git";
 import { ASK_TOOL } from "../../../shared/questions";
@@ -39,6 +40,7 @@ const TOOL_TITLES: Record<string, string> = {
   [GH_TOOL]: "GitHub",
   [ASK_TOOL]: "Questions",
   [SUBAGENT_TOOL]: "Agent",
+  [IMAGE_TOOL]: "Image",
 };
 
 function pathArg(call: ToolCall, folder: string) {
@@ -78,6 +80,7 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   [GH_TOOL]: gitArg,
   [ASK_TOOL]: questionsArg,
   [SUBAGENT_TOOL]: subagentArg,
+  [IMAGE_TOOL]: pathArg,
 };
 
 function toolArg(call: ToolCall, folder: string) {

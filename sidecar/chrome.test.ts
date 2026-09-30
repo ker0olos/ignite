@@ -1,7 +1,15 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { describe, expect, it } from "vitest";
-import { endpointOn, pages, pickTab, type Tab } from "./chrome.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_NAME } from "../src/lib/app.ts";
+import {
+  chrome,
+  endpointOn,
+  pages,
+  pickTab,
+  withTab,
+  type Tab,
+} from "./chrome.ts";
 
 const tab = (
   targetId: string,
@@ -49,6 +57,77 @@ it("pages drops workers and DevTools windows", () => {
     tab("D", "dt", "devtools://devtools"),
   ];
   expect(pages(all).map((t) => t.targetId)).toEqual(["A", "B"]);
+});
+
+describe("chrome", () => {
+  // Both the user's Chrome (9222) and the app's (9333) answer; sockets open at once.
+  const fetched: string[] = [];
+  const sockets: string[] = [];
+  // Answers Target.getTargets with `tabs`, anything else with {sessionId}.
+  class FakeSocket {
+    listeners: Record<string, (event: { data: string }) => void> = {};
+    constructor(url: string) {
+      sockets.push(url);
+    }
+    addEventListener(type: string, listener: () => void) {
+      this.listeners[type] = listener;
+      if (type === "open") setTimeout(listener);
+    }
+    send(raw: string) {
+      const { id, method } = JSON.parse(raw);
+      const result =
+        method === "Target.getTargets"
+          ? { targetInfos: tabs }
+          : { sessionId: "S" };
+      const data = JSON.stringify({ id, result });
+      setTimeout(() => this.listeners.message({ data }));
+    }
+  }
+
+  beforeEach(() => {
+    fetched.length = sockets.length = 0;
+    vi.stubGlobal("fetch", async (url: string) => {
+      fetched.push(url);
+      const port = new URL(url).port;
+      return Response.json({ webSocketDebuggerUrl: `ws://browser-${port}` });
+    });
+    vi.stubGlobal("WebSocket", FakeSocket);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    const shared = globalThis as Record<symbol, unknown>;
+    delete shared[Symbol.for(`${APP_NAME}.chrome`)];
+    delete shared[Symbol.for(`${APP_NAME}.chrome.own`)];
+  });
+
+  it("prefers the user's Chrome when it allows debugging", async () => {
+    const cdp = await chrome();
+    expect(cdp.own).toBe(false);
+    expect(sockets).toEqual(["ws://browser-9222"]);
+  });
+
+  it("ownOnly never asks the user's Chrome, and keeps its own connection", async () => {
+    const own = await chrome(true);
+    expect(own.own).toBe(true);
+    expect(sockets).toEqual(["ws://browser-9333"]);
+    expect(fetched.some((u) => u.includes(":9222"))).toBe(false);
+
+    expect(await chrome(true)).toBe(own);
+    const user = await chrome();
+    expect(user.own).toBe(false);
+    expect(sockets).toEqual(["ws://browser-9333", "ws://browser-9222"]);
+  });
+
+  it("withTab never picks a skipped tab", async () => {
+    const picked = (skip?: Set<string>) =>
+      withTab(undefined, async (_c, _s, t) => t.targetId, true, skip);
+    expect(await picked()).toBe("A");
+    expect(await picked(new Set(["A"]))).toBe("B");
+    await expect(
+      withTab("A", async () => "", true, new Set(["A"])),
+    ).rejects.toThrow('No tab matches "A"');
+  });
 });
 
 describe("endpointOn", () => {

@@ -55,6 +55,12 @@ export function doneCount(task: Task) {
   return task.subtasks.filter((s) => s.status === "done").length;
 }
 
+/** A task's images: the user's, then those its agent showed. */
+export const allImages = (task: Task) => [
+  ...task.images,
+  ...(task.shown ?? []),
+];
+
 /** The heading's lead line: how many tasks run and how many wait on the user. */
 export function tasksLead(tasks: ShownTask[]) {
   const count = (status: TaskStatus) =>
