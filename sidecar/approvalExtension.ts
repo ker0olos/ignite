@@ -27,6 +27,7 @@ import {
   blockedAction,
   blockedSummary,
   createSandbox,
+  mayBeBlocked,
   refusedLine,
   type Sandbox,
 } from "./sandbox.ts";
@@ -181,11 +182,12 @@ export default function approval(pi: ExtensionAPI) {
     const box = await sandbox;
     if (command === undefined || !box) return;
     sandboxed.delete(event.toolCallId);
-    // A command that succeeded wasn't stopped, whatever else macOS logged.
-    if (!event.isError) return;
     const text = event.content
       .flatMap((c) => (c.type === "text" ? [c.text] : []))
       .join("\n");
+    // A command that succeeded wasn't stopped, whatever else macOS logged,
+    // unless its output says something was refused.
+    if (!event.isError && !mayBeBlocked(text)) return;
     const explained = await box.explain(event.toolCallId, text);
     const what = blockedSummary(explained) ?? refusedLine(text);
     if (!what) return;

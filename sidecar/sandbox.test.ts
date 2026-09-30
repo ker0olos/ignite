@@ -19,6 +19,7 @@ import {
   blockedSummary,
   createSandbox,
   explainWhenReported,
+  mayBeBlocked,
   refusedLine,
   sandboxConfig,
   type Sandbox,
@@ -121,8 +122,24 @@ describe("refusedLine", () => {
     ).toBe("touch: /Users/me/x: Operation not permitted");
   });
 
+  it("matches Go tools' lowercase message", () => {
+    expect(
+      refusedLine("open ~/.docker/config.json: operation not permitted"),
+    ).toBe("open ~/.docker/config.json: operation not permitted");
+  });
+
   it("is null for other failures", () => {
     expect(refusedLine("npm ERR! code E404")).toBeNull();
+  });
+});
+
+describe("mayBeBlocked", () => {
+  it("spots a refusal in a successful command's output", () => {
+    expect(mayBeBlocked("dial unix x.sock: connect: permission denied")).toBe(
+      true,
+    );
+    expect(mayBeBlocked("touch: x: Operation not permitted")).toBe(true);
+    expect(mayBeBlocked("200 OK")).toBe(false);
   });
 });
 
@@ -182,6 +199,10 @@ describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
     const { ok } = await run("echo hi > note.txt && cat note.txt", "ok");
     expect(ok).toBe(true);
     expect(existsSync(join(cwd, "note.txt"))).toBe(true);
+  });
+
+  it("fails a pipeline when any command in it fails", async () => {
+    expect((await run("false | cat", "pipefail")).ok).toBe(false);
   });
 
   it("blocks writes outside, however the path is spelled", async () => {

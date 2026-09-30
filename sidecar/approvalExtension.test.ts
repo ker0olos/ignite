@@ -296,6 +296,28 @@ describe("the sandbox in Auto", () => {
     expect(asks).toEqual([]);
   });
 
+  it("asks when a pipe hid the block behind a successful exit", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "docker ps 2>&1 | head" });
+    fake.violation = "network-outbound /Users/me/.docker/run/docker.sock";
+    const outcome = result("permission denied while trying to connect", false);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.reason).toBe(
+      "Auto mode stopped this because it tried to connect to /Users/me/.docker/run/docker.sock.",
+    );
+    asks[0].answer(false);
+    await outcome;
+  });
+
+  it("ignores a successful command's own permission errors", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "find / -name x 2>&1 | head" });
+    expect(await result("find: /private: Permission denied", false)).toBe(
+      undefined,
+    );
+    expect(asks).toEqual([]);
+  });
+
   it("doesn't ask when a failed command's only denial was a lookup", async () => {
     const { asks, call, result } = load();
     await call("bash", { command: "grep -rn fontsource app" });
