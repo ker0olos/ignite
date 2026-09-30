@@ -17,12 +17,7 @@ if (command === "dev") {
   const hmrPort = process.env.TAURI_DEV_HOST
     ? await findFreePort(port + 1, new Set([port]))
     : undefined;
-  const config = {
-    build: {
-      beforeDevCommand: `IGNITE_DEV_PORT=${port} npm run dev`,
-      devUrl: `http://localhost:${port}`,
-    },
-  };
+  const config = { build: { devUrl: `http://localhost:${port}` } };
   const env = {
     ...process.env,
     IGNITE_DEV_PORT: String(port),
