@@ -139,8 +139,16 @@ export function blockedAction(summary: string, home: string): string | null {
 export function refusedLine(output: string): string | null {
   const line = output
     .split("\n")
-    .find((l) => /Operation not permitted/.test(l));
+    .find((l) => /operation not permitted/i.test(l));
   return line ? line.trim() : null;
+}
+
+/**
+ * Whether a command that exited 0 may still have been blocked: a pipe
+ * (`docker ps 2>&1 | head`) hides the failure but not the refusal.
+ */
+export function mayBeBlocked(output: string): boolean {
+  return /operation not permitted|permission denied/i.test(output);
 }
 
 /**
@@ -185,9 +193,10 @@ export async function createSandbox(
     true,
   );
   return {
+    // pipefail: agents pipe through head/tail, which would hide a block.
     wrap: (command, cwd, id) =>
       SandboxManager.wrapWithSandbox(
-        command,
+        `set -o pipefail; ${command}`,
         undefined,
         { filesystem: sandboxConfig(cwd, home).filesystem },
         undefined,
