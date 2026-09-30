@@ -7,6 +7,7 @@ import type { SessionDetails } from "../../shared/conversations";
 import type { ApprovalRequest } from "../../shared/hostProtocol";
 import { darkModeMessages, DARK_MODE_DIFFS } from "./demoDarkMode";
 import { DEMO_QUESTION_MESSAGES, DEMO_QUESTIONS } from "./demoQuestions";
+import { DEMO_TASK_ADD, DEMO_TASK_ADD_MESSAGES } from "./demoTaskAdd";
 import {
   RELOAD_EDIT,
   RELOAD_MESSAGES,
@@ -118,6 +119,19 @@ function openConversations(
       running: true,
       working: RELOAD_EDIT,
       details: { ...claude, files: [], toolCalls: 3, cost: 0.09 },
+    },
+    {
+      id: "tempo-bugs",
+      cwd: tempo,
+      title: "List the open bugs assigned to me",
+      modified: now - 3 * 60_000,
+      messages: DEMO_TASK_ADD_MESSAGES,
+      open: true,
+      running: true,
+      approvals: [
+        { toolCallId: DEMO_TASK_ADD.id, reason: "Add these to your tasks?" },
+      ],
+      details: { ...claude, files: [], toolCalls: 2, cost: 0.05 },
     },
     {
       id: "pantry",

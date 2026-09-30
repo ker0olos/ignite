@@ -274,9 +274,15 @@ describe("before_agent_start", () => {
     expect(fresh.asks.map((a) => a.kind)).toEqual(["get"]);
   });
 
-  it("removes the task tool and changes nothing without a task", async () => {
+  it("swaps the task tool for task_add and changes nothing without a task", async () => {
     const { start, active } = load(null, ["read", "ask_user", "task_update"]);
     expect(await start()).toBeUndefined();
-    expect(active()).toEqual(["read", "ask_user"]);
+    expect(active()).toEqual(["read", "ask_user", "task_add"]);
+  });
+
+  it("drops task_add from a task's conversation", async () => {
+    const { start, active } = load(task, ["read", "task_add"]);
+    await start();
+    expect(active()).toEqual(["read", "task_update"]);
   });
 });

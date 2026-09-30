@@ -1,9 +1,11 @@
 import type { ToolCall } from "../../../shared/agentTypes";
+import { TASK_ADD_TOOL, readProposed } from "../../../shared/tasks";
 import { CodeBlock } from "@/components/conversation/CodeBlock";
+import { ProposedTasks } from "@/components/conversation/ProposedTasks";
 import type { Editor } from "@/components/conversation/shared";
 import type { CodeThemes } from "@/lib/codeThemes";
 
-/** A waiting bash call's whole command, highlighted like a terminal line. */
+/** What a waiting call would do: a bash call's whole command, or the tasks it would add. */
 export function ApprovalCommand({
   call,
   editor,
@@ -13,6 +15,9 @@ export function ApprovalCommand({
   editor: Editor;
   codeThemes: CodeThemes;
 }) {
+  if (call.name === TASK_ADD_TOOL) {
+    return <ProposedTasks tasks={readProposed(call.arguments)} />;
+  }
   if (call.name !== "bash") return null;
   return (
     <CodeBlock

@@ -161,6 +161,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   taskStore.ts           Each folder's tasks in ~/.ignite/tasks, written one at a time, pushed on change
   hostTasks.ts           Starts a task in a background conversation; answers the task extension
   taskExtension.ts       task_update, and a task conversation's plan, work and wrap-up phases
+  taskAddTool.ts         task_add: any other conversation proposes tasks, added unstarted once approved
   taskSteps.ts           A tool call as a task's current step ("Editing src/app.ts")
   subagentExtension.ts   subagent tool: hands tasks to a smaller model from the same provider and talks with it
   keepAwake.ts           Keeps the Mac from idle-sleeping (caffeinate) while an agent works
@@ -343,7 +344,9 @@ only that conversation `task_update`, drops `ask_user`, points its
 `chrome_*` tools at the app's own Chrome, and runs it in phases: edits and writes are blocked until it has laid
 out or confirmed the subtasks (`planned`), each tool call becomes its step,
 and a run that ends with subtasks open or no pull request gets one wrap-up
-message. In a task, a commit and a plain push of its own branch run without
+message. Any other conversation can fill the list with `task_add`
+(`sidecar/taskAddTool.ts`): its row shows the proposed tasks as cards, and
+approving adds them unstarted. In a task, a commit and a plain push of its own branch run without
 asking (`taskRunsAlone` in `lib/gitPolicy.ts`); `gh pr create` still waits
 for review, shown on the task's card (the conversation's status carries the
 waiting review). Approved, the pull request opens, its URL is saved and the

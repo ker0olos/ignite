@@ -19,6 +19,7 @@ import { parse as parseToml } from "smol-toml";
 import type { ApprovalMode, ApprovalRequest } from "../shared/hostProtocol.ts";
 import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
 import { ASK_TOOL, type QuestionAnswer } from "../shared/questions.ts";
+import { TASK_ADD_TOOL } from "../shared/tasks.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { approvalFor, resolvePath } from "../src/lib/approvalPolicy.ts";
 import { loadBashParser } from "./bashParser.ts";
@@ -55,7 +56,7 @@ export type ApprovalAsk = {
 export const DENIED = "The user denied this tool call.";
 export const DECLINED_OUTSIDE =
   "The sandbox blocked this command, and the user declined to run it outside the sandbox.";
-const SELF_ASKING = new Set([ASK_TOOL, GIT_TOOL, GH_TOOL]);
+const SELF_ASKING = new Set([ASK_TOOL, TASK_ADD_TOOL, GIT_TOOL, GH_TOOL]);
 
 /** The composer's approval mode (`[approval] mode`); Auto unless set to manual. */
 export async function approvalMode(

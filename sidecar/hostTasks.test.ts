@@ -62,7 +62,10 @@ describe("taskPrompt", () => {
 
 describe("answerTask", () => {
   const ask = (
-    partial: { kind: "get" } | { kind: "update"; update: object },
+    partial:
+      | { kind: "get" }
+      | { kind: "update"; update: object }
+      | { kind: "add"; tasks: Task[] },
   ) => {
     const reply = vi.fn();
     return { reply, ask: { ...partial, reply, heard: false } as TaskAsk };
@@ -92,6 +95,31 @@ describe("answerTask", () => {
     await answerTask(store, "/a", "s1", a);
     expect(reply.mock.calls[0][0]).toMatchObject({ step: "Go" });
     expect((await store.list("/a"))[0].step).toBe("Go");
+  });
+
+  it("adds new tasks after the folder's, replying with the first", async () => {
+    const store = createTaskStore(null);
+    await store.save("/a", task());
+    const added = [task({ id: "n1" }), task({ id: "n2" })];
+    const { ask: a, reply } = ask({ kind: "add", tasks: added });
+    await answerTask(store, "/a", "s1", a);
+    expect(reply).toHaveBeenCalledWith(added[0]);
+    expect((await store.list("/a")).map((t) => t.id)).toEqual([
+      task().id,
+      "n1",
+      "n2",
+    ]);
+  });
+
+  it("replies null when adding fails", async () => {
+    const store = {
+      change: async () => {
+        throw new Error("disk");
+      },
+    } as unknown as TaskStore;
+    const { ask: a, reply } = ask({ kind: "add", tasks: [task()] });
+    await answerTask(store, "/a", "s1", a);
+    expect(reply).toHaveBeenCalledWith(null);
   });
 
   it("replies null when the store throws", async () => {

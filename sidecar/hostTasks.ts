@@ -138,6 +138,11 @@ export async function answerTask(
   const mine = (tasks: Task[]) =>
     tasks.find((t) => t.session === session) ?? null;
   try {
+    if (ask.kind === "add") {
+      await store.change(folder, (tasks) => [...tasks, ...ask.tasks]);
+      ask.reply(ask.tasks[0] ?? null);
+      return;
+    }
     const tasks =
       ask.kind === "get"
         ? await store.list(folder)

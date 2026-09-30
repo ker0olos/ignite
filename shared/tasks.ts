@@ -5,6 +5,16 @@ import type { ThinkingLevel } from "./hostProtocol.ts";
 /** The tool a task's agent reports its progress with. */
 export const TASK_TOOL = "task_update";
 
+/** The tool any other conversation adds tasks to the list with, once the user approves. */
+export const TASK_ADD_TOOL = "task_add";
+
+/** A task as the agent proposes it to task_add. */
+export type ProposedTask = {
+  title: string;
+  notes?: string;
+  subtasks?: string[];
+};
+
 type SubtaskStatus = "todo" | "working" | "done";
 
 export type Subtask = { title: string; status: SubtaskStatus };
@@ -143,6 +153,29 @@ export function applyUpdate(task: Task, update: TaskUpdate, now: number): Task {
 export function unfinished(task: Task): boolean {
   if (task.declined) return false;
   return !task.pr || task.subtasks.some((s) => s.status !== "done");
+}
+
+/** task_add's tasks from the call's arguments, skipping ones without a title. */
+export function readProposed(args: Record<string, unknown>): ProposedTask[] {
+  if (!Array.isArray(args.tasks)) return [];
+  return args.tasks.filter(
+    (t): t is ProposedTask => typeof t?.title === "string" && !!t.title.trim(),
+  );
+}
+
+/** A new, unstarted task from a proposed one. */
+export function proposedTask(p: ProposedTask, id: string, now: number): Task {
+  return {
+    id,
+    title: p.title.trim(),
+    notes: p.notes?.trim() ?? "",
+    images: [],
+    subtasks: (p.subtasks ?? [])
+      .filter((s) => s.trim())
+      .map((s) => ({ title: s.trim(), status: "todo" })),
+    created: now,
+    updated: now,
+  };
 }
 
 /** The pull request's URL in `gh pr create`'s output, if it has one. */
