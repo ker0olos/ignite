@@ -5,25 +5,34 @@ import { NewTaskSubtasks } from "@/components/tasks/NewTaskSubtasks";
 import { NewTaskChoices } from "@/components/tasks/NewTaskChoices";
 import { Button } from "@/components/ui/button";
 import type { Pending } from "@/hooks/useComposerActions";
+import { useProvideImageTarget } from "@/hooks/useImageTarget";
 import { useDraftState } from "@/hooks/useDraftState";
 import type { HostClient } from "@/lib/piHost";
 import { shortcut } from "@/lib/approvalKeys";
+import type { TaskImage } from "../../../shared/tasks";
 import { choicesOf, taskImages, type TaskDraft } from "@/lib/tasks";
 
 /** The new-task sheet's fields and footer: model, effort, Save for later and Start now. */
 export function NewTaskForm({
   host,
+  images = [],
   onCreate,
 }: {
   host: HostClient | null;
+  images?: TaskImage[];
   onCreate: (draft: TaskDraft, now: boolean) => void;
 }) {
   const [draft, setDraft] = useState<TaskDraft>({
     title: "",
     notes: "",
-    images: [],
+    images,
     subtasks: [],
   });
+  const addImages = (added: TaskImage[]) =>
+    setDraft((d) => ({ ...d, images: [...d.images, ...added] }));
+  useProvideImageTarget("Add to task", (image, name) =>
+    addImages([{ ...image, name }]),
+  );
   const [pending, setPending] = useState<Pending>({});
   const state = useDraftState(host, true, pending, null);
   const patch = (p: Partial<TaskDraft>) => setDraft({ ...draft, ...p });
@@ -40,9 +49,7 @@ export function NewTaskForm({
       onPaste={(e) => {
         if (e.clipboardData.files.length === 0) return;
         e.preventDefault();
-        void taskImages(e.clipboardData.files).then((added) =>
-          setDraft((d) => ({ ...d, images: [...d.images, ...added] })),
-        );
+        void taskImages(e.clipboardData.files).then(addImages);
       }}
     >
       <input

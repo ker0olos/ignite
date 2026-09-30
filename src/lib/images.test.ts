@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFs } from "@/test/fakeFs";
 import { imageUrl, pastedImages, pickImages, toImage } from "./images";
 
@@ -31,6 +31,35 @@ describe("images", () => {
   it("attaches nothing when the picker is cancelled", async () => {
     fakeFs({}, () => null);
     expect(await pickImages()).toEqual([]);
+  });
+
+  describe("in a browser using remote access", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    // Stands in for the user picking `files` (or cancelling) in the browser's picker.
+    const picking = (files: File[] | null) =>
+      vi
+        .spyOn(HTMLInputElement.prototype, "click")
+        .mockImplementation(function (this: HTMLInputElement) {
+          expect(this.type).toBe("file");
+          expect(this.multiple).toBe(true);
+          if (!files) return void this.oncancel?.(new Event("cancel"));
+          Object.defineProperty(this, "files", { value: files });
+          this.onchange?.(new Event("change"));
+        });
+
+    it("uses the browser's picker, keeping only images", async () => {
+      picking([
+        new File([PNG], "shot.png", { type: "image/png" }),
+        new File(["hi"], "notes.txt", { type: "text/plain" }),
+      ]);
+      expect(await pickImages(true)).toEqual([toImage(PNG, "image/png")]);
+    });
+
+    it("attaches nothing when the picker is cancelled", async () => {
+      picking(null);
+      expect(await pickImages(true)).toEqual([]);
+    });
   });
 
   it("keeps only images from a paste", async () => {
