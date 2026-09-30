@@ -11,6 +11,7 @@ import tasks, {
   TASK_EVENT,
   PLAN_FIRST,
   TASK_GUIDANCE,
+  CHROME_GUIDANCE,
   WRAP_UP,
   askTask,
   progressText,
@@ -244,14 +245,14 @@ describe("before_agent_start", () => {
     expect(active()).toEqual(["read", "task_update"]);
   });
 
-  it("drops the Chrome tools from a task's conversation only", async () => {
-    const withChrome = ["read", "chrome_tabs", "chrome_eval"];
+  it("keeps the Chrome tools, and explains them only when they're on", async () => {
+    const withChrome = ["read", "chrome_tabs", "chrome_navigate"];
     const mine = load(task, [...withChrome]);
-    await mine.start();
-    expect(mine.active()).toEqual(["read", "task_update"]);
-    const other = load(null, [...withChrome]);
-    await other.start();
-    expect(other.active()).toEqual(withChrome);
+    const result = await mine.start();
+    expect(mine.active()).toEqual([...withChrome, "task_update"]);
+    expect(result!.systemPrompt).toBe(
+      `Base\n\n${AUTONOMOUS}\n\n${TASK_GUIDANCE}\n${CHROME_GUIDANCE}`,
+    );
   });
 
   it("removes the task tool and changes nothing without a task", async () => {

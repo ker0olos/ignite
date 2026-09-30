@@ -29,6 +29,8 @@ export type Task = {
   planned?: boolean;
   /** The pull request its work was delivered in. */
   pr?: string;
+  /** Images the agent showed with show_image, newest last. */
+  shown?: TaskImage[];
   /** Why its last start failed; cleared when it starts again. */
   error?: string;
   /** The user marked it done. */
@@ -64,7 +66,26 @@ export type TaskUpdate = {
   step?: string;
   planned?: true;
   pr?: string;
+  /** An image the agent showed, added to the task. */
+  image?: TaskImage;
 };
+
+// ponytail: shown images live inline in the task file, rewritten and pushed on
+// every update, so only the latest few within a budget are kept; files if more matter.
+const MAX_SHOWN = 6;
+const MAX_SHOWN_CHARS = 8_000_000;
+
+/**
+ * `shown` with `image` added, within MAX_SHOWN and MAX_SHOWN_CHARS of base64
+ * (oldest dropped first); an image too big alone isn't kept and costs nothing.
+ */
+function addShown(shown: TaskImage[], image: TaskImage): TaskImage[] {
+  if (image.data.length > MAX_SHOWN_CHARS) return shown;
+  const kept = [...shown, image].slice(-MAX_SHOWN);
+  let size = kept.reduce((n, i) => n + i.data.length, 0);
+  while (size > MAX_SHOWN_CHARS) size -= kept.shift()!.data.length;
+  return kept;
+}
 
 /** Applies an agent's update; out-of-range subtasks are ignored. */
 export function applyUpdate(task: Task, update: TaskUpdate, now: number): Task {
@@ -76,13 +97,14 @@ export function applyUpdate(task: Task, update: TaskUpdate, now: number): Task {
   for (const title of update.add ?? []) {
     if (title.trim()) subtasks.push({ title: title.trim(), status: "todo" });
   }
-  const { step, planned, pr } = update;
+  const { step, planned, pr, image } = update;
   return {
     ...task,
     subtasks,
     ...(step !== undefined && { step: step.trim() }),
     ...(planned && { planned }),
     ...(pr && { pr }),
+    ...(image && { shown: addShown(task.shown ?? [], image) }),
     updated: now,
   };
 }

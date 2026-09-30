@@ -1,7 +1,8 @@
 /**
  * Chrome over the DevTools protocol: the user's own when it allows remote
  * debugging (chrome://inspect's toggle, or --remote-debugging-port=9222),
- * otherwise a Chrome the app starts with its own profile.
+ * otherwise a Chrome the app starts with its own profile. Tasks always use
+ * the app's.
  */
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -36,18 +37,24 @@ export type Cdp = {
 type Pending = { resolve(value: unknown): void; reject(error: Error): void };
 
 // Extensions load afresh for every session, and Chrome asks "Allow remote
-// debugging?" per connection, so all sessions share one.
+// debugging?" per connection, so all sessions share one (per kind).
 const KEY = Symbol.for(`${APP_NAME}.chrome`);
-const shared = globalThis as { [KEY]?: Promise<Cdp> };
+const OWN_KEY = Symbol.for(`${APP_NAME}.chrome.own`);
+const shared = globalThis as { [key: symbol]: Promise<Cdp> | undefined };
 
-/** The shared connection, opened (or Chrome started) on first use. */
-export function chrome(): Promise<Cdp> {
-  const current = shared[KEY];
+/**
+ * The shared connection, opened (or Chrome started) on first use. `ownOnly`
+ * never touches the user's Chrome: always the one the app starts.
+ */
+export function chrome(ownOnly = false): Promise<Cdp> {
+  const key = ownOnly ? OWN_KEY : KEY;
+  const current = shared[key];
   const live = current?.then((cdp) => !cdp.closed).catch(() => false);
-  shared[KEY] = (live ?? Promise.resolve(false)).then((ok) =>
-    ok ? current! : attachOrLaunch(),
+  const next = (live ?? Promise.resolve(false)).then((ok) =>
+    ok ? current! : attachOrLaunch(ownOnly),
   );
-  return shared[KEY];
+  shared[key] = next;
+  return next;
 }
 
 /**
@@ -69,8 +76,8 @@ export async function endpointOn(port: number): Promise<string | null> {
   }
 }
 
-async function attachOrLaunch(): Promise<Cdp> {
-  const user = await endpointOn(USER_PORT);
+async function attachOrLaunch(ownOnly: boolean): Promise<Cdp> {
+  const user = ownOnly ? null : await endpointOn(USER_PORT);
   if (user) return open(user, false);
   return open((await endpointOn(OWN_PORT)) ?? (await launch()), true);
 }
@@ -201,17 +208,20 @@ export function pickTab(
   return tab;
 }
 
-/** Runs `work` attached to a tab, then detaches. */
+/** Runs `work` attached to a tab (never one in `skip`), then detaches; `ownOnly` as for chrome(). */
 export async function withTab<T>(
   hint: string | undefined,
   work: (cdp: Cdp, sessionId: string, tab: Tab) => Promise<T>,
+  ownOnly = false,
+  skip?: ReadonlySet<string>,
 ): Promise<T> {
-  const cdp = await chrome();
+  const cdp = await chrome(ownOnly);
   const { targetInfos } = await cdp.send<{ targetInfos: Tab[] }>(
     "Target.getTargets",
   );
+  const tabs = pages(targetInfos).filter((t) => !skip?.has(t.targetId));
   // osascript would name the user's Chrome even when this is the app's.
-  const tab = pickTab(pages(targetInfos), hint, cdp.own ? null : activeUrl());
+  const tab = pickTab(tabs, hint, cdp.own ? null : activeUrl());
   const { sessionId } = await cdp.send<{ sessionId: string }>(
     "Target.attachToTarget",
     {

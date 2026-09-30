@@ -58,6 +58,7 @@ async function begin(ctx: HostContext, cwd: string, id: string) {
     step: undefined,
     planned: undefined,
     pr: undefined,
+    shown: undefined,
     done: undefined,
     error: undefined,
     subtasks: task.subtasks.map((s) => ({ ...s, status: "todo" })),

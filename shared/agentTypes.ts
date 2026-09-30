@@ -46,6 +46,19 @@ export type ToolResult = {
   details?: unknown;
 };
 
+/** The tool the agent shows the user an image file with; the image is in `details.image`. */
+export const IMAGE_TOOL = "show_image";
+
+/** A result's images: its own, and show_image's (kept out of the model's context). */
+export function resultImages(result: ToolResult | undefined): ImageContent[] {
+  if (!result) return [];
+  const own = result.content.filter(
+    (b): b is ImageContent => b.type === "image",
+  );
+  const shown = (result.details as { image?: ImageContent } | undefined)?.image;
+  return shown?.type === "image" ? [...own, shown] : own;
+}
+
 export type ToolResultMessage = ToolResult & {
   role: "toolResult";
   toolCallId: string;

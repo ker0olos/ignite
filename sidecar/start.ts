@@ -106,6 +106,7 @@ const subagentExtension = sibling("./subagentExtension.ts");
 const gitExtension = sibling("./gitExtension.ts");
 const worktreeExtension = sibling("./worktreeExtension.ts");
 const chromeExtension = sibling("./chromeExtension.ts");
+const imageExtension = sibling("./imageExtension.ts");
 const taskExtension = sibling("./taskExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
 const approvalExtension = sibling("./approvalExtension.ts");
@@ -162,6 +163,7 @@ async function openSession(
       gitExtension,
       worktreeExtension,
       chromeExtension,
+      imageExtension,
       taskExtension,
       approvalExtension,
     ],

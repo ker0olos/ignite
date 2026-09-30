@@ -3,12 +3,13 @@
  * confirm the subtasks, before any file changes), work (its step is taken
  * from each tool call), then wrap up (subtasks done, commit, pull request),
  * nudged once if a run ends short of that. It runs on its own: no ask_user,
- * and no chrome_* tools, which would prompt in the user's own Chrome. Other
- * conversations don't get the tool. Loaded after askExtension, whose
+ * and its chrome_* tools drive the app's own Chrome (chromeExtension.ts), so
+ * nothing prompts in the user's. Other conversations don't get the tool. Loaded after askExtension, whose
  * guidance it replaces.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { IMAGE_TOOL } from "../shared/agentTypes.ts";
 import { ASK_TOOL } from "../shared/questions.ts";
 import {
   TASK_TOOL,
@@ -48,7 +49,11 @@ This conversation carries out a task from the user's task list; the user follows
 1. Plan: read what you need, then call ${TASK_TOOL} to add the subtasks the work needs, or to confirm the ones given (you can't change files until you have).
 2. Work: before starting a subtask, set it to "working"; when it's finished, set it to "done". Work through them in order.
 3. Deliver: when every subtask is done, create a branch named for the task, commit, push, and open a pull request. If the folder can't take one (not a git repository, no remote, or gh not signed in), leave the changes uncommitted and say why.
+When the work has something to look at (a page, a screen, a chart), show an image of it with ${IMAGE_TOOL}; it's added to the task for the user to see.
 Only stop for the user when you can't go on without them. End with a short summary of what you did.`;
+
+/** Added when the task has the Chrome tools (Settings may turn them off). */
+export const CHROME_GUIDANCE = `The chrome_* tools drive a separate Chrome that's yours for this task, not the user's: act freely in it, including filling in and submitting forms. Open your own tab with chrome_navigate and new_tab: true, and name it by id in every call; other tabs are refused. Check pages you build there; chrome_screenshot says where it saved each shot, for ${IMAGE_TOOL}.`;
 
 export const PLAN_FIRST = `Plan first: call ${TASK_TOOL} to add the task's subtasks, or to confirm the ones it has, before changing files.`;
 
@@ -114,15 +119,14 @@ export default function tasks(pi: ExtensionAPI) {
     if (event.prompt !== WRAP_UP) nudged = false;
     const others = pi
       .getActiveTools()
-      .filter(
-        (name) =>
-          name !== TASK_TOOL &&
-          !(task && (name === ASK_TOOL || name.startsWith("chrome_"))),
-      );
+      .filter((name) => name !== TASK_TOOL && !(task && name === ASK_TOOL));
     pi.setActiveTools(task ? [...others, TASK_TOOL] : others);
     if (!task) return;
     const prompt = event.systemPrompt.replace(ASKING, AUTONOMOUS);
-    return { systemPrompt: `${prompt}\n\n${TASK_GUIDANCE}` };
+    const chrome = others.includes("chrome_navigate")
+      ? `\n${CHROME_GUIDANCE}`
+      : "";
+    return { systemPrompt: `${prompt}\n\n${TASK_GUIDANCE}${chrome}` };
   });
 
   pi.on("tool_call", async (event, ctx) => {

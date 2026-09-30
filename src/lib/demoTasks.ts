@@ -107,6 +107,7 @@ function tempoTasks(now: number): Task[] {
       session: "tempo",
       planned: true,
       pr: `${PR}/12`,
+      shown: [{ ...DARK_MOCKUP, name: "tempo-dark.png" }],
       updated: now - 20 * MINUTE,
     },
     {
