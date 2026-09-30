@@ -147,10 +147,12 @@ async function waitsOn(
   cwd: string,
   then?: string[],
 ) {
+  const mode = await approvalMode();
+  if (mode === "yolo") return null;
   const place = { cwd, home: homedir() };
   const auto =
     tool === GIT_TOOL ? gitApproval(args, place) : ghGate(args, place);
-  const manual = (await approvalMode()) === "manual";
+  const manual = mode === "manual";
   if (manual) return { auto, manual, alone: false };
   if (!auto) return null;
   const alone =

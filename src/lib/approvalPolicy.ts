@@ -1,6 +1,7 @@
 /**
  * Which tool calls wait for the user. Manual asks for every call; Auto only
- * for dangerous shell commands and for anything outside the open folder.
+ * for dangerous shell commands and for anything outside the open folder; YOLO
+ * approves all prompts.
  */
 import type { ApprovalMode } from "../../shared/hostProtocol.ts";
 import {
@@ -159,6 +160,7 @@ export function approvalFor(
   bash: BashCheck = {},
 ): { reason?: string } | null {
   if (mode === "manual") return {};
+  if (mode === "yolo") return null;
   const reason = autoReason(toolName, input, place, bash);
   return reason === null ? null : { reason };
 }
@@ -178,5 +180,10 @@ export const APPROVAL_MODES: readonly {
     mode: "manual",
     label: "Manual",
     description: "Asks before every tool call",
+  },
+  {
+    mode: "yolo",
+    label: "YOLO",
+    description: "Approves everything, retrying sandbox blocks outside it",
   },
 ];

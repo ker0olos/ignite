@@ -103,8 +103,8 @@ export type SessionState = {
  */
 export type ProjectTrust = "trusted" | "untrusted" | "ask";
 
-/** Manual asks before every tool call; Auto only before risky ones. */
-export type ApprovalMode = "auto" | "manual";
+/** Manual asks before every tool call; Auto only before risky ones; YOLO approves all. */
+export type ApprovalMode = "auto" | "manual" | "yolo";
 
 /** A tool call waiting for the user to approve or deny it. */
 export type ApprovalRequest = {

@@ -78,10 +78,13 @@ describe("approvalMode", () => {
     expect(await approvalMode()).toBe("auto");
   });
 
-  it("reads Manual from settings.toml", async () => {
-    await settings("[approval]\nmode = 'manual'\n");
-    expect(await approvalMode()).toBe("manual");
-  });
+  it.each(["manual", "yolo"] as const)(
+    "reads %s from settings.toml",
+    async (mode) => {
+      await settings(`[approval]\nmode = '${mode}'\n`);
+      expect(await approvalMode()).toBe(mode);
+    },
+  );
 });
 
 describe("realPath", () => {
@@ -196,6 +199,14 @@ describe("tool_call", () => {
     expect(await result).toBeUndefined();
   });
 
+  it("asks for nothing in YOLO", async () => {
+    await settings("[approval]\nmode = 'yolo'\n");
+    const { asks, call } = load();
+    expect(await call("read", { path: "~/.ssh/config" })).toBeUndefined();
+    expect(await call("bash", { command: "git push --force" })).toBeUndefined();
+    expect(asks).toEqual([]);
+  });
+
   it("lets ask_user through in Manual; its questions wait instead", async () => {
     await settings("[approval]\nmode = 'manual'\n");
     const { asks, call } = load();
@@ -229,6 +240,14 @@ describe("the sandbox in Auto", () => {
     const { call, input } = load();
     await call("write", { path: "src/a.ts" });
     expect(input()).toEqual({ path: "src/a.ts" });
+  });
+
+  it("sandboxes in YOLO without asking first", async () => {
+    await settings("[approval]\nmode = 'yolo'\n");
+    const { asks, call, input } = load();
+    await call("bash", { command: "git push --force" });
+    expect(input().command).toBe("sandboxed git push --force");
+    expect(asks).toEqual([]);
   });
 
   it("doesn't sandbox in Manual, where every command is approved", async () => {
@@ -279,6 +298,17 @@ describe("the sandbox in Auto", () => {
     await call("bash", { command: "npm run dev", background: true });
     const running = { background: { pid: 1 } };
     expect(await result("permission denied", false, running)).toBeUndefined();
+    expect(asks).toEqual([]);
+  });
+
+  it("auto-runs outside when YOLO hits a sandbox block", async () => {
+    await settings("[approval]\nmode = 'yolo'\n");
+    const { asks, call, result } = load();
+    await call("bash", { command: "echo outside" });
+    fake.violation = "file-write-create /Users/me/x";
+    const ran = (await result("Operation not permitted", true)) as Outcome;
+    expect(ran.isError).toBe(false);
+    expect(ran.content[0].text.trim()).toBe("outside");
     expect(asks).toEqual([]);
   });
 

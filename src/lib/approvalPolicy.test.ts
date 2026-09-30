@@ -123,6 +123,16 @@ describe("approvalFor", () => {
     expect(approvalFor("manual", "mcp__github", {}, place)).toEqual({});
   });
 
+  it("lets every call run in YOLO", () => {
+    expect(
+      approvalFor("yolo", "read", { path: "~/.ssh/config" }, place),
+    ).toBeNull();
+    expect(
+      approvalFor("yolo", "bash", { command: "git push --force" }, place),
+    ).toBeNull();
+    expect(approvalFor("yolo", "mcp__github", {}, place)).toBeNull();
+  });
+
   it("lets safe calls inside the folder run in Auto", () => {
     expect(approvalFor("auto", "read", { path: "src/a.ts" }, place)).toBeNull();
     expect(approvalFor("auto", "edit", { path: "./a.ts" }, place)).toBeNull();

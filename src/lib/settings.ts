@@ -31,7 +31,7 @@ export type Settings = {
   };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
-  /** `mode`: "auto" asks only before risky tool calls, "manual" before all. */
+  /** `mode`: "auto" asks only before risky tool calls, "manual" before all, "yolo" before none. */
   approval: { mode: ApprovalMode };
   /** `max`: how many subagents one conversation may start. */
   subagents: { enabled: boolean; max: number };
@@ -91,7 +91,10 @@ const readConversation = (
 const readApproval = (
   approval: Partial<Settings["approval"]> = {},
 ): Settings["approval"] => ({
-  mode: approval.mode === "manual" ? "manual" : "auto",
+  mode:
+    approval.mode === "manual" || approval.mode === "yolo"
+      ? approval.mode
+      : "auto",
 });
 
 const readSubagents = (

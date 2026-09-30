@@ -90,10 +90,13 @@ describe("loadSettings", () => {
     expect((await loadSettings()).memory).toEqual({ cmem: false });
   });
 
-  it("reads the approval mode", async () => {
-    fakeFs({ [FILE]: '[approval]\nmode = "manual"\n' });
-    expect((await loadSettings()).approval).toEqual({ mode: "manual" });
-  });
+  it.each(["manual", "yolo"] as const)(
+    "reads the %s approval mode",
+    async (mode) => {
+      fakeFs({ [FILE]: `[approval]\nmode = "${mode}"\n` });
+      expect((await loadSettings()).approval).toEqual({ mode });
+    },
+  );
 
   it("falls back to Auto for an approval mode it doesn't know", async () => {
     fakeFs({ [FILE]: '[approval]\nmode = "never"\n' });
