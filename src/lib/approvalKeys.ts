@@ -24,10 +24,10 @@ export function approvalHints(isMac = navigator.userAgent.includes("Mac")) {
   return { approve: shortcut("↩", isMac), deny: shortcut("⌫", isMac) };
 }
 
-/** Whether `el` takes typed text, where the shortcuts must keep their usual meaning. */
+/** Whether `el` holds typed text, where the shortcuts must keep their usual meaning; an empty box doesn't. */
 export function isTyping(el: Element | null): boolean {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
+    return el.value !== "";
   if (!(el instanceof HTMLElement)) return false;
-  return (
-    el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)
-  );
+  return el.isContentEditable ? !!el.textContent : el.tagName === "SELECT";
 }
