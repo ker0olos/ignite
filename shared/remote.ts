@@ -45,11 +45,13 @@ export type RemoteEvent = {
   payload: unknown;
 };
 
-/** The server's state, sent to the app after each config. */
+/** The server's state, sent to the app after each config and as browsers connect or leave. */
 export type RemoteStatus = {
   type: "remote_status";
   urls: string[];
   error?: string;
+  /** Browsers connected now. */
+  devices: number;
 };
 
 /** Encodes byte arrays as `{ $bytes: base64 }` so they survive JSON. */

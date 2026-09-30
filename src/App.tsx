@@ -1,10 +1,9 @@
 import { AppCommandCenter } from "@/components/app/AppCommandCenter";
 import { AppSettingsDialog } from "@/components/app/AppSettingsDialog";
+import { AppWorkspace } from "@/components/app/AppWorkspace";
 import { SettingsButton } from "@/components/app/SettingsButton";
 import { WelcomeScreen } from "@/components/app/WelcomeScreen";
-import { Workspace } from "@/components/app/Workspace";
 import { ConnectProviders } from "@/components/providers/ConnectProviders";
-import { SignInBanner } from "@/components/sidebar/SignInBanner";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
 import { useAgentSession } from "@/hooks/useAgentSession";
 import { useAppMenu } from "@/hooks/useAppMenu";
@@ -21,11 +20,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useTabs } from "@/hooks/useTabs";
 import { useTextSize } from "@/hooks/useTextSize";
-import { codeThemesFor } from "@/lib/codeThemes";
-import { needingSignIn } from "@/lib/mcpServers";
-import { approvalSetting } from "@/lib/settings";
 import { OPEN_HOST, shownRows, shownSession } from "@/lib/demo";
-import { basename } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -97,35 +92,12 @@ export default function App() {
           />
         </div>
       ) : current ? (
-        <Workspace
+        <AppWorkspace
           key={current}
           folder={current}
-          tabs={tabs}
-          codeThemes={codeThemesFor(settings.theme)}
-          editor={settings.editor}
-          hideGitIgnored={settings.files.hide_gitignored}
-          showThinking={settings.conversation.show_thinking}
-          approval={approvalSetting(settings, setSettings)}
-          actions={settingsButton}
-          projectList={{
-            folders: shownFolders,
-            rows,
-            shown: session.session,
-            conversations: chats,
-            home,
-            onDismiss: chats.dismiss,
-            onHistory: (path) =>
-              command.openWith(`@${basename(path)} #convos `),
-            onOpenFolder: openFolder,
-          }}
-          banner={
-            <SignInBanner
-              names={needingSignIn(mcp.servers)}
-              onSignIn={mcp.signIn}
-              onOpenSettings={() => openSettings("MCP")}
-            />
-          }
-          session={session}
+          folders={shownFolders}
+          {...{ tabs, settings, setSettings, settingsButton, rows, session }}
+          {...{ chats, home, command, mcp, remote, openFolder, openSettings }}
           host={host}
         />
       ) : (
