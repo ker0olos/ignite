@@ -127,8 +127,8 @@ export function gitApproval(
 // The only options a task's push may carry; anything else asks.
 const TASK_PUSH_OPTIONS = new Set(["-u", "--set-upstream"]);
 
-// Only `-C <dir>` may come before the subcommand (-c and the like run programs).
-const onlyDirs = (globals: string[]) =>
+/** Whether only `-C <dir>` comes before the subcommand (-c and the like run programs). */
+export const onlyDirs = (globals: string[]) =>
   globals.every((a, i) => (i % 2 === 0 ? a === "-C" : true)) &&
   globals.length % 2 === 0;
 

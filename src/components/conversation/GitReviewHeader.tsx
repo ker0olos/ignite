@@ -12,7 +12,7 @@ import { GitPrHeader } from "@/components/conversation/GitPrHeader";
 export function GitReviewHeader({ review }: { review: GitReview }) {
   const commits = review.commits ?? [];
   if (review.kind === "commit") {
-    return <GitCommitHeader message={review.message} />;
+    return <GitCommitHeader message={review.message} push={review.push} />;
   }
   if (review.pr) {
     return (

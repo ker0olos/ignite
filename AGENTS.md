@@ -183,6 +183,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   imageExtension.ts      show_image: shows the user an image file from any path in its tool row
                          and, in a task's conversation, on the task's card
   gitExtension.ts        git and gh tools: run outside the sandbox, ask for themselves, redirect bash's
+  gitPush.ts             The git tool's `push: true`: a commit that pushes its branch in the same call
   gitRun.ts              Runs git and gh with prompts, pagers and (unless approved) hooks off
   gitReview.ts           A commit's or push's changed files and commits; one file's diff (git_diff)
   ghReview.ts            What `gh pr create` would open: title, branches, GitHub's compare of them
@@ -369,7 +370,9 @@ anything else, for options that run a program or change git's config
 (`-c`, `--upload-pack`, `rebase -x`, `git config` writes…), and for paths
 outside the folder. A commit, push or `gh pr create` waits with a review: its changed files
 (status, +/− counts) and message or commits, each file opening its diff in a
-tab (`git_diff`). The sandbox already refuses writes to `.git/config` and
+tab (`git_diff`). A commit called with `push: true` (on a branch) waits
+once, its review naming the branch ("Commit and push to origin/<branch>"), then
+runs `push -u origin <branch>`; other git options than `-C` are refused; a task's runs alone only when both would. The sandbox already refuses writes to `.git/config` and
 `.git/hooks`; hooks can still live in the working tree (husky), so calls that
 ran without asking run with hooks off. Bash commands that commit, push, pull,
 fetch, clone or run gh are blocked with a pointer to the tools.
