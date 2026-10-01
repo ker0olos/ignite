@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import type { Credential, CredentialStore } from "@earendil-works/pi-ai";
 
@@ -122,20 +123,41 @@ export function codexBackend(path: string): AuthBackend {
 }
 
 /**
- * The app's own credentials, falling back to the Codex CLI's login for
- * openai-codex when the app has none. Signing out never touches Codex.
+ * Whether an app's command is on PATH. A login borrowed from another app counts
+ * only while it's installed: its files outlive an uninstall.
  */
-export function withCodexLogin(own: CredentialStore, codex: CredentialStore) {
+export function commandInstalled(command: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = execFile(command, ["--version"], { timeout: 10_000 }, (e) =>
+      resolve((e as NodeJS.ErrnoException | null)?.code !== "ENOENT"),
+    );
+    child.stdin?.end();
+  });
+}
+
+/**
+ * The app's own credentials, falling back to the Codex CLI's login for
+ * openai-codex when the app has none and Codex is installed. Signing out
+ * never touches Codex.
+ */
+export function withCodexLogin(
+  own: CredentialStore,
+  codex: CredentialStore,
+  installed = commandInstalled("codex"),
+) {
   const usesCodex = async () =>
-    !(await own.read(CODEX)) && !!(await codex.read(CODEX));
+    !(await own.read(CODEX)) &&
+    (await installed) &&
+    !!(await codex.read(CODEX));
 
   const store: CredentialStore = {
     read: async (id, options) =>
       (await own.read(id, options)) ??
-      (id === CODEX ? codex.read(id, options) : undefined),
+      (id === CODEX && (await installed) ? codex.read(id, options) : undefined),
     list: async (options) => {
       const mine = await own.list(options);
       if (mine.some((c) => c.providerId === CODEX)) return mine;
+      if (!(await installed)) return mine;
       return [...mine, ...(await codex.list(options))];
     },
     modify: async (id, fn, options) =>
