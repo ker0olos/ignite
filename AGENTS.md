@@ -259,6 +259,7 @@ Two places hold persisted data:
 - **Power settings** (`[power]`): `keep_awake` (on by default, macOS only)
   runs `caffeinate -i` while any folder's agent works, and ends it when
   every agent finishes or waits on the user (`sidecar/keepAwake.ts`).
+  `keep_screen_awake` (off by default) adds `-d`, keeping the display on too.
 - **Remote settings** (`[remote]`): `enabled` (off by default) and `port`
   (4280). The main window's sidecar serves the UI to any browser that
   reaches the port, with no password; when Tailscale is connected (a

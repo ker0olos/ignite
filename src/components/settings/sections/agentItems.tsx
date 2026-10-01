@@ -104,7 +104,29 @@ export function agentItems({
               <Switch
                 checked={settings.power.keep_awake}
                 onCheckedChange={(keep_awake) =>
-                  onChange({ ...settings, power: { keep_awake } })
+                  onChange({
+                    ...settings,
+                    power: { ...settings.power, keep_awake },
+                  })
+                }
+              />
+            ),
+          },
+          {
+            section: "Agent",
+            title: "Keep screen awake",
+            description:
+              "The display stays on too while the agent works, so you can watch it.",
+            keywords: "sleep caffeinate awake power battery display screen",
+            control: (
+              <Switch
+                checked={settings.power.keep_screen_awake}
+                disabled={!settings.power.keep_awake}
+                onCheckedChange={(keep_screen_awake) =>
+                  onChange({
+                    ...settings,
+                    power: { ...settings.power, keep_screen_awake },
+                  })
                 }
               />
             ),

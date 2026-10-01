@@ -35,8 +35,11 @@ export type Settings = {
   approval: { mode: ApprovalMode };
   /** `max`: how many subagents one conversation may start. */
   subagents: { enabled: boolean; max: number };
-  /** `keep_awake`: the Mac doesn't idle-sleep while an agent works (macOS only). */
-  power: { keep_awake: boolean };
+  /**
+   * `keep_awake`: the Mac doesn't idle-sleep while an agent works (macOS only).
+   * `keep_screen_awake`: nor does the display.
+   */
+  power: { keep_awake: boolean; keep_screen_awake: boolean };
   /** `disabled_tools`: Chrome tools (shared/chrome.ts) the agent doesn't get. */
   chrome: { enabled: boolean; disabled_tools: string[] };
   /** Remote access from browsers on other devices. */
@@ -54,7 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
   memory: { cmem: true },
   approval: { mode: "auto" },
   subagents: { enabled: true, max: 2 },
-  power: { keep_awake: true },
+  power: { keep_awake: true, keep_screen_awake: false },
   chrome: { enabled: true, disabled_tools: [] },
   remote: { enabled: false, port: 4280 },
 };
