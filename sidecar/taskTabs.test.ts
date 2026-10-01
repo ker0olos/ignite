@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "../shared/tasks.ts";
 import type { TaskAsk } from "./taskExtension.ts";
-import { NEEDS_TAB, scopeOf, taskTab } from "./taskTabs.ts";
+import { NEEDS_TAB, NO_USER_IN_TASK, scopeOf, taskTab } from "./taskTabs.ts";
 
 describe("taskTab", () => {
   const mine = new Set(["T1"]);
@@ -34,10 +34,11 @@ describe("scopeOf", () => {
     const scope = scopeOf(piWith(null));
     expect(await scope.task()).toBe(false);
     expect(await scope.at("docs")).toEqual({
-      own: false,
+      user: false,
       tab: "docs",
       skip: scope.claimed,
     });
+    expect((await scope.at("docs", true)).user).toBe(true);
   });
 
   it("holds a task to the app's Chrome and its own tabs", async () => {
@@ -46,7 +47,8 @@ describe("scopeOf", () => {
     await expect(scope.at()).rejects.toThrow(NEEDS_TAB);
     await expect(scope.at("T1")).rejects.toThrow(/isn't one/);
     scope.claim("T1");
-    expect(await scope.at("T1")).toEqual({ own: true, tab: "T1" });
+    expect(await scope.at("T1")).toEqual({ user: false, tab: "T1" });
+    await expect(scope.at("T1", true)).rejects.toThrow(NO_USER_IN_TASK);
   });
 
   it("shares claimed tabs across sessions, but not a task's own list", () => {

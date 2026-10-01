@@ -5,6 +5,7 @@ import { APP_NAME } from "../src/lib/app.ts";
 import {
   chrome,
   endpointOn,
+  NO_USER_CHROME,
   pages,
   pickTab,
   withTab,
@@ -101,31 +102,32 @@ describe("chrome", () => {
     delete shared[Symbol.for(`${APP_NAME}.chrome.own`)];
   });
 
-  it("prefers the user's Chrome when it allows debugging", async () => {
-    const cdp = await chrome();
-    expect(cdp.own).toBe(false);
-    expect(sockets).toEqual(["ws://browser-9222"]);
-  });
-
-  it("ownOnly never asks the user's Chrome, and keeps its own connection", async () => {
-    const own = await chrome(true);
+  it("uses the app's own Chrome unless asked, never touching the user's", async () => {
+    const own = await chrome();
     expect(own.own).toBe(true);
     expect(sockets).toEqual(["ws://browser-9333"]);
     expect(fetched.some((u) => u.includes(":9222"))).toBe(false);
 
-    expect(await chrome(true)).toBe(own);
-    const user = await chrome();
+    expect(await chrome()).toBe(own);
+    const user = await chrome(true);
     expect(user.own).toBe(false);
     expect(sockets).toEqual(["ws://browser-9333", "ws://browser-9222"]);
   });
 
+  it("says how to allow debugging when the user's Chrome doesn't", async () => {
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("refused");
+    });
+    await expect(chrome(true)).rejects.toThrow(NO_USER_CHROME);
+  });
+
   it("withTab never picks a skipped tab", async () => {
     const picked = (skip?: Set<string>) =>
-      withTab(undefined, async (_c, _s, t) => t.targetId, true, skip);
+      withTab(undefined, async (_c, _s, t) => t.targetId, false, skip);
     expect(await picked()).toBe("A");
     expect(await picked(new Set(["A"]))).toBe("B");
     await expect(
-      withTab("A", async () => "", true, new Set(["A"])),
+      withTab("A", async () => "", false, new Set(["A"])),
     ).rejects.toThrow('No tab matches "A"');
   });
 });

@@ -6,8 +6,14 @@ import { askTask } from "./taskExtension.ts";
 export const NEEDS_TAB =
   "In a task, name the tab by its id: open one with chrome_navigate and new_tab: true, then pass the id it gives.";
 
+export const NO_USER_IN_TASK =
+  "A task can't use the user's Chrome. Leave the step that needs their login for the user.";
+
 export const NO_BROWSER_CALLS =
   "In a task, browser-wide calls are refused, since they reach other tasks' tabs. Pass one of this task's tabs instead.";
+
+export const NO_OWN_BROWSER_CALLS =
+  "Browser-wide calls run only in the user's Chrome (user_chrome: true), since the app's holds tasks' tabs. Pass a tab instead.";
 
 /** The tab a task's call may use: one it opened, named by id; throws otherwise. */
 export function taskTab(
@@ -22,8 +28,8 @@ export function taskTab(
 }
 
 /**
- * Where a session's chrome calls go. A task uses the app's own Chrome, never
- * the user's, and only tabs it opened (`mine`), each named by id.
+ * Where a session's chrome calls go: the app's own Chrome, or the user's when
+ * asked. A task never uses the user's, and only tabs it opened (`mine`), each named by id.
  */
 export type Scope = {
   mine: Set<string>;
@@ -36,7 +42,8 @@ export type Scope = {
   shows(task: boolean, id: string): boolean;
   at(
     hint?: string,
-  ): Promise<{ own: boolean; tab?: string; skip?: ReadonlySet<string> }>;
+    user?: boolean,
+  ): Promise<{ user: boolean; tab?: string; skip?: ReadonlySet<string> }>;
 };
 
 // Shared by every session (extensions load afresh per session).
@@ -58,9 +65,10 @@ export function scopeOf(pi: Pick<ExtensionAPI, "events">): Scope {
       claimed.add(id);
     },
     shows: (isTask, id) => (isTask ? mine.has(id) : !claimed.has(id)),
-    at: async (hint) =>
-      (await task())
-        ? { own: true, tab: taskTab(hint, mine) }
-        : { own: false, tab: hint, skip: claimed },
+    at: async (hint, user = false) => {
+      if (!(await task())) return { user, tab: hint, skip: claimed };
+      if (user) throw new Error(NO_USER_IN_TASK);
+      return { user: false, tab: taskTab(hint, mine) };
+    },
   };
 }

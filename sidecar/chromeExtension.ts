@@ -1,7 +1,6 @@
 /**
  * Chrome tools: list tabs, screenshot, run JS, navigate, and raw CDP calls,
- * on the user's own Chrome or, when it doesn't allow debugging, one the app
- * starts (`chrome.ts`).
+ * on a headless Chrome the app starts or, when asked, the user's own (`chrome.ts`).
  */
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -11,8 +10,15 @@ import { Type } from "typebox";
 import { IMAGE_TOOL } from "../shared/agentTypes.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { chrome, pages, withTab, type Tab } from "./chrome.ts";
+import { capture, evaluate, settle } from "./chromePage.ts";
 import { chromeToolsOn } from "./chromeSettings.ts";
-import { NO_BROWSER_CALLS, scopeOf, type Scope } from "./taskTabs.ts";
+import {
+  NO_BROWSER_CALLS,
+  NO_OWN_BROWSER_CALLS,
+  NO_USER_IN_TASK,
+  scopeOf,
+  type Scope,
+} from "./taskTabs.ts";
 
 const TabParam = Type.Optional(
   Type.String({
@@ -21,9 +27,12 @@ const TabParam = Type.Optional(
   }),
 );
 
-// Keeps a full page within models' 8000px image limit at 2x.
-// ponytail: taller pages are cut off; scroll and shoot again, or tile them if it matters.
-const MAX_FULL_HEIGHT = 4000;
+const UserParam = Type.Optional(
+  Type.Boolean({
+    description:
+      "Use the user's own Chrome, with their logins, instead of the app's headless one. Its tab ids differ.",
+  }),
+);
 
 const text = (value: string) => ({
   content: [{ type: "text" as const, text: value }],
@@ -34,63 +43,6 @@ const show = (value: unknown) =>
   typeof value === "string"
     ? value
     : (JSON.stringify(value, null, 2) ?? "undefined");
-
-async function evaluate(
-  cdp: Awaited<ReturnType<typeof chrome>>,
-  sessionId: string,
-  expression: string,
-) {
-  const { result, exceptionDetails } = await cdp.send<{
-    result: { value: unknown };
-    exceptionDetails?: { text: string; exception?: { description?: string } };
-  }>(
-    "Runtime.evaluate",
-    { expression, returnByValue: true, awaitPromise: true, userGesture: true },
-    sessionId,
-  );
-  if (exceptionDetails) {
-    throw new Error(
-      exceptionDetails.exception?.description ?? exceptionDetails.text,
-    );
-  }
-  return result.value;
-}
-
-async function settle(
-  cdp: Awaited<ReturnType<typeof chrome>>,
-  sessionId: string,
-) {
-  for (let i = 0; i < 50; i++) {
-    await new Promise((r) => setTimeout(r, 200));
-    const state = await evaluate(cdp, sessionId, "document.readyState").catch(
-      () => null,
-    );
-    if (state === "complete") return;
-  }
-}
-
-/** A JPEG of the tab's viewport, or of the whole page (up to MAX_FULL_HEIGHT). */
-async function capture(
-  cdp: Awaited<ReturnType<typeof chrome>>,
-  sessionId: string,
-  full?: boolean,
-) {
-  const params: Record<string, unknown> = { format: "jpeg", quality: 80 };
-  if (full) {
-    const { cssContentSize } = await cdp.send<{
-      cssContentSize: { width: number; height: number };
-    }>("Page.getLayoutMetrics", {}, sessionId);
-    const height = Math.min(cssContentSize.height, MAX_FULL_HEIGHT);
-    params.captureBeyondViewport = true;
-    params.clip = { x: 0, y: 0, width: cssContentSize.width, height, scale: 1 };
-  }
-  const { data } = await cdp.send<{ data: string }>(
-    "Page.captureScreenshot",
-    params,
-    sessionId,
-  );
-  return data;
-}
 
 export default function chromeTools(pi: ExtensionAPI) {
   const scope = scopeOf(pi);
@@ -112,20 +64,22 @@ function registerLooking(pi: ExtensionAPI, scope: Scope) {
     promptSnippet:
       "chrome_tabs / chrome_screenshot / chrome_eval / chrome_navigate / chrome_cdp: drive Chrome",
     promptGuidelines: [
-      "The chrome_* tools usually drive the user's own Chrome: their logins, sessions and data. Touch only the tab the task needs, close nothing, and ask before submitting forms, buying, sending or deleting anything.",
+      "The chrome_* tools drive a headless Chrome the app started, with its own profile. Use it for testing and browsing.",
+      "Only when a page needs a login you can't complete there yourself, pass user_chrome: true to use the user's own Chrome: their logins, sessions and data (Chrome may ask them to allow it). There, touch only the tab the task needs, close nothing, and ask before submitting forms, buying, sending or deleting anything.",
       "Look at a chrome_screenshot before saying a page looks right.",
     ],
-    parameters: Type.Object({}),
-    async execute() {
+    parameters: Type.Object({ user_chrome: UserParam }),
+    async execute(_id, { user_chrome }) {
       const task = await scope.task();
-      const cdp = await chrome(task);
+      if (task && user_chrome) throw new Error(NO_USER_IN_TASK);
+      const cdp = await chrome(!!user_chrome);
       const { targetInfos } = await cdp.send<{ targetInfos: Tab[] }>(
         "Target.getTargets",
       );
       const whose = task
-        ? "This task's own tabs, in a separate Chrome the app started."
+        ? "This task's own tabs, in the app's headless Chrome."
         : cdp.own
-          ? "A separate Chrome the app started (the user's own Chrome doesn't allow remote debugging)."
+          ? "The app's headless Chrome."
           : "The user's own Chrome.";
       const lines = pages(targetInfos)
         .filter((t) => scope.shows(task, t.targetId))
@@ -143,16 +97,17 @@ function registerLooking(pi: ExtensionAPI, scope: Scope) {
       full: Type.Optional(
         Type.Boolean({ description: "The whole page, not just the viewport." }),
       ),
+      user_chrome: UserParam,
     }),
-    async execute(id, { tab, full }) {
-      const at = await scope.at(tab);
+    async execute(id, { tab, full, user_chrome }) {
+      const at = await scope.at(tab, user_chrome);
       const { data, title } = await withTab(
         at.tab,
         async (cdp, sessionId, t) => ({
           data: await capture(cdp, sessionId, full),
           title: `${t.title}  ${t.url}`,
         }),
-        at.own,
+        at.user,
         at.skip,
       );
       const file = join(tmpdir(), `${APP_NAME}-screenshot-${id}.jpg`);
@@ -177,14 +132,15 @@ function registerLooking(pi: ExtensionAPI, scope: Scope) {
     parameters: Type.Object({
       expression: Type.String({ description: "The JavaScript to run." }),
       tab: TabParam,
+      user_chrome: UserParam,
     }),
-    async execute(_id, { expression, tab }) {
-      const at = await scope.at(tab);
+    async execute(_id, { expression, tab, user_chrome }) {
+      const at = await scope.at(tab, user_chrome);
       return withTab(
         at.tab,
         async (cdp, sessionId) =>
           text(show(await evaluate(cdp, sessionId, expression))),
-        at.own,
+        at.user,
         at.skip,
       );
     },
@@ -203,26 +159,29 @@ function registerActing(pi: ExtensionAPI, scope: Scope) {
       new_tab: Type.Optional(
         Type.Boolean({ description: "Open it in a new tab instead." }),
       ),
+      user_chrome: UserParam,
     }),
-    async execute(_id, { url, tab, new_tab }) {
+    async execute(_id, { url, tab, new_tab, user_chrome }) {
       if (new_tab) {
-        const own = await scope.task();
-        const cdp = await chrome(own);
+        const task = await scope.task();
+        if (task && user_chrome) throw new Error(NO_USER_IN_TASK);
+        const user = !!user_chrome;
+        const cdp = await chrome(user);
         const { targetId } = await cdp.send<{ targetId: string }>(
           "Target.createTarget",
           { url },
         );
-        if (own) scope.claim(targetId);
+        if (task) scope.claim(targetId);
         return withTab(
           targetId,
           async (c, sessionId) => {
             await settle(c, sessionId);
             return text(`Opened ${url} in tab ${targetId}`);
           },
-          own,
+          user,
         );
       }
-      const at = await scope.at(tab);
+      const at = await scope.at(tab, user_chrome);
       return withTab(
         at.tab,
         async (cdp, sessionId, t) => {
@@ -235,7 +194,7 @@ function registerActing(pi: ExtensionAPI, scope: Scope) {
           await settle(cdp, sessionId);
           return text(`Loaded ${url} in tab ${t.targetId}`);
         },
-        at.own,
+        at.user,
         at.skip,
       );
     },
@@ -247,24 +206,26 @@ function registerActing(pi: ExtensionAPI, scope: Scope) {
     description:
       "Any Chrome DevTools Protocol method, for what the other chrome tools can't do " +
       "(Input.dispatchMouseEvent, Emulation.setDeviceMetricsOverride, Network.*…). " +
-      "Runs in a tab, or on the browser with browser: true (Target.*, Browser.*).",
+      "Runs in a tab, or on the user's Chrome with browser: true and user_chrome: true (Target.*, Browser.*).",
     parameters: Type.Object({
       method: Type.String({ description: 'e.g. "Input.dispatchKeyEvent".' }),
       params: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
       tab: TabParam,
       browser: Type.Optional(Type.Boolean()),
+      user_chrome: UserParam,
     }),
-    async execute(_id, { method, params, tab, browser }) {
+    async execute(_id, { method, params, tab, browser, user_chrome }) {
       if (browser) {
         if (await scope.task()) throw new Error(NO_BROWSER_CALLS);
-        return text(show(await (await chrome()).send(method, params)));
+        if (!user_chrome) throw new Error(NO_OWN_BROWSER_CALLS);
+        return text(show(await (await chrome(true)).send(method, params)));
       }
-      const at = await scope.at(tab);
+      const at = await scope.at(tab, user_chrome);
       return withTab(
         at.tab,
         async (cdp, sessionId) =>
           text(show(await cdp.send(method, params, sessionId))),
-        at.own,
+        at.user,
         at.skip,
       );
     },
