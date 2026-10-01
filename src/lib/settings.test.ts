@@ -74,11 +74,23 @@ describe("loadSettings", () => {
       sticky_user_messages: false,
       max_chats_enabled: false,
       max_chats: 5,
+      resizable_sidebar_split: false,
     });
     fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
     expect((await loadSettings()).conversation.ask_questions).toBe(false);
     fakeFs({ [FILE]: "[conversation]\nsticky_user_messages = true\n" });
     expect((await loadSettings()).conversation.sticky_user_messages).toBe(true);
+  });
+
+  it("reads whether the sidebar split is resizable", async () => {
+    fakeFs({ [FILE]: "[conversation]\nresizable_sidebar_split = true\n" });
+    expect((await loadSettings()).conversation.resizable_sidebar_split).toBe(
+      true,
+    );
+    fakeFs({ [FILE]: '[conversation]\nresizable_sidebar_split = "yes"\n' });
+    expect((await loadSettings()).conversation.resizable_sidebar_split).toBe(
+      false,
+    );
   });
 
   it("reads chat order settings", async () => {
@@ -239,6 +251,7 @@ describe("saveSettings", () => {
       sticky_user_messages: true,
       max_chats_enabled: true,
       max_chats: 8,
+      resizable_sidebar_split: true,
     },
     memory: { cmem: false },
     approval: { mode: "manual" },

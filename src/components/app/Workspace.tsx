@@ -31,6 +31,7 @@ export function Workspace({
   hideGitIgnored,
   showThinking,
   stickyUserMessages,
+  resizableProjectSplit,
   approval,
   actions,
   projectList,
@@ -46,6 +47,7 @@ export function Workspace({
   hideGitIgnored: boolean;
   showThinking: boolean;
   stickyUserMessages: boolean;
+  resizableProjectSplit: boolean;
   approval: Approval;
   actions: ReactNode;
   projectList: ProjectListProps;
@@ -79,6 +81,7 @@ export function Workspace({
       selected={active}
       onOpenFile={openFile}
       hideGitIgnored={hideGitIgnored}
+      resizableProjectSplit={resizableProjectSplit}
     />
   );
   const agent =

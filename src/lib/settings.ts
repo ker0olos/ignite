@@ -26,6 +26,7 @@ export type Settings = {
    * `chat_order`: sidebar conversation order within a folder.
    * `sticky_user_messages`: user messages pin to the top while their replies scroll.
    * `max_chats_*`: collapse each folder's sidebar chats after the configured count.
+   * `resizable_sidebar_split`: drag-resize conversations vs files in the sidebar.
    */
   conversation: {
     show_thinking: boolean;
@@ -35,6 +36,7 @@ export type Settings = {
     sticky_user_messages: boolean;
     max_chats_enabled: boolean;
     max_chats: number;
+    resizable_sidebar_split: boolean;
   };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
@@ -70,6 +72,7 @@ export const DEFAULT_SETTINGS: Settings = {
     sticky_user_messages: false,
     max_chats_enabled: false,
     max_chats: 5,
+    resizable_sidebar_split: false,
   },
   memory: { cmem: true },
   approval: { mode: "auto" },
@@ -118,6 +121,10 @@ const readConversation = (
     max_chats: Number.isFinite(merged.max_chats)
       ? clampSidebarChats(merged.max_chats)
       : DEFAULT_SETTINGS.conversation.max_chats,
+    resizable_sidebar_split:
+      typeof merged.resizable_sidebar_split === "boolean"
+        ? merged.resizable_sidebar_split
+        : DEFAULT_SETTINGS.conversation.resizable_sidebar_split,
   };
 };
 

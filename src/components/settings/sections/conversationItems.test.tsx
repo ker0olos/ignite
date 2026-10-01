@@ -25,9 +25,10 @@ const item = (title: string) => {
 describe("conversationItems", () => {
   it("toggles showing thinking", () => {
     const onChange = vi.fn();
-    const thinking = conversationItems({ settings: DEFAULT_SETTINGS, onChange }).find(
-      (i) => i.title === "Show thinking",
-    )!;
+    const thinking = conversationItems({
+      settings: DEFAULT_SETTINGS,
+      onChange,
+    }).find((i) => i.title === "Show thinking")!;
     const { checked, onCheckedChange } = props<SwitchProps>(thinking);
     expect(checked).toBe(false);
     onCheckedChange(true);
@@ -37,11 +38,30 @@ describe("conversationItems", () => {
     });
   });
 
+  it("toggles the resizable sidebar split", () => {
+    const onChange = vi.fn();
+    const split = conversationItems({
+      settings: DEFAULT_SETTINGS,
+      onChange,
+    }).find((i) => i.title === "Resizable sidebar split")!;
+    const { checked, onCheckedChange } = props<SwitchProps>(split);
+    expect(checked).toBe(false);
+    onCheckedChange(true);
+    expect(onChange).toHaveBeenCalledWith({
+      ...DEFAULT_SETTINGS,
+      conversation: {
+        ...DEFAULT_SETTINGS.conversation,
+        resizable_sidebar_split: true,
+      },
+    });
+  });
+
   it("toggles sticky user messages", () => {
     const onChange = vi.fn();
-    const sticky = conversationItems({ settings: DEFAULT_SETTINGS, onChange }).find(
-      (i) => i.title === "Sticky user messages",
-    )!;
+    const sticky = conversationItems({
+      settings: DEFAULT_SETTINGS,
+      onChange,
+    }).find((i) => i.title === "Sticky user messages")!;
     const { checked, onCheckedChange } = props<SwitchProps>(sticky);
     expect(checked).toBe(false);
     onCheckedChange(true);
@@ -56,9 +76,10 @@ describe("conversationItems", () => {
 
   it("toggles the sidebar chat limit", () => {
     const onChange = vi.fn();
-    const limit = conversationItems({ settings: DEFAULT_SETTINGS, onChange }).find(
-      (i) => i.title === "Limit sidebar chats",
-    )!;
+    const limit = conversationItems({
+      settings: DEFAULT_SETTINGS,
+      onChange,
+    }).find((i) => i.title === "Limit sidebar chats")!;
     const { checked, onCheckedChange } = props<SwitchProps>(limit);
     expect(checked).toBe(false);
     onCheckedChange(true);

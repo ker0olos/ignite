@@ -90,6 +90,26 @@ export function conversationItems({
     },
     {
       section: "Conversation",
+      title: "Resizable sidebar split",
+      description: "Drag the divider between conversations and files.",
+      keywords: "height divider conversations files file explorer sidebar",
+      control: (
+        <Switch
+          checked={settings.conversation.resizable_sidebar_split}
+          onCheckedChange={(resizable_sidebar_split) =>
+            onChange({
+              ...settings,
+              conversation: {
+                ...settings.conversation,
+                resizable_sidebar_split,
+              },
+            })
+          }
+        />
+      ),
+    },
+    {
+      section: "Conversation",
       title: "Sticky user messages",
       description:
         "Keep the latest user message pinned at the top while its reply scrolls.",
