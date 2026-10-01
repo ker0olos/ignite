@@ -23,11 +23,13 @@ export type Settings = {
   /**
    * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
    * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
+   * `chat_order`: sidebar conversation order within a folder.
    */
   conversation: {
     show_thinking: boolean;
     ask_questions: boolean;
     text_size: number;
+    chat_order: ChatOrder;
   };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
@@ -46,6 +48,8 @@ export type Settings = {
   remote: { enabled: boolean; port: number };
 };
 
+export type ChatOrder = "oldest_first" | "newest_first";
+
 export const DEFAULT_SETTINGS: Settings = {
   theme: SYSTEM_THEME,
   editor: {
@@ -53,7 +57,12 @@ export const DEFAULT_SETTINGS: Settings = {
     word_wrap: true,
   },
   files: { hide_gitignored: true },
-  conversation: { show_thinking: false, ask_questions: true, text_size: 14 },
+  conversation: {
+    show_thinking: false,
+    ask_questions: true,
+    text_size: 14,
+    chat_order: "oldest_first",
+  },
   memory: { cmem: true },
   approval: { mode: "auto" },
   subagents: { enabled: true, max: 2 },
@@ -82,6 +91,10 @@ const readConversation = (
   const merged = { ...DEFAULT_SETTINGS.conversation, ...conversation };
   return {
     ...merged,
+    chat_order:
+      merged.chat_order === "newest_first"
+        ? "newest_first"
+        : DEFAULT_SETTINGS.conversation.chat_order,
     text_size: Number.isFinite(merged.text_size)
       ? clampTextSize(merged.text_size)
       : DEFAULT_SETTINGS.conversation.text_size,

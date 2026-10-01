@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   detailsLine,
+  orderedRows,
   rowsOf,
   withRunning,
   without,
@@ -107,6 +108,22 @@ describe("allTags", () => {
         "/b": [{ session: "2", title: "", tags: ["bug"] }],
       }),
     ).toEqual(["bug", "ui"]);
+  });
+});
+
+describe("orderedRows", () => {
+  const rows = [agent("/a", "1"), agent("/a", "2")];
+
+  it("keeps oldest first as the default order", () => {
+    expect(orderedRows(rows, "oldest_first")).toBe(rows);
+  });
+
+  it("reverses rows for newest first without mutating the original", () => {
+    expect(orderedRows(rows, "newest_first").map((r) => r.session)).toEqual([
+      "2",
+      "1",
+    ]);
+    expect(rows.map((r) => r.session)).toEqual(["1", "2"]);
   });
 });
 

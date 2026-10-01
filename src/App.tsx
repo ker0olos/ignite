@@ -23,6 +23,7 @@ import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useTabs } from "@/hooks/useTabs";
 import { useTextSize } from "@/hooks/useTextSize";
 import { OPEN_HOST, shownRows, shownSession } from "@/lib/demo";
+import { orderedRows } from "@/lib/conversations";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -59,7 +60,8 @@ export default function App() {
     openIn(folder, `${folder}/${path}`);
   const command = useCommandCenter();
   const fileSearch = useFileSearchPalette(current);
-  const rows = shownRows(list.rows);
+  const rows = (cwd: string) =>
+    orderedRows(shownRows(list.rows)(cwd), settings.conversation.chat_order);
   const dragging = useFolderDrop(addFolder);
   const dialog = useSettingsDialog(providers.host, current);
   const openSettings = dialog.show;

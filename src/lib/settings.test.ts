@@ -70,9 +70,17 @@ describe("loadSettings", () => {
       show_thinking: true,
       ask_questions: true,
       text_size: 14,
+      chat_order: "oldest_first",
     });
     fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
     expect((await loadSettings()).conversation.ask_questions).toBe(false);
+  });
+
+  it("reads chat order settings", async () => {
+    fakeFs({ [FILE]: '[conversation]\nchat_order = "newest_first"\n' });
+    expect((await loadSettings()).conversation.chat_order).toBe("newest_first");
+    fakeFs({ [FILE]: '[conversation]\nchat_order = "sideways"\n' });
+    expect((await loadSettings()).conversation.chat_order).toBe("oldest_first");
   });
 
   it.each([
@@ -203,7 +211,12 @@ describe("saveSettings", () => {
     theme: "github-dark",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false },
-    conversation: { show_thinking: true, ask_questions: false, text_size: 15 },
+    conversation: {
+      show_thinking: true,
+      ask_questions: false,
+      text_size: 15,
+      chat_order: "newest_first",
+    },
     memory: { cmem: false },
     approval: { mode: "manual" },
     subagents: { enabled: false, max: 4 },

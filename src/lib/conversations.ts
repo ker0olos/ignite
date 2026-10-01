@@ -1,5 +1,6 @@
 import type { AgentStatus } from "../../shared/hostProtocol";
 import type { SavedSession, SessionDetails } from "../../shared/conversations";
+import type { ChatOrder } from "./settings";
 
 /** One conversation listed under its folder, running or not. */
 type ListedConversation = { session: string; title: string; tags?: string[] };
@@ -84,6 +85,14 @@ export function allTags(listed: Listed) {
   return normalizedTags(
     Object.values(listed).flatMap((rows) => rows.flatMap((r) => r.tags ?? [])),
   );
+}
+
+/** Returns rows in the selected sidebar conversation order. */
+export function orderedRows(
+  rows: AgentStatus[],
+  order: ChatOrder,
+): AgentStatus[] {
+  return order === "newest_first" ? [...rows].reverse() : rows;
 }
 
 const MONEY = new Intl.NumberFormat("en-US", {
