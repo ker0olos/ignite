@@ -168,6 +168,8 @@ describe("useSettings", () => {
         text_size: 14,
         chat_order: "oldest_first",
         sticky_user_messages: false,
+        max_chats_enabled: false,
+        max_chats: 5,
       },
       memory: { cmem: true },
       approval: { mode: "auto" },

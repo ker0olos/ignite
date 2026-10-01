@@ -83,6 +83,10 @@ export function AppWorkspace({
         rows,
         shown: session.session,
         conversations: chats,
+        chatLimit: {
+          enabled: settings.conversation.max_chats_enabled,
+          max: settings.conversation.max_chats,
+        },
         home,
         onDismiss: chats.dismiss,
         onHistory: (path) => command.openWith(`@${basename(path)} #convos `),

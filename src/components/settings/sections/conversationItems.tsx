@@ -7,12 +7,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { ChatOrder, Settings } from "@/lib/settings";
+import {
+  MAX_SIDEBAR_CHATS,
+  MIN_SIDEBAR_CHATS,
+  type ChatOrder,
+  type Settings,
+} from "@/lib/settings";
 
 const CHAT_ORDERS: { value: ChatOrder; label: string }[] = [
   { value: "oldest_first", label: "Oldest first (default)" },
   { value: "newest_first", label: "Newest first" },
 ];
+
+const SIDEBAR_CHAT_COUNTS = Array.from(
+  { length: MAX_SIDEBAR_CHATS - MIN_SIDEBAR_CHATS + 1 },
+  (_, i) => MIN_SIDEBAR_CHATS + i,
+).map((n) => ({ value: String(n), label: String(n) }));
 
 /** Settings rows for the conversation view. */
 export function conversationItems({
@@ -97,6 +107,60 @@ export function conversationItems({
             })
           }
         />
+      ),
+    },
+    {
+      section: "Conversation",
+      title: "Limit sidebar chats",
+      description: "Collapse each folder after a maximum number of chats.",
+      keywords: "sidebar chats folders collapse maximum limit",
+      control: (
+        <Switch
+          checked={settings.conversation.max_chats_enabled}
+          onCheckedChange={(max_chats_enabled) =>
+            onChange({
+              ...settings,
+              conversation: {
+                ...settings.conversation,
+                max_chats_enabled,
+              },
+            })
+          }
+        />
+      ),
+    },
+    {
+      section: "Conversation",
+      title: "Sidebar chats per folder",
+      description: "How many chats to show before the expand button.",
+      keywords: "sidebar chats folders collapse maximum limit count",
+      control: (
+        <Select
+          items={SIDEBAR_CHAT_COUNTS}
+          value={String(settings.conversation.max_chats)}
+          disabled={!settings.conversation.max_chats_enabled}
+          onValueChange={(value) =>
+            value &&
+            onChange({
+              ...settings,
+              conversation: {
+                ...settings.conversation,
+                max_chats: Number(value),
+              },
+            })
+          }
+        >
+          <SelectTrigger size="sm" className="w-16 text-[13px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent alignItemWithTrigger={false}>
+            {SIDEBAR_CHAT_COUNTS.map((m) => (
+              <SelectItem key={m.value} value={m.value} className="text-[13px]">
+                {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       ),
     },
   ];

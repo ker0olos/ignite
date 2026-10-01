@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { ProjectRow } from "@/components/app/ProjectRow";
 import { ConversationTagFilter } from "@/components/sidebar/ConversationTagFilter";
 import { FolderConversations } from "@/components/sidebar/FolderConversations";
@@ -19,6 +19,11 @@ export type ChildActions = {
   onClear: (tab: string) => void;
 };
 
+export type ChatLimit = {
+  enabled: boolean;
+  max: number;
+};
+
 /** What the sidebar's folder list needs from the app. */
 export type ProjectListProps = {
   childActions: ChildActions;
@@ -37,6 +42,7 @@ export type ProjectListProps = {
   /** The shown folder's shown conversation. */
   shown: string | null;
   conversations: Conversations;
+  chatLimit: ChatLimit;
   home: string;
   /** Takes a folder off the sidebar, ending its conversations. */
   onDismiss: (path: string) => void;
@@ -56,6 +62,7 @@ export function FolderList({
   rows,
   shown,
   conversations,
+  chatLimit,
   home,
   onDismiss,
   onHistory,
@@ -71,6 +78,7 @@ export function FolderList({
   rows: (cwd: string) => TaggedAgentStatus[];
   shown: string | null;
   conversations: Conversations;
+  chatLimit: ChatLimit;
   home: string;
   onDismiss: (path: string) => void;
   onHistory: (path: string) => void;
@@ -85,6 +93,10 @@ export function FolderList({
     tags: string[],
   ) => void;
 }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggle = (path: string) =>
+    setExpanded((open) => ({ ...open, [path]: !open[path] }));
+
   return (
     <div className="flex flex-col gap-1">
       <div className="mb-1 flex justify-end">
@@ -114,6 +126,10 @@ export function FolderList({
             onSetTags={(session, tags) =>
               onSetConversationTags(path, session, tags)
             }
+            expanded={!!expanded[path]}
+            max={chatLimit.max}
+            limited={chatLimit.enabled}
+            onToggle={() => toggle(path)}
           />
         </Fragment>
       ))}
