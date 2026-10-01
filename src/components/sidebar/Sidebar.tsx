@@ -1,10 +1,11 @@
 import type { ComponentProps, ReactNode } from "react";
 import { FileTree } from "@/components/files/FileTree";
-import { OpenFolderButton } from "@/components/sidebar/OpenFolderButton";
 import {
   FolderList,
   type ProjectListProps,
 } from "@/components/sidebar/FolderList";
+import { OpenFolderButton } from "@/components/sidebar/OpenFolderButton";
+import { SidebarProjectSplit } from "@/components/sidebar/SidebarProjectSplit";
 import { basename } from "@/lib/paths";
 
 /** Left column: title-bar strip beside the traffic lights, every folder, then the shown folder's files. */
@@ -15,6 +16,7 @@ export function Sidebar({
   viewSwitch,
   projectList,
   footer,
+  resizableProjectSplit,
   ...treeProps
 }: Omit<ComponentProps<typeof FileTree>, "root"> & {
   folder: string;
@@ -26,6 +28,8 @@ export function Sidebar({
   projectList: ProjectListProps;
   /** Below the files, e.g. the devices using remote access. */
   footer?: ReactNode;
+  /** Lets the user drag the conversations/files divider. */
+  resizableProjectSplit: boolean;
 }) {
   return (
     <aside className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -58,15 +62,15 @@ export function Sidebar({
           {viewSwitch}
         </div>
       )}
-      {/* Every folder's conversations stay in sight, to follow them from anywhere. */}
-      <div className="mb-2 max-h-[40%] shrink-0 overflow-y-auto border-b border-sidebar-border px-2 pb-2">
-        <FolderList folder={folder} {...projectList} />
-      </div>
-      <nav className="min-h-0 flex-1 overscroll-contain overflow-y-auto">
-        <div className="always-bounce px-2 pb-2">
-          <FileTree root={folder} {...treeProps} />
-        </div>
-      </nav>
+      <SidebarProjectSplit
+        resizable={resizableProjectSplit}
+        conversations={<FolderList folder={folder} {...projectList} />}
+        files={
+          <div className="always-bounce px-2 pb-2">
+            <FileTree root={folder} {...treeProps} />
+          </div>
+        }
+      />
       {footer}
     </aside>
   );

@@ -65,6 +65,7 @@ export function AppWorkspace({
       editor={settings.editor}
       hideGitIgnored={settings.files.hide_gitignored}
       showThinking={settings.conversation.show_thinking}
+      resizableProjectSplit={settings.conversation.resizable_sidebar_split}
       approval={approvalSetting(settings, setSettings)}
       actions={settingsButton}
       projectList={{

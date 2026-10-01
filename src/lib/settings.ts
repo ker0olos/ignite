@@ -23,11 +23,13 @@ export type Settings = {
   /**
    * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
    * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
+   * `resizable_sidebar_split`: drag-resize conversations vs files in the sidebar.
    */
   conversation: {
     show_thinking: boolean;
     ask_questions: boolean;
     text_size: number;
+    resizable_sidebar_split: boolean;
   };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
@@ -53,7 +55,12 @@ export const DEFAULT_SETTINGS: Settings = {
     word_wrap: true,
   },
   files: { hide_gitignored: true },
-  conversation: { show_thinking: false, ask_questions: true, text_size: 14 },
+  conversation: {
+    show_thinking: false,
+    ask_questions: true,
+    text_size: 14,
+    resizable_sidebar_split: false,
+  },
   memory: { cmem: true },
   approval: { mode: "auto" },
   subagents: { enabled: true, max: 2 },
@@ -85,6 +92,10 @@ const readConversation = (
     text_size: Number.isFinite(merged.text_size)
       ? clampTextSize(merged.text_size)
       : DEFAULT_SETTINGS.conversation.text_size,
+    resizable_sidebar_split:
+      typeof merged.resizable_sidebar_split === "boolean"
+        ? merged.resizable_sidebar_split
+        : DEFAULT_SETTINGS.conversation.resizable_sidebar_split,
   };
 };
 

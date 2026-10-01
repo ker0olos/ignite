@@ -70,9 +70,21 @@ describe("loadSettings", () => {
       show_thinking: true,
       ask_questions: true,
       text_size: 14,
+      resizable_sidebar_split: false,
     });
     fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
     expect((await loadSettings()).conversation.ask_questions).toBe(false);
+  });
+
+  it("reads whether the sidebar split is resizable", async () => {
+    fakeFs({ [FILE]: "[conversation]\nresizable_sidebar_split = true\n" });
+    expect((await loadSettings()).conversation.resizable_sidebar_split).toBe(
+      true,
+    );
+    fakeFs({ [FILE]: '[conversation]\nresizable_sidebar_split = "yes"\n' });
+    expect((await loadSettings()).conversation.resizable_sidebar_split).toBe(
+      false,
+    );
   });
 
   it.each([
@@ -200,7 +212,12 @@ describe("saveSettings", () => {
     theme: "github-dark",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false },
-    conversation: { show_thinking: true, ask_questions: false, text_size: 15 },
+    conversation: {
+      show_thinking: true,
+      ask_questions: false,
+      text_size: 15,
+      resizable_sidebar_split: true,
+    },
     memory: { cmem: false },
     approval: { mode: "manual" },
     subagents: { enabled: false, max: 4 },

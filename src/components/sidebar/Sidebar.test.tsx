@@ -16,7 +16,7 @@ const ROWS: Record<string, AgentStatus[]> = {
   "/work/motr": [row("/work/motr", "b", "Sentry errors")],
 };
 
-const sidebar = (folders: string[], rows = ROWS) => {
+const sidebar = (folders: string[], rows = ROWS, resizable = false) => {
   fakeFs({ "/work/ignition/a.txt": "" });
   render(
     <Sidebar
@@ -25,6 +25,7 @@ const sidebar = (folders: string[], rows = ROWS) => {
       selected={null}
       onOpenFile={vi.fn()}
       hideGitIgnored={false}
+      resizableProjectSplit={resizable}
       projectList={{
         folders,
         rows: (cwd) => rows[cwd] ?? [],
