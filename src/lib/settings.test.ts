@@ -70,6 +70,8 @@ describe("loadSettings", () => {
       show_thinking: true,
       ask_questions: true,
       text_size: 14,
+      max_chats_enabled: false,
+      max_chats: 5,
     });
     fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
     expect((await loadSettings()).conversation.ask_questions).toBe(false);
@@ -83,6 +85,21 @@ describe("loadSettings", () => {
   ])("reads text_size = %s as %d", async (value, size) => {
     fakeFs({ [FILE]: `[conversation]\ntext_size = ${value}\n` });
     expect((await loadSettings()).conversation.text_size).toBe(size);
+  });
+
+  it.each([
+    ["8", 8],
+    ["99", 20],
+    ["0", 1],
+    ['"many"', 5],
+  ])("reads max_chats = %s as %d", async (value, count) => {
+    fakeFs({ [FILE]: `[conversation]\nmax_chats = ${value}\n` });
+    expect((await loadSettings()).conversation.max_chats).toBe(count);
+  });
+
+  it("reads whether the sidebar chat limit is enabled", async () => {
+    fakeFs({ [FILE]: "[conversation]\nmax_chats_enabled = true\n" });
+    expect((await loadSettings()).conversation.max_chats_enabled).toBe(true);
   });
 
   it("reads memory settings", async () => {
@@ -200,7 +217,13 @@ describe("saveSettings", () => {
     theme: "github-dark",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false },
-    conversation: { show_thinking: true, ask_questions: false, text_size: 15 },
+    conversation: {
+      show_thinking: true,
+      ask_questions: false,
+      text_size: 15,
+      max_chats_enabled: true,
+      max_chats: 8,
+    },
     memory: { cmem: false },
     approval: { mode: "manual" },
     subagents: { enabled: false, max: 4 },

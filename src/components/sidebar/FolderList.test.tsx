@@ -36,6 +36,8 @@ function setup(
   shown: string | null = "a",
   activeTab: string | null = null,
   cleared: string[] = [],
+  chatLimit = { enabled: false, max: 5 },
+  rowMap = ROWS,
 ) {
   const conversations: Conversations = {
     show: vi.fn(),
@@ -56,9 +58,10 @@ function setup(
     <FolderList
       folder="/proj"
       folders={["/proj", "/other", "/home/me/quiet"]}
-      rows={(cwd) => ROWS[cwd] ?? []}
+      rows={(cwd) => rowMap[cwd] ?? []}
       shown={shown}
       conversations={conversations}
+      chatLimit={chatLimit}
       home="/home/me"
       onDismiss={onDismiss}
       onHistory={vi.fn()}
@@ -185,4 +188,39 @@ it("hides cleared rows once they've finished", () => {
   expect(screen.queryByText("npm run watch")).toBeNull();
   // Running again (given more work), it shows despite being cleared.
   expect(screen.getByText("agent-1")).toBeTruthy();
+});
+
+it("collapses chats past the configured maximum and expands them", () => {
+  const manyRows = {
+    "/proj": [
+      row("/proj", "a", "One"),
+      row("/proj", "b", "Two"),
+      row("/proj", "c", "Three"),
+    ],
+  };
+  setup("a", null, [], { enabled: true, max: 2 }, manyRows);
+  expect(screen.getByText("One")).toBeTruthy();
+  expect(screen.getByText("Two")).toBeTruthy();
+  expect(screen.queryByText("Three")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Show 1 more chats" }));
+  expect(screen.getByText("Three")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Show fewer chats" }));
+  expect(screen.queryByText("Three")).toBeNull();
+});
+
+it("keeps the selected chat visible when it is past the collapsed maximum", () => {
+  const manyRows = {
+    "/proj": [
+      row("/proj", "a", "One"),
+      row("/proj", "b", "Two"),
+      row("/proj", "c", "Three"),
+    ],
+  };
+  setup("c", null, [], { enabled: true, max: 1 }, manyRows);
+  expect(screen.getByText("One")).toBeTruthy();
+  expect(screen.queryByText("Two")).toBeNull();
+  expect(screen.getByText("Three")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Show 1 more chats" }),
+  ).toBeTruthy();
 });

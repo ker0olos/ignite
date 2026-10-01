@@ -166,6 +166,8 @@ describe("useSettings", () => {
         show_thinking: false,
         ask_questions: true,
         text_size: 14,
+        max_chats_enabled: false,
+        max_chats: 5,
       },
       memory: { cmem: true },
       approval: { mode: "auto" },

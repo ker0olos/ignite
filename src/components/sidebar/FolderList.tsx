@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import type { AgentStatus } from "../../../shared/hostProtocol";
 import { ProjectRow } from "@/components/app/ProjectRow";
 import { FolderConversations } from "@/components/sidebar/FolderConversations";
@@ -18,6 +18,11 @@ export type ChildActions = {
   onClear: (tab: string) => void;
 };
 
+export type ChatLimit = {
+  enabled: boolean;
+  max: number;
+};
+
 /** What the sidebar's folder list needs from the app. */
 export type ProjectListProps = {
   childActions: ChildActions;
@@ -27,6 +32,7 @@ export type ProjectListProps = {
   /** The shown folder's shown conversation. */
   shown: string | null;
   conversations: Conversations;
+  chatLimit: ChatLimit;
   home: string;
   /** Takes a folder off the sidebar, ending its conversations. */
   onDismiss: (path: string) => void;
@@ -46,6 +52,7 @@ export function FolderList({
   rows,
   shown,
   conversations,
+  chatLimit,
   home,
   onDismiss,
   onHistory,
@@ -56,11 +63,16 @@ export function FolderList({
   rows: (cwd: string) => AgentStatus[];
   shown: string | null;
   conversations: Conversations;
+  chatLimit: ChatLimit;
   home: string;
   onDismiss: (path: string) => void;
   onHistory: (path: string) => void;
   childActions: ChildActions;
 }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggle = (path: string) =>
+    setExpanded((open) => ({ ...open, [path]: !open[path] }));
+
   return (
     <div className="flex flex-col gap-1">
       {sortedByName(folders).map((path) => (
@@ -79,6 +91,10 @@ export function FolderList({
             shown={path === folder ? shown : null}
             conversations={conversations}
             childActions={childActions}
+            expanded={!!expanded[path]}
+            max={chatLimit.max}
+            limited={chatLimit.enabled}
+            onToggle={() => toggle(path)}
           />
         </Fragment>
       ))}
