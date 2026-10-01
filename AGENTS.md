@@ -150,6 +150,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts
   bashExtension.ts       pi's bash with `background: true` (dev servers, watchers), and bash_stop to end them
   backgroundBash.ts      Background commands per conversation: their logs, stopping them with what they started
+  terminal.ts            The user's terminals: a login shell in a PTY (node-pty), mirrored in a headless xterm
+  terminalExtension.ts   terminal_read, and the terminals' new output added to each run
   hostChildren.ts        Each conversation's subagents and background commands, for the sidebar
   sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
@@ -203,6 +205,8 @@ shared/agentTypes.ts     pi's messages and session events as they cross the wire
 shared/conversations.ts  Saved conversations, their details, command search hits (used by both)
 shared/skills.ts         Skills, plugins and importable skills as they cross the wire, and their requests
 shared/mcpCatalog.ts     MCP presets and other apps' servers the MCP settings offer
+shared/mcpServers.ts     MCP servers as they cross the wire (re-exported by hostProtocol.ts)
+shared/terminal.ts       The user's terminals: requests, output events, terminal_read's name
 shared/memory.ts         cmem status and observations as they cross the wire
 shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
 shared/commandSearch.ts  Ranks conversations and files for the command center (sidecar and demo)
@@ -376,6 +380,15 @@ runs `push -u origin <branch>`; other git options than `-C` are refused; a task'
 `.git/hooks`; hooks can still live in the working tree (husky), so calls that
 ran without asking run with hooks off. Bash commands that commit, push, pull,
 fetch, clone or run gh are blocked with a pointer to the tools.
+
+The user's own terminals (`sidecar/terminal.ts`) run their login shell in
+the folder (not a worktree) in a PTY, outside the sandbox: `terminal_open`
+returns an id, keystrokes go in with `terminal_input`, and output comes back
+as `terminal_data` events (`terminal_snapshot` restores a new view). Each
+also feeds a headless xterm, so agents read the rendered screen, not escape
+codes: before each run, what the folder's terminals printed since that
+conversation last looked is added as a hidden message (like Claude Code's
+`!`), and `terminal_read` reads them on demand. Agents can't type into them.
 
 Tasks (the sidebar's Tasks view) hand work to an agent that runs on its own.
 Each folder's tasks live in `~/.ignite/tasks/` (`sidecar/taskStore.ts`,
