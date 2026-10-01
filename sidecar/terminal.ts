@@ -1,18 +1,23 @@
 /** The user's terminals: a login shell in a PTY each, mirrored into a headless xterm the folder's agents read. */
-import { chmodSync } from "node:fs";
 import { userInfo } from "node:os";
-import { fileURLToPath } from "node:url";
 import xterm from "@xterm/headless";
 import serialize from "@xterm/addon-serialize";
-import { spawn, type IPty } from "node-pty";
-import type { TerminalInfo, TerminalMessage } from "../shared/terminal.ts";
+import type { IPty } from "node-pty";
+import type {
+  TerminalInfo,
+  TerminalMessage,
+  TerminalSnapshot,
+} from "../shared/terminal.ts";
 import { APP_NAME } from "../src/lib/app.ts";
+import { spawnPty, terminalEnv } from "./ptyShell.ts";
 
 type Terminal = {
   info: TerminalInfo;
   pty: IPty;
   screen: InstanceType<typeof xterm.Terminal>;
   serializer: InstanceType<typeof serialize.SerializeAddon>;
+  /** The PTY's listeners, dropped before the screen is disposed. */
+  listeners: { dispose(): void }[];
   /** Lines the shell has printed, counted by line feeds; what an agent has seen is measured against it. */
   lines: number;
 };
@@ -34,40 +39,11 @@ const SCROLLBACK = 5000;
 const UNSEEN_LINES = 200;
 const MAX_CHARS = 50_000;
 
-// ponytail: node-pty 1.1's prebuilt spawn-helper ships without its exec bit
-// ("posix_spawnp failed"); drop once a release fixes it.
-function fixSpawnHelper() {
-  if (process.platform === "win32") return;
-  const helper = new URL(
-    `../prebuilds/${process.platform}-${process.arch}/spawn-helper`,
-    import.meta.resolve("node-pty"),
-  );
-  try {
-    chmodSync(fileURLToPath(helper), 0o755);
-  } catch {
-    // Built from source instead, where it's executable.
-  }
-}
-
 function shell(): { file: string; args: string[] } {
   if (process.platform === "win32") return { file: "powershell.exe", args: [] };
   return {
     file: process.env.SHELL || userInfo().shell || "/bin/zsh",
     args: ["-l"],
-  };
-}
-
-/** The sidecar's environment minus what points pi at the app's own files. */
-function shellEnv(): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && !key.startsWith("PI_")) env[key] = value;
-  }
-  return {
-    ...env,
-    TERM: "xterm-256color",
-    COLORTERM: "truecolor",
-    TERM_PROGRAM: APP_NAME,
   };
 }
 
@@ -84,15 +60,8 @@ export function openTerminal(
   rows: number,
   send: (m: TerminalMessage) => void,
 ): TerminalInfo {
-  fixSpawnHelper();
   const { file, args } = shell();
-  const pty = spawn(file, args, {
-    name: "xterm-256color",
-    cols,
-    rows,
-    cwd,
-    env: shellEnv(),
-  });
+  const pty = spawnPty(file, args, { cwd, env: terminalEnv(), cols, rows });
   const screen = new xterm.Terminal({
     cols,
     rows,
@@ -107,20 +76,23 @@ export function openTerminal(
     pty,
     screen,
     serializer,
+    listeners: [],
     lines: 0,
   };
   // Full-screen programs (vim, less, top) redraw on the alternate screen; only shell output counts.
   screen.onLineFeed(() => {
     if (screen.buffer.active.type === "normal") t.lines++;
   });
-  pty.onData((data) => {
-    screen.write(data);
-    send({ type: "terminal_data", terminal: id, data });
-  });
-  pty.onExit(({ exitCode }) => {
-    t.info = { ...t.info, running: false, exitCode };
-    send({ type: "terminal_exit", terminal: id, exitCode });
-  });
+  t.listeners.push(
+    pty.onData((data) => {
+      screen.write(data);
+      send({ type: "terminal_data", terminal: id, data });
+    }),
+    pty.onExit(({ exitCode }) => {
+      t.info = { ...t.info, running: false, exitCode };
+      send({ type: "terminal_exit", terminal: id, exitCode });
+    }),
+  );
   registry.all.set(id, t);
   return t.info;
 }
@@ -139,6 +111,7 @@ export function resizeTerminal(id: string, cols: number, rows: number) {
 export function closeTerminal(id: string) {
   const t = registry.all.get(id);
   if (!t) return;
+  t.listeners.forEach((l) => l.dispose());
   if (t.info.running) t.pty.kill();
   t.screen.dispose();
   registry.all.delete(id);
@@ -152,9 +125,19 @@ export function terminalsIn(cwd: string): TerminalInfo[] {
     .map((t) => t.info);
 }
 
-/** A terminal's screen and scrollback as escape codes, to restore a view. */
-export function terminalSnapshot(id: string): string {
-  return find(id).serializer.serialize();
+/**
+ * A terminal's screen and scrollback as escape codes, to restore a view, and
+ * its exit once it has. It holds everything already sent as terminal_data,
+ * since the screen finishes parsing first.
+ */
+export async function terminalSnapshot(id: string): Promise<TerminalSnapshot> {
+  const t = find(id);
+  await new Promise<void>((resolve) => t.screen.write("", resolve));
+  const { running, exitCode } = t.info;
+  return {
+    screen: t.serializer.serialize(),
+    ...(!running && exitCode !== undefined && { exitCode }),
+  };
 }
 
 /** The shell's text up to the cursor, wrapped rows joined, trailing blanks dropped. */

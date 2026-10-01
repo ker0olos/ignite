@@ -70,7 +70,7 @@ describe.runIf(process.platform !== "win32")("bash extension", () => {
     const { handlers } = loaded;
     const input = { command: "sleep 30", background: true };
     handlers.get("tool_call")!({ toolName: "bash", toolCallId: "t1", input });
-    input.command = "sandboxed: sleep 30";
+    input.command = "sleep 30 # sandboxed";
     const done = run("bash", input);
     await vi.advanceTimersByTimeAsync(STARTUP_MS);
     const result = await done;

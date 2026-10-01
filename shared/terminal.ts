@@ -11,6 +11,9 @@ export type TerminalInfo = {
   exitCode?: number;
 };
 
+/** A terminal's screen and scrollback as escape codes; `exitCode` once its shell has exited. */
+export type TerminalSnapshot = { screen: string; exitCode?: number };
+
 export type TerminalRequest =
   /** Starts the user's login shell in `cwd` (the folder, not an agent's worktree). */
   | {
@@ -41,7 +44,7 @@ export type TerminalResponses = {
   terminal_resize: undefined;
   terminal_close: undefined;
   terminal_list: TerminalInfo[];
-  terminal_snapshot: string;
+  terminal_snapshot: TerminalSnapshot;
 };
 
 export type TerminalMessage =

@@ -92,18 +92,31 @@ describe("terminal", () => {
     );
     expect(() => writeTerminal(id, "echo late\r")).not.toThrow();
     expect(readTerminals("reader", cwd, 10, id)).toContain("(exited 3)");
+    expect(await terminalSnapshot(id)).toMatchObject({ exitCode: 3 });
+  });
+
+  it("snapshots everything it has sent, parsed or not", async () => {
+    const sent: TerminalMessage[] = [];
+    const id = open(sent);
+    writeTerminal(id, "echo marker-$((40+2))\r");
+    await vi.waitFor(() =>
+      expect(JSON.stringify(sent)).toContain("marker-42\\r\\n"),
+    );
+    const { screen, exitCode } = await terminalSnapshot(id);
+    expect(screen).toContain("marker-42");
+    expect(exitCode).toBeUndefined();
   });
 
   it("resizes, snapshots, and forgets a closed terminal", async () => {
     const id = open();
     resizeTerminal(id, 100, 30);
     writeTerminal(id, "printf '\\033[31mred\\033[0m\\n'\r");
-    await vi.waitFor(() =>
-      expect(terminalSnapshot(id)).toContain("\x1b[31mred"),
+    await vi.waitFor(async () =>
+      expect((await terminalSnapshot(id)).screen).toContain("\x1b[31mred"),
     );
     closeTerminal(id);
     expect(terminalsIn(cwd)).toEqual([]);
-    expect(() => terminalSnapshot(id)).toThrow(`No terminal ${id}.`);
+    await expect(terminalSnapshot(id)).rejects.toThrow(`No terminal ${id}.`);
     expect(readTerminals("reader", cwd, 10)).toBe(
       `The user has no terminal open in ${cwd}.`,
     );

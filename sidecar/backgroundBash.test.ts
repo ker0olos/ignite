@@ -78,7 +78,7 @@ describe.runIf(process.platform !== "win32")("backgroundOperations", () => {
     expect(await backgroundOutput(started!.pid, SESSION)).toEqual({
       command: started!.command,
       running: true,
-      output: "up\nlater\n",
+      output: "up\r\nlater\r\n",
       truncated: false,
     });
   });
@@ -111,6 +111,43 @@ describe.runIf(process.platform !== "win32")("backgroundOperations", () => {
     expect(alive(started!.pid)).toBe(true);
     await until(() => !started!.running);
     expect(alive(started!.pid)).toBe(false);
+  });
+
+  it("runs in a terminal: colors for the app, text for the agent", async () => {
+    const { output, started } = await start(
+      "[ -t 1 ] && printf '\\033[31mtty\\033[0m\\n'; sleep 0.5; echo later; sleep 30",
+    );
+    expect(output).toBe("tty\n");
+    await until(async () =>
+      (await readFile(started!.log, "utf8")).includes("later"),
+    );
+    expect(await readFile(started!.log, "utf8")).toBe("tty\nlater\n");
+    expect(await readFile(started!.raw, "utf8")).toBe(
+      "\x1b[31mtty\x1b[0m\r\nlater\r\n",
+    );
+  });
+
+  it("hands the agent a last line that has no newline yet", async () => {
+    const { output } = await start("printf 'ready> '; sleep 30");
+    expect(output).toBe("ready>");
+  });
+
+  it("shows the app the end of a long log from a line's start", async () => {
+    const { started } = await start(
+      "i=0; while [ $i -lt 1200 ]; do printf '\\033[32m%060d\\033[0m\\n' $i; i=$((i+1)); done; sleep 30",
+    );
+    await until(
+      async () => (await backgroundOutput(started!.pid, SESSION)).truncated,
+    );
+    const { output } = await backgroundOutput(started!.pid, SESSION);
+    expect(output.startsWith("\x1b[32m")).toBe(true);
+  });
+
+  it("never starts a command whose run was already stopped", async () => {
+    const stop = new AbortController();
+    stop.abort();
+    await expect(start("sleep 30", stop.signal)).rejects.toThrow("aborted");
+    expect(backgroundOf(SESSION)).toEqual([]);
   });
 
   it("writes each run to its own log", async () => {
@@ -157,4 +194,12 @@ describe.runIf(process.platform !== "win32")("backgroundOperations", () => {
     await expect(start("sleep 30", stop.signal)).rejects.toThrow("aborted");
     expect(backgroundOf(SESSION)).toEqual([]);
   });
+
+  it("kills one that ignores being stopped while it starts", async () => {
+    const stop = new AbortController();
+    setTimeout(() => stop.abort(), 50);
+    await expect(
+      start("trap '' TERM; sleep 30 & wait", stop.signal),
+    ).rejects.toThrow("aborted");
+  }, 10_000);
 });
