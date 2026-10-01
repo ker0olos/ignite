@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Question, QuestionAnswer } from "../../../shared/questions";
+import { QuestionActions } from "@/components/conversation/QuestionActions";
 import { QuestionCard } from "@/components/conversation/QuestionCard";
-import { Button } from "@/components/ui/button";
+import { useQuestionKeys } from "@/hooks/useQuestionKeys";
 import { type Draft, EMPTY_DRAFT, toAnswers } from "@/lib/questions";
 
 /** The agent's questions as a deck of cards, one at a time, the rest peeking out below. */
 export function QuestionPrompt({
   questions,
+  shortcuts = false,
   onAnswer,
 }: {
   questions: Question[];
+  /** Takes the keyboard (⌘↩ on, ⌘⌫ skip), and shows it: only the first waiting call does. */
+  shortcuts?: boolean;
   onAnswer: (approved: boolean, answers?: QuestionAnswer[]) => void;
 }) {
   const [drafts, setDrafts] = useState<Draft[]>(() =>
@@ -20,10 +24,15 @@ export function QuestionPrompt({
   const behind = Math.min(questions.length - 1 - step, 2);
   const change = (draft: Draft) =>
     setDrafts((all) => all.map((d, i) => (i === step ? draft : d)));
+  const next = () =>
+    last ? onAnswer(true, toAnswers(questions, drafts)) : setStep(step + 1);
+  const skip = () => onAnswer(false);
+  const card = useRef<HTMLDivElement>(null);
+  const onKeyDown = useQuestionKeys(card, shortcuts, step, next, skip);
 
   if (!questions[step]) return null;
   return (
-    <div className="text-[13px]">
+    <div ref={card} className="text-[13px]" onKeyDown={onKeyDown}>
       <QuestionCard
         key={step}
         question={questions[step]}
@@ -31,39 +40,16 @@ export function QuestionPrompt({
           questions.length > 1 ? `${step + 1}/${questions.length}` : undefined
         }
         draft={drafts[step] ?? EMPTY_DRAFT}
+        shortcuts={shortcuts}
         onChange={change}
       >
-        <div className="flex gap-1.5 pt-1">
-          {step > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setStep(step - 1)}
-            >
-              Back
-            </Button>
-          )}
-          {last ? (
-            <Button
-              size="sm"
-              onClick={() => onAnswer(true, toAnswers(questions, drafts))}
-            >
-              Send answers
-            </Button>
-          ) : (
-            <Button size="sm" onClick={() => setStep(step + 1)}>
-              Next
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto"
-            onClick={() => onAnswer(false)}
-          >
-            Let the agent decide
-          </Button>
-        </div>
+        <QuestionActions
+          last={last}
+          shortcuts={shortcuts}
+          onBack={step > 0 ? () => setStep(step - 1) : undefined}
+          onNext={next}
+          onSkip={skip}
+        />
       </QuestionCard>
       {behind > 0 && (
         <div

@@ -59,3 +59,20 @@ export function toAnswers(
     return { question, choices };
   });
 }
+
+/** The key shown on option `i` while option `focused` has focus: Space picks it, ↑/↓ reach its neighbours. */
+export function optionHint(i: number, focused: number | null) {
+  if (focused === null) return undefined;
+  return ["↑", "Space", "↓"][i - focused + 1];
+}
+
+/** Whether a key press types a character (Space picks, so it doesn't count). */
+export function typesText(e: {
+  key: string;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  altKey: boolean;
+}) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return false;
+  return e.key.length === 1 && e.key !== " ";
+}

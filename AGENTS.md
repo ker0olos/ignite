@@ -53,6 +53,7 @@ src/                     React frontend (almost all logic lives here)
     useDetailsCache.ts   Session details fetched once each, for the command center preview
     useOpenFile.ts       Opens a file in any folder, switching to it first
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
+    useQuestionKeys.ts   The agent's questions from the keyboard: ↑/↓ between answers, ⌘N own answer, ⌘↩ on, ⌘⌫ skip
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useSkills.ts         The app's skills and plugins, and other apps' to import, while Settings is open
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open

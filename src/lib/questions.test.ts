@@ -3,10 +3,12 @@ import {
   type Draft,
   EMPTY_DRAFT,
   OTHER,
+  optionHint,
   readQuestions,
   setNote,
   toAnswers,
   toggle,
+  typesText,
   typeOther,
 } from "./questions";
 
@@ -95,5 +97,36 @@ describe("toAnswers", () => {
       { question: "Where?", choices: [] },
       { question: "How?", choices: [] },
     ]);
+  });
+});
+
+describe("optionHint", () => {
+  it("puts Space on the focused option and arrows on its neighbours", () => {
+    expect([0, 1, 2, 3].map((i) => optionHint(i, 1))).toEqual([
+      "↑",
+      "Space",
+      "↓",
+      undefined,
+    ]);
+    expect(optionHint(0, null)).toBeUndefined();
+  });
+});
+
+describe("typesText", () => {
+  const key = (key: string, mods = {}) => ({
+    key,
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    ...mods,
+  });
+  it("counts characters, not Space, named keys or shortcuts", () => {
+    expect(typesText(key("a"))).toBe(true);
+    expect(typesText(key("A"))).toBe(true);
+    expect(typesText(key(" "))).toBe(false);
+    expect(typesText(key("Enter"))).toBe(false);
+    expect(typesText(key("a", { metaKey: true }))).toBe(false);
+    expect(typesText(key("a", { ctrlKey: true }))).toBe(false);
+    expect(typesText(key("a", { altKey: true }))).toBe(false);
   });
 });
