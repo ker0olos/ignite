@@ -15,6 +15,14 @@ describe("splitGit", () => {
     });
   });
 
+  it("reads each -C relative to the one before, as git does", () => {
+    expect(splitGit(["-C", "sub", "-C", "pkg", "commit"]).dir).toBe("sub/pkg");
+    expect(splitGit(["-C", "sub", "-C", "/abs", "commit"]).dir).toBe("/abs");
+    expect(splitGit(["-C", "sub", "-C", "C:\\abs", "commit"]).dir).toBe(
+      "C:\\abs",
+    );
+  });
+
   it("has no subcommand for options alone", () => {
     expect(splitGit(["--version"]).command).toBeUndefined();
   });
