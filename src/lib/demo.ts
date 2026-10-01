@@ -62,6 +62,7 @@ export function shownRows(
         running: !!c.running,
         waiting: !!c.approvals?.length,
         ...(review && { review }),
+        ...c.children,
       };
     });
   return (cwd) => all.filter((a) => a.cwd === cwd);

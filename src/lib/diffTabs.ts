@@ -1,4 +1,6 @@
+import type { LucideIcon } from "lucide-react";
 import type { GitChange, GitReview } from "../../shared/git";
+import { childTabLabel, readChildTab } from "@/lib/childTabs";
 import { basename } from "@/lib/paths";
 
 /** A file's diff at some range, opened as a tab alongside file paths. */
@@ -49,7 +51,7 @@ function relativeTo(path: string, folder: string): string {
     : path;
 }
 
-/** How a tab strip shows one tab: a file path, or a diff at some range. */
+/** How a tab strip shows one tab: a file path, a diff at some range, or a conversation's subagent or background command. */
 export function tabLabel(
   tab: string,
   folder: string,
@@ -57,9 +59,13 @@ export function tabLabel(
   name: string;
   detail?: string;
   iconPath: string;
+  /** Instead of the file icon `iconPath` picks. */
+  icon?: LucideIcon;
   title: string;
   status?: GitChange["status"];
 } {
+  const child = readChildTab(tab);
+  if (child) return { ...childTabLabel(child), iconPath: "" };
   const diff = readDiffTab(tab);
   if (!diff) {
     return {

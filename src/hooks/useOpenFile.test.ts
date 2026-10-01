@@ -7,7 +7,7 @@ describe("useOpenFile", () => {
     const openTab = vi.fn();
     const select = vi.fn();
     const { result } = renderHook(() => useOpenFile("/work", openTab, select));
-    act(() => result.current("/work", "src/a.ts"));
+    act(() => result.current("/work", "/work/src/a.ts"));
     expect(openTab).toHaveBeenCalledWith("/work/src/a.ts");
     expect(select).not.toHaveBeenCalled();
   });
@@ -19,7 +19,7 @@ describe("useOpenFile", () => {
       ({ current }) => useOpenFile(current, openTab, select),
       { initialProps: { current: "/work" } },
     );
-    act(() => result.current("/other", "src/b.ts"));
+    act(() => result.current("/other", "/other/src/b.ts"));
     expect(select).toHaveBeenCalledWith("/other");
     expect(openTab).not.toHaveBeenCalled();
 
@@ -35,7 +35,7 @@ describe("useOpenFile", () => {
       ({ current }) => useOpenFile(current, openTab, select),
       { initialProps: { current: "/work" } },
     );
-    act(() => result.current("/other", "src/b.ts"));
+    act(() => result.current("/other", "/other/src/b.ts"));
     rerender({ current: "/other" });
     expect(openTab).toHaveBeenCalledTimes(1);
     rerender({ current: "/third" });
@@ -51,7 +51,7 @@ describe("useOpenFile", () => {
       ({ current }) => useOpenFile(current, openTab, select),
       { initialProps: initial },
     );
-    act(() => result.current("/other", "src/b.ts"));
+    act(() => result.current("/other", "/other/src/b.ts"));
     expect(select).toHaveBeenCalledWith("/other");
     rerender({ current: null });
     expect(openTab).not.toHaveBeenCalled();

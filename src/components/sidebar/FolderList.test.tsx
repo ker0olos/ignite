@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import type { AgentStatus } from "../../../shared/hostProtocol";
 import type { Conversations } from "@/hooks/useConversations";
+import { childTabId } from "@/lib/childTabs";
 import { FolderList } from "./FolderList";
 
 const row = (cwd: string, session: string, title: string, running = false) => ({
@@ -13,10 +14,29 @@ const row = (cwd: string, session: string, title: string, running = false) => ({
 });
 const ROWS: Record<string, AgentStatus[]> = {
   "/proj": [row("/proj", "a", "Fix bug"), row("/proj", "b", "", true)],
-  "/other": [row("/other", "c", "Other work")],
+  "/other": [
+    {
+      ...row("/other", "c", "Other work", true),
+      subagents: [{ id: "agent-1", model: "haiku", running: true }],
+      background: [
+        { pid: 42, command: "npm run dev", running: true },
+        { pid: 7, command: "npm run watch", running: false },
+      ],
+    },
+  ],
 };
+const AGENT_TAB = childTabId({
+  kind: "agent",
+  session: "c",
+  id: "agent-1",
+  model: "haiku",
+});
 
-function setup(shown: string | null = "a") {
+function setup(
+  shown: string | null = "a",
+  activeTab: string | null = null,
+  cleared: string[] = [],
+) {
   const conversations: Conversations = {
     show: vi.fn(),
     create: vi.fn(),
@@ -25,6 +45,13 @@ function setup(shown: string | null = "a") {
     details: vi.fn(async () => null),
   };
   const onDismiss = vi.fn();
+  const childActions = {
+    activeTab,
+    onOpenTab: vi.fn(),
+    onStopBackground: vi.fn(),
+    cleared,
+    onClear: vi.fn(),
+  };
   render(
     <FolderList
       folder="/proj"
@@ -35,9 +62,10 @@ function setup(shown: string | null = "a") {
       home="/home/me"
       onDismiss={onDismiss}
       onHistory={vi.fn()}
+      childActions={childActions}
     />,
   );
-  return { conversations, onDismiss };
+  return { conversations, onDismiss, childActions };
 }
 
 const selected = () =>
@@ -103,4 +131,58 @@ it("takes a folder off the sidebar from its × button", () => {
   );
   expect(onDismiss).toHaveBeenCalledWith("/other");
   expect(conversations.create).not.toHaveBeenCalled();
+});
+
+it("lists a conversation's subagents and background commands under it, opening each", () => {
+  const { childActions } = setup();
+  const text = document.body.textContent ?? "";
+  const at = [
+    "Other work",
+    "agent-1",
+    "npm run dev",
+    "npm run watch",
+    "proj",
+  ].map((s) => text.indexOf(s));
+  expect([...at].sort((x, y) => x - y)).toEqual(at);
+  fireEvent.click(screen.getByText("agent-1"));
+  expect(childActions.onOpenTab).toHaveBeenCalledWith("/other", "c", AGENT_TAB);
+});
+
+it("stops a running background command, not one that ended", () => {
+  const { childActions } = setup();
+  fireEvent.click(screen.getByRole("button", { name: "Stop npm run dev" }));
+  expect(childActions.onStopBackground).toHaveBeenCalledWith("c", 42);
+  expect(
+    screen.queryByRole("button", { name: "Stop npm run watch" }),
+  ).toBeNull();
+  expect(screen.queryByRole("button", { name: "Stop agent-1" })).toBeNull();
+});
+
+it("selects the row whose tab is active", () => {
+  setup("a", AGENT_TAB);
+  expect(selected()).toEqual(["agent-1haiku", "Fix bug"]);
+});
+
+const WATCH_TAB = childTabId({
+  kind: "background",
+  session: "c",
+  pid: 7,
+  command: "npm run watch",
+});
+
+it("clears a finished row, not a running one", () => {
+  const { childActions } = setup();
+  fireEvent.click(screen.getByRole("button", { name: "Clear npm run watch" }));
+  expect(childActions.onClear).toHaveBeenCalledWith(WATCH_TAB);
+  expect(
+    screen.queryByRole("button", { name: "Clear npm run dev" }),
+  ).toBeNull();
+  expect(screen.queryByRole("button", { name: "Clear agent-1" })).toBeNull();
+});
+
+it("hides cleared rows once they've finished", () => {
+  setup("a", null, [WATCH_TAB, AGENT_TAB]);
+  expect(screen.queryByText("npm run watch")).toBeNull();
+  // Running again (given more work), it shows despite being cleared.
+  expect(screen.getByText("agent-1")).toBeTruthy();
 });

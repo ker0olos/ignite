@@ -4,9 +4,11 @@
  */
 import type { AgentMessage, ToolCall } from "../../shared/agentTypes";
 import type { SessionDetails } from "../../shared/conversations";
+import type { ChildRuns } from "../../shared/agentStatus";
 import type { ApprovalRequest, OpenedSession } from "../../shared/hostProtocol";
 import { darkModeMessages, DARK_MODE_DIFFS } from "./demoDarkMode";
 import { DEMO_QUESTION_MESSAGES, DEMO_QUESTIONS } from "./demoQuestions";
+import { checkConversation } from "./demoSubagents";
 import { DEMO_TASK_ADD, DEMO_TASK_ADD_MESSAGES } from "./demoTaskAdd";
 import {
   RELOAD_EDIT,
@@ -32,8 +34,12 @@ export type DemoConversation = {
   approvals?: ApprovalRequest[];
   /** A tool call still running, which history alone can't show. */
   working?: ToolCall;
+  /** The running call's latest details, as its live updates carry them. */
+  progress?: unknown;
   /** Messages sent while it works, not yet read. */
   queue?: OpenedSession["queue"];
+  /** Its subagents and background commands, as the sidebar lists them. */
+  children?: ChildRuns;
 };
 
 const HOUR = 3_600_000;
@@ -150,6 +156,7 @@ function openConversations(
       approvals: [{ toolCallId: DEMO_QUESTIONS.id }],
       details: { ...claude, files: [], toolCalls: 3, cost: 0.12 },
     },
+    checkConversation(pantry, now),
   ];
 }
 

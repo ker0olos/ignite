@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { AgentMessage } from "../../shared/agentTypes";
 import type { SubagentDetails } from "../../shared/subagents";
-import { subagentRows } from "./subagentRows";
-import type { ToolRun } from "./transcript";
+import { runState, subagentConversation, subagentRows } from "./subagentRows";
+import type { ToolRun, Transcript } from "./transcript";
 
 const details = (
   messages: AgentMessage[],
@@ -51,11 +51,15 @@ describe("subagentRows", () => {
     const parentTools: Record<string, ToolRun> = {
       "nested-1": { status: "running", approval: { reason: "risky" } },
     };
-    const { tools } = subagentRows(details(messages, true), parentTools);
+    const { tools, waiting } = subagentRows(
+      details(messages, true),
+      parentTools,
+    );
     expect(tools["nested-1"]).toEqual({
       status: "running",
       approval: { reason: "risky" },
     });
+    expect(waiting).toBe(true);
   });
 
   it("lets a nested finished result win over the parent's stale running entry", () => {
@@ -82,10 +86,88 @@ describe("subagentRows", () => {
     const parentTools: Record<string, ToolRun> = {
       "nested-1": { status: "running", approval: { reason: "risky" } },
     };
-    const { tools } = subagentRows(details(messages, false), parentTools);
+    const { tools, waiting } = subagentRows(
+      details(messages, false),
+      parentTools,
+    );
+    expect(waiting).toBe(false);
     expect(tools["nested-1"]).toEqual({
       status: "done",
       result: { content: [{ type: "text", text: "ok" }] },
     });
+  });
+});
+
+describe("subagentConversation", () => {
+  const say = (text: string): AgentMessage => ({
+    role: "user",
+    content: text,
+    timestamp: 0,
+  });
+  const calls = (...ids: string[]): Transcript["items"] => [
+    {
+      kind: "message",
+      message: {
+        role: "assistant",
+        content: ids.map((id) => ({
+          type: "toolCall" as const,
+          id,
+          name: id === "b1" ? "bash" : "subagent",
+          arguments: {},
+        })),
+        provider: "anthropic",
+        model: "claude-opus",
+        stopReason: "toolUse",
+        timestamp: 0,
+      },
+    },
+    { kind: "notice", text: "retrying" },
+  ];
+  const run = (d: SubagentDetails): ToolRun => ({
+    status: d.running ? "running" : "done",
+    result: { content: [], details: d },
+  });
+
+  it("joins a subagent's calls in order, running while its latest runs", () => {
+    const transcript: Transcript = {
+      items: calls("c1", "b1", "c2", "c3"),
+      tools: {
+        c1: run(details([say("first")])),
+        b1: { status: "done", result: { content: [], details: {} } },
+        c2: run({ ...details([say("other")]), id: "agent-2" }),
+        c3: run(details([say("second")], true)),
+      },
+      running: true,
+    };
+    expect(subagentConversation(transcript, "agent-1")).toEqual(
+      details([say("first"), say("second")], true),
+    );
+  });
+
+  it("is null until one of its calls reports it", () => {
+    const transcript: Transcript = {
+      items: calls("c1"),
+      tools: { c1: { status: "running" } },
+      running: true,
+    };
+    expect(subagentConversation(transcript, "agent-1")).toBeNull();
+  });
+});
+
+describe("runState", () => {
+  const call: AgentMessage = {
+    role: "assistant",
+    content: [{ type: "toolCall", id: "n1", name: "bash", arguments: {} }],
+    provider: "anthropic",
+    model: "claude-haiku",
+    stopReason: "toolUse",
+    timestamp: 0,
+  };
+
+  it("is finished once it stops, working while it runs, waiting on an approval", () => {
+    expect(runState(details([call]), {})).toBe("finished");
+    expect(runState(details([call], true), {})).toBe("working");
+    const asking = { n1: { status: "running" as const, approval: {} } };
+    expect(runState(details([call], true), asking)).toBe("waiting");
   });
 });

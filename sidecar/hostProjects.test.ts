@@ -6,6 +6,7 @@ import type { Agent, HostContext } from "./hostTypes.ts";
 const agent = (running: boolean, waiting: boolean, ...requests: object[]) =>
   ({
     running,
+    subagents: new Map(),
     approvals: new Map(
       (waiting && !requests.length ? [{ toolCallId: "t1" }] : requests).map(
         (request, i) => [`t${i}`, { request }],
@@ -37,6 +38,16 @@ describe("pushProjects", () => {
     }).message.agents;
     expect(withPr.review).toEqual(pr);
     expect(without).not.toHaveProperty("review");
+  });
+
+  it("lists a conversation's subagents once it has some", () => {
+    const helper = { id: "agent-1", model: "haiku", running: true };
+    const a = agent(true, false);
+    a.subagents.set(helper.id, helper);
+    const [listed, plain] = pushed({ a, b: agent(true, false) }).message.agents;
+    expect(listed.subagents).toEqual([helper]);
+    expect(plain).not.toHaveProperty("subagents");
+    expect(plain).not.toHaveProperty("background");
   });
 
   it("keeps the Mac awake only while some agent works, not while it waits", () => {

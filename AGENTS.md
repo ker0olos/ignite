@@ -30,6 +30,7 @@ src/                     React frontend (almost all logic lives here)
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
     skills/              Skill and plugin rows, import UI from other apps
     providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos
+    children/            Tabs for what runs under a conversation: a subagent's conversation, a background command's output
     tasks/               Tasks view: the checklist, rows that open in place with their status card,
                          the new-task sheet (notes, images, subtasks, model and effort)
   hooks/
@@ -51,7 +52,9 @@ src/                     React frontend (almost all logic lives here)
     useCommandCenter.ts  ⌘K / Ctrl+K opens the command center, optionally with a query
     useCommandSearch.ts  The command center's results: debounced command_search, folders, @/# suggestions
     useDetailsCache.ts   Session details fetched once each, for the command center preview
-    useOpenFile.ts       Opens a file in any folder, switching to it first
+    useOpenFile.ts       Opens a tab (file, diff, subagent…) in any folder, switching to it first
+    useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
+    useClearedChildren.ts  Finished subagents and background commands cleared from the sidebar
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useQuestionKeys.ts   The agent's questions from the keyboard: ↑/↓ between answers, ⌘N own answer, ⌘↩ on, ⌘⌫ skip
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
@@ -145,6 +148,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
   bashParser.ts          Parses bash (tree-sitter) into pipelines for the approval rules
   sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts
+  bashExtension.ts       pi's bash with `background: true` (dev servers, watchers), and bash_stop to end them
+  backgroundBash.ts      Background commands per conversation: their logs, stopping them with what they started
+  hostChildren.ts        Each conversation's subagents and background commands, for the sidebar
   sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
   hostMcpCatalog.ts      MCP presets and imports (toServerName, target, mcpCatalog, addPreset, importServers)
@@ -334,6 +340,24 @@ pipeline's real words and redirects, including code run by `bash -c`,
 aren't mistaken for commands. A line that doesn't parse is checked as raw
 text. The denylist is a guard against mistakes; the sandbox is the boundary,
 and it covers bash only (file tools and MCP servers run unsandboxed).
+
+`bash` takes `background: true` for commands that don't exit (`npm run
+dev`, watchers): `sidecar/bashExtension.ts` overrides pi's bash tool, so
+approval and the sandbox treat it like any command. It returns after 5
+seconds with the output so far, the pid and a log file in the temp folder;
+`bash_stop` ends it with everything it started (the sandbox only lets a
+process signal its own sandbox), killing it if it hasn't exited after 3
+seconds. The sandbox doesn't let commands listen on ports or reach local
+services (the user's Chrome, the remote access server), so a dev server
+fails there and asks to run outside. A conversation's background commands
+end with it (not on a reload) and with the sidecar, on a signal too.
+
+The sidebar lists each conversation's subagents and background commands
+under it (`AgentStatus` in `shared/agentStatus.ts`, pushed on change).
+Each opens as a tab beside the files (`lib/childTabs.ts`): a subagent's
+whole conversation, rebuilt from its calls in the shown conversation, or a
+command's output, read again each second while it runs. Finished rows can
+be cleared; which were is kept in the window's localStorage.
 
 The `git` and `gh` tools (`sidecar/gitExtension.ts`) run git and the GitHub
 CLI outside the sandbox with the user's credentials, from an argument list

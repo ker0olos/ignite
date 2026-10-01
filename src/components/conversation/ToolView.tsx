@@ -1,4 +1,5 @@
 import {
+  BASH_STOP_TOOL,
   IMAGE_TOOL,
   type TextContent,
   type ToolCall,
@@ -43,7 +44,13 @@ const TOOL_TITLES: Record<string, string> = {
   [SUBAGENT_TOOL]: "Agent",
   [IMAGE_TOOL]: "Image",
   [TASK_ADD_TOOL]: "Add tasks",
+  [BASH_STOP_TOOL]: "Stop",
 };
+
+function toolTitle(call: ToolCall) {
+  if (call.name === "bash" && call.arguments.background) return "Background";
+  return TOOL_TITLES[call.name] ?? call.name;
+}
 
 function pathArg(call: ToolCall, folder: string) {
   return relativePath(String(call.arguments.path ?? ""), folder);
@@ -84,6 +91,7 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   [SUBAGENT_TOOL]: subagentArg,
   [IMAGE_TOOL]: pathArg,
   [TASK_ADD_TOOL]: (call) => String(readProposed(call.arguments).length),
+  [BASH_STOP_TOOL]: (call) => String(call.arguments.pid ?? ""),
 };
 
 function toolArg(call: ToolCall, folder: string) {
@@ -110,7 +118,7 @@ export function ToolView({
           mcp ? (
             <McpCallLabel call={mcp} failed={run?.status === "error"} />
           ) : (
-            (TOOL_TITLES[call.name] ?? call.name)
+            toolTitle(call)
           )
         }
         arg={mcp ? "" : toolArg(call, folder)}

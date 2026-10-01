@@ -57,7 +57,10 @@ describe("shownRows", () => {
       ["tempo-reload", true, false],
       ["tempo-bugs", true, true],
     ]);
-    expect(rows(PANTRY)).toMatchObject([{ session: "pantry", waiting: true }]);
+    expect(rows(PANTRY)).toMatchObject([
+      { session: "pantry", waiting: true },
+      { session: "pantry-check", running: true, waiting: false },
+    ]);
   });
 });
 
@@ -106,6 +109,25 @@ describe("the demo host", () => {
     });
     await new Promise((r) => setTimeout(r, 5));
     expect(heard).toHaveBeenCalledOnce();
+  });
+
+  it("plays a running subagent's progress after its start", async () => {
+    const host = createDemoHost(TEMPO, 0);
+    const { heard } = listen(host);
+    await host.request({
+      type: "open_session",
+      cwd: PANTRY,
+      session: "pantry-check",
+    });
+    await vi.waitFor(() => expect(heard).toHaveBeenCalledTimes(2));
+    expect(heard.mock.calls.map(([m]) => m.event.type)).toEqual([
+      "tool_execution_start",
+      "tool_execution_update",
+    ]);
+    expect(heard.mock.calls[1][0].event.partialResult.details).toMatchObject({
+      id: "agent-2",
+      running: true,
+    });
   });
 
   it("answers a message with the scripted reply, streamed", async () => {

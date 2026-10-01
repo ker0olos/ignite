@@ -33,6 +33,12 @@ import { setTrust } from "./hostTrust.ts";
 import { stop, unqueue } from "./hostQueue.ts";
 import { appUpdate, appVersion } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
+import {
+  backgroundOutput,
+  onBackgroundChange,
+  stopBackground,
+} from "./backgroundBash.ts";
+import { pushProjects } from "./hostProjects.ts";
 import { describeSession } from "./describeSession.ts";
 import { listFiles } from "./fileIndex.ts";
 import { createSearch } from "./search.ts";
@@ -130,6 +136,8 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   },
   set_trust: (ctx, r) => setTrust(ctx, r.cwd, r.trusted),
   git_diff: (_ctx, r) => fileDiff(r.repo, r.range, r.path),
+  background_output: (_ctx, r) => backgroundOutput(r.pid, r.session),
+  background_stop: (_ctx, r) => stopBackground(r.pid, r.session),
   tasks_list: (ctx, r) => ctx.tasks.list(r.cwd),
   task_save: (ctx, r) => ctx.tasks.save(r.cwd, r.task),
   task_edit: (ctx, r) => ctx.tasks.edit(r.cwd, r.taskId, r.patch),
@@ -224,5 +232,10 @@ export function createHost(
     }
   }
 
-  return { handle, shutdown: () => closeAll(ctx) };
+  const unwatch = onBackgroundChange(() => pushProjects(ctx));
+  const shutdown = async () => {
+    unwatch();
+    await closeAll(ctx);
+  };
+  return { handle, shutdown };
 }

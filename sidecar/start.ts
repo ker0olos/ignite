@@ -164,6 +164,7 @@ async function openSession(
       worktreeExtension,
       chromeExtension,
       imageExtension,
+      sibling("./bashExtension.ts"),
       taskExtension,
       approvalExtension,
     ],

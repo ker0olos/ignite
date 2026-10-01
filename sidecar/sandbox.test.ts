@@ -303,6 +303,23 @@ describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
     }
   }, 30_000);
 
+  // Local services (the user's Chrome over CDP, the remote access server) stay out of reach.
+  it("blocks listening on a port and reaching local services", async () => {
+    const local = createServer((c) =>
+      c.end("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"),
+    );
+    await new Promise<void>((resolve) => local.listen(0, "127.0.0.1", resolve));
+    try {
+      const { port } = local.address() as { port: number };
+      const curl = `curl -sS --max-time 5 http://127.0.0.1:${port}/`;
+      expect((await run(curl, "reach-local")).ok).toBe(false);
+      const listen = `node -e "require('net').createServer().listen(0, '127.0.0.1', () => process.exit(0))"`;
+      expect((await run(listen, "listen")).ok).toBe(false);
+    } finally {
+      local.close();
+    }
+  }, 20_000);
+
   it("blocks reading credentials", async () => {
     const { ok, out } = await run(`cat ${home}/.ssh/id_test`, "read");
     expect(ok).toBe(false);

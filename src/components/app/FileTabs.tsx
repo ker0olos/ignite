@@ -4,7 +4,7 @@ import { tabLabel } from "@/lib/diffTabs";
 import { fileIcon } from "@/lib/fileIcons";
 import { cn } from "@/lib/utils";
 
-/** The editor pane's tab strip: one tab per open file. */
+/** The editor pane's tab strip: one tab per open file, diff, subagent or background command. */
 export function FileTabs({
   files,
   active,
@@ -40,7 +40,7 @@ export function FileTabs({
               onClick={() => onSelect(path)}
               className="flex items-center gap-1.5"
             >
-              {createElement(fileIcon(label.iconPath), {
+              {createElement(label.icon ?? fileIcon(label.iconPath), {
                 className: "size-3.5",
               })}
               {label.name}

@@ -5,6 +5,11 @@
  * the AbortSignals that can't cross a process boundary.
  */
 import type { AgentMessage, ImageContent, SessionEvent } from "./agentTypes.ts";
+import type {
+  AgentStatus,
+  ChildRequest,
+  ChildResponses,
+} from "./agentStatus.ts";
 import type { QueueKind, QueuedMessage, Unqueue } from "./queue.ts";
 import type { GitReview } from "./git.ts";
 import type { MemoryStatus } from "./memory.ts";
@@ -129,19 +134,6 @@ export type OpenedSession = SessionState & {
   approvals: ApprovalRequest[];
   /** Messages sent mid-run, not yet delivered. */
   queue: { steering: string[]; followUp: string[] };
-};
-
-/** One of a folder's open conversations, which may be working while another is shown. */
-export type AgentStatus = {
-  cwd: string;
-  session: string;
-  /** The first line of its first message; empty until it has one. */
-  title: string;
-  running: boolean;
-  /** A tool call waits for the user. */
-  waiting: boolean;
-  /** The pull request waiting for the user's review, if one is. */
-  review?: ApprovalRequest;
 };
 
 /** How to reach an MCP server: a local command (stdio) or a URL (HTTP). */
@@ -287,6 +279,7 @@ export type HostRequest =
   | { id: number; type: "memory_changed" }
   /** Saves the folder's trust; trusting it reloads the session. */
   | { id: number; type: "set_trust"; cwd: string; trusted: boolean }
+  | ChildRequest
   /** One file's diff in a review's range (see GitReview). */
   | { id: number; type: "git_diff"; repo: string; range: string; path: string }
   | TaskRequest
@@ -307,9 +300,12 @@ export type HostRequest =
       always?: boolean;
     };
 
+export type { AgentStatus };
+
 /** What each request resolves to. */
 export type HostResponses = SkillResponses &
-  TaskResponses & {
+  TaskResponses &
+  ChildResponses & {
     status: ProviderStatus[];
     login: ProviderStatus;
     cancel_login: undefined;
