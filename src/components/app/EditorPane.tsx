@@ -7,6 +7,7 @@ import type { useTabs } from "@/hooks/useTabs";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { readChildTab } from "@/lib/childTabs";
 import { readDiffTab } from "@/lib/diffTabs";
+import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
 
 /** Open file, diff, subagent and background tabs, and the active one's view. */
@@ -17,6 +18,7 @@ export function EditorPane({
   codeThemes,
   editor,
   session,
+  host,
 }: {
   folder: string;
   tabs: ReturnType<typeof useTabs>;
@@ -24,6 +26,8 @@ export function EditorPane({
   codeThemes: CodeThemes;
   editor: Settings["editor"];
   session: ReturnType<typeof useAgentSession>;
+  /** The sidecar, whether or not a conversation shows. */
+  host: HostClient | null;
 }) {
   const diffTab = readDiffTab(active);
   const childTab = readChildTab(active);
@@ -40,7 +44,7 @@ export function EditorPane({
         <ChildView
           key={active}
           tab={childTab}
-          {...{ folder, session, editor, codeThemes }}
+          {...{ folder, session, host, editor, codeThemes }}
         />
       ) : diffTab ? (
         <DiffView

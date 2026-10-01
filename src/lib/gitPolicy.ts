@@ -20,13 +20,19 @@ function outside(args: string[], place: Place): string | null {
 // git's global options that take the next word as their value.
 const GLOBAL_WITH_VALUE = new Set(["-C", "-c", "--git-dir", "--work-tree"]);
 
+// Each -C is relative to the one before it, as git reads them.
+const underDir = (dir: string | undefined, next: string) =>
+  dir === undefined || /^([a-zA-Z]:)?[\\/]/.test(next)
+    ? next
+    : `${dir}/${next}`;
+
 /** git's global options, subcommand and its arguments, and the folder `-C` points it at. */
 export function splitGit(args: string[]) {
   let dir: string | undefined;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (GLOBAL_WITH_VALUE.has(arg)) {
-      if (arg === "-C") dir = args[i + 1];
+      if (arg === "-C") dir = underDir(dir, args[i + 1]);
       i++;
     } else if (!arg.startsWith("-")) {
       const globals = args.slice(0, i);

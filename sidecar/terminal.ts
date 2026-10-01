@@ -1,0 +1,212 @@
+/** The user's terminals: a login shell in a PTY each, mirrored into a headless xterm the folder's agents read. */
+import { userInfo } from "node:os";
+import xterm from "@xterm/headless";
+import serialize from "@xterm/addon-serialize";
+import type { IPty } from "node-pty";
+import type {
+  TerminalInfo,
+  TerminalMessage,
+  TerminalSnapshot,
+} from "../shared/terminal.ts";
+import { APP_NAME } from "../src/lib/app.ts";
+import { spawnPty, terminalEnv } from "./ptyShell.ts";
+
+type Terminal = {
+  info: TerminalInfo;
+  pty: IPty;
+  screen: InstanceType<typeof xterm.Terminal>;
+  serializer: InstanceType<typeof serialize.SerializeAddon>;
+  /** The PTY's listeners, dropped before the screen is disposed. */
+  listeners: { dispose(): void }[];
+  /** Lines the shell has printed, counted by line feeds; what an agent has seen is measured against it. */
+  lines: number;
+};
+
+type Registry = {
+  all: Map<string, Terminal>;
+  next: number;
+  /** Per conversation, per terminal: `lines` when it last saw it. */
+  seen: Map<string, Map<string, number>>;
+};
+
+// On globalThis: extensions load afresh per session, and read the same terminals.
+const shared = globalThis as { [key: symbol]: Registry };
+const KEY = Symbol.for(`${APP_NAME}.terminals`);
+const registry = (shared[KEY] ??= { all: new Map(), next: 1, seen: new Map() });
+
+const SCROLLBACK = 5000;
+/** The most an agent is handed of one terminal unasked, before its next run. */
+const UNSEEN_LINES = 200;
+const MAX_CHARS = 50_000;
+
+function shell(): { file: string; args: string[] } {
+  if (process.platform === "win32") return { file: "powershell.exe", args: [] };
+  return {
+    file: process.env.SHELL || userInfo().shell || "/bin/zsh",
+    args: ["-l"],
+  };
+}
+
+function find(id: string): Terminal {
+  const found = registry.all.get(id);
+  if (!found) throw new Error(`No terminal ${id}.`);
+  return found;
+}
+
+/** Starts the user's shell in `cwd`; its output and exit go to `send`. */
+export function openTerminal(
+  cwd: string,
+  cols: number,
+  rows: number,
+  send: (m: TerminalMessage) => void,
+): TerminalInfo {
+  const { file, args } = shell();
+  const pty = spawnPty(file, args, { cwd, env: terminalEnv(), cols, rows });
+  const screen = new xterm.Terminal({
+    cols,
+    rows,
+    scrollback: SCROLLBACK,
+    allowProposedApi: true,
+  });
+  const serializer = new serialize.SerializeAddon();
+  screen.loadAddon(serializer);
+  const id = `t${registry.next++}`;
+  const t: Terminal = {
+    info: { terminal: id, cwd, running: true },
+    pty,
+    screen,
+    serializer,
+    listeners: [],
+    lines: 0,
+  };
+  // Full-screen programs (vim, less, top) redraw on the alternate screen; only shell output counts.
+  screen.onLineFeed(() => {
+    if (screen.buffer.active.type === "normal") t.lines++;
+  });
+  t.listeners.push(
+    pty.onData((data) => {
+      screen.write(data);
+      send({ type: "terminal_data", terminal: id, data });
+    }),
+    pty.onExit(({ exitCode }) => {
+      t.info = { ...t.info, running: false, exitCode };
+      send({ type: "terminal_exit", terminal: id, exitCode });
+    }),
+  );
+  registry.all.set(id, t);
+  return t.info;
+}
+
+export function writeTerminal(id: string, data: string) {
+  const t = find(id);
+  if (t.info.running) t.pty.write(data);
+}
+
+export function resizeTerminal(id: string, cols: number, rows: number) {
+  const t = find(id);
+  if (t.info.running) t.pty.resize(cols, rows);
+  t.screen.resize(cols, rows);
+}
+
+export function closeTerminal(id: string) {
+  const t = registry.all.get(id);
+  if (!t) return;
+  t.listeners.forEach((l) => l.dispose());
+  if (t.info.running) t.pty.kill();
+  t.screen.dispose();
+  registry.all.delete(id);
+  for (const seen of registry.seen.values()) seen.delete(id);
+}
+
+/** The folder's terminals, oldest first. */
+export function terminalsIn(cwd: string): TerminalInfo[] {
+  return [...registry.all.values()]
+    .filter((t) => t.info.cwd === cwd)
+    .map((t) => t.info);
+}
+
+/**
+ * A terminal's screen and scrollback as escape codes, to restore a view, and
+ * its exit once it has. It holds everything already sent as terminal_data,
+ * since the screen finishes parsing first.
+ */
+export async function terminalSnapshot(id: string): Promise<TerminalSnapshot> {
+  const t = find(id);
+  await new Promise<void>((resolve) => t.screen.write("", resolve));
+  const { running, exitCode } = t.info;
+  return {
+    screen: t.serializer.serialize(),
+    ...(!running && exitCode !== undefined && { exitCode }),
+  };
+}
+
+/** The shell's text up to the cursor, wrapped rows joined, trailing blanks dropped. */
+function screenLines(id: string): string[] {
+  const buffer = find(id).screen.buffer.normal;
+  const lines: string[] = [];
+  const end = buffer.baseY + buffer.cursorY;
+  for (let row = 0; row <= end; row++) {
+    const line = buffer.getLine(row);
+    if (!line) continue;
+    const text = line.translateToString(true);
+    if (line.isWrapped && lines.length) lines[lines.length - 1] += text;
+    else lines.push(text);
+  }
+  while (lines.length && !lines.at(-1)!.trim()) lines.pop();
+  return lines;
+}
+
+const header = (info: TerminalInfo) =>
+  `Terminal ${info.terminal} in ${info.cwd}` +
+  (info.running ? "" : ` (exited ${info.exitCode})`);
+
+function tail(lines: string[], count: number): string {
+  const text = lines.slice(-count).join("\n");
+  return text.length > MAX_CHARS ? `…${text.slice(-MAX_CHARS)}` : text;
+}
+
+function markSeen(session: string, id: string) {
+  const seen = registry.seen.get(session) ?? new Map<string, number>();
+  seen.set(id, find(id).lines);
+  registry.seen.set(session, seen);
+}
+
+/** The end of the folder's terminals (or one of them), as an agent reads it; marks them seen. */
+export function readTerminals(
+  session: string,
+  cwd: string,
+  lines: number,
+  only?: string,
+): string {
+  const picked = terminalsIn(cwd).filter((t) => !only || t.terminal === only);
+  if (!picked.length) {
+    return only
+      ? `No terminal ${only} in ${cwd}.`
+      : `The user has no terminal open in ${cwd}.`;
+  }
+  return picked
+    .map((info) => {
+      markSeen(session, info.terminal);
+      return `${header(info)}:\n${tail(screenLines(info.terminal), lines)}`;
+    })
+    .join("\n\n");
+}
+
+/** What the folder's terminals printed since `session` last saw them, or null; marks them seen. */
+export function unseenTerminals(session: string, cwd: string): string | null {
+  const seen = registry.seen.get(session);
+  const parts: string[] = [];
+  for (const info of terminalsIn(cwd)) {
+    const t = find(info.terminal);
+    const fresh = t.lines - (seen?.get(info.terminal) ?? 0);
+    if (fresh <= 0) continue;
+    // +1 for the line the cursor is on: the prompt, or a command still running.
+    const text = tail(
+      screenLines(info.terminal),
+      Math.min(fresh, UNSEEN_LINES) + 1,
+    );
+    markSeen(session, info.terminal);
+    if (text.trim()) parts.push(`${header(info)}:\n${text}`);
+  }
+  return parts.length ? parts.join("\n\n") : null;
+}

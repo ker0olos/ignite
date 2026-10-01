@@ -38,6 +38,17 @@ describe("child tab ids", () => {
     ).toBeNull();
   });
 
+  it("round-trip a terminal and label it", () => {
+    const term: ChildTab = { kind: "terminal", session: "s", terminal: "t1" };
+    expect(readChildTab(childTabId(term))).toEqual(term);
+    expect(readChildTab('child:{"kind":"terminal","session":"s"}')).toBeNull();
+    expect(tabLabel(childTabId(term), "/work")).toMatchObject({
+      name: "Terminal",
+      detail: "t1",
+      icon: SquareTerminal,
+    });
+  });
+
   it("label a tab by its subagent or command", () => {
     expect(tabLabel(childTabId(agent), "/work")).toMatchObject({
       name: "agent-1",

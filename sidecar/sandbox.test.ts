@@ -26,6 +26,7 @@ import {
   sandboxConfig,
   type Sandbox,
 } from "./sandbox.ts";
+import { startShell } from "./ptyBash.ts";
 import { allowAlways, allowedFile, type AllowRule } from "./sandboxAllow.ts";
 import { createWorkspaces } from "./worktrees.ts";
 
@@ -334,4 +335,23 @@ describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
     expect(ok).toBe(false);
     expect(blockedSummary(out)).toContain("example.com");
   }, 20_000);
+
+  it("runs a background command's terminal as it would outside", async () => {
+    const wrapped = await sandbox.wrap(
+      "[ -t 1 ] && echo tty; node -p process.stdout.columns",
+      cwd,
+      "pty",
+    );
+    let output = "";
+    const { done } = startShell(
+      wrapped,
+      cwd,
+      process.env,
+      (t) => (output += t),
+    );
+    expect({ exitCode: (await done).exitCode, output }).toEqual({
+      exitCode: 0,
+      output: "tty\n120\n",
+    });
+  });
 });
