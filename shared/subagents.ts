@@ -30,3 +30,13 @@ export function readSubagent(details: unknown): SubagentDetails | undefined {
     ? (d as SubagentDetails)
     : undefined;
 }
+
+/** A new subagent's id, past every one in `taken`: the conversation's saved calls' and its running ones. */
+export function nextSubagentId(taken: Iterable<string>): string {
+  let highest = 0;
+  for (const id of taken) {
+    const n = Number(/^agent-(\d+)$/.exec(id)?.[1] ?? 0);
+    highest = Math.max(highest, n);
+  }
+  return `agent-${highest + 1}`;
+}

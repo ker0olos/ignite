@@ -9,6 +9,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentMessage } from "../shared/agentTypes.ts";
+import { nextSubagentId } from "../shared/subagents.ts";
 import subagents, {
   SUBAGENT_EVENT,
   allowedEfforts,
@@ -101,7 +102,12 @@ function fakeSession(answers: AgentMessage[]) {
 
 type Handler = (event: object, ctx?: object) => Promise<unknown>;
 
-function load({ level = "high", own = MODELS[0], host = true } = {}) {
+function load({
+  level = "high",
+  own = MODELS[0],
+  host = true,
+  saved = [] as object[],
+} = {}) {
   const events = createEventBus();
   const handlers = new Map<string, Handler>();
   let active = ["read"];
@@ -128,6 +134,7 @@ function load({ level = "high", own = MODELS[0], host = true } = {}) {
   const ctx = {
     model: own,
     modelRegistry: { getAvailable: () => MODELS, getAll: () => CATALOG },
+    sessionManager: { getEntries: () => saved },
   };
   const run = (params: object, signal?: AbortSignal, onUpdate?: never) =>
     tool!.execute("t1", params as never, signal, onUpdate, ctx as never);
@@ -164,6 +171,41 @@ describe("before_agent_start", () => {
   it("drops the tool without a lower effort or another model", async () => {
     expect(await load({ level: "off" }).start()).toBeUndefined();
     expect(await load({ own: MODELS[2] }).start()).toBeUndefined();
+  });
+});
+
+describe("subagent ids", () => {
+  it("continue past the ids the conversation's saved calls used", async () => {
+    const savedCall = (id: string) => ({
+      type: "message",
+      message: {
+        role: "toolResult",
+        toolName: "subagent",
+        details: {
+          id,
+          model: "haiku",
+          effort: "low",
+          messages: [],
+          running: false,
+        },
+      },
+    });
+    const { run } = load({
+      saved: [savedCall("agent-1"), savedCall("agent-2"), { type: "label" }],
+    });
+    const done = (await run({
+      message: "Go",
+      model: "gpt-mini",
+      effort: "low",
+    })) as {
+      details: { id: string };
+    };
+    expect(done.details.id).toBe("agent-3");
+  });
+
+  it("number from the highest one taken, ignoring others", () => {
+    expect(nextSubagentId([])).toBe("agent-1");
+    expect(nextSubagentId(["agent-2", "agent-10", "helper"])).toBe("agent-11");
   });
 });
 

@@ -6,6 +6,7 @@ import { RemoteDevices } from "@/components/remote/RemoteDevices";
 import type { Section } from "@/components/settings/sections";
 import { SignInBanner } from "@/components/sidebar/SignInBanner";
 import type { useAgentSession } from "@/hooks/useAgentSession";
+import { useClearedChildren } from "@/hooks/useClearedChildren";
 import type { useCommandCenter } from "@/hooks/useCommandCenter";
 import type { Conversations } from "@/hooks/useConversations";
 import type { useMcpServers } from "@/hooks/useMcpServers";
@@ -34,6 +35,7 @@ export function AppWorkspace({
   openFolder,
   openSettings,
   host,
+  openIn,
 }: {
   folder: string;
   tabs: ReturnType<typeof useTabs>;
@@ -51,7 +53,10 @@ export function AppWorkspace({
   openFolder: () => void;
   openSettings: (section?: Section) => void;
   host: HostClient | null;
+  /** Opens a tab in any folder, selecting it first. */
+  openIn: (folder: string, tab: string) => void;
 }) {
+  const cleared = useClearedChildren();
   return (
     <Workspace
       folder={folder}
@@ -71,6 +76,22 @@ export function AppWorkspace({
         onDismiss: chats.dismiss,
         onHistory: (path) => command.openWith(`@${basename(path)} #convos `),
         onOpenFolder: openFolder,
+        childActions: {
+          activeTab: tabs.active,
+          onOpenTab: (cwd, shown, tab) => {
+            chats.show(cwd, shown);
+            openIn(cwd, tab);
+          },
+          cleared: cleared.cleared,
+          onClear: (tab) => {
+            cleared.clear(tab);
+            tabs.close(tab);
+          },
+          onStopBackground: (shown, pid) =>
+            void host
+              ?.request({ type: "background_stop", session: shown, pid })
+              .catch(() => {}),
+        },
       }}
       banner={
         <SignInBanner

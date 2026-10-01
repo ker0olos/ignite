@@ -1,4 +1,5 @@
 import type { AgentMessage, UserMessage } from "../shared/agentTypes.ts";
+import { childrenOf } from "./hostChildren.ts";
 import type { HostContext } from "./hostTypes.ts";
 
 const TITLE_LENGTH = 80;
@@ -32,6 +33,7 @@ export function pushProjects(ctx: HostContext) {
       running: a.running,
       waiting: a.approvals.size > 0,
       ...(review && { review }),
+      ...childrenOf(a),
     };
   });
   ctx.send({ type: "agents", agents });

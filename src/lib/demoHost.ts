@@ -25,6 +25,7 @@ import {
   demoConversations,
   type DemoConversation,
 } from "./demoConversations";
+import { DEV_OUTPUT } from "./demoSubagents";
 import { demoTasks, tasksAnswers } from "./demoTasks";
 import { assistant } from "./demoTranscript";
 import { basename } from "./paths";
@@ -167,6 +168,15 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
           toolName: call.name,
           args: call.arguments,
         },
+        ...(c.progress === undefined
+          ? []
+          : [
+              {
+                type: "tool_execution_update" as const,
+                toolCallId: call.id,
+                partialResult: { content: [], details: c.progress },
+              },
+            ]),
       ]);
     }
     return opened(id, c);
@@ -185,6 +195,9 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
     set_thinking_level: () => DEMO_STATE,
     command_search: search,
     git_diff: (r: { path: string }) => DEMO_GIT_DIFFS[r.path] ?? "",
+    background_output: () => DEV_OUTPUT,
+    // Nothing runs in the demo, so there's nothing to stop.
+    background_stop: () => false,
     prompt: (r: { text: string; session?: string }) =>
       r.session && reply(r.session, r.text),
     ...tasksAnswers(demoTasks(tempo)),

@@ -5,8 +5,22 @@ import { FolderConversations } from "@/components/sidebar/FolderConversations";
 import type { Conversations } from "@/hooks/useConversations";
 import { sortedByName } from "@/lib/paths";
 
+/** Opening and stopping what runs under a conversation. */
+export type ChildActions = {
+  /** The shown folder's active tab. */
+  activeTab: string | null;
+  /** Shows conversation `session` of `cwd` and opens `tab` beside it. */
+  onOpenTab: (cwd: string, session: string, tab: string) => void;
+  onStopBackground: (session: string, pid: number) => void;
+  /** Tab ids of finished rows the user cleared. */
+  cleared: string[];
+  /** Takes a finished row off the sidebar, closing its tab. */
+  onClear: (tab: string) => void;
+};
+
 /** What the sidebar's folder list needs from the app. */
 export type ProjectListProps = {
+  childActions: ChildActions;
   folders: string[];
   /** A folder's listed conversations, in the order they were opened. */
   rows: (cwd: string) => AgentStatus[];
@@ -35,6 +49,7 @@ export function FolderList({
   home,
   onDismiss,
   onHistory,
+  childActions,
 }: {
   folder: string;
   folders: string[];
@@ -44,6 +59,7 @@ export function FolderList({
   home: string;
   onDismiss: (path: string) => void;
   onHistory: (path: string) => void;
+  childActions: ChildActions;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -62,6 +78,7 @@ export function FolderList({
             rows={rows(path)}
             shown={path === folder ? shown : null}
             conversations={conversations}
+            childActions={childActions}
           />
         </Fragment>
       ))}

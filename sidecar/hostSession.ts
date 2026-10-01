@@ -19,6 +19,7 @@ import type { ApprovalAsk } from "./approvalExtension.ts";
 import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
 import { askApproval, denyAll } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
+import { followSubagents, subagentsIn } from "./hostChildren.ts";
 import { firstTitle, pushProjects, titleOf } from "./hostProjects.ts";
 import { resume } from "./hostResume.ts";
 import { delivered, rememberImages } from "./queuedImages.ts";
@@ -140,6 +141,7 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
     reloadWhenSettled: false,
     approvals: new Map(),
     queuedImages: new Map(),
+    subagents: new Map(),
   } as Omit<Agent, "opening"> as Agent;
   const live = () => ctx.agents.get(id) === agent;
   // Status can arrive while the session is still opening; it's kept, and
@@ -163,6 +165,7 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
       agent.session = s;
       agent.running = s.isStreaming;
       agent.title = firstTitle(s.messages);
+      agent.subagents = subagentsIn(s.messages);
       pushProjects(ctx);
       agent.unsubscribe = s.subscribe((event) => follow(ctx, agent, event));
       return s;
@@ -200,10 +203,11 @@ function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
       event: toWireEvent(event),
     });
   }
+  const subagentsChanged = followSubagents(agent, event);
   if (event.type === "agent_start" || event.type === "agent_settled") {
     agent.running = event.type === "agent_start";
     pushProjects(ctx);
-  }
+  } else if (subagentsChanged) pushProjects(ctx);
   if (event.type === "message_start") delivered(agent, event.message);
   // The first message names the conversation; pi stores it only afterwards.
   const first = event.type === "message_start" && !agent.title;

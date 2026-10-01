@@ -42,6 +42,12 @@ vi.mock("./sandbox.ts", async (actual) => ({
 beforeEach(() => {
   fake.violation = "";
 });
+// Running in the background is bashExtension.test.ts's to check.
+vi.mock("./bashExtension.ts", () => ({
+  runBackground: async (_id: string, input: { command: string }) => ({
+    content: [{ type: "text", text: `in the background: ${input.command}` }],
+  }),
+}));
 
 let home: string;
 let cwd: string;
@@ -118,7 +124,7 @@ function load() {
       { cwd, signal },
     );
   };
-  const result = (text: string, isError: boolean) =>
+  const result = (text: string, isError: boolean, details?: object) =>
     handlers.get("tool_result")!(
       {
         type: "tool_result",
@@ -126,6 +132,7 @@ function load() {
         toolName: "bash",
         input,
         content: [{ type: "text", text }],
+        details,
         isError,
       },
       { cwd },
@@ -254,6 +261,25 @@ describe("the sandbox in Auto", () => {
     // The next run is sandboxed again.
     await call("bash", { command: "echo outside" });
     expect(input().command).toBe("sandboxed echo outside");
+  });
+
+  it("runs a blocked background command outside, still in the background", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "npm run dev", background: true });
+    const outcome = result("Operation not permitted", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    asks[0].answer(true);
+    expect(((await outcome) as Outcome).content[0].text).toBe(
+      "in the background: npm run dev",
+    );
+  });
+
+  it("never asks to start a second copy of one left running", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "npm run dev", background: true });
+    const running = { background: { pid: 1 } };
+    expect(await result("permission denied", false, running)).toBeUndefined();
+    expect(asks).toEqual([]);
   });
 
   it("reports a command that fails outside the sandbox too", async () => {

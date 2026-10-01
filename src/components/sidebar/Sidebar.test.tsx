@@ -39,6 +39,13 @@ const sidebar = (folders: string[], rows = ROWS) => {
         home: "/home/me",
         onDismiss: vi.fn(),
         onHistory: vi.fn(),
+        childActions: {
+          activeTab: null,
+          onOpenTab: vi.fn(),
+          onStopBackground: vi.fn(),
+          cleared: [],
+          onClear: vi.fn(),
+        },
         onOpenFolder: vi.fn(),
       }}
     />,

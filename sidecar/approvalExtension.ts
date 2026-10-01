@@ -23,6 +23,7 @@ import { ASK_TOOL, type QuestionAnswer } from "../shared/questions.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { approvalFor, resolvePath } from "../src/lib/approvalPolicy.ts";
+import { runBackground } from "./bashExtension.ts";
 import { loadBashParser } from "./bashParser.ts";
 import {
   blockedAction,
@@ -124,6 +125,10 @@ async function runOutside(
   ctx: ExtensionContext,
 ) {
   try {
+    if (input.background) {
+      const done = await runBackground(toolCallId, input as never, ctx);
+      return { ...done, isError: false };
+    }
     const bash = createBashTool(ctx.cwd);
     const done = await bash.execute(toolCallId, input as never, ctx.signal);
     return { content: done.content, details: done.details, isError: false };
@@ -235,6 +240,10 @@ export default function approval(pi: ExtensionAPI) {
     // A command that succeeded wasn't stopped, whatever else macOS logged,
     // unless its output says something was refused.
     if (!event.isError && !mayBeBlocked(text)) return;
+    // Left running, so asking would start a second copy.
+    if ((event.details as { background?: unknown } | undefined)?.background) {
+      return;
+    }
     const explained = await box.explain(event.toolCallId, text);
     const what = blockedSummary(explained) ?? refusedLine(text);
     if (!what) return;

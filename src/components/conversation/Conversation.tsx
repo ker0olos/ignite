@@ -61,7 +61,7 @@ export function Conversation({
           ),
         )}
         {transcript.running && !lastIsStreamingText && (
-          <RunIndicator waiting={waiting !== null} />
+          <RunIndicator state={waiting === null ? "working" : "waiting"} />
         )}
       </div>
     </FirstApprovalContext.Provider>

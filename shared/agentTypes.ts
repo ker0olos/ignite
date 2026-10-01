@@ -49,6 +49,9 @@ export type ToolResult = {
 /** The tool the agent shows the user an image file with; the image is in `details.image`. */
 export const IMAGE_TOOL = "show_image";
 
+/** The tool that ends a bash command left running in the background. */
+export const BASH_STOP_TOOL = "bash_stop";
+
 /** A result's images: its own, and show_image's (kept out of the model's context). */
 export function resultImages(result: ToolResult | undefined): ImageContent[] {
   if (!result) return [];

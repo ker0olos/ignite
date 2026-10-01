@@ -1,13 +1,15 @@
 import { FileTabs } from "@/components/app/FileTabs";
+import { ChildView } from "@/components/children/ChildView";
 import { DiffView } from "@/components/files/DiffView";
 import { FileView } from "@/components/files/FileView";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useTabs } from "@/hooks/useTabs";
 import type { CodeThemes } from "@/lib/codeThemes";
+import { readChildTab } from "@/lib/childTabs";
 import { readDiffTab } from "@/lib/diffTabs";
 import type { Settings } from "@/lib/settings";
 
-/** Open file and diff tabs, and the active one's view. */
+/** Open file, diff, subagent and background tabs, and the active one's view. */
 export function EditorPane({
   folder,
   tabs,
@@ -24,6 +26,7 @@ export function EditorPane({
   session: ReturnType<typeof useAgentSession>;
 }) {
   const diffTab = readDiffTab(active);
+  const childTab = readChildTab(active);
   return (
     <div className="flex h-full min-w-0 flex-col">
       <FileTabs
@@ -33,7 +36,13 @@ export function EditorPane({
         onSelect={tabs.activate}
         onClose={tabs.close}
       />
-      {diffTab ? (
+      {childTab ? (
+        <ChildView
+          key={active}
+          tab={childTab}
+          {...{ folder, session, editor, codeThemes }}
+        />
+      ) : diffTab ? (
         <DiffView
           key={active}
           tab={diffTab}

@@ -52,7 +52,9 @@ export default function App() {
     forget: list.forget,
   });
   const tabs = useTabs(current);
-  const openFile = useOpenFile(current, tabs.open, addFolder);
+  const openIn = useOpenFile(current, tabs.open, addFolder);
+  const openFile = (folder: string, path: string) =>
+    openIn(folder, `${folder}/${path}`);
   const command = useCommandCenter();
   const rows = shownRows(list.rows);
   const dragging = useFolderDrop(addFolder);
@@ -99,6 +101,7 @@ export default function App() {
           {...{ tabs, settings, setSettings, settingsButton, rows, session }}
           {...{ chats, home, command, mcp, remote, openFolder, openSettings }}
           host={host}
+          openIn={openIn}
         />
       ) : (
         <WelcomeScreen

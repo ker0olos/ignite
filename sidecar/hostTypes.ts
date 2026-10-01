@@ -6,6 +6,7 @@ import type {
   AuthPromptData,
   HostMessage,
 } from "../shared/hostProtocol.ts";
+import type { SubagentStatus } from "../shared/agentStatus.ts";
 import type { SavedSession, SessionDetails } from "../shared/conversations.ts";
 import type {
   AgentMessage,
@@ -172,6 +173,8 @@ export type Agent = {
    * oldest first, as pi delivers and removes the first match.
    */
   queuedImages: Map<string, ImageContent[][]>;
+  /** Subagents it started, by id, as its tool calls report them. */
+  subagents: Map<string, SubagentStatus>;
 };
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };

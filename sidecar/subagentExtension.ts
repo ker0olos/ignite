@@ -18,6 +18,8 @@ import { Type } from "typebox";
 import type { AgentMessage, AssistantMessage } from "../shared/agentTypes.ts";
 import {
   EFFORTS,
+  nextSubagentId,
+  readSubagent,
   SUBAGENT_TOOL,
   type SubagentDetails,
 } from "../shared/subagents.ts";
@@ -120,6 +122,14 @@ type Agent = Omit<SubagentDetails, "messages" | "running"> & {
   opening: Promise<AgentSession>;
 };
 
+// A reload starts `agents` empty, but the saved calls keep their ids.
+const savedIds = (ctx: ExtensionContext) =>
+  ctx.sessionManager.getEntries().flatMap((e) => {
+    const m = e.type === "message" ? e.message : undefined;
+    const id = m?.role === "toolResult" && readSubagent(m.details)?.id;
+    return id ? [id] : [];
+  });
+
 const replyOf = (messages: AgentMessage[]) => {
   const last = messages.findLast((m) => m.role === "assistant") as
     AssistantMessage | undefined;
@@ -214,7 +224,7 @@ export default function subagents(pi: ExtensionAPI) {
       );
     }
     const { model, effort } = pick(params, ctx, pi.getThinkingLevel());
-    const id = `agent-${agents.size + 1}`;
+    const id = nextSubagentId([...agents.keys(), ...savedIds(ctx)]);
     // Taken before any await, so parallel calls can't pass the cap together.
     const agent = { id, model: model.id, effort, opening: open(model, effort) };
     agents.set(id, agent);

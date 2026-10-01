@@ -23,6 +23,9 @@ export type ToolRun = {
   review?: GitReview;
 };
 
+/** Where a run stands: the agent at work, waiting for the user to answer a call, or done. */
+export type RunState = "working" | "waiting" | "finished";
+
 export type Transcript = {
   items: Item[];
   tools: Record<string, ToolRun>;
