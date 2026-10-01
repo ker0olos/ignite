@@ -17,11 +17,13 @@ export function Conversation({
   editor,
   codeThemes,
   showThinking,
+  stickyUserMessages,
   scrollRef,
   onApprove,
 }: {
   transcript: Transcript;
   showThinking: boolean;
+  stickyUserMessages: boolean;
   folder: string;
   editor: Editor;
   codeThemes: CodeThemes;
@@ -55,6 +57,7 @@ export function Conversation({
                 folder={folder}
                 editor={editor}
                 codeThemes={codeThemes}
+                stickyUserMessages={stickyUserMessages}
                 onApprove={onApprove}
               />
             </RowBoundary>

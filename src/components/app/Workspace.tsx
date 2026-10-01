@@ -31,6 +31,7 @@ export function Workspace({
   editor,
   hideGitIgnored,
   showThinking,
+  stickyUserMessages,
   approval,
   actions,
   projectList,
@@ -45,6 +46,7 @@ export function Workspace({
   editor: Settings["editor"];
   hideGitIgnored: boolean;
   showThinking: boolean;
+  stickyUserMessages: boolean;
   approval: Approval;
   actions: ReactNode;
   projectList: ProjectListProps;
@@ -100,6 +102,7 @@ export function Workspace({
         codeThemes={codeThemes}
         editor={editor}
         showThinking={showThinking}
+        stickyUserMessages={stickyUserMessages}
         approval={approval}
       />
     );

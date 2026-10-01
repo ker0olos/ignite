@@ -70,9 +70,12 @@ describe("loadSettings", () => {
       show_thinking: true,
       ask_questions: true,
       text_size: 14,
+      sticky_user_messages: false,
     });
     fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
     expect((await loadSettings()).conversation.ask_questions).toBe(false);
+    fakeFs({ [FILE]: "[conversation]\nsticky_user_messages = true\n" });
+    expect((await loadSettings()).conversation.sticky_user_messages).toBe(true);
   });
 
   it.each([
@@ -200,7 +203,12 @@ describe("saveSettings", () => {
     theme: "github-dark",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false },
-    conversation: { show_thinking: true, ask_questions: false, text_size: 15 },
+    conversation: {
+      show_thinking: true,
+      ask_questions: false,
+      text_size: 15,
+      sticky_user_messages: true,
+    },
     memory: { cmem: false },
     approval: { mode: "manual" },
     subagents: { enabled: false, max: 4 },

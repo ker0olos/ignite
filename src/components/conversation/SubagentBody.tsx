@@ -33,6 +33,7 @@ export function SubagentBody({
             folder={folder}
             editor={editor}
             codeThemes={codeThemes}
+            stickyUserMessages={false}
             onApprove={onApprove}
           />
         </RowBoundary>

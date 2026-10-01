@@ -166,6 +166,7 @@ describe("useSettings", () => {
         show_thinking: false,
         ask_questions: true,
         text_size: 14,
+        sticky_user_messages: false,
       },
       memory: { cmem: true },
       approval: { mode: "auto" },

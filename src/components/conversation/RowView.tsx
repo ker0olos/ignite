@@ -16,6 +16,7 @@ export function RowView({
   folder,
   editor,
   codeThemes,
+  stickyUserMessages,
   onApprove,
 }: {
   row: Row;
@@ -23,6 +24,7 @@ export function RowView({
   folder: string;
   editor: Editor;
   codeThemes: CodeThemes;
+  stickyUserMessages: boolean;
   onApprove: ToolProps["onApprove"];
 }) {
   switch (row.kind) {
@@ -38,7 +40,16 @@ export function RowView({
         </p>
       );
     case "user":
-      return <UserBubble message={row.message} />;
+      return (
+        <div
+          className={cn(
+            stickyUserMessages &&
+              "sticky top-0 z-10 -mx-4 bg-background px-4 py-2",
+          )}
+        >
+          <UserBubble message={row.message} />
+        </div>
+      );
     case "text":
       return (
         <AssistantText

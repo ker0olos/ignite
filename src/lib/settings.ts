@@ -23,11 +23,13 @@ export type Settings = {
   /**
    * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
    * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
+   * `sticky_user_messages`: user messages pin to the top while their replies scroll.
    */
   conversation: {
     show_thinking: boolean;
     ask_questions: boolean;
     text_size: number;
+    sticky_user_messages: boolean;
   };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
@@ -53,7 +55,12 @@ export const DEFAULT_SETTINGS: Settings = {
     word_wrap: true,
   },
   files: { hide_gitignored: true },
-  conversation: { show_thinking: false, ask_questions: true, text_size: 14 },
+  conversation: {
+    show_thinking: false,
+    ask_questions: true,
+    text_size: 14,
+    sticky_user_messages: false,
+  },
   memory: { cmem: true },
   approval: { mode: "auto" },
   subagents: { enabled: true, max: 2 },
