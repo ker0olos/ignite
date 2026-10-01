@@ -43,6 +43,7 @@ export function RowView({
       return (
         <AssistantText
           text={row.text}
+          folder={folder}
           editor={editor}
           codeThemes={codeThemes}
         />
