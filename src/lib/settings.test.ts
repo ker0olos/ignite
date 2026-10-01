@@ -71,9 +71,12 @@ describe("loadSettings", () => {
       ask_questions: true,
       text_size: 14,
       chat_order: "oldest_first",
+      sticky_user_messages: false,
     });
     fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
     expect((await loadSettings()).conversation.ask_questions).toBe(false);
+    fakeFs({ [FILE]: "[conversation]\nsticky_user_messages = true\n" });
+    expect((await loadSettings()).conversation.sticky_user_messages).toBe(true);
   });
 
   it("reads chat order settings", async () => {
@@ -216,6 +219,7 @@ describe("saveSettings", () => {
       ask_questions: false,
       text_size: 15,
       chat_order: "newest_first",
+      sticky_user_messages: true,
     },
     memory: { cmem: false },
     approval: { mode: "manual" },

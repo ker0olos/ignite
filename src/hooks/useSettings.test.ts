@@ -167,6 +167,7 @@ describe("useSettings", () => {
         ask_questions: true,
         text_size: 14,
         chat_order: "oldest_first",
+        sticky_user_messages: false,
       },
       memory: { cmem: true },
       approval: { mode: "auto" },

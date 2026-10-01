@@ -24,12 +24,14 @@ export type Settings = {
    * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
    * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
    * `chat_order`: sidebar conversation order within a folder.
+   * `sticky_user_messages`: user messages pin to the top while their replies scroll.
    */
   conversation: {
     show_thinking: boolean;
     ask_questions: boolean;
     text_size: number;
     chat_order: ChatOrder;
+    sticky_user_messages: boolean;
   };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
@@ -62,6 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
     ask_questions: true,
     text_size: 14,
     chat_order: "oldest_first",
+    sticky_user_messages: false,
   },
   memory: { cmem: true },
   approval: { mode: "auto" },
