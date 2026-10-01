@@ -170,7 +170,7 @@ describe("useSettings", () => {
       memory: { cmem: true },
       approval: { mode: "auto" },
       subagents: { enabled: true, max: 2 },
-      power: { keep_awake: true },
+      power: { keep_awake: true, keep_screen_awake: false },
       chrome: { enabled: true, disabled_tools: [] },
       remote: { enabled: false, port: 4280 },
     };
