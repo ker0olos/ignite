@@ -1,8 +1,7 @@
 /**
- * Chrome over the DevTools protocol: the user's own when it allows remote
- * debugging (chrome://inspect's toggle, or --remote-debugging-port=9222),
- * otherwise a Chrome the app starts with its own profile. Tasks always use
- * the app's.
+ * Chrome over the DevTools protocol: a headless Chrome the app starts with its
+ * own profile, or, when asked for, the user's own once it allows remote
+ * debugging (chrome://inspect's toggle, or --remote-debugging-port=9222).
  */
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -13,6 +12,9 @@ import { APP_NAME } from "../src/lib/app.ts";
 const USER_PORT = 9222;
 // Its own port, so it never hides the user's Chrome once they allow debugging.
 const OWN_PORT = 9333;
+
+export const NO_USER_CHROME =
+  "The user's Chrome doesn't allow remote debugging. Ask them to open Chrome, turn on the toggle at chrome://inspect/#remote-debugging, then try again.";
 
 /** A CDP target, as Target.getTargets lists it. */
 export type Tab = {
@@ -43,15 +45,15 @@ const OWN_KEY = Symbol.for(`${APP_NAME}.chrome.own`);
 const shared = globalThis as { [key: symbol]: Promise<Cdp> | undefined };
 
 /**
- * The shared connection, opened (or Chrome started) on first use. `ownOnly`
- * never touches the user's Chrome: always the one the app starts.
+ * The shared connection, opened (or Chrome started) on first use: the app's
+ * own Chrome, or the user's with `user`.
  */
-export function chrome(ownOnly = false): Promise<Cdp> {
-  const key = ownOnly ? OWN_KEY : KEY;
+export function chrome(user = false): Promise<Cdp> {
+  const key = user ? KEY : OWN_KEY;
   const current = shared[key];
   const live = current?.then((cdp) => !cdp.closed).catch(() => false);
   const next = (live ?? Promise.resolve(false)).then((ok) =>
-    ok ? current! : attachOrLaunch(ownOnly),
+    ok ? current! : user ? attachUser() : attachOwn(),
   );
   shared[key] = next;
   return next;
@@ -76,9 +78,13 @@ export async function endpointOn(port: number): Promise<string | null> {
   }
 }
 
-async function attachOrLaunch(ownOnly: boolean): Promise<Cdp> {
-  const user = ownOnly ? null : await endpointOn(USER_PORT);
-  if (user) return open(user, false);
+async function attachUser(): Promise<Cdp> {
+  const url = await endpointOn(USER_PORT);
+  if (!url) throw new Error(NO_USER_CHROME);
+  return open(url, false);
+}
+
+async function attachOwn(): Promise<Cdp> {
   return open((await endpointOn(OWN_PORT)) ?? (await launch()), true);
 }
 
@@ -149,20 +155,26 @@ const BINARIES: Record<string, string[]> = {
 };
 
 // Chrome refuses remote debugging on its default profile, hence its own.
+// Headless, so it never shows up among the user's windows or in the Dock; with
+// no window to quit, it ends with the sidecar.
 async function launch(): Promise<string> {
   const binary = (BINARIES[process.platform] ?? []).find((b) => existsSync(b));
   if (!binary) throw new Error("Chrome isn't installed");
-  spawn(
+  const child = spawn(
     binary,
     [
       `--remote-debugging-port=${OWN_PORT}`,
       `--user-data-dir=${join(homedir(), `.${APP_NAME}`, "chrome")}`,
       "--no-first-run",
       "--no-default-browser-check",
+      "--headless",
+      "--window-size=1280,800",
       "about:blank",
     ],
-    { detached: true, stdio: "ignore" },
-  ).unref();
+    { stdio: "ignore" },
+  );
+  child.unref();
+  process.once("exit", () => child.kill());
   for (let i = 0; i < 75; i++) {
     await new Promise((r) => setTimeout(r, 200));
     const url = await endpointOn(OWN_PORT);
@@ -208,14 +220,14 @@ export function pickTab(
   return tab;
 }
 
-/** Runs `work` attached to a tab (never one in `skip`), then detaches; `ownOnly` as for chrome(). */
+/** Runs `work` attached to a tab (never one in `skip`), then detaches; `user` as for chrome(). */
 export async function withTab<T>(
   hint: string | undefined,
   work: (cdp: Cdp, sessionId: string, tab: Tab) => Promise<T>,
-  ownOnly = false,
+  user = false,
   skip?: ReadonlySet<string>,
 ): Promise<T> {
-  const cdp = await chrome(ownOnly);
+  const cdp = await chrome(user);
   const { targetInfos } = await cdp.send<{ targetInfos: Tab[] }>(
     "Target.getTargets",
   );

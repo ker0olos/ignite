@@ -170,8 +170,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   taskSteps.ts           A tool call as a task's current step ("Editing src/app.ts")
   subagentExtension.ts   subagent tool: hands tasks to a smaller model from the same provider and talks with it
   keepAwake.ts           Keeps the Mac from idle-sleeping (caffeinate) while an agent works
-  chrome.ts              Chrome over CDP: the user's own (port 9222), else one the app starts
+  chrome.ts              Chrome over CDP: a headless one the app starts, or the user's own (port 9222) when asked
   chromeExtension.ts     chrome_* tools: tabs, screenshot, eval, navigate, raw CDP calls
+  chromePage.ts          A tab's CDP calls: run JS, wait for load, screenshot
   taskTabs.ts            Which Chrome tabs a task may use: only its own, named by id
   imageExtension.ts      show_image: shows the user an image file from any path in its tool row
                          and, in a task's conversation, on the task's card
@@ -371,17 +372,22 @@ review) once idle or closed, done once its pull request opens or the user
 marks it.
 
 The `chrome_*` tools (`sidecar/chromeExtension.ts`) drive Chrome over the
-DevTools protocol from the sidecar. They attach to the user's own Chrome
-when port 9222 answers (chrome://inspect's "Allow remote debugging" toggle,
-or `--remote-debugging-port`), with its real logins; otherwise they start a
-separate Chrome on port 9333 with its own profile in `~/.ignite/chrome`
-(Chrome refuses debugging on the default profile). All sessions share one
-connection, kept on `globalThis` since extensions load afresh per session,
-because Chrome asks "Allow?" per connection. A task's conversation always
-uses the app's own Chrome (a second shared connection), never the user's,
+DevTools protocol from the sidecar. By default they start a headless Chrome
+on port 9333 with its own profile in `~/.ignite/chrome` (Chrome refuses
+debugging on the default profile), so testing never adds windows or a Dock
+icon; it ends with the sidecar that started it. Only when a page needs a login the agent can't complete there does it
+pass `user_chrome: true`, attaching to the user's own Chrome on port 9222
+(chrome://inspect's "Allow remote debugging" toggle, or
+`--remote-debugging-port`) with its real logins; if that port doesn't
+answer, the tool tells the agent to ask the user to turn the toggle on.
+Each kind has one connection shared by all sessions, kept on `globalThis`
+since extensions load afresh per session, because Chrome asks "Allow?" per
+connection. A task's conversation always
+uses the app's own Chrome, never the user's,
 and may act freely in it, but only in tabs it opened, named by id
 (`sidecar/taskTabs.ts`; browser-wide `chrome_cdp` calls are refused).
-Other conversations never pick or list a task's tabs. Each screenshot is also saved to a temp file, so
+Other conversations never pick or list a task's tabs, and their browser-wide
+calls run only in the user's Chrome. Each screenshot is also saved to a temp file, so
 `show_image` can put it on the task. Auto runs them without asking, like MCP
 tools; Manual asks.
 
