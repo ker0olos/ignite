@@ -22,6 +22,8 @@ export type GitReview = {
   repo: string;
   range: string;
   files: GitChange[];
+  /** The branch a commit pushes to origin right after. */
+  push?: string;
   /** The commit message, for a commit. */
   message?: string;
   /** The commits a push sends or an update brought in, newest first. */

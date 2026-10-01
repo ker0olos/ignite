@@ -24,6 +24,7 @@ import {
   type ApprovalAsk,
 } from "./approvalExtension.ts";
 import { loadBashParser } from "./bashParser.ts";
+import { marked, pushAfter, pushed, thenReason } from "./gitPush.ts";
 import { resultText, run } from "./gitRun.ts";
 import { committed, headOf, repoOf, review, updated } from "./gitReview.ts";
 import { askTask } from "./taskExtension.ts";
@@ -35,6 +36,16 @@ const Params = Type.Object({
     description:
       'The arguments, one per item, without the program name: ["push", "-u", "origin", "main"].',
   }),
+});
+
+const GitParams = Type.Object({
+  ...Params.properties,
+  push: Type.Optional(
+    Type.Boolean({
+      description:
+        "With a commit only: push the branch to origin (push -u origin <branch>) right after, under the same approval.",
+    }),
+  ),
 });
 
 // Subcommands that need the user's credentials, or their review.
@@ -134,6 +145,7 @@ async function waitsOn(
   tool: Tool,
   args: string[],
   cwd: string,
+  then?: string[],
 ) {
   const place = { cwd, home: homedir() };
   const auto =
@@ -141,7 +153,10 @@ async function waitsOn(
   const manual = (await approvalMode()) === "manual";
   if (manual) return { auto, manual, alone: false };
   if (!auto) return null;
-  const alone = !!auto.review && (await taskMayRun(pi, args, cwd));
+  const alone =
+    !!auto.review &&
+    (await taskMayRun(pi, args, cwd)) &&
+    (!then || (await taskMayRun(pi, then, cwd)));
   return { auto, manual, alone };
 }
 
@@ -180,16 +195,20 @@ export default function gitTools(pi: ExtensionAPI) {
     cwd: string,
     toolCallId: string,
     signal?: AbortSignal,
+    then?: string[],
   ) {
-    const waits = await waitsOn(pi, tool, args, cwd);
+    const waits = await waitsOn(pi, tool, args, cwd, then);
     if (!waits) return { allowed: true, asked: false };
     const { auto, manual, alone } = waits;
     // Taken before it runs, so the row shows what a task's commit or push changed.
-    const shown = auto?.review && (await review(auto.review, args, cwd));
+    const reviewed = auto?.review && (await review(auto.review, args, cwd));
+    const shown = marked(reviewed, then);
     if (alone) return { allowed: true, asked: false, shown };
     const request = {
       toolCallId,
-      ...(auto && !manual && !shown && { reason: auto.reason }),
+      ...(auto &&
+        !manual &&
+        !shown && { reason: thenReason(auto.reason, then) }),
       ...(shown && { review: shown }),
     };
     const answer = await ask(request, signal);
@@ -206,9 +225,11 @@ export default function gitTools(pi: ExtensionAPI) {
       name: tool,
       label: tool,
       description,
-      parameters: Params,
-      async execute(toolCallId, { args }, signal, _onUpdate, ctx) {
-        const gated = await gate(tool, args, ctx.cwd, toolCallId, signal);
+      parameters: tool === GIT_TOOL ? GitParams : Params,
+      async execute(toolCallId, params, signal, _onUpdate, ctx) {
+        const { args } = params;
+        const then = await pushAfter(params, ctx.cwd);
+        const gated = await gate(tool, args, ctx.cwd, toolCallId, signal, then);
         if (!gated.allowed) {
           const task =
             gated.declined &&
@@ -222,10 +243,15 @@ export default function gitTools(pi: ExtensionAPI) {
           signal,
           hooks: gated.asked,
         });
-        const text = resultText(result);
-        if (result.code !== 0) throw new Error(text);
+        const ran = resultText(result);
+        if (result.code !== 0) throw new Error(ran);
         const shown = await shownAfter(gated.shown, before);
-        const note = await afterDelivery(tool, args, ctx.cwd);
+        const text = await pushed(ran, then, {
+          cwd: ctx.cwd,
+          signal,
+          hooks: gated.asked,
+        });
+        const note = await afterDelivery(tool, then ?? args, ctx.cwd);
         const pr = createsPr(tool, args) && prUrl(text);
         if (pr) void askTask(pi, "update", { pr });
         return {

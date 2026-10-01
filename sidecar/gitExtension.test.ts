@@ -49,7 +49,7 @@ afterEach(async () => {
 
 type Execute = (
   id: string,
-  params: { args: string[] },
+  params: { args: string[]; push?: boolean },
   signal: AbortSignal | undefined,
   onUpdate: undefined,
   ctx: { cwd: string },
@@ -86,8 +86,8 @@ function load(task: Task | null = null) {
     if (ask.kind === "update") updates.push(ask.update);
     ask.reply(task);
   });
-  const call = (tool: string, args: string[], cwd = repo) =>
-    tools.get(tool)!("t1", { args }, undefined, undefined, { cwd });
+  const call = (tool: string, args: string[], cwd = repo, push?: boolean) =>
+    tools.get(tool)!("t1", { args, push }, undefined, undefined, { cwd });
   const bash = (command: string) =>
     handlers.get("tool_call")!({ toolName: "bash", input: { command } });
   return { asks, updates, call, bash };
@@ -232,6 +232,63 @@ describe("a task's conversation", () => {
     await asked(asks);
     asks[0].answer(false);
     await expect(done).rejects.toThrow(DENIED);
+  });
+
+  it("commits and pushes in one call, asking once", async () => {
+    await withRemote();
+    const { asks, call } = load();
+    const done = call(
+      "git",
+      ["commit", "--allow-empty", "-m", "x"],
+      repo,
+      true,
+    );
+    await asked(asks);
+    expect(asks[0].request).toMatchObject({
+      review: { kind: "commit", push: "feat/x" },
+    });
+    asks[0].answer(true);
+    const result = await done;
+    expect(result.details).toMatchObject({ kind: "commit", push: "feat/x" });
+    expect(git("ls-remote", "origin", "feat/x").toString()).toContain(
+      "refs/heads/feat/x",
+    );
+  });
+
+  it("commits and pushes its own branch in one call without asking", async () => {
+    await withRemote();
+    const { asks, call } = load(mine);
+    await call("git", ["commit", "--allow-empty", "-m", "x"], repo, true);
+    expect(asks).toEqual([]);
+    expect(git("ls-remote", "origin", "feat/x").toString()).toContain(
+      "refs/heads/feat/x",
+    );
+  });
+
+  it("refuses push: true off a branch or without a commit, before running", async () => {
+    await withRemote();
+    const { asks, call } = load();
+    await expect(call("git", ["status"], repo, true)).rejects.toThrow(
+      "only with a commit",
+    );
+    await expect(
+      call("git", ["--git-dir", ".git", "commit", "-m", "x"], repo, true),
+    ).rejects.toThrow("no git options");
+    git("switch", "-q", "--detach");
+    await expect(
+      call("git", ["commit", "--allow-empty", "-m", "x"], repo, true),
+    ).rejects.toThrow("isn't on a branch");
+    expect(asks).toEqual([]);
+  });
+
+  it("reports the commit when its push fails", async () => {
+    await withRemote();
+    git("remote", "set-url", "origin", join(home, "missing.git"));
+    const { asks, call } = load(mine);
+    await expect(
+      call("git", ["commit", "--allow-empty", "-m", "x"], repo, true),
+    ).rejects.toThrow("Committed, but the push failed");
+    expect(asks).toEqual([]);
   });
 
   it("asks for a commit and a push without a task", async () => {
