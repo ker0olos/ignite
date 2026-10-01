@@ -1,8 +1,9 @@
 import { Fragment } from "react";
-import type { AgentStatus } from "../../../shared/hostProtocol";
 import { ProjectRow } from "@/components/app/ProjectRow";
+import { ConversationTagFilter } from "@/components/sidebar/ConversationTagFilter";
 import { FolderConversations } from "@/components/sidebar/FolderConversations";
 import type { Conversations } from "@/hooks/useConversations";
+import type { TaggedAgentStatus } from "@/lib/conversations";
 import { sortedByName } from "@/lib/paths";
 
 /** Opening and stopping what runs under a conversation. */
@@ -23,7 +24,16 @@ export type ProjectListProps = {
   childActions: ChildActions;
   folders: string[];
   /** A folder's listed conversations, in the order they were opened. */
-  rows: (cwd: string) => AgentStatus[];
+  rows: (cwd: string) => TaggedAgentStatus[];
+  tags?: string[];
+  tagFilter?: string[];
+  onToggleTagFilter?: (tag: string) => void;
+  onClearTagFilter?: () => void;
+  onSetConversationTags?: (
+    cwd: string,
+    session: string,
+    tags: string[],
+  ) => void;
   /** The shown folder's shown conversation. */
   shown: string | null;
   conversations: Conversations;
@@ -50,19 +60,41 @@ export function FolderList({
   onDismiss,
   onHistory,
   childActions,
+  tags = [],
+  tagFilter = [],
+  onToggleTagFilter = () => {},
+  onClearTagFilter = () => {},
+  onSetConversationTags = () => {},
 }: {
   folder: string;
   folders: string[];
-  rows: (cwd: string) => AgentStatus[];
+  rows: (cwd: string) => TaggedAgentStatus[];
   shown: string | null;
   conversations: Conversations;
   home: string;
   onDismiss: (path: string) => void;
   onHistory: (path: string) => void;
   childActions: ChildActions;
+  tags?: string[];
+  tagFilter?: string[];
+  onToggleTagFilter?: (tag: string) => void;
+  onClearTagFilter?: () => void;
+  onSetConversationTags?: (
+    cwd: string,
+    session: string,
+    tags: string[],
+  ) => void;
 }) {
   return (
     <div className="flex flex-col gap-1">
+      <div className="mb-1 flex justify-end">
+        <ConversationTagFilter
+          tags={tags}
+          selected={tagFilter}
+          onToggle={onToggleTagFilter}
+          onClear={onClearTagFilter}
+        />
+      </div>
       {sortedByName(folders).map((path) => (
         <Fragment key={path}>
           <ProjectRow
@@ -79,6 +111,9 @@ export function FolderList({
             shown={path === folder ? shown : null}
             conversations={conversations}
             childActions={childActions}
+            onSetTags={(session, tags) =>
+              onSetConversationTags(path, session, tags)
+            }
           />
         </Fragment>
       ))}

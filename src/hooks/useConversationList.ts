@@ -3,7 +3,14 @@ import type { AgentStatus } from "../../shared/hostProtocol";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { HostClient } from "@/lib/piHost";
 import { DEMO_FOLDER } from "@/lib/demo";
-import { rowsOf, withRunning, without, type Listed } from "@/lib/conversations";
+import {
+  allTags,
+  rowsOf,
+  withRunning,
+  without,
+  withTags,
+  type Listed,
+} from "@/lib/conversations";
 import { store } from "@/lib/store";
 
 // Like the shown folder, only the first window's list outlives the app.
@@ -32,6 +39,7 @@ export function useConversationList(
     [pushed, host],
   );
   const [listed, setListed] = useState<Listed>({});
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   // The sidecar may still report one it hasn't closed yet; it stays off the list.
   const closing = useRef(new Set<string>());
 
@@ -73,9 +81,34 @@ export function useConversationList(
     setListed((l) => without(l, cwd, session));
   }, []);
 
+  const setConversationTags = useCallback(
+    (cwd: string, session: string, tags: readonly string[]) => {
+      setListed((l) => withTags(l, cwd, session, tags));
+    },
+    [],
+  );
+
+  const toggleTagFilter = useCallback((tag: string) => {
+    setTagFilter((tags) =>
+      tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag],
+    );
+  }, []);
+
+  const tags = allTags(listed);
+
   return {
     /** The folder's listed conversations, in order, with what each is doing. */
-    rows: (cwd: string) => rowsOf(listed, agents, cwd),
+    rows: (cwd: string) => rowsOf(listed, agents, cwd, tagFilter),
+    /** Every tag used by the listed conversations. */
+    tags,
+    /** Tags currently filtering the sidebar. */
+    tagFilter,
+    /** Adds or removes one sidebar tag filter. */
+    toggleTagFilter,
+    /** Clears the sidebar tag filter. */
+    clearTagFilter: () => setTagFilter([]),
+    /** Saves a conversation's tags. */
+    setConversationTags,
     /** Takes a closed conversation off its folder's list. */
     forget,
   };

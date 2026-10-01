@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { AgentStatus } from "../../../shared/hostProtocol";
 import type { RemoteStatus } from "../../../shared/remote";
 import { Workspace } from "@/components/app/Workspace";
 import { RemoteDevices } from "@/components/remote/RemoteDevices";
@@ -12,6 +11,7 @@ import type { Conversations } from "@/hooks/useConversations";
 import type { useMcpServers } from "@/hooks/useMcpServers";
 import type { useTabs } from "@/hooks/useTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
+import type { TaggedAgentStatus } from "@/lib/conversations";
 import { needingSignIn } from "@/lib/mcpServers";
 import { basename } from "@/lib/paths";
 import type { HostClient } from "@/lib/piHost";
@@ -36,6 +36,11 @@ export function AppWorkspace({
   openSettings,
   host,
   openIn,
+  tags,
+  tagFilter,
+  onToggleTagFilter,
+  onClearTagFilter,
+  onSetConversationTags,
 }: {
   folder: string;
   tabs: ReturnType<typeof useTabs>;
@@ -43,7 +48,12 @@ export function AppWorkspace({
   setSettings: (settings: Settings) => Promise<void>;
   settingsButton: ReactNode;
   folders: string[];
-  rows: (cwd: string) => AgentStatus[];
+  rows: (cwd: string) => TaggedAgentStatus[];
+  tags: string[];
+  tagFilter: string[];
+  onToggleTagFilter: (tag: string) => void;
+  onClearTagFilter: () => void;
+  onSetConversationTags: (cwd: string, session: string, tags: string[]) => void;
   session: ReturnType<typeof useAgentSession>;
   chats: Conversations;
   home: string;
@@ -76,6 +86,11 @@ export function AppWorkspace({
         onDismiss: chats.dismiss,
         onHistory: (path) => command.openWith(`@${basename(path)} #convos `),
         onOpenFolder: openFolder,
+        tags,
+        tagFilter,
+        onToggleTagFilter,
+        onClearTagFilter,
+        onSetConversationTags,
         childActions: {
           activeTab: tabs.active,
           onOpenTab: (cwd, shown, tab) => {

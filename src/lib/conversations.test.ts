@@ -4,6 +4,8 @@ import {
   rowsOf,
   withRunning,
   without,
+  withTags,
+  allTags,
   type Listed,
 } from "./conversations";
 
@@ -71,6 +73,40 @@ describe("rowsOf", () => {
       agent("/a", "2", "Asleep", false),
     ]);
     expect(rowsOf(listed, [], "/none")).toEqual([]);
+  });
+
+  it("filters conversations to any selected tag", () => {
+    const listed: Listed = {
+      "/a": [
+        { session: "1", title: "Fix", tags: ["bug"] },
+        { session: "2", title: "Plan", tags: ["design", "later"] },
+        { session: "3", title: "Chat" },
+      ],
+    };
+    expect(
+      rowsOf(listed, [], "/a", ["bug", "later"]).map((r) => r.session),
+    ).toEqual(["1", "2"]);
+  });
+});
+
+const tagged: Listed = { "/a": [{ session: "1", title: "Fix" }] };
+
+describe("withTags", () => {
+  it("normalizes and saves tags on listed conversations", () => {
+    expect(withTags(tagged, "/a", "1", [" bug ", "ui", "bug"])).toEqual({
+      "/a": [{ session: "1", title: "Fix", tags: ["bug", "ui"] }],
+    });
+  });
+});
+
+describe("allTags", () => {
+  it("lists unique tags across folders", () => {
+    expect(
+      allTags({
+        "/a": [{ session: "1", title: "", tags: ["ui", "bug"] }],
+        "/b": [{ session: "2", title: "", tags: ["bug"] }],
+      }),
+    ).toEqual(["bug", "ui"]);
   });
 });
 

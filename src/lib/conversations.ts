@@ -2,10 +2,18 @@ import type { AgentStatus } from "../../shared/hostProtocol";
 import type { SavedSession, SessionDetails } from "../../shared/conversations";
 
 /** One conversation listed under its folder, running or not. */
-type ListedConversation = { session: string; title: string };
+type ListedConversation = { session: string; title: string; tags?: string[] };
+
+/** A sidebar conversation row, including app-local tags. */
+export type TaggedAgentStatus = AgentStatus & { tags?: string[] };
 
 /** Each folder's listed conversations, in the order they were opened. */
 export type Listed = Record<string, ListedConversation[]>;
+
+const normalizedTags = (tags: readonly string[]) =>
+  Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean))).sort(
+    (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }),
+  );
 
 /**
  * Adds the running conversations the list doesn't have yet (the user just
@@ -19,7 +27,7 @@ export function withRunning(listed: Listed, agents: AgentStatus[]): Listed {
     const row = rows.find((r) => r.session === session);
     if (row && (row.title === title || !title)) continue;
     const updated = row
-      ? rows.map((r) => (r.session === session ? { session, title } : r))
+      ? rows.map((r) => (r.session === session ? { ...r, title } : r))
       : [...rows, { session, title }];
     next = { ...next, [cwd]: updated };
   }
@@ -40,13 +48,42 @@ export function rowsOf(
   listed: Listed,
   agents: AgentStatus[],
   cwd: string,
-): AgentStatus[] {
-  return (listed[cwd] ?? []).map(({ session, title }) => {
-    const running = agents.find((a) => a.session === session);
-    return running
-      ? { ...running, title: running.title || title }
-      : { cwd, session, title, running: false, waiting: false };
-  });
+  tagFilter: readonly string[] = [],
+): TaggedAgentStatus[] {
+  const selected = new Set(tagFilter);
+  return (listed[cwd] ?? [])
+    .filter(
+      (row) => !selected.size || row.tags?.some((tag) => selected.has(tag)),
+    )
+    .map(({ session, title, tags }) => {
+      const running = agents.find((a) => a.session === session);
+      return running
+        ? { ...running, title: running.title || title, tags }
+        : { cwd, session, title, running: false, waiting: false, tags };
+    });
+}
+
+/** Saves a conversation's tag list, creating the row if needed. */
+export function withTags(
+  listed: Listed,
+  cwd: string,
+  session: string,
+  tags: readonly string[],
+): Listed {
+  const rows = listed[cwd] ?? [];
+  const nextTags = normalizedTags(tags);
+  const found = rows.some((r) => r.session === session);
+  const updated = found
+    ? rows.map((r) => (r.session === session ? { ...r, tags: nextTags } : r))
+    : [...rows, { session, title: "", tags: nextTags }];
+  return { ...listed, [cwd]: updated };
+}
+
+/** Every tag used by the listed conversations. */
+export function allTags(listed: Listed) {
+  return normalizedTags(
+    Object.values(listed).flatMap((rows) => rows.flatMap((r) => r.tags ?? [])),
+  );
 }
 
 const MONEY = new Intl.NumberFormat("en-US", {

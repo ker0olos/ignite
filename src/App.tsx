@@ -102,6 +102,11 @@ export default function App() {
           folder={current}
           folders={shownFolders}
           {...{ tabs, settings, setSettings, settingsButton, rows, session }}
+          tags={list.tags}
+          tagFilter={list.tagFilter}
+          onToggleTagFilter={list.toggleTagFilter}
+          onClearTagFilter={list.clearTagFilter}
+          onSetConversationTags={list.setConversationTags}
           {...{ chats, home, command, mcp, remote, openFolder, openSettings }}
           host={host}
           openIn={openIn}

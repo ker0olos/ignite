@@ -54,6 +54,27 @@ describe("useConversationList", () => {
     );
   });
 
+  it("remembers tags and filters rows by any selected tag", async () => {
+    const { result, store } = await setup({
+      conversations: {
+        "/a": [
+          { session: "1", title: "Bug", tags: ["bug"] },
+          { session: "2", title: "Design", tags: ["design"] },
+        ],
+      },
+    });
+    await waitFor(() => expect(result.current.tags).toEqual(["bug", "design"]));
+    act(() => result.current.toggleTagFilter("bug"));
+    expect(result.current.rows("/a").map((r) => r.session)).toEqual(["1"]);
+    act(() => result.current.setConversationTags("/a", "2", ["bug", "later"]));
+    expect(result.current.rows("/a").map((r) => r.session)).toEqual(["1", "2"]);
+    await waitFor(() =>
+      expect(store.data.get("conversations")).toMatchObject({
+        "/a": [{ session: "1" }, { session: "2", tags: ["bug", "later"] }],
+      }),
+    );
+  });
+
   it("keeps a closed conversation off the list, even when the app quits", async () => {
     const { result, push, store } = await setup();
     push([agent("1"), agent("2")]);
