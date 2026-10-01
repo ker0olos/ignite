@@ -1,10 +1,13 @@
 import { Check } from "lucide-react";
+import { useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { typesText } from "@/lib/questions";
 import { cn } from "@/lib/utils";
 
 /**
  * One choice in a question: a radio, or a checkbox when several may be
- * picked. Once picked, it takes a note for the agent.
+ * picked. Once picked, it takes a note for the agent, and typing on it
+ * writes there.
  */
 export function QuestionOption({
   label,
@@ -12,17 +15,25 @@ export function QuestionOption({
   multi,
   picked,
   note,
+  hint,
   onClick,
   onNote,
+  onFocus,
+  onBlur,
 }: {
   label: string;
   description?: string;
   multi: boolean;
   picked: boolean;
   note: string;
+  /** The key that reaches or picks it from the focused option. */
+  hint?: string;
   onClick: () => void;
   onNote: (note: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }) {
+  const noteBox = useRef<HTMLTextAreaElement>(null);
   return (
     <div
       className={cn(
@@ -30,14 +41,24 @@ export function QuestionOption({
         picked
           ? "border-primary bg-accent"
           : "border-border hover:bg-accent/50",
+        "has-[>button:focus-visible]:border-ring has-[>button:focus-visible]:ring-[3px] has-[>button:focus-visible]:ring-ring/50",
       )}
     >
       <button
         type="button"
         role={multi ? "checkbox" : "radio"}
         aria-checked={picked}
+        data-question-item
         onClick={onClick}
-        className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left"
+        onKeyDown={(e) => {
+          if (!picked || !typesText(e)) return;
+          e.preventDefault();
+          onNote(note + e.key);
+          noteBox.current?.focus();
+        }}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left outline-none"
       >
         <span
           className={cn(
@@ -58,10 +79,19 @@ export function QuestionOption({
             </span>
           )}
         </span>
+        {hint && (
+          <kbd
+            aria-hidden
+            className="ml-auto shrink-0 self-center rounded border px-1.5 font-sans text-xs text-muted-foreground"
+          >
+            {hint}
+          </kbd>
+        )}
       </button>
       {picked && (
         <div className="pr-2.5 pb-2 pl-8">
           <Textarea
+            ref={noteBox}
             rows={1}
             aria-label={`Note on ${label}`}
             placeholder="Add a note for the agent (optional)"

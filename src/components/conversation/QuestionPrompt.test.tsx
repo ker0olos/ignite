@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { QuestionPrompt } from "./QuestionPrompt";
 
@@ -97,4 +97,97 @@ it("leaves the questions to the agent", () => {
   render(<QuestionPrompt questions={questions} onAnswer={onAnswer} />);
   fireEvent.click(screen.getByRole("button", { name: "Let the agent decide" }));
   expect(onAnswer).toHaveBeenCalledWith(false);
+});
+
+it("answers from the keyboard when it has the shortcuts", () => {
+  const onAnswer = vi.fn();
+  render(
+    <QuestionPrompt questions={questions} shortcuts onAnswer={onAnswer} />,
+  );
+  const sqlite = screen.getByRole("radio", { name: /SQLite/ });
+  expect(document.activeElement).toBe(sqlite);
+  fireEvent.click(sqlite);
+  const note = screen.getByLabelText("Note on SQLite (Recommended)");
+  fireEvent.change(note, { target: { value: "fast" } });
+  note.focus();
+  fireEvent.keyDown(note, { key: "Enter", ctrlKey: true });
+  expect(screen.getByText("2/2")).toBeTruthy();
+  expect(document.activeElement).toBe(
+    screen.getByRole("checkbox", { name: "macOS" }),
+  );
+  fireEvent.keyDown(window, { key: "n", ctrlKey: true });
+  const own = screen.getByLabelText("Your own answer");
+  expect(document.activeElement).toBe(own);
+  expect(own.parentElement!.textContent).toContain("Ctrl+↩");
+  fireEvent.keyDown(own, { key: "Enter", ctrlKey: true });
+  expect(onAnswer).toHaveBeenCalledWith(true, [
+    {
+      question: "Where should settings live?",
+      choices: [{ answer: "SQLite (Recommended)", note: "fast" }],
+    },
+    { question: "Which platforms?", choices: [] },
+  ]);
+});
+
+it("leaves the questions to the agent from the keyboard, but not over typed text elsewhere", () => {
+  const onAnswer = vi.fn();
+  const outside = document.createElement("textarea");
+  outside.value = "a message";
+  document.body.append(outside);
+  outside.focus();
+  render(
+    <QuestionPrompt questions={questions} shortcuts onAnswer={onAnswer} />,
+  );
+  expect(document.activeElement).toBe(outside);
+  fireEvent.keyDown(outside, { key: "Enter", ctrlKey: true });
+  fireEvent.keyDown(outside, { key: "Backspace", ctrlKey: true });
+  expect(onAnswer).not.toHaveBeenCalled();
+  outside.value = "";
+  fireEvent.keyDown(outside, { key: "Backspace", ctrlKey: true });
+  expect(onAnswer).toHaveBeenCalledWith(false);
+  outside.remove();
+});
+
+it("ignores the keyboard without the shortcuts", () => {
+  const onAnswer = vi.fn();
+  render(<QuestionPrompt questions={questions} onAnswer={onAnswer} />);
+  fireEvent.keyDown(window, { key: "Backspace", ctrlKey: true });
+  expect(onAnswer).not.toHaveBeenCalled();
+});
+
+it("moves between the options and the own answer with the arrow keys", () => {
+  render(<QuestionPrompt questions={questions} onAnswer={vi.fn()} />);
+  const sqlite = screen.getByRole("radio", { name: /SQLite/ });
+  const json = screen.getByRole("radio", { name: /JSON file/ });
+  const own = screen.getByLabelText<HTMLTextAreaElement>("Your own answer");
+  act(() => sqlite.focus());
+  expect(sqlite.textContent).toContain("Space");
+  expect(json.textContent).toContain("↓");
+  fireEvent.keyDown(sqlite, { key: "ArrowUp" });
+  expect(document.activeElement).toBe(sqlite);
+  fireEvent.keyDown(sqlite, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(json);
+  fireEvent.keyDown(json, { key: "ArrowDown", shiftKey: true });
+  expect(document.activeElement).toBe(json);
+  fireEvent.keyDown(json, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(own);
+  fireEvent.change(own, { target: { value: "Postgres" } });
+  own.setSelectionRange(3, 3);
+  fireEvent.keyDown(own, { key: "ArrowUp" });
+  expect(document.activeElement).toBe(own);
+  own.setSelectionRange(0, 0);
+  fireEvent.keyDown(own, { key: "ArrowUp" });
+  expect(document.activeElement).toBe(json);
+});
+
+it("types on a picked option into its note", () => {
+  render(<QuestionPrompt questions={questions} onAnswer={vi.fn()} />);
+  const json = screen.getByRole("radio", { name: /JSON file/ });
+  fireEvent.keyDown(json, { key: "x" });
+  expect(screen.queryByLabelText("Note on JSON file")).toBeNull();
+  fireEvent.click(json);
+  fireEvent.keyDown(json, { key: "k" });
+  const note = screen.getByLabelText<HTMLTextAreaElement>("Note on JSON file");
+  expect(note.value).toBe("k");
+  expect(document.activeElement).toBe(note);
 });

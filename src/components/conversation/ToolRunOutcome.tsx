@@ -28,6 +28,7 @@ export function ToolRunOutcome({
     return (
       <QuestionPrompt
         questions={readQuestions(call.arguments)}
+        shortcuts={first}
         onAnswer={(approved, answers) => onApprove(call.id, approved, answers)}
       />
     );
