@@ -63,9 +63,10 @@ and goes back to the last working version if an update fails to start.
 
 ## Make it yours
 
-Ask its agent to change Ignite itself: a different look, a missing feature.
-Your changes survive every update, and if one breaks something, Ignite still
-opens and tells you.
+Every component and function in Ignite is yours to change. Ask its agent to
+rework any part of it to fit how you work: the chat box, the sidebar, how
+tools are approved, how the agent itself runs. Your changes survive every
+update, and if one breaks something, Ignite still opens and tells you.
 
 ## Develop
 
