@@ -4,7 +4,8 @@ import type { AgentStatus } from "../../shared/hostProtocol";
 /** What a conversation runs beside it, opened as a tab: a subagent, or a background command. */
 export type ChildTab =
   | { kind: "agent"; session: string; id: string; model: string }
-  | { kind: "background"; session: string; pid: number; command: string };
+  | { kind: "background"; session: string; pid: number; command: string }
+  | { kind: "terminal"; session: string; terminal: string };
 
 const PREFIX = "child:";
 
@@ -15,28 +16,33 @@ export function childTabId(tab: ChildTab): string {
 
 /** Decodes a tab id back to a child tab, or null for any other or malformed id. */
 export function readChildTab(id: string): ChildTab | null {
+  const tab = parse(id);
+  if (!tab) return null;
+  if (tab.kind === "agent" && typeof tab.id === "string") {
+    return {
+      kind: "agent",
+      session: tab.session,
+      id: tab.id,
+      model: String(tab.model ?? ""),
+    };
+  }
+  if (tab.kind === "background" && typeof tab.pid === "number") {
+    const command = String(tab.command ?? "");
+    return { kind: "background", session: tab.session, pid: tab.pid, command };
+  }
+  if (tab.kind === "terminal" && typeof tab.terminal === "string") {
+    return { kind: "terminal", session: tab.session, terminal: tab.terminal };
+  }
+  return null;
+}
+
+function parse(id: string): (Partial<ChildTab> & { session: string }) | null {
   if (!id.startsWith(PREFIX)) return null;
   try {
     const tab = JSON.parse(id.slice(PREFIX.length)) as Partial<ChildTab>;
-    if (typeof tab.session !== "string") return null;
-    if (tab.kind === "agent" && typeof tab.id === "string") {
-      return {
-        kind: "agent",
-        session: tab.session,
-        id: tab.id,
-        model: String(tab.model ?? ""),
-      };
-    }
-    if (tab.kind === "background" && typeof tab.pid === "number") {
-      const command = String(tab.command ?? "");
-      return {
-        kind: "background",
-        session: tab.session,
-        pid: tab.pid,
-        command,
-      };
-    }
-    return null;
+    return typeof tab.session === "string"
+      ? { ...tab, session: tab.session }
+      : null;
   } catch {
     return null;
   }
@@ -49,6 +55,14 @@ export function childTabLabel(tab: ChildTab): {
   title: string;
   icon: LucideIcon;
 } {
+  if (tab.kind === "terminal") {
+    return {
+      name: "Terminal",
+      detail: tab.terminal,
+      title: "Terminal",
+      icon: SquareTerminal,
+    };
+  }
   return tab.kind === "agent"
     ? {
         name: tab.id,
