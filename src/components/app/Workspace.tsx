@@ -19,6 +19,26 @@ import type { CodeThemes } from "@/lib/codeThemes";
 import type { Settings } from "@/lib/settings";
 import type { Approval } from "@/components/agent/Composer";
 
+type WorkspaceProps = {
+  folder: string;
+  tabs: ReturnType<typeof useTabs>;
+  codeThemes: CodeThemes;
+  editor: Settings["editor"];
+  hideGitIgnored: boolean;
+  showThinking: boolean;
+  stickyUserMessages: boolean;
+  resizableProjectSplit: boolean;
+  approval: Approval;
+  actions: ReactNode;
+  projectList: ProjectListProps;
+  banner?: ReactNode;
+  /** Shown at the sidebar's foot. */
+  footer?: ReactNode;
+  session: ReturnType<typeof useAgentSession>;
+  /** The sidecar, whether or not a conversation shows. */
+  host: HostClient | null;
+};
+
 /**
  * Everything shown for an open folder: sidebar, full-height agent panel, and
  * an editor pane that appears while files are open. Tab state lives in App so
@@ -40,25 +60,7 @@ export function Workspace({
   footer,
   session,
   host,
-}: {
-  folder: string;
-  tabs: ReturnType<typeof useTabs>;
-  codeThemes: CodeThemes;
-  editor: Settings["editor"];
-  hideGitIgnored: boolean;
-  showThinking: boolean;
-  stickyUserMessages: boolean;
-  resizableProjectSplit: boolean;
-  approval: Approval;
-  actions: ReactNode;
-  projectList: ProjectListProps;
-  banner?: ReactNode;
-  /** Shown at the sidebar's foot. */
-  footer?: ReactNode;
-  session: ReturnType<typeof useAgentSession>;
-  /** The sidecar, whether or not a conversation shows. */
-  host: HostClient | null;
-}) {
+}: WorkspaceProps) {
   const { active } = tabs;
   const openFile = tabs.open;
   const narrow = useNarrow();

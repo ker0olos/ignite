@@ -1,9 +1,10 @@
 import { AssistantText } from "@/components/conversation/AssistantText";
 import type { Editor, ToolProps } from "@/components/conversation/shared";
+import { EndRow } from "@/components/conversation/EndRow";
 import { ThinkingRow } from "@/components/conversation/ThinkingRow";
 import { ToolGroup } from "@/components/conversation/ToolGroup";
 import { ToolView } from "@/components/conversation/ToolView";
-import { UserBubble } from "@/components/conversation/UserBubble";
+import { UserMessageRow } from "@/components/conversation/UserMessageRow";
 import type { ToolRun } from "@/lib/transcript";
 import type { Row } from "@/lib/toolRows";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -41,14 +42,7 @@ export function RowView({
       );
     case "user":
       return (
-        <div
-          className={cn(
-            stickyUserMessages &&
-              "sticky top-0 z-10 -mx-4 bg-background px-4 py-2",
-          )}
-        >
-          <UserBubble message={row.message} />
-        </div>
+        <UserMessageRow message={row.message} sticky={stickyUserMessages} />
       );
     case "text":
       return (
@@ -85,12 +79,6 @@ export function RowView({
         />
       );
     case "end":
-      return row.message.stopReason === "error" ? (
-        <p className="text-[13px] text-destructive">
-          {row.message.errorMessage}
-        </p>
-      ) : (
-        <p className="text-xs text-muted-foreground">Stopped</p>
-      );
+      return <EndRow message={row.message} />;
   }
 }
