@@ -229,3 +229,10 @@
 .dark .tool-code .tok {
   color: var(--shiki-dark);
 }
+
+.terminal-surface .xterm-viewport {
+  scrollbar-width: none;
+}
+.terminal-surface .xterm-viewport::-webkit-scrollbar {
+  display: none;
+}

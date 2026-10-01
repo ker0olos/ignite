@@ -20,9 +20,15 @@ import type {
 } from "./conversations.ts";
 import type { QuestionAnswer } from "./questions.ts";
 import type { McpCatalog } from "./mcpCatalog.ts";
+import type { McpServer, McpServerConfig } from "./mcpServers.ts";
 import type { SkillRequest, SkillResponses } from "./skills.ts";
 import type { RemoteEvent, RemoteInvoke, RemoteStatus } from "./remote.ts";
 import type { Task, TaskRequest, TaskResponses } from "./tasks.ts";
+import type {
+  TerminalMessage,
+  TerminalRequest,
+  TerminalResponses,
+} from "./terminal.ts";
 
 /**
  * pi's providers, plus "claude-code": the user's own Claude Code login, which
@@ -134,40 +140,6 @@ export type OpenedSession = SessionState & {
   approvals: ApprovalRequest[];
   /** Messages sent mid-run, not yet delivered. */
   queue: { steering: string[]; followUp: string[] };
-};
-
-/** How to reach an MCP server: a local command (stdio) or a URL (HTTP). */
-export type McpServerConfig =
-  | {
-      type: "stdio";
-      command: string;
-      args: string[];
-      env: Record<string, string>;
-    }
-  | { type: "http"; url: string; headers: Record<string, string> };
-
-/**
- * A server in the open folder's session. pi-mcp-adapter connects servers on
- * first use, so "idle" is the normal state of a working server.
- */
-export type McpServerStatus =
-  | "connected"
-  | "idle"
-  /** Being connected once after it was set up, to learn its real status. */
-  | "checking"
-  | "failed"
-  | "needs-auth"
-  | "disabled";
-
-/** A server saved in pi's mcp.json, with what the session knows about it. */
-export type McpServer = {
-  name: string;
-  enabled: boolean;
-  config: McpServerConfig;
-  /** Unset while no folder is open: servers only run inside a session. */
-  status?: McpServerStatus;
-  /** Tool names from its last connection; empty until it has connected once. */
-  tools: string[];
 };
 
 /** The commit the app runs from; `date` is ISO 8601. */
@@ -283,6 +255,7 @@ export type HostRequest =
   /** One file's diff in a review's range (see GitReview). */
   | { id: number; type: "git_diff"; repo: string; range: string; path: string }
   | TaskRequest
+  | TerminalRequest
   | { id: number; type: "app_version" }
   /** Pulls the latest code; `updated` is false when it was already current. */
   | { id: number; type: "app_update" }
@@ -301,10 +274,16 @@ export type HostRequest =
     };
 
 export type { AgentStatus };
+export type {
+  McpServer,
+  McpServerConfig,
+  McpServerStatus,
+} from "./mcpServers.ts";
 
 /** What each request resolves to. */
 export type HostResponses = SkillResponses &
   TaskResponses &
+  TerminalResponses &
   ChildResponses & {
     status: ProviderStatus[];
     login: ProviderStatus;
@@ -361,6 +340,8 @@ export type HostMessage =
   | { type: "tasks"; cwd: string; tasks: Task[] }
   /** The MCP servers changed (a status, or a saved change). */
   | { type: "mcp_servers"; servers: McpServer[] }
+  /** A terminal printed, or its shell exited. */
+  | TerminalMessage
   /** Remote access, for the main window only (see shared/remote.ts). */
   | RemoteInvoke
   | RemoteEvent

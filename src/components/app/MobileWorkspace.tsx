@@ -5,6 +5,7 @@ import { MobileDrawer } from "@/components/app/MobileDrawer";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useTabs } from "@/hooks/useTabs";
 import type { CodeThemes } from "@/lib/codeThemes";
+import type { HostClient } from "@/lib/piHost";
 import { basename } from "@/lib/paths";
 import type { Settings } from "@/lib/settings";
 
@@ -18,6 +19,7 @@ export function MobileWorkspace({
   codeThemes,
   editor,
   session,
+  host,
   sidebar,
   agent,
 }: {
@@ -26,6 +28,7 @@ export function MobileWorkspace({
   codeThemes: CodeThemes;
   editor: Settings["editor"];
   session: ReturnType<typeof useAgentSession>;
+  host: HostClient | null;
   sidebar: ReactNode;
   agent: ReactNode;
 }) {
@@ -54,6 +57,7 @@ export function MobileWorkspace({
             codeThemes={codeThemes}
             editor={editor}
             session={session}
+            host={host}
           />
         ) : (
           agent

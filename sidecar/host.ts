@@ -46,6 +46,14 @@ import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
 import { deleteTask, resumeTask, startTask } from "./hostTasks.ts";
 import type { TaskStore } from "./taskStore.ts";
+import {
+  closeTerminal,
+  openTerminal,
+  resizeTerminal,
+  terminalSnapshot,
+  terminalsIn,
+  writeTerminal,
+} from "./terminal.ts";
 
 type IdRequest = Extract<HostRequest, { id: number }>;
 
@@ -144,6 +152,12 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   task_delete: (ctx, r) => deleteTask(ctx, r.cwd, r.taskId),
   task_start: (ctx, r) => startTask(ctx, r.cwd, r.taskId),
   task_resume: (ctx, r) => resumeTask(ctx, r.cwd, r.taskId, r.text),
+  terminal_open: (ctx, r) => openTerminal(r.cwd, r.cols, r.rows, ctx.send),
+  terminal_input: (_ctx, r) => writeTerminal(r.terminal, r.data),
+  terminal_resize: (_ctx, r) => resizeTerminal(r.terminal, r.cols, r.rows),
+  terminal_close: (_ctx, r) => closeTerminal(r.terminal),
+  terminal_list: (_ctx, r) => terminalsIn(r.cwd),
+  terminal_snapshot: (_ctx, r) => terminalSnapshot(r.terminal),
   app_version: () => appVersion(),
   app_update: () => appUpdate(),
 };

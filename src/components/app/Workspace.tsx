@@ -9,6 +9,7 @@ import { Sidebar } from "@/components/sidebar/Sidebar";
 import { TasksView } from "@/components/tasks/TasksView";
 import type { ProjectListProps } from "@/components/sidebar/FolderList";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { useTerminalShortcut } from "@/hooks/useTerminalShortcut";
 import { useNarrow } from "@/hooks/useNarrow";
 import { OpenTabContext } from "@/hooks/useOpenTab";
 import type { useAgentSession } from "@/hooks/useAgentSession";
@@ -59,6 +60,8 @@ export function Workspace({
   const narrow = useNarrow();
   const [view, setView] = useState<WorkspaceView>("chat");
 
+  useTerminalShortcut(host, folder, session.session, view, tabs);
+
   // Pane sizes persist, saved separately for with and without the editor.
   const layout = useDefaultLayout({
     id: "workspace",
@@ -101,12 +104,11 @@ export function Workspace({
       />
     );
 
+  const pane = { folder, tabs, codeThemes, editor, session, host };
   if (narrow) {
     return (
       <OpenTabContext.Provider value={openFile}>
-        <MobileWorkspace
-          {...{ folder, tabs, codeThemes, editor, session, sidebar, agent }}
-        />
+        <MobileWorkspace {...pane} sidebar={sidebar} agent={agent} />
       </OpenTabContext.Provider>
     );
   }
@@ -139,9 +141,7 @@ export function Workspace({
         {active && <PaneHandle />}
         {active && (
           <ResizablePanel id="editor" minSize="320px">
-            <EditorPane
-              {...{ folder, tabs, active, codeThemes, editor, session }}
-            />
+            <EditorPane {...pane} active={active} />
           </ResizablePanel>
         )}
       </ResizablePanelGroup>

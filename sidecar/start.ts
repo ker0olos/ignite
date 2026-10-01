@@ -101,7 +101,6 @@ const claudeBridge = sibling("pi-claude-bridge/src/index.ts");
 // pi-mcp-adapter, reading only agentDir/mcp.json.
 const mcpExtension = sibling("./mcpExtension.ts");
 const cmemExtension = sibling("./cmemExtension.ts");
-const askExtension = sibling("./askExtension.ts");
 const subagentExtension = sibling("./subagentExtension.ts");
 const gitExtension = sibling("./gitExtension.ts");
 const worktreeExtension = sibling("./worktreeExtension.ts");
@@ -158,13 +157,14 @@ async function openSession(
       claudeBridge,
       mcpExtension,
       cmemExtension,
-      askExtension,
+      sibling("./askExtension.ts"),
       subagentExtension,
       gitExtension,
       worktreeExtension,
       chromeExtension,
       imageExtension,
       sibling("./bashExtension.ts"),
+      sibling("./terminalExtension.ts"),
       taskExtension,
       approvalExtension,
     ],
