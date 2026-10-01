@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Credential, CredentialStore } from "@earendil-works/pi-ai";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { codexBackend, withCodexLogin } from "./credentials.ts";
+import {
+  codexBackend,
+  commandInstalled,
+  withCodexLogin,
+} from "./credentials.ts";
 
 // The same store pi uses for auth.json (see start.ts).
 const { AuthStorage } = await import(
@@ -34,12 +38,16 @@ const writeCodex = (tokens: object, extra: object = {}) =>
 const readCodexFile = async () =>
   JSON.parse(await readFile(codexPath, "utf-8"));
 
-function stores() {
+function stores(installed = true) {
   const own: CredentialStore = AuthStorage.create(join(dir, "auth.json"));
   const codex: CredentialStore = AuthStorage.fromStorage(
     codexBackend(codexPath),
   );
-  return { own, codex, ...withCodexLogin(own, codex) };
+  return {
+    own,
+    codex,
+    ...withCodexLogin(own, codex, Promise.resolve(installed)),
+  };
 }
 
 const refreshed: Credential = {
@@ -147,6 +155,13 @@ describe("codexBackend", () => {
   });
 });
 
+describe("commandInstalled", () => {
+  it("is false only when the command is missing", async () => {
+    expect(await commandInstalled(join(dir, "no-codex"))).toBe(false);
+    expect(await commandInstalled("false")).toBe(true);
+  });
+});
+
 describe("withCodexLogin", () => {
   it("falls back to the Codex login for ChatGPT only", async () => {
     await writeCodex({ access_token: ACCESS, refresh_token: "r1" });
@@ -157,6 +172,14 @@ describe("withCodexLogin", () => {
     expect(await store.list()).toEqual([
       { providerId: "openai-codex", type: "oauth" },
     ]);
+  });
+
+  it("ignores a Codex login left behind once Codex is uninstalled", async () => {
+    await writeCodex({ access_token: ACCESS, refresh_token: "r1" });
+    const { store, usesCodex } = stores(false);
+    expect(await usesCodex()).toBe(false);
+    expect(await store.read("openai-codex")).toBeUndefined();
+    expect(await store.list()).toEqual([]);
   });
 
   it("prefers the app's own sign-in", async () => {
