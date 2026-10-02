@@ -76,6 +76,22 @@ const textOf = (c: DemoConversation) =>
 const queueOf = (c: DemoConversation | undefined) =>
   c?.queue ?? { steering: [], followUp: [] };
 
+// The demo's messages carry a fixed date; a working conversation's run shows as started 42 seconds ago.
+function messagesOf(c: DemoConversation | undefined): AgentMessage[] {
+  const messages = c?.messages ?? [];
+  if (!c?.running) return messages;
+  const last = messages.findLastIndex((m) => m.role === "user");
+  return messages.map((m, i) =>
+    i === last ? { ...m, timestamp: Date.now() - 42_000 } : m,
+  );
+}
+
+const userMessage = (text: string): AgentMessage => ({
+  role: "user",
+  content: text,
+  timestamp: Date.now(),
+});
+
 const opened = (
   session: string,
   c: DemoConversation | undefined,
@@ -84,7 +100,7 @@ const opened = (
   session,
   workdir: c?.cwd ?? "",
   trust: "trusted",
-  messages: c?.messages ?? [],
+  messages: messagesOf(c),
   running: c?.running ?? false,
   approvals: c?.approvals ?? [],
   queue: queueOf(c),
@@ -109,7 +125,7 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
   }
 
   function reply(session: string, text: string) {
-    const user: AgentMessage = { role: "user", content: text, timestamp: 0 };
+    const user = userMessage(text);
     const answer = assistant([{ type: "text", text: DEMO_REPLY }], true);
     const start: AssistantMessage = { ...answer, content: [] };
     const words = DEMO_REPLY.split(/(?<= )/);
