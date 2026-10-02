@@ -7,6 +7,7 @@ import {
   createBashToolDefinition,
   type ExtensionAPI,
   type ExtensionContext,
+  type ExtensionToolContext,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { BASH_STOP_TOOL } from "../shared/agentTypes.ts";
@@ -60,10 +61,19 @@ export async function runBackground(
       (b) => (started = b),
     ),
   });
-  const done = await bash.execute(toolCallId, input, signal, undefined, ctx);
-  if (!started) return done;
+  // pi's bash reads only ExtensionContext fields, never tools or executeTool.
+  const toolCtx = ctx as ExtensionToolContext;
+  const done = await bash.execute(
+    toolCallId,
+    input,
+    signal,
+    undefined,
+    toolCtx,
+  );
+  if (!started || done.isError) return done;
   const text = (done.content[0] as { text: string }).text;
   return {
+    ...done,
     details: { ...done.details, background: started },
     content: [
       { type: "text" as const, text: `${text}\n\n${startedText(started)}` },

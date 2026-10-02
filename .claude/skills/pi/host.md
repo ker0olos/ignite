@@ -1,4 +1,4 @@
-# Hosting pi (0.87.1)
+# Hosting pi (1.0.0)
 
 `CA` = `node_modules/@earendil-works/pi-coding-agent`.
 

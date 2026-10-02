@@ -26,8 +26,8 @@ const FEATURED: Featured[] = [
   },
   {
     providers: ["claude-bridge", "anthropic"],
-    id: "claude-sonnet-5",
-    label: "Sonnet 5",
+    id: "claude-sonnet-5-5",
+    label: "Sonnet 5.5",
     description: "Most efficient for everyday tasks",
   },
   {

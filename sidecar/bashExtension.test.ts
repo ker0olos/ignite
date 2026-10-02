@@ -3,7 +3,7 @@ import { realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import type {
   ExtensionAPI,
-  ExtensionContext,
+  ExtensionToolContext,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -18,7 +18,7 @@ const cwd = realpathSync(tmpdir());
 const ctx = {
   cwd,
   sessionManager: { getSessionId: () => "s1", getSessionFile: () => undefined },
-} as unknown as ExtensionContext;
+} as unknown as ExtensionToolContext;
 
 function load() {
   const tools = new Map<string, ToolDefinition>();
@@ -63,9 +63,9 @@ describe.runIf(process.platform !== "win32")("bash extension", () => {
   it("runs commands as pi's bash does without it", async () => {
     const { run } = load();
     expect(textOf(await run("bash", { command: "pwd" }))).toBe(`${cwd}\n`);
-    await expect(run("bash", { command: "exit 2" })).rejects.toThrow(
-      "Command exited with code 2",
-    );
+    const failed = await run("bash", { command: "exit 2" });
+    expect(failed.isError).toBe(true);
+    expect(textOf(failed)).toContain("Command exited with code 2");
   });
 
   it("says where a background command went, and stops it", async () => {
@@ -101,6 +101,12 @@ describe.runIf(process.platform !== "win32")("bash extension", () => {
   it("returns a background command that ended in time as is", async () => {
     const done = await runBackground("t", { command: "echo quick" }, ctx);
     expect(textOf(done)).toBe("quick\n");
+  });
+
+  it("returns a background command that failed in time as an error", async () => {
+    const done = await runBackground("t", { command: "exit 4" }, ctx);
+    expect(done.isError).toBe(true);
+    expect(textOf(done)).toContain("Command exited with code 4");
   });
 
   it("stops the conversation's commands when it ends, not on a reload", async () => {
