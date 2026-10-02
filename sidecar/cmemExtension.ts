@@ -10,6 +10,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { APP_NAME } from "../src/lib/app.ts";
 import { findWorker, memoryEnabled, projectOf } from "./cmem.ts";
+import { localMemoryPrompt } from "./localMemory.ts";
 // An agent works in its worktree; its memories are its folder's.
 import { folderOf } from "./worktreeGit.ts";
 
@@ -63,12 +64,16 @@ export default function cmem(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event, ctx) => {
     const folder = folderOf(ctx.cwd);
     url = (await memoryEnabled()) ? (await findWorker(folder)).url : undefined;
-    if (!url) return;
-    context ??= (await recall(url, folder)).trim();
-    initialized = post("/api/sessions/init", ctx, {
-      project: projectOf(folder),
-      prompt: event.prompt,
-    });
+    if (context === undefined) {
+      const recalled = url ? (await recall(url, folder)).trim() : "";
+      context = recalled || (await localMemoryPrompt(folder));
+    }
+    if (url) {
+      initialized = post("/api/sessions/init", ctx, {
+        project: projectOf(folder),
+        prompt: event.prompt,
+      });
+    }
     if (context) {
       return { systemPrompt: `${event.systemPrompt}\n\n${context}` };
     }

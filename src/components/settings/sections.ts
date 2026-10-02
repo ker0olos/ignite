@@ -46,7 +46,8 @@ export const SECTIONS = {
   Memory: {
     icon: Brain,
     brief: "Recall across conversations",
-    blurb: "What the agent remembers across conversations, with cmem.",
+    blurb:
+      "What the agent remembers across conversations, with cmem or markdown files.",
   },
   Remote: {
     icon: Smartphone,

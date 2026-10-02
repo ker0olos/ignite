@@ -11,17 +11,17 @@ export function memoryDescription(
     case undefined:
       return "Checking for cmem";
     case "not-installed":
-      return "Install cmem to give the agent memory across conversations. It works with Claude Code, Codex, Cursor and other agents.";
+      return "Install cmem for shared agent memory. Until then, Ignite uses markdown memory files.";
     case "stopped":
-      return "cmem's worker isn't running. It starts with any agent that uses cmem.";
+      return "cmem's worker isn't running. Ignite uses markdown memory files meanwhile.";
     case "excluded":
-      return "This folder is excluded in cmem's own settings.";
+      return "This folder is excluded in cmem's own settings, so Ignite uses markdown memory files.";
   }
   if (!enabled)
-    return "Off. Conversations aren't recorded and nothing is recalled.";
+    return "Off. Uses Ignite's markdown memory files instead of cmem.";
   return folderOpen
-    ? "Records this folder's conversations and recalls past work when a conversation starts."
-    : "Records each folder's conversations and recalls past work when a conversation starts.";
+    ? "Records this folder's conversations in cmem, falling back to markdown memory when cmem is unavailable."
+    : "Records each folder's conversations in cmem, falling back to markdown memory when cmem is unavailable.";
 }
 
 const PLATFORMS: Record<string, string> = {

@@ -137,7 +137,7 @@ it("recalls once per session", async () => {
   expect(called("/api/context/inject")).toHaveLength(2);
 });
 
-it("leaves the prompt alone when nothing is recalled", async () => {
+it("falls back to local markdown memory when nothing is recalled", async () => {
   await running();
   fetchMock.mockImplementation(async (url: string) =>
     url.includes("/api/health")
@@ -146,20 +146,27 @@ it("leaves the prompt alone when nothing is recalled", async () => {
   );
   expect(
     await on("before_agent_start", { prompt: "hi", systemPrompt: "base" }),
-  ).toBeUndefined();
+  ).toEqual({
+    systemPrompt: expect.stringContaining("# Ignite built-in memory"),
+  });
 });
 
 it.each([
   ["no worker runs", async () => {}],
   ["it's turned off in settings", async () => (await running(), turnedOff())],
-])("does nothing when %s", async (_, setUp) => {
-  await setUp();
-  expect(
-    await on("before_agent_start", { prompt: "hi", systemPrompt: "base" }),
-  ).toBeUndefined();
-  on("tool_result", { content: [] });
-  on("agent_end", { messages: [] });
-  on("session_shutdown", { reason: "quit" });
-  expect(posted()).toEqual([]);
-  expect(called("/api/context/inject")).toEqual([]);
-});
+])(
+  "uses local markdown memory and does not post to cmem when %s",
+  async (_, setUp) => {
+    await setUp();
+    expect(
+      await on("before_agent_start", { prompt: "hi", systemPrompt: "base" }),
+    ).toEqual({
+      systemPrompt: expect.stringContaining("# Ignite built-in memory"),
+    });
+    on("tool_result", { content: [] });
+    on("agent_end", { messages: [] });
+    on("session_shutdown", { reason: "quit" });
+    expect(posted()).toEqual([]);
+    expect(called("/api/context/inject")).toEqual([]);
+  },
+);
