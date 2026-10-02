@@ -13,7 +13,7 @@ import type { useAgentSession } from "@/hooks/useAgentSession";
 import { useGitStatus } from "@/hooks/useGitStatus";
 import { useProvideImageTarget } from "@/hooks/useImageTarget";
 import { useMentions } from "@/hooks/useMentions";
-import { skillPrompt } from "@/lib/mentions";
+import { compactCommand, skillPrompt } from "@/lib/mentions";
 import type { HostClient } from "@/lib/piHost";
 import { composerKey, takenText } from "@/lib/queue";
 
@@ -70,7 +70,8 @@ export function Composer({
   const handleSend = () => {
     if (!canSend) return;
     setText("");
-    setImages([]);
+    // `/compact` sends no images; they wait for the next message.
+    if (compactCommand(text) === null) setImages([]);
     void session.send(
       skillPrompt(text, state?.skills ?? []),
       images,

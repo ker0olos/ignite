@@ -6,6 +6,7 @@ import {
   type HostContext,
   type Session,
 } from "./hostTypes.ts";
+import { withSummaryProgress } from "./compactProgress.ts";
 import { denyAll } from "./hostApproval.ts";
 import { prompt } from "./hostSession.ts";
 import { rememberImages, takeImages } from "./queuedImages.ts";
@@ -38,6 +39,39 @@ export async function stop(ctx: HostContext, session?: string) {
   const queued = agent ? take(s, agent) : [];
   await s.abort();
   return queued.map(message);
+}
+
+async function hasCredentials(s: Session) {
+  if (!s.model) return false;
+  const found = await s.modelRuntime.getAuth(s.model).catch(() => undefined);
+  return !!(found?.auth.apiKey || found?.auth.headers);
+}
+
+/** Compacts the conversation, reporting the summary's progress; refused mid-run. Failures show through its compaction_end event. */
+export async function compact(
+  ctx: HostContext,
+  session?: string,
+  instructions?: string,
+) {
+  const agent = target(ctx, session);
+  const s = await current(ctx, session);
+  // pi's compact() would stop the run; the agent's work shouldn't end that way.
+  if (s.isStreaming) {
+    throw new Error(
+      "The agent is working. Wait for it or stop it, then compact.",
+    );
+  }
+  const run = () => s.compact(instructions || undefined);
+  // Wrapping the stream function makes pi skip its own credentials check, so only wrap when they resolve.
+  if (!(await hasCredentials(s))) return void (await run().catch(() => {}));
+  const progress = (tokens: number) =>
+    agent &&
+    ctx.send({
+      type: "session_event",
+      session: agent.id,
+      event: { type: "compaction_progress", tokens },
+    });
+  await withSummaryProgress(s.agent, progress, run).catch(() => {});
 }
 
 /** Takes one queued message back, moves it up or sends it now (see Unqueue). */

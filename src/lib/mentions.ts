@@ -2,7 +2,7 @@ import type { FileHit } from "../../shared/conversations";
 import { fuzzyScore } from "../../shared/fuzzy";
 import type { SkillInfo } from "../../shared/skills";
 
-/** A `/skill` (only at the start) or `@mention` being typed, from `start` to the caret. */
+/** A `/command` or `/skill` (only at the start) or `@mention` being typed, from `start` to the caret. */
 export type Mention = {
   trigger: "/" | "@";
   query: string;
@@ -12,12 +12,21 @@ export type Mention = {
 
 /** One completion: what replaces the typed token, and how its row reads. */
 export type MentionOption = {
-  kind: "skill" | "image" | "terminal" | "file";
+  kind: "command" | "skill" | "image" | "terminal" | "file";
   insert: string;
   detail?: string;
 };
 
 const LIMIT = 8;
+
+// The app's own `/` commands, which skills of the same name don't replace.
+const COMMANDS = [
+  {
+    name: "compact",
+    description:
+      "Summarize earlier messages to free up context; text after it steers the summary",
+  },
+];
 
 /** The token at the caret if it's a mention, else null. */
 export function mentionAt(text: string, caret: number): Mention | null {
@@ -39,7 +48,7 @@ function ranked<T>(query: string, items: T[], name: (item: T) => string) {
     .map(([item]) => item);
 }
 
-/** Completions for `mention`: skills for `/`; images, terminals, then files for `@`. */
+/** Completions for `mention`: commands, then skills for `/`; images, terminals, then files for `@`. */
 export function mentionOptions(
   mention: Mention,
   found: {
@@ -51,11 +60,18 @@ export function mentionOptions(
 ): MentionOption[] {
   const { query } = mention;
   if (mention.trigger === "/") {
-    return ranked(query, found.skills, (s) => s.name).map((s) => ({
-      kind: "skill",
+    const named = (kind: "command" | "skill") => (s: SkillInfo) => ({
+      kind,
       insert: `/${s.name}`,
       detail: s.description,
-    }));
+    });
+    const skills = found.skills.filter(
+      (s) => !COMMANDS.some((c) => c.name === s.name),
+    );
+    return [
+      ...ranked(query, COMMANDS, (c) => c.name).map(named("command")),
+      ...ranked(query, skills, (s) => s.name).map(named("skill")),
+    ].slice(0, LIMIT);
   }
   const images = Array.from(
     { length: found.images },
@@ -87,8 +103,17 @@ export function insertMention(text: string, mention: Mention, insert: string) {
   };
 }
 
-/** `/name …` as pi's skill command when `name` is one of `skills`. */
+/** `/name …` as pi's skill command when `name` is one of `skills` and not one of the app's commands. */
 export function skillPrompt(text: string, skills: SkillInfo[]) {
   const name = /^\/(\S+)/.exec(text)?.[1];
-  return skills.some((s) => s.name === name) ? `/skill:${text.slice(1)}` : text;
+  const skill =
+    !COMMANDS.some((c) => c.name === name) &&
+    skills.some((s) => s.name === name);
+  return skill ? `/skill:${text.slice(1)}` : text;
+}
+
+/** The instructions after `/compact` ("" for none), or null when `text` isn't that command. */
+export function compactCommand(text: string): string | null {
+  const m = /^\/compact(?:\s+([\s\S]*))?$/.exec(text.trim());
+  return m ? (m[1] ?? "").trim() : null;
 }

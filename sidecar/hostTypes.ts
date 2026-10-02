@@ -1,3 +1,4 @@
+import type { StreamFn } from "./compactProgress.ts";
 import type {
   ModelInfo,
   ThinkingLevel,
@@ -60,7 +61,12 @@ export type Runtime = {
 /** The slice of pi's AgentSession the host needs; tests pass a fake. */
 export type Session = {
   /** Its own, since each session registers its own pi-claude-bridge. */
-  readonly modelRuntime: { getAvailable(): Promise<readonly ModelInfo[]> };
+  readonly modelRuntime: {
+    getAvailable(): Promise<readonly ModelInfo[]>;
+    getAuth(
+      model: ModelInfo,
+    ): Promise<{ auth: { apiKey?: string; headers?: unknown } } | undefined>;
+  };
   readonly model: ModelInfo | undefined;
   readonly thinkingLevel: ThinkingLevel;
   getAvailableThinkingLevels(): ThinkingLevel[];
@@ -70,7 +76,11 @@ export type Session = {
   setModel(model: ModelInfo, options: { persist: boolean }): Promise<void>;
   setThinkingLevel(level: ThinkingLevel, options: { persist: boolean }): void;
   readonly messages: AgentMessage[];
-  readonly agent: { state: { messages: AgentMessage[] } };
+  readonly agent: {
+    state: { messages: AgentMessage[] };
+    /** Swapped while `/compact` runs, to read the summary's progress. */
+    streamFunction: StreamFn;
+  };
   readonly sessionManager: {
     appendMessage(message: ToolResultMessage): string;
   };
@@ -85,6 +95,8 @@ export type Session = {
     options: { streamingBehavior?: "steer" | "followUp"; images?: unknown[] },
   ): Promise<void>;
   abort(): Promise<void>;
+  /** Summarizes older messages; aborts a run first. Its outcome also arrives as compaction events. */
+  compact(customInstructions?: string): Promise<unknown>;
   /** Queue a message whether or not a run is going; neither starts one. */
   steer(text: string, images?: ImageContent[]): Promise<void>;
   followUp(text: string, images?: ImageContent[]): Promise<void>;

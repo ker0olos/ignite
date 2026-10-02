@@ -47,6 +47,7 @@ src/                     React frontend (almost all logic lives here)
     useSessionSwitch.ts  Showing and closing the shown folder's conversations
     useSessionCache.ts   Each folder's last known conversation, or none; which one events apply to
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
+    useCompact.ts        `/compact`: compacts the shown conversation
     useMentions.ts       The composer's completions: `/skill` at the start, `@image1`, `@t1` and `@path` anywhere
     useDraftState.ts     A folder with no conversation: the models and effort it would start with
     useConversationList.ts Each folder's listed conversations, remembered across launches
@@ -103,6 +104,7 @@ src/                     React frontend (almost all logic lives here)
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     gitStatus.ts         Which of a conversation's repositories the composer shows, and their pull requests' state
     transcript.ts        Rebuilds the conversation from pi's session events
+    compaction.ts        Compaction in the conversation: running, then its summary; saved summaries
     toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands, parses edit diffs
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
@@ -127,7 +129,7 @@ src/                     React frontend (almost all logic lives here)
     tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
     runStep.ts           What a running conversation is doing now (its step, start time, elapsed text)
     runCommand.ts        Which code blocks Run offers for, and a block as terminal keystrokes
-    mentions.ts          `/skill` and `@` completions: the token at the caret, options, sending a skill as `/skill:name`
+    mentions.ts          `/compact`, `/skill` and `@` completions: the token at the caret, options, sending a skill as `/skill:name`
     queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
     demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images
@@ -159,6 +161,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   worktreeClone.ts       Copy-on-write clones of the folder's ignored files into a worktree
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
   hostQueue.ts           Messages sent mid-run: stop takes them back; one taken back, moved up or sent now
+  compactProgress.ts     `/compact`'s progress: the summary's tokens, read off pi's stream as it's written
   queuedImages.ts        Queued messages' images (pi's queue lists only text), forgotten once delivered
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
@@ -447,7 +450,10 @@ conversation last looked is added as a hidden message (like Claude Code's
 ⌘1 (Ctrl+1) opens a new one as a tab beside the conversation; closing the
 tab ends its shell.
 
-The composer completes `/` at the start of a message with the session's
+The composer completes `/` at the start of a message with the app's
+`/compact` (pi's `compact()`: older messages become a summary, shown as a
+divider that opens to it; text after it steers the summary; while it runs, a
+bar fills as the summary streams) and the session's
 skills (sent as pi's `/skill:name`, shown again as `/name`), and `@`
 anywhere with the message's images (`@image1`), the folder's terminals
 (`@t1`) and files (`@src/app.ts`). Mentions stay plain text; the system

@@ -6,7 +6,7 @@ import { RowView } from "@/components/conversation/RowView";
 import { RunIndicator } from "@/components/conversation/RunIndicator";
 import { FirstApprovalContext } from "@/hooks/useFirstApproval";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
-import { currentStep, runStart } from "@/lib/runStep";
+import { workingLine } from "@/lib/runStep";
 import type { Transcript } from "@/lib/transcript";
 import { firstWaiting, toRows } from "@/lib/toolRows";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -41,10 +41,8 @@ export function Conversation({
     lastMessage.stopReason === "pending" &&
     lastMessage.content.at(-1)?.type === "text";
 
-  const messages = transcript.items.flatMap((i) =>
-    i.kind === "message" ? [i.message] : [],
-  );
   const waiting = firstWaiting(transcript.items, transcript.tools);
+  const working = workingLine(transcript, folder);
 
   return (
     <FirstApprovalContext.Provider value={waiting}>
@@ -67,11 +65,11 @@ export function Conversation({
             </RowBoundary>
           ),
         )}
-        {transcript.running && !lastIsStreamingText && (
+        {working && !lastIsStreamingText && (
           <RunIndicator
             state={waiting === null ? "working" : "waiting"}
-            step={currentStep(messages, transcript.tools, folder)}
-            since={runStart(messages)}
+            step={working.step}
+            since={working.since}
           />
         )}
       </div>

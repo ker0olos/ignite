@@ -1,6 +1,6 @@
 import type { AgentMessage, AssistantMessage } from "../../shared/agentTypes";
 import { stepOf } from "../../shared/steps";
-import type { ToolRun } from "@/lib/transcript";
+import type { ToolRun, Transcript } from "@/lib/transcript";
 
 /** What the run is doing now: the latest unfinished tool call, thinking, or just working. */
 export function currentStep(
@@ -30,4 +30,21 @@ export function runStart(messages: AgentMessage[]): number | undefined {
 export function elapsed(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+/** The working line's step and start, or null when nothing runs or compaction shows its own progress. */
+export function workingLine(
+  t: Transcript,
+  folder: string,
+): { step: string; since?: number } | null {
+  const last = t.items.at(-1);
+  const compacting = last?.kind === "compaction" && !last.summary;
+  if (!t.running || compacting) return null;
+  const messages = t.items.flatMap((i) =>
+    i.kind === "message" ? [i.message] : [],
+  );
+  return {
+    step: currentStep(messages, t.tools, folder),
+    since: runStart(messages),
+  };
 }

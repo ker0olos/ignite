@@ -121,6 +121,7 @@ export function useAgentSession(
     ...view(current, draft),
     error,
     send: actions.send,
+    compact: actions.compact,
     stop: actions.stop,
     unqueue: actions.unqueue,
     /** The shown conversation's id; the folder may have others open. */

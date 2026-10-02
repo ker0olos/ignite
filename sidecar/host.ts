@@ -30,7 +30,7 @@ import { describeError } from "./wire.ts";
 import { memoryStatus } from "./cmem.ts";
 import { answerApproval } from "./hostApproval.ts";
 import { setTrust } from "./hostTrust.ts";
-import { stop, unqueue } from "./hostQueue.ts";
+import { compact, stop, unqueue } from "./hostQueue.ts";
 import { appUpdate, appVersion } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
 import { conversationGitStatus, repoDetails } from "./gitStatus.ts";
@@ -120,6 +120,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     return undefined;
   },
   abort: (ctx, r) => stop(ctx, r.session),
+  compact: (ctx, r) => compact(ctx, r.session, r.instructions),
   unqueue: (ctx, r) => unqueue(ctx, r),
   mcp_list: (ctx) => mcpServers(ctx),
   mcp_save: (ctx, r) =>
