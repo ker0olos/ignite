@@ -223,6 +223,7 @@ describe("sessionSkills", () => {
       "notes",
       "a",
       "code-review",
+      "security-review",
     ]);
     expect(skills[1].filePath).toBe(
       join(agentDir, "skills", "notes", "SKILL.md"),
@@ -238,15 +239,19 @@ describe("sessionSkills", () => {
     expect(skills.filter((s) => s.name === "mine")).toEqual([project("mine")]);
   });
 
-  it("adds the built-in code-review unless a skill of that name is loaded", async () => {
+  it("adds the built-in skills unless a skill of that name is loaded", async () => {
     const store = createSkillStore(agentDir, home);
     const none = { skills: [] as Skill[], diagnostics: [] };
     const builtIn = store.sessionSkills(none);
-    expect(builtIn.skills.map((s) => s.name)).toEqual(["code-review"]);
+    expect(builtIn.skills.map((s) => s.name)).toEqual([
+      "code-review",
+      "security-review",
+    ]);
     await skill(join(agentDir, "skills", "code-review"), "code-review");
     const { skills } = store.sessionSkills(none);
     expect(skills.map((s) => s.filePath)).toEqual([
       join(agentDir, "skills", "code-review", "SKILL.md"),
+      expect.stringMatching(/security-review\/SKILL\.md$/),
     ]);
   });
 });

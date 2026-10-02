@@ -182,7 +182,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
   skillStore.ts          The app's skills and plugins (bundles of skills): list, on/off, remove, import;
                          the only skills sessions load besides the folder's own
-  skills/                Built-in skills (code-review), loaded after the app's; a skill of the same name replaces one
+  skills/                Built-in skills (code-review, security-review), loaded after the app's; a skill of the same name replaces one
   skillCatalog.ts        Other apps' skills to import: Claude Code, Codex, Cursor, ~/.agents, Claude Code plugins
   cmem.ts           cmem: finds its worker, the app's on/off setting, recent observations
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
