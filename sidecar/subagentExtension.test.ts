@@ -51,9 +51,14 @@ describe("subagentLimits", () => {
 });
 
 describe("allowedEfforts", () => {
-  it("lists only the efforts below the agent's own", () => {
-    expect(allowedEfforts("medium")).toEqual(["off", "minimal", "low"]);
-    expect(allowedEfforts("off")).toEqual([]);
+  it("lists the efforts up to the agent's own", () => {
+    expect(allowedEfforts("medium")).toEqual([
+      "off",
+      "minimal",
+      "low",
+      "medium",
+    ]);
+    expect(allowedEfforts("off")).toEqual(["off"]);
   });
 });
 
@@ -107,6 +112,7 @@ function load({
   own = MODELS[0],
   host = true,
   saved = [] as object[],
+  opened = Promise.resolve(),
 } = {}) {
   const events = createEventBus();
   const handlers = new Map<string, Handler>();
@@ -128,7 +134,7 @@ function load({
       asks.push(ask);
       const s = fakeSession([reply("Found it."), reply("Done.")]);
       sessions.push(s);
-      ask.reply(Promise.resolve(s as never));
+      ask.reply(opened.then(() => s as never));
     });
   }
   const ctx = {
@@ -151,9 +157,9 @@ const text = (result: { content: { type: string; text?: string }[] }) =>
   result.content[0]?.text;
 
 describe("before_agent_start", () => {
-  it("offers the tool with the provider's other models and lower efforts", async () => {
+  it("offers the tool with its own model, the provider's no dearer ones and efforts up to its own", async () => {
     const { start, active } = load();
-    const models = [MODELS[1], MODELS[2]];
+    const models = [MODELS[0], MODELS[1], MODELS[2], MODELS[4]];
     const efforts = allowedEfforts("high");
     expect((await start())?.systemPrompt).toBe(
       `Base\n\n${guidance(models, efforts, 2)}`,
@@ -168,9 +174,11 @@ describe("before_agent_start", () => {
     expect(active()).toEqual(["read"]);
   });
 
-  it("drops the tool without a lower effort or another model", async () => {
-    expect(await load({ level: "off" }).start()).toBeUndefined();
-    expect(await load({ own: MODELS[2] }).start()).toBeUndefined();
+  it("offers its own model at its own effort, even at the bottom", async () => {
+    const { start } = load({ level: "off", own: MODELS[2] });
+    expect((await start())?.systemPrompt).toBe(
+      `Base\n\n${guidance([MODELS[2]], ["off"], 2)}`,
+    );
   });
 });
 
@@ -227,12 +235,22 @@ describe("allowedModels", () => {
         ],
       },
     };
-    expect(allowedModels(ctx as never).map((m) => m.id)).toEqual(["haiku"]);
+    expect(allowedModels(ctx as never).map((m) => m.id)).toEqual([
+      "opus",
+      "haiku",
+    ]);
   });
 
-  it("allows none when its own price is unknown", () => {
+  it("allows only its own model when its price is unknown", () => {
     const ctx = {
       model: MODELS[5],
+      modelRegistry: { getAvailable: () => MODELS, getAll: () => MODELS },
+    };
+    expect(allowedModels(ctx as never)).toEqual([MODELS[5]]);
+  });
+
+  it("allows none without a model", () => {
+    const ctx = {
       modelRegistry: { getAvailable: () => MODELS, getAll: () => MODELS },
     };
     expect(allowedModels(ctx as never)).toEqual([]);
@@ -271,24 +289,27 @@ describe("subagent", () => {
     });
   });
 
-  it("refuses its own model, one as big or bigger, another provider's, and an effort not below its own", async () => {
+  it("refuses a dearer model, another provider's, and an effort above its own", async () => {
     const { run } = load();
     await expect(
-      run({ message: "x", model: "gpt-big", effort: "low" }),
-    ).rejects.toThrow("Pick a model from: gpt-mini, gpt-nano.");
+      run({ message: "x", model: "gpt-huge", effort: "low" }),
+    ).rejects.toThrow(
+      "Pick a model from: gpt-big, gpt-mini, gpt-nano, gpt-twin.",
+    );
     await expect(
       run({ message: "x", model: "haiku", effort: "low" }),
     ).rejects.toThrow("Pick a model");
-    for (const big of ["gpt-huge", "gpt-twin"]) {
-      await expect(
-        run({ message: "x", model: big, effort: "low" }),
-      ).rejects.toThrow("Pick a model");
-    }
     await expect(
-      run({ message: "x", model: "gpt-mini", effort: "high" }),
+      run({ message: "x", model: "gpt-mini", effort: "xhigh" }),
     ).rejects.toThrow(
-      "Pick an effort below your own: off, minimal, low, medium.",
+      "Pick an effort up to your own: off, minimal, low, medium, high.",
     );
+  });
+
+  it("starts one on its own model and effort", async () => {
+    const { run, asks } = load();
+    await run({ message: "x", model: "gpt-big", effort: "high" });
+    expect(asks[0]).toMatchObject({ model: MODELS[0], effort: "high" });
   });
 
   it("refuses an unknown id", async () => {
@@ -297,20 +318,13 @@ describe("subagent", () => {
     );
   });
 
-  it("stops at the cap, even for calls made at the same time", async () => {
+  it("starts more than the cap, queueing the ones past it", async () => {
     const { run, sessions } = load();
     const start = { message: "x", model: "gpt-mini", effort: "low" };
-    const results = await Promise.allSettled([
-      run(start),
-      run(start),
-      run(start),
-    ]);
-    expect(results.map((r) => r.status)).toEqual([
-      "fulfilled",
-      "fulfilled",
-      "rejected",
-    ]);
-    expect(sessions).toHaveLength(2);
+    const results = await Promise.all([run(start), run(start), run(start)]);
+    const ids = results.map((r) => (r.details as { id: string }).id);
+    expect(ids).toEqual(["agent-1", "agent-2", "agent-3"]);
+    expect(sessions).toHaveLength(3);
   });
 
   it("refuses to start one when turned off before the run", async () => {
@@ -360,6 +374,35 @@ describe("subagent", () => {
     stop.abort();
     await result;
     expect(s.abort).toHaveBeenCalledOnce();
+  });
+
+  it("doesn't prompt one stopped while it opened", async () => {
+    let open = () => {};
+    const opened = new Promise<void>((done) => (open = done));
+    const { run, sessions } = load({ opened });
+    const stop = new AbortController();
+    const result = run(
+      { message: "x", model: "gpt-mini", effort: "low" },
+      stop.signal,
+    );
+    await vi.waitFor(() => expect(sessions).toHaveLength(1));
+    stop.abort();
+    open();
+    await expect(result).rejects.toThrow("Stopped.");
+    expect(sessions[0].prompt).not.toHaveBeenCalled();
+  });
+
+  it("ends the least recently used idle ones past 8", async () => {
+    const { run, sessions } = load();
+    const start = { message: "x", model: "gpt-nano", effort: "low" };
+    for (let i = 0; i < 8; i++) await run(start);
+    await run({ message: "y", id: "agent-1" });
+    await run(start);
+    await vi.waitFor(() => expect(sessions[1].dispose).toHaveBeenCalled());
+    expect(sessions[0].dispose).not.toHaveBeenCalled();
+    await expect(run({ message: "z", id: "agent-2" })).rejects.toThrow(
+      "There is no subagent agent-2",
+    );
   });
 
   it("fails when the host can't open one", async () => {
