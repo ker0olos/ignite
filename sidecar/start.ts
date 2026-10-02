@@ -132,7 +132,6 @@ async function openSession(
   const settingsManager = SettingsManager.create(cwd, agentDir, {
     projectTrusted: trust.get(folder) === "trusted",
   });
-  settingsManager.applyOverrides({ defaultTools });
   // One bus per session, so a closed session's listeners go with it.
   const eventBus = createEventBus();
   eventBus.on(MCP_AUTH_URL_EVENT, (url) => onAuthUrl(String(url)));
@@ -169,6 +168,8 @@ async function openSession(
   });
   freshExtensions();
   await resourceLoader.reload();
+  // After the reload, which rereads settings from disk and drops overrides.
+  settingsManager.applyOverrides({ defaultTools });
   const sessionManager = sessionFor(folder, cwd, id);
   const wanted = savedModel(sessionManager, settingsManager);
   const { session } = await createAgentSession({
