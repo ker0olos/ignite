@@ -138,6 +138,7 @@ describe("choicesOf", () => {
     models: [],
     thinkingLevel: "high" as const,
     thinkingLevels: ["off" as const, "high" as const],
+    skills: [],
   };
 
   it("keeps the shown model and effort", () => {

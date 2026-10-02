@@ -21,7 +21,7 @@ import type {
 import type { QuestionAnswer } from "./questions.ts";
 import type { McpCatalog } from "./mcpCatalog.ts";
 import type { McpServer, McpServerConfig } from "./mcpServers.ts";
-import type { SkillRequest, SkillResponses } from "./skills.ts";
+import type { SkillInfo, SkillRequest, SkillResponses } from "./skills.ts";
 import type { RemoteEvent, RemoteInvoke, RemoteStatus } from "./remote.ts";
 import type { Task, TaskRequest, TaskResponses } from "./tasks.ts";
 import type {
@@ -101,6 +101,8 @@ export type SessionState = {
   thinkingLevel: ThinkingLevel;
   /** Levels the current model supports; just "off" when it can't reason. */
   thinkingLevels: ThinkingLevel[];
+  /** Skills the session loaded, which `/name` runs. */
+  skills: SkillInfo[];
 };
 
 /**

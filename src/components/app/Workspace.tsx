@@ -109,6 +109,7 @@ export function Workspace({
       />
     ) : (
       <AgentPanel
+        host={host}
         folder={folder}
         session={session}
         codeThemes={codeThemes}

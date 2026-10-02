@@ -6,6 +6,7 @@ import { TrustPrompt } from "@/components/agent/TrustPrompt";
 import { Conversation } from "@/components/conversation/Conversation";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { CodeThemes } from "@/lib/codeThemes";
+import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
 import type { Approval } from "@/components/agent/Composer";
 
@@ -13,6 +14,7 @@ type Session = ReturnType<typeof useAgentSession>;
 
 /** Conversation area and task composer. */
 export function AgentPanel({
+  host,
   folder,
   session,
   codeThemes,
@@ -21,6 +23,7 @@ export function AgentPanel({
   stickyUserMessages,
   approval,
 }: {
+  host: HostClient | null;
   folder: string;
   session: Session;
   codeThemes: CodeThemes;
@@ -63,6 +66,8 @@ export function AgentPanel({
         <TrustPrompt onAnswer={(trusted) => void session.setTrust(trusted)} />
       )}
       <Composer
+        host={host}
+        folder={folder}
         session={session}
         loading={loading}
         running={running}

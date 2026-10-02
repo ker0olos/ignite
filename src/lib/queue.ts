@@ -1,4 +1,5 @@
 import type { QueueKind, QueuedMessage } from "../../shared/queue";
+import { typedSkill } from "../../shared/skills";
 
 type Key = {
   key: string;
@@ -30,7 +31,9 @@ const sendNow = (meta: boolean, anyQueued: boolean) =>
 
 /** The composer's text with taken-back messages above what's being typed. */
 export function takenText(taken: QueuedMessage[], typed: string) {
-  return [...taken.map((m) => m.text), typed].filter(Boolean).join("\n\n");
+  return [...taken.map((m) => typedSkill(m.text)), typed]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /** A message sent mid-run that pi hasn't delivered yet. */

@@ -98,8 +98,16 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   }),
   session_state: async (ctx, r) =>
     sessionState(ctx, await current(ctx, r.session)),
-  draft_state: async (ctx, r) =>
-    sessionState(ctx, await ctx.draft({ model: r.model, level: r.level })),
+  // ponytail: the draft is shared by every folder, so a folder's own .pi skills only show once its conversation starts.
+  draft_state: async (ctx, r) => ({
+    ...(await sessionState(
+      ctx,
+      await ctx.draft({ model: r.model, level: r.level }),
+    )),
+    skills: ctx.skills
+      .sessionSkills({ skills: [] })
+      .skills.map(({ name, description }) => ({ name, description })),
+  }),
   set_model: (ctx, r) => setModel(ctx, r.provider, r.modelId, r.session),
   set_thinking_level: async (ctx, r) => {
     const s = await current(ctx, r.session);

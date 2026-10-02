@@ -1,4 +1,5 @@
 import type { AgentMessage, UserMessage } from "../shared/agentTypes.ts";
+import { typedSkill } from "../shared/skills.ts";
 import { childrenOf } from "./hostChildren.ts";
 import type { HostContext } from "./hostTypes.ts";
 
@@ -13,7 +14,9 @@ export function titleOf(message: AgentMessage | undefined): string {
     typeof content === "string"
       ? content
       : content?.find((c) => c.type === "text")?.text;
-  return (text ?? "").trim().split("\n")[0].slice(0, TITLE_LENGTH);
+  return typedSkill((text ?? "").trim())
+    .split("\n")[0]
+    .slice(0, TITLE_LENGTH);
 }
 
 /** A conversation's title: its first user message, as the history lists it, or "" before one. */

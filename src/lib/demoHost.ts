@@ -51,6 +51,10 @@ export const DEMO_STATE: SessionState = {
   model: OPUS,
   thinkingLevel: "high",
   thinkingLevels: ["off", "low", "medium", "high", "xhigh", "max"],
+  skills: [
+    { name: "code-review", description: "Review the current diff for bugs" },
+    { name: "release-notes", description: "Draft release notes since a tag" },
+  ],
 };
 
 /** The demo agent's answer to anything sent to it. */
