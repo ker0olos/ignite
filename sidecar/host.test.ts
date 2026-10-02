@@ -75,6 +75,9 @@ function fakeSession() {
     model: OPUS as ModelInfo | undefined,
     thinkingLevel: "low" as ThinkingLevel,
     getAvailableThinkingLevels: () => levels(session.model),
+    resourceLoader: {
+      getSkills: () => ({ skills: [{ name: "review", description: "R" }] }),
+    },
     setModel: vi.fn(async (m: ModelInfo) => {
       session.model = m;
       if (!levels(m).includes(session.thinkingLevel)) {
@@ -810,6 +813,7 @@ describe("sessions", () => {
         model: opus,
         thinkingLevel: "low",
         thinkingLevels: ["off", "low", "high"],
+        skills: [{ name: "review", description: "R" }],
         session: "/work:saved",
         workdir: "/work",
         trust: "untrusted",
@@ -1128,6 +1132,12 @@ describe("sessions", () => {
       undefined,
       undefined,
       draft,
+      undefined,
+      {
+        sessionSkills: () => ({
+          skills: [{ name: "code-review", description: "C" }],
+        }),
+      } as unknown as SkillStore,
     );
     await request({
       id: 1,
@@ -1140,7 +1150,13 @@ describe("sessions", () => {
     });
     expect(responses()[0]).toMatchObject({
       ok: true,
-      data: { models: [opus, mini], model: opus, thinkingLevel: "low" },
+      data: {
+        models: [opus, mini],
+        model: opus,
+        thinkingLevel: "low",
+        // The app's skills, not the draft's.
+        skills: [{ name: "code-review", description: "C" }],
+      },
     });
   });
 

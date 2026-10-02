@@ -47,6 +47,7 @@ src/                     React frontend (almost all logic lives here)
     useSessionSwitch.ts  Showing and closing the shown folder's conversations
     useSessionCache.ts   Each folder's last known conversation, or none; which one events apply to
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
+    useMentions.ts       The composer's completions: `/skill` at the start, `@image1`, `@t1` and `@path` anywhere
     useDraftState.ts     A folder with no conversation: the models and effort it would start with
     useConversationList.ts Each folder's listed conversations, remembered across launches
     useConversationTags.ts Conversation tags by id, shared by all windows, kept after one closes; the sidebar's tag filter
@@ -121,6 +122,7 @@ src/                     React frontend (almost all logic lives here)
     questions.ts         ask_user answers being picked: options, own answer, per-option notes
     tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
     runCommand.ts        Which code blocks Run offers for, and a block as terminal keystrokes
+    mentions.ts          `/skill` and `@` completions: the token at the caret, options, sending a skill as `/skill:name`
     queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
     demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images
@@ -163,7 +165,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   ptyShell.ts            Shells in a PTY (node-pty): spawning, killing its tree, its output as screen text
   ptyBash.ts             Background commands' shell in a PTY: stdin from /dev/null, pagers off
   terminal.ts            The user's terminals: a login shell in a PTY (node-pty), mirrored in a headless xterm
-  terminalExtension.ts   terminal_read, and the terminals' new output added to each run
+  terminalExtension.ts   terminal_read, and the terminals' new output added to each run;
+                         tells the agent what the composer's `@` mentions name
   hostChildren.ts        Each conversation's subagents and background commands, for the sidebar
   sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
@@ -179,6 +182,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
   skillStore.ts          The app's skills and plugins (bundles of skills): list, on/off, remove, import;
                          the only skills sessions load besides the folder's own
+  skills/                Built-in skills (code-review, security-review), loaded after the app's; a skill of the same name replaces one
   skillCatalog.ts        Other apps' skills to import: Claude Code, Codex, Cursor, ~/.agents, Claude Code plugins
   cmem.ts           cmem: finds its worker, the app's on/off setting, recent observations
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
@@ -215,7 +219,8 @@ shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/validation.ts     Checks on typed API keys and MCP servers (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
 shared/conversations.ts  Saved conversations, their details, command search hits (used by both)
-shared/skills.ts         Skills, plugins and importable skills as they cross the wire, and their requests
+shared/skills.ts         Skills, plugins and importable skills as they cross the wire, and their requests;
+                         a skill's expanded message shown as the `/name` typed
 shared/mcpCatalog.ts     MCP presets and other apps' servers the MCP settings offer
 shared/mcpServers.ts     MCP servers as they cross the wire (re-exported by hostProtocol.ts)
 shared/terminal.ts       The user's terminals: requests, output events, terminal_read's name
@@ -420,6 +425,12 @@ conversation last looked is added as a hidden message (like Claude Code's
 `!`), and `terminal_read` reads them on demand. Agents can't type into them.
 ⌘1 (Ctrl+1) opens a new one as a tab beside the conversation; closing the
 tab ends its shell.
+
+The composer completes `/` at the start of a message with the session's
+skills (sent as pi's `/skill:name`, shown again as `/name`), and `@`
+anywhere with the message's images (`@image1`), the folder's terminals
+(`@t1`) and files (`@src/app.ts`). Mentions stay plain text; the system
+prompt says what they name.
 
 Tasks (the sidebar's Tasks view) hand work to an agent that runs on its own.
 Each folder's tasks live in `~/.ignite/tasks/` (`sidecar/taskStore.ts`,

@@ -16,6 +16,7 @@ const STATE: SessionState = {
   model: opus,
   thinkingLevel: "low",
   thinkingLevels: ["off", "low", "high"],
+  skills: [],
 };
 const STATUSES: ProviderStatus[] = [{ id: "anthropic", connected: true }];
 

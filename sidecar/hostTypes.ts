@@ -64,6 +64,9 @@ export type Session = {
   readonly model: ModelInfo | undefined;
   readonly thinkingLevel: ThinkingLevel;
   getAvailableThinkingLevels(): ThinkingLevel[];
+  readonly resourceLoader: {
+    getSkills(): { skills: readonly { name: string; description: string }[] };
+  };
   setModel(model: ModelInfo, options: { persist: boolean }): Promise<void>;
   setThinkingLevel(level: ThinkingLevel, options: { persist: boolean }): void;
   readonly messages: AgentMessage[];

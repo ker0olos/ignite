@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "../shared/agentTypes.ts";
+import { typedSkill } from "../shared/skills.ts";
 import type { SessionStore } from "./hostTypes.ts";
 import { sessionSummary } from "./cmem.ts";
 import { savedBranch } from "./worktrees.ts";
@@ -37,7 +38,7 @@ export const sessions: SessionStore = {
       .filter((s) => s.messageCount > 0)
       .map((s) => ({
         id: s.id,
-        title: s.name ?? s.firstMessage,
+        title: s.name ?? typedSkill(s.firstMessage),
         modified: s.modified.getTime(),
         messageCount: s.messageCount,
         text: s.allMessagesText,

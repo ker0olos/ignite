@@ -3,17 +3,19 @@ import type {
   TextContent,
   UserMessage,
 } from "../../../shared/agentTypes";
+import { typedSkill } from "../../../shared/skills";
 import { ZoomableImage } from "@/components/app/ZoomableImage";
 
 /** The user's turn: text bubble and any attached images, right-aligned. */
 export function UserBubble({ message }: { message: UserMessage }) {
-  const text =
+  const text = typedSkill(
     typeof message.content === "string"
       ? message.content
       : message.content
           .filter((b): b is TextContent => b.type === "text")
           .map((b) => b.text)
-          .join("\n");
+          .join("\n"),
+  );
   const images =
     typeof message.content === "string"
       ? []

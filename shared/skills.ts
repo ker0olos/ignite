@@ -44,3 +44,13 @@ export type SkillResponses = {
   skills_catalog: SkillCatalog;
   skills_import: SkillEntry[];
 };
+
+/** A message pi expanded from `/skill:name args`, as the user typed it. */
+export function typedSkill(text: string) {
+  const m =
+    /^<skill name="([^"]+)" location="[^"]*">\n[\s\S]*\n<\/skill>(?:\n\n([\s\S]*))?$/.exec(
+      text,
+    );
+  if (!m) return text;
+  return m[2] ? `/${m[1]} ${m[2]}` : `/${m[1]}`;
+}

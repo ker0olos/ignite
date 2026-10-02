@@ -5,6 +5,12 @@ import { TERMINAL_READ_TOOL } from "../shared/terminal.ts";
 import { readTerminals, unseenTerminals } from "./terminal.ts";
 import { folderOf } from "./worktreeGit.ts";
 
+/** What the composer's `@` mentions in the user's messages point at. */
+export const MENTION_GUIDANCE =
+  "In the user's messages, `@image1`, `@image2`… are the images attached to that message, in order; " +
+  `\`@t1\`, \`@t2\`… are their terminals (read one with ${TERMINAL_READ_TOOL}); ` +
+  "and `@path` is a file or folder in the project.";
+
 export default function terminal(pi: ExtensionAPI) {
   pi.registerTool({
     name: TERMINAL_READ_TOOL,
@@ -39,13 +45,15 @@ export default function terminal(pi: ExtensionAPI) {
     },
   });
 
-  pi.on("before_agent_start", (_event, ctx) => {
+  pi.on("before_agent_start", (event, ctx) => {
+    const systemPrompt = `${event.systemPrompt}\n\n${MENTION_GUIDANCE}`;
     const text = unseenTerminals(
       ctx.sessionManager.getSessionId(),
       folderOf(ctx.cwd),
     );
-    if (!text) return;
+    if (!text) return { systemPrompt };
     return {
+      systemPrompt,
       message: {
         customType: "terminal",
         content: `The user's terminal since you last saw it:\n\n${text}`,

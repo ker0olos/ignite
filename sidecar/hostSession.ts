@@ -49,6 +49,9 @@ export async function sessionState(
     model: s.model && info(s.model),
     thinkingLevel: s.thinkingLevel,
     thinkingLevels: s.getAvailableThinkingLevels(),
+    skills: s.resourceLoader
+      .getSkills()
+      .skills.map(({ name, description }) => ({ name, description })),
   };
 }
 

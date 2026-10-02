@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus } from "lucide-react";
 import type { ImageContent } from "../../../shared/agentTypes";
 import type { QueuedMessage } from "../../../shared/queue";
 import type { ApprovalMode } from "../../../shared/hostProtocol";
+import { AttachImagesButton } from "@/components/agent/AttachImagesButton";
+import { ComposerInput } from "@/components/agent/ComposerInput";
 import { ComposerToolbar } from "@/components/agent/ComposerToolbar";
 import { ImageAttachments } from "@/components/agent/ImageAttachments";
+import { MentionMenu } from "@/components/agent/MentionMenu";
 import { QueuedMessages } from "@/components/agent/QueuedMessages";
-import { MENU_TRIGGER } from "@/components/agent/styles";
-import { Textarea } from "@/components/ui/textarea";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import { useProvideImageTarget } from "@/hooks/useImageTarget";
-import { typedText } from "@/lib/demo";
-import { pastedImages, pickImages } from "@/lib/images";
+import { useMentions } from "@/hooks/useMentions";
+import { skillPrompt } from "@/lib/mentions";
+import type { HostClient } from "@/lib/piHost";
 import { composerKey, takenText } from "@/lib/queue";
-import { cn } from "@/lib/utils";
 
 type Session = ReturnType<typeof useAgentSession>;
 
@@ -25,11 +25,15 @@ export type Approval = {
 
 /** Task composer: prompt textarea, toolbar, and send/stop button. */
 export function Composer({
+  host,
+  folder,
   session,
   loading,
   running,
   approval,
 }: {
+  host: HostClient | null;
+  folder: string;
   session: Session;
   loading: boolean;
   running: boolean;
@@ -39,6 +43,15 @@ export function Composer({
   const [text, setText] = useState("");
   const [images, setImages] = useState<ImageContent[]>([]);
   const input = useRef<HTMLTextAreaElement>(null);
+  const mentions = useMentions({
+    host,
+    folder,
+    text,
+    setText,
+    input,
+    skills: state?.skills ?? [],
+    images: images.length,
+  });
 
   // A new conversation is ready to type in.
   useEffect(() => {
@@ -53,7 +66,11 @@ export function Composer({
     if (!canSend) return;
     setText("");
     setImages([]);
-    void session.send(text, images, "followUp");
+    void session.send(
+      skillPrompt(text, state?.skills ?? []),
+      images,
+      "followUp",
+    );
   };
   const restore = (taken: QueuedMessage[]) => {
     setText((t) => takenText(taken, t));
@@ -70,12 +87,13 @@ export function Composer({
 
   return (
     <form
-      className="mx-auto w-full max-w-3xl px-4 pb-4"
+      className="relative mx-auto w-full max-w-3xl px-4 pb-4"
       onSubmit={(e) => {
         e.preventDefault();
         handleSend();
       }}
     >
+      <MentionMenu {...mentions.menu} />
       <div className="group border-t transition-colors focus-within:border-foreground/35">
         <QueuedMessages
           queued={queued}
@@ -93,17 +111,14 @@ export function Composer({
             )
           }
         />
-        <Textarea
+        <ComposerInput
           ref={input}
           value={text}
-          onChange={(e) => setText(typedText(e.target.value))}
-          onPaste={(e) => {
-            const { clipboardData } = e;
-            if (clipboardData.files.length === 0) return;
-            e.preventDefault();
-            void pastedImages(clipboardData).then(attach);
-          }}
+          onChange={setText}
+          onCaret={mentions.setCaret}
+          onImages={attach}
           onKeyDown={(e) => {
+            if (mentions.onKeyDown(e)) return;
             const act = composerKey(
               { ...e, isComposing: e.nativeEvent.isComposing },
               { running, empty: !canSend, queued: queued.length > 0 },
@@ -114,27 +129,9 @@ export function Composer({
             else if (act === "now") void session.unqueue(queued[0], "now");
             else handleSend();
           }}
-          placeholder="Describe a task"
-          autoCorrect="off"
-          autoCapitalize="off"
-          autoComplete="off"
-          spellCheck={false}
-          rows={1}
-          className="max-h-[calc(5lh+1.5rem)] min-h-0 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0.5 pt-4 pb-2 shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0 dark:bg-transparent"
         />
         <div className="flex h-6 items-center gap-3.5 px-0.5 max-sm:h-10">
-          <button
-            type="button"
-            aria-label="Attach images"
-            // A finger-sized target on a phone, still flush with the text's edge.
-            className={cn(
-              MENU_TRIGGER,
-              "max-sm:-ml-2.5 max-sm:size-10 max-sm:justify-center",
-            )}
-            onClick={() => void pickImages().then(attach)}
-          >
-            <Plus className="size-3.5 max-sm:size-5" />
-          </button>
+          <AttachImagesButton onAttach={attach} />
           <ComposerToolbar
             session={session}
             loading={loading}

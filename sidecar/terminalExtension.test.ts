@@ -8,7 +8,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, it, vi } from "vitest";
 import { closeTerminal, openTerminal, writeTerminal } from "./terminal.ts";
-import terminal from "./terminalExtension.ts";
+import terminal, { MENTION_GUIDANCE } from "./terminalExtension.ts";
 
 vi.stubEnv("SHELL", "/bin/sh");
 const cwd = realpathSync(mkdtempSync(join(tmpdir(), "terminal-ext-")));
@@ -23,7 +23,7 @@ function load() {
   } as unknown as ExtensionAPI);
   const read = (params: object) =>
     tool!.execute("call", params, undefined, undefined, ctx as never);
-  return { read, beforeRun: () => beforeRun!({}, ctx) };
+  return { read, beforeRun: () => beforeRun!({ systemPrompt: "Base" }, ctx) };
 }
 
 let id: string;
@@ -39,10 +39,12 @@ it("adds the user's new terminal output to the next run, then reads it on reques
     ),
   );
   // Reading marked it seen; new output comes with the next run.
-  expect(beforeRun()).toBeUndefined();
+  const systemPrompt = `Base\n\n${MENTION_GUIDANCE}`;
+  expect(beforeRun()).toEqual({ systemPrompt });
   writeTerminal(id, "echo again\r");
   await vi.waitFor(() =>
     expect(beforeRun()).toEqual({
+      systemPrompt,
       message: {
         customType: "terminal",
         content: expect.stringContaining("again"),

@@ -7,6 +7,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Skill } from "@earendil-works/pi-coding-agent";
 import type { SkillCatalog, SkillEntry, SkillInfo } from "../shared/skills.ts";
 import {
@@ -19,6 +20,9 @@ const info = ({ name, description }: Skill): SkillInfo => ({
   name,
   description,
 });
+
+/** Skills that ship with the app, such as code-review. */
+const BUILT_IN = fileURLToPath(import.meta.resolve("./skills"));
 
 /** A skill's own folder, or its file when it's a lone .md. */
 const origin = (skill: Skill) =>
@@ -173,7 +177,7 @@ export function createSkillStore(agentDir: string, home: string) {
 
     /**
      * A resource loader `skillsOverride`: the folder's own skills, then the
-     * app's that are on. pi has already dropped name clashes by then, often in
+     * app's that are on, then the built-in ones neither replaced. pi has already dropped name clashes by then, often in
      * favour of ~/.agents/skills, so the app's are loaded here, not filtered.
      */
     sessionSkills<T extends { skills: Skill[] }>(base: T): T {
@@ -194,7 +198,8 @@ export function createSkillStore(agentDir: string, home: string) {
         taken.add(s.name);
         return true;
       });
-      return { ...base, skills: [...project, ...ours] };
+      const builtIn = loadSkills(BUILT_IN).filter((s) => !taken.has(s.name));
+      return { ...base, skills: [...project, ...ours, ...builtIn] };
     },
   };
 }
