@@ -24,6 +24,32 @@ export type ConversationLimit = {
   max: number;
 };
 
+const COLLAPSED_KEY = "collapsed-conversation-folders";
+
+function loadCollapsed(): Record<string, boolean> {
+  try {
+    const saved: unknown = JSON.parse(
+      localStorage.getItem(COLLAPSED_KEY) ?? "{}",
+    );
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
+    return Object.fromEntries(
+      Object.entries(saved).filter(
+        (entry): entry is [string, boolean] => entry[1] === true,
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function saveCollapsed(next: Record<string, boolean>) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+  } catch {
+    // Collapsed for now, if not after a reload.
+  }
+}
+
 /** What the sidebar's folder list needs from the app. */
 export type ProjectListProps = {
   childActions: ChildActions;
@@ -86,8 +112,16 @@ export function FolderList({
   onSetConversationTags?: (session: string, tags: string[]) => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const toggle = (path: string) =>
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
+  const toggleLimit = (path: string) =>
     setExpanded((open) => ({ ...open, [path]: !open[path] }));
+  const toggleCollapsed = (path: string) =>
+    setCollapsed((before) => {
+      const next = { ...before, [path]: !before[path] };
+      if (!next[path]) delete next[path];
+      saveCollapsed(next);
+      return next;
+    });
 
   return (
     <div className="flex flex-col gap-1">
@@ -99,31 +133,38 @@ export function FolderList({
           onClear={onClearTagFilter}
         />
       </div>
-      {sortedByName(folders).map((path) => (
-        <Fragment key={path}>
-          <ProjectRow
-            path={path}
-            home={home}
-            selected={path === folder && !shown}
-            onNew={() => void conversations.create(path)}
-            onHistory={() => onHistory(path)}
-            onDismiss={() => onDismiss(path)}
-          />
-          <FolderConversations
-            cwd={path}
-            rows={rows(path)}
-            shown={path === folder ? shown : null}
-            conversations={conversations}
-            childActions={childActions}
-            tags={tags}
-            onSetTags={onSetConversationTags}
-            expanded={!!expanded[path]}
-            max={conversationLimit.max}
-            limited={conversationLimit.enabled}
-            onToggle={() => toggle(path)}
-          />
-        </Fragment>
-      ))}
+      {sortedByName(folders).map((path) => {
+        const isCollapsed = !!collapsed[path];
+        return (
+          <Fragment key={path}>
+            <ProjectRow
+              path={path}
+              home={home}
+              selected={path === folder && (!shown || isCollapsed)}
+              collapsed={isCollapsed}
+              onToggle={() => toggleCollapsed(path)}
+              onNew={() => void conversations.create(path)}
+              onHistory={() => onHistory(path)}
+              onDismiss={() => onDismiss(path)}
+            />
+            {!isCollapsed && (
+              <FolderConversations
+                cwd={path}
+                rows={rows(path)}
+                shown={path === folder ? shown : null}
+                conversations={conversations}
+                childActions={childActions}
+                tags={tags}
+                onSetTags={onSetConversationTags}
+                expanded={!!expanded[path]}
+                max={conversationLimit.max}
+                limited={conversationLimit.enabled}
+                onToggle={() => toggleLimit(path)}
+              />
+            )}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import type { AgentStatus } from "../../../shared/hostProtocol";
 import type { Conversations } from "@/hooks/useConversations";
 import { childTabId } from "@/lib/childTabs";
@@ -77,6 +77,10 @@ const selected = () =>
     .filter((b) => b.getAttribute("aria-current") === "true")
     .map((b) => b.textContent);
 
+beforeEach(() => {
+  localStorage.clear();
+});
+
 it("lists every folder by name, each followed by its conversations in order", () => {
   setup();
   const text = document.body.textContent ?? "";
@@ -121,10 +125,33 @@ it("closes a conversation, passing the others in its folder", () => {
   expect(conversations.close).toHaveBeenCalledWith("/proj", "a", ["a", "b"]);
 });
 
-it("opens a new conversation in a folder when it's clicked", () => {
+it("opens a new conversation in a folder from its plus button", () => {
   const { conversations } = setup();
-  fireEvent.click(screen.getByText("quiet"));
+  fireEvent.click(
+    screen.getByRole("button", { name: "New conversation in quiet" }),
+  );
   expect(conversations.create).toHaveBeenCalledWith("/home/me/quiet");
+});
+
+it("collapses a folder's conversations when its row is clicked", () => {
+  setup();
+  fireEvent.click(screen.getByRole("button", { name: "proj" }));
+  expect(screen.queryByText("Fix bug")).toBeNull();
+  expect(screen.queryByText("New conversation")).toBeNull();
+  expect(localStorage.getItem("collapsed-conversation-folders")).toBe(
+    '{"/proj":true}',
+  );
+  fireEvent.click(screen.getByRole("button", { name: "proj" }));
+  expect(screen.getByText("Fix bug")).toBeTruthy();
+});
+
+it("loads remembered collapsed folders", () => {
+  localStorage.setItem("collapsed-conversation-folders", '{"/proj":true}');
+  setup();
+  expect(screen.queryByText("Fix bug")).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "proj" }).getAttribute("aria-current"),
+  ).toBe("true");
 });
 
 it("takes a folder off the sidebar from its × button", () => {
