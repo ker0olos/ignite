@@ -22,7 +22,7 @@ src/                     React frontend (almost all logic lives here)
                          MCP sign-in warning banner
     files/               Lazy directory tree, read-only syntax-highlighted file view
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
-    agent/               Conversation area wiring, task composer, model/effort/approval menus, pull request links, trust prompt
+    agent/               Conversation area wiring, task composer, model/effort/approval menus, git status, trust prompt
     conversation/        Transcript rendering: messages, thinking, tool rows (with approve/deny, or the
                          agent's questions) and their pieces; WorkingLine is the run's spinner, step and time
     settings/            Settings dialog shell, its rows, and one items file per section
@@ -62,6 +62,8 @@ src/                     React frontend (almost all logic lives here)
     useTerminalShortcut.ts ⌘1 / Ctrl+1 opens a terminal tab; returns run-in-terminal
     useRunInTerminal.ts  Run-in-terminal for assistant shell code blocks' Run button
     useTerminalTabs.ts   A closed tab's shell ends; a folder shown again reopens its shells' tabs
+    useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request), read every 5s
+    useGitRepoDetails.ts A repository's uncommitted files and unpushed commits, while its composer popover is open
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
     useClearedChildren.ts  Finished subagents and background commands cleared from the sidebar
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
@@ -99,7 +101,7 @@ src/                     React frontend (almost all logic lives here)
     lifecycle.ts         Confirm before quitting or closing a window
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
-    conversationPrs.ts   The pull requests a conversation opened (`gh pr create` results), for the composer's links
+    gitStatus.ts         Which of a conversation's repositories the composer shows, and their pull requests' state
     transcript.ts        Rebuilds the conversation from pi's session events
     toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands, parses edit diffs
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
@@ -210,6 +212,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   gitMerged.ts           Refuses a commit or push on a branch whose pull request was already merged
   gitRun.ts              Runs git and gh with prompts, pagers and (unless approved) hooks off
   gitReview.ts           A commit's or push's changed files and commits; one file's diff (git_diff)
+  gitPlace.ts            A review's repository (origin owner/name, else folder name) and branch
+  gitStatus.ts           The repositories a conversation's git calls and edits touched, and what isn't committed, pushed or merged
+  gitUntracked.ts        New files git doesn't track yet: listed as added, and their whole-file diffs
   ghReview.ts            What `gh pr create` would open: title, branches, GitHub's compare of them
   headlessUI.ts          The UI context bound to sessions: declines prompts, passes errors to the app
   mcpPresets.ts          One-click MCP presets (the adapter's and ours)

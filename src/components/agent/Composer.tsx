@@ -5,10 +5,12 @@ import type { ApprovalMode } from "../../../shared/hostProtocol";
 import { AttachImagesButton } from "@/components/agent/AttachImagesButton";
 import { ComposerInput } from "@/components/agent/ComposerInput";
 import { ComposerToolbar } from "@/components/agent/ComposerToolbar";
+import { GitStatusLinks } from "@/components/agent/GitStatusLinks";
 import { ImageAttachments } from "@/components/agent/ImageAttachments";
 import { MentionMenu } from "@/components/agent/MentionMenu";
 import { QueuedMessages } from "@/components/agent/QueuedMessages";
 import type { useAgentSession } from "@/hooks/useAgentSession";
+import { useGitStatus } from "@/hooks/useGitStatus";
 import { useProvideImageTarget } from "@/hooks/useImageTarget";
 import { useMentions } from "@/hooks/useMentions";
 import { skillPrompt } from "@/lib/mentions";
@@ -43,6 +45,7 @@ export function Composer({
   const [text, setText] = useState("");
   const [images, setImages] = useState<ImageContent[]>([]);
   const input = useRef<HTMLTextAreaElement>(null);
+  const repos = useGitStatus(host, session.session);
   const mentions = useMentions({
     host,
     folder,
@@ -138,6 +141,7 @@ export function Composer({
             running={running}
             canSend={canSend}
             approval={approval}
+            git={<GitStatusLinks host={host} repos={repos} />}
             onStop={stop}
           />
         </div>

@@ -4,6 +4,8 @@ import type { GitChange, GitReview } from "../shared/git.ts";
 import { validRange } from "../shared/git.ts";
 import { splitGit } from "../src/lib/gitPolicy.ts";
 import { prFileDiff, prReview } from "./ghReview.ts";
+import { placeOf } from "./gitPlace.ts";
+import { untrackedDiff } from "./gitUntracked.ts";
 import { run } from "./gitRun.ts";
 
 async function git(repo: string, args: string[]): Promise<string | null> {
@@ -20,7 +22,7 @@ function rangeArgs(range: string): string[] {
 }
 
 /** The files `range` changes, with line counts. Renames show as delete and add. */
-async function changes(
+export async function changes(
   repo: string,
   range: string,
   paths: string[] = [],
@@ -170,7 +172,7 @@ async function pushReview(repo: string, rest: string[]): Promise<GitReview> {
 }
 
 /** The commits `revs` name (e.g. `a..b`), newest first. */
-async function commitsIn(repo: string, revs: string[]) {
+export async function commitsIn(repo: string, revs: string[]) {
   const log = await git(repo, ["log", "--format=%h%x09%s", ...revs]);
   return (log ?? "")
     .split("\n")
@@ -203,13 +205,14 @@ export async function updated(
     kind: "update",
     repo,
     range,
+    place: await placeOf(repo),
     files: await changes(repo, range),
     commits: await commitsIn(repo, [range]),
   };
 }
 
 /** What a commit, push or new pull request would change, for the user to review. */
-export function review(
+export async function review(
   kind: "commit" | "push" | "pr",
   args: string[],
   cwd: string,
@@ -217,7 +220,11 @@ export function review(
   if (kind === "pr") return prReview(args, cwd);
   const { rest } = splitGit(args);
   const repo = repoOf(args, cwd);
-  return kind === "commit" ? commitReview(repo, rest) : pushReview(repo, rest);
+  const [shown, place] = await Promise.all([
+    kind === "commit" ? commitReview(repo, rest) : pushReview(repo, rest),
+    placeOf(repo),
+  ]);
+  return { ...shown, place };
 }
 
 /** After a commit ran, its review points at the new commit, so its diffs stay. */
@@ -233,5 +240,6 @@ export async function fileDiff(repo: string, range: string, path: string) {
   const args = ["diff", "--no-color", "--no-ext-diff", "-U100000"];
   const diff = await git(repo, [...args, ...rangeArgs(range), "--", path]);
   if (diff === null) throw new Error(`Couldn't diff ${path}.`);
-  return diff;
+  if (diff || range !== "HEAD") return diff;
+  return (await untrackedDiff(repo, path)) ?? diff;
 }

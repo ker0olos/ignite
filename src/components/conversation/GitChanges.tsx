@@ -1,6 +1,7 @@
 import type { GitReview } from "../../../shared/git";
 import { GitChangeRow } from "@/components/conversation/GitChangeRow";
 import { GitReviewHeader } from "@/components/conversation/GitReviewHeader";
+import { GitReviewPlace } from "@/components/conversation/GitReviewPlace";
 import { ScrollMoreChip } from "@/components/conversation/ScrollMoreChip";
 import { useHiddenBelow } from "@/hooks/useHiddenBelow";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,7 @@ export function GitChanges({ review }: { review: GitReview }) {
 
   return (
     <div className="divide-y overflow-hidden rounded-lg border bg-muted/30">
+      {review.place && <GitReviewPlace place={review.place} />}
       <GitReviewHeader review={review} />
       <div className="space-y-1 px-1.5 py-2">
         <div className="flex items-center gap-1.5 px-1.5 text-xs text-muted-foreground">

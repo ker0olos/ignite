@@ -64,6 +64,7 @@ describe("review", () => {
       kind: "commit",
       repo,
       range: "staged",
+      place: { name: "app", branch: "main" },
       files: [{ path: "b.txt", status: "A", added: 1, removed: 0 }],
       message: "add b",
     });
@@ -79,6 +80,13 @@ describe("review", () => {
   it("finds the repository -C names", async () => {
     const shown = await review("commit", ["-C", "app", "commit"], root);
     expect(shown.repo).toBe(repo);
+  });
+
+  it("names the repository by its origin, and no branch when detached", async () => {
+    git("remote", "set-url", "origin", "git@github.com:me/app.git");
+    git("switch", "-q", "--detach");
+    const shown = await review("commit", ["commit"], repo);
+    expect(shown.place).toEqual({ name: "me/app" });
   });
 
   it("shows the commits a push sends and what they change", async () => {
