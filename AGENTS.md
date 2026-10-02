@@ -204,6 +204,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          and, in a task's conversation, on the task's card
   gitExtension.ts        git and gh tools: run outside the sandbox, ask for themselves, redirect bash's
   gitPush.ts             The git tool's `push: true`: a commit that pushes its branch in the same call
+  gitMerged.ts           Refuses a commit or push on a branch whose pull request was already merged
   gitRun.ts              Runs git and gh with prompts, pagers and (unless approved) hooks off
   gitReview.ts           A commit's or push's changed files and commits; one file's diff (git_diff)
   ghReview.ts            What `gh pr create` would open: title, branches, GitHub's compare of them
@@ -413,7 +414,11 @@ outside the folder. A commit, push or `gh pr create` waits with a review: its ch
 (status, +/− counts) and message or commits, each file opening its diff in a
 tab (`git_diff`). A commit called with `push: true` (on a branch) waits
 once, its review naming the branch ("Commit and push to origin/<branch>"), then
-runs `push -u origin <branch>`; other git options than `-C` are refused; a task's runs alone only when both would. The sandbox already refuses writes to `.git/config` and
+runs `push -u origin <branch>`; other git options than `-C` are refused; a task's runs alone only when both would. A commit or push that continues a branch whose pull request
+was merged (it holds that pull request's head commit but not its merge, none
+is open, and no pull request targets the branch) is refused before it asks,
+pointing the agent at a new branch from the default one
+(`sidecar/gitMerged.ts`); when gh can't tell within 10 seconds, it goes ahead. The sandbox already refuses writes to `.git/config` and
 `.git/hooks`; hooks can still live in the working tree (husky), so calls that
 ran without asking run with hooks off. Bash commands that commit, push, pull,
 fetch, clone or run gh are blocked with a pointer to the tools.
