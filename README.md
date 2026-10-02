@@ -28,15 +28,20 @@ once.
   its pull request to approve, stopping only when it needs you.
 - Click any image, yours or one the agent took, and draw on it: pen,
   highlighter, arrows, boxes and text, zooming in for detail. Then add it to
-  the chat or a task to show the agent what you mean.
+  the conversation or a task to show the agent what you mean.
 - When a decision is open, the agent asks you, with a few options and what
   each one costs. Pick one, write your own answer, or leave it to the agent.
+- ⌘1 opens a terminal beside the conversation. Agents read what it printed,
+  and shell code in a reply runs there with one click.
+- Type `/` for the project's skills and `@` for files, terminals and attached
+  images.
 - Claude and ChatGPT through your Claude Code and Codex sign-ins, so you use
   the plans you already pay for. API keys work too.
 - Commands run in a sandbox: they write only inside the project, can't read
   your credentials and reach only package registries and git hosts. Anything
-  risky asks first.
-- ⌘K searches every conversation, file and project.
+  risky asks first, or turn on full access and nothing asks.
+- ⌘K searches every conversation, file and project, and ⌘P jumps straight
+  to a file.
 - Skills and MCP servers import from Claude Code, Codex, Cursor and Claude
   Desktop in one click.
 - With [cmem](https://cmem.ai), agents remember what they learned about a
@@ -64,7 +69,7 @@ and goes back to the last working version if an update fails to start.
 ## Make it yours
 
 Every component and function in Ignite is yours to change. Ask its agent to
-rework any part of it to fit how you work: the chat box, the sidebar, how
+rework any part of it to fit how you work: the message box, the sidebar, how
 tools are approved, how the agent itself runs. Your changes survive every
 update, and if one breaks something, Ignite still opens and tells you.
 

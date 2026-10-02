@@ -3,6 +3,7 @@ import type { Approval } from "@/components/agent/Composer";
 import { EffortMenu } from "@/components/agent/EffortMenu";
 import { Kbd } from "@/components/agent/Kbd";
 import { ModelMenu } from "@/components/agent/ModelMenu";
+import { PullRequestLinks } from "@/components/agent/PullRequestLinks";
 import { ACTION } from "@/components/agent/styles";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { useAgentSession } from "@/hooks/useAgentSession";
@@ -49,6 +50,7 @@ export function ComposerToolbar({
         />
       )}
       <ApprovalMenu mode={approval.mode} onChange={approval.onChange} />
+      <PullRequestLinks transcript={session.transcript} />
       {session.error && (
         <span className="truncate text-xs text-destructive">
           {session.error}

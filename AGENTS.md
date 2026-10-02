@@ -22,7 +22,7 @@ src/                     React frontend (almost all logic lives here)
                          MCP sign-in warning banner
     files/               Lazy directory tree, read-only syntax-highlighted file view
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
-    agent/               Conversation area wiring, task composer, model/effort/approval menus, trust prompt
+    agent/               Conversation area wiring, task composer, model/effort/approval menus, pull request links, trust prompt
     conversation/        Transcript rendering: messages, thinking, tool rows (with approve/deny, or the
                          agent's questions) and their pieces; WorkingLine is the run's spinner, step and time
     settings/            Settings dialog shell, its rows, and one items file per section
@@ -99,6 +99,7 @@ src/                     React frontend (almost all logic lives here)
     lifecycle.ts         Confirm before quitting or closing a window
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
+    conversationPrs.ts   The pull requests a conversation opened (`gh pr create` results), for the composer's links
     transcript.ts        Rebuilds the conversation from pi's session events
     toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands, parses edit diffs
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
