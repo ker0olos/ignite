@@ -3,11 +3,13 @@ import type {
   ToolCall,
   UserMessage,
 } from "../../shared/agentTypes";
+import { compactionOf, type CompactionItem } from "./compaction";
 import type { Item, ToolRun } from "./transcript";
 
 /** One row of the conversation as drawn, with quiet tool calls folded together. */
 export type Row =
   | Extract<Item, { kind: "notice" }>
+  | CompactionItem
   | { kind: "user"; message: UserMessage }
   | { kind: "text"; text: string }
   | { kind: "thinking"; thinking: string }
@@ -69,11 +71,13 @@ export function toRows(
 ): Row[] {
   const rows: Row[] = [];
   for (const item of items) {
-    if (item.kind === "notice") {
+    if (item.kind !== "message") {
       rows.push(item);
       continue;
     }
     const { message } = item;
+    const compaction = compactionOf(message);
+    if (compaction) rows.push(compaction);
     if (message.role === "user") {
       rows.push({ kind: "user", message: message as UserMessage });
     }

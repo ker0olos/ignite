@@ -221,6 +221,8 @@ export type HostRequest =
     }
   /** Stops the run; resolves to the queued messages, taken back. */
   | { id: number; type: "abort"; session?: string }
+  /** Summarizes the conversation's older messages (`/compact`), optionally as `instructions` say; resolves once done. */
+  | { id: number; type: "compact"; session?: string; instructions?: string }
   /** Resolves to the message, or null when it was already delivered. */
   | ({ id: number; type: "unqueue" } & Unqueue)
   | { id: number; type: "mcp_list" }
@@ -307,6 +309,7 @@ export type HostResponses = SkillResponses &
     set_thinking_level: SessionState;
     prompt: undefined;
     abort: QueuedMessage[];
+    compact: undefined;
     unqueue: QueuedMessage | null;
     mcp_list: McpServer[];
     mcp_save: McpServer[];

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   insertMention,
   mentionAt,
+  compactCommand,
   mentionOptions,
   skillPrompt,
 } from "./mentions";
@@ -48,6 +49,18 @@ describe("mentionOptions", () => {
     });
     expect(options).toEqual([
       { kind: "skill", insert: "/code-review", detail: "Review the diff" },
+    ]);
+  });
+
+  it("offers the app's commands before skills, over a skill of the same name", () => {
+    const options = mentionOptions(mentionAt("/", 1)!, {
+      ...NONE,
+      skills: [...SKILLS, { name: "compact", description: "A skill" }],
+    });
+    expect(options.map((o) => [o.kind, o.insert])).toEqual([
+      ["command", "/compact"],
+      ["skill", "/code-review"],
+      ["skill", "/release-notes"],
     ]);
   });
 
@@ -101,9 +114,29 @@ describe("skillPrompt", () => {
     expect(skillPrompt("/code-review", SKILLS)).toBe("/skill:code-review");
   });
 
+  it("leaves the app's own commands to the app, over a skill of the same name", () => {
+    const skills = [{ name: "compact", description: "A skill" }];
+    expect(skillPrompt("/compact keep notes", skills)).toBe(
+      "/compact keep notes",
+    );
+  });
+
   it("leaves other text alone", () => {
     expect(skillPrompt("/unknown x", SKILLS)).toBe("/unknown x");
     expect(skillPrompt("/Users/me/a.ts", SKILLS)).toBe("/Users/me/a.ts");
     expect(skillPrompt("fix it", SKILLS)).toBe("fix it");
+  });
+});
+
+describe("compactCommand", () => {
+  it.each([
+    ["/compact", ""],
+    ["  /compact  ", ""],
+    ["/compact keep the API notes", "keep the API notes"],
+    ["/compact\nfocus on tests", "focus on tests"],
+    ["/compaction", null],
+    ["please /compact", null],
+  ])("reads %j", (text, instructions) => {
+    expect(compactCommand(text)).toBe(instructions);
   });
 });

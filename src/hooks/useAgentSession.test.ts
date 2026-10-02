@@ -114,6 +114,32 @@ describe("useAgentSession", () => {
     expect(host.send).not.toHaveBeenCalled();
   });
 
+  it("compacts the shown conversation, showing why it couldn't", async () => {
+    const host = fakeHost(async (req) =>
+      req.type === "compact" ? Promise.reject(new Error("Not open")) : STATE,
+    );
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.state).toEqual(STATE));
+    await act(() => result.current.compact("keep the API"));
+    expect(host.request).toHaveBeenCalledWith({
+      type: "compact",
+      session: "s1",
+      instructions: "keep the API",
+    });
+    expect(result.current.error).toBe("Not open");
+  });
+
+  it("has nothing to compact before the conversation starts", async () => {
+    const host = fakeHost(async (req) =>
+      req.type === "open_session" ? null : STATE,
+    );
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.none).toBe(true));
+    await act(() => result.current.compact(""));
+    expect(types(host)).not.toContain("compact");
+    expect(result.current.error).toBe("There's nothing to compact yet.");
+  });
+
   it("shows a tool call waiting for approval and sends the answer", async () => {
     const host = fakeHost(async () => STATE);
     const { result } = renderHook(() => useAgentSession(host, "/work", null));

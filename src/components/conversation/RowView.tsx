@@ -1,4 +1,5 @@
 import { AssistantText } from "@/components/conversation/AssistantText";
+import { CompactionRow } from "@/components/conversation/CompactionRow";
 import type { Editor, ToolProps } from "@/components/conversation/shared";
 import { EndRow } from "@/components/conversation/EndRow";
 import { ThinkingRow } from "@/components/conversation/ThinkingRow";
@@ -40,6 +41,8 @@ export function RowView({
           {row.text}
         </p>
       );
+    case "compaction":
+      return <CompactionRow row={row} />;
     case "user":
       return (
         <UserMessageRow message={row.message} sticky={stickyUserMessages} />

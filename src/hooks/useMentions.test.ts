@@ -54,16 +54,21 @@ function setup(text: string, host: HostClient | null = null) {
 describe("useMentions", () => {
   it("moves with the arrows and picks with enter", () => {
     const { result, onPick } = setup("/co");
-    expect(result.current.options).toHaveLength(2);
+    // The app's /compact first, then skills: "commit" ranks first, being shorter.
+    expect(result.current.options.map((o) => o.insert)).toEqual([
+      "/compact",
+      "/commit",
+      "/code-review",
+    ]);
     act(() => void result.current.onKeyDown(key("ArrowDown").event));
     expect(result.current.selected).toBe(1);
+    act(() => void result.current.onKeyDown(key("ArrowDown").event));
     act(() => void result.current.onKeyDown(key("ArrowDown").event));
     expect(result.current.selected).toBe(0);
     act(() => void result.current.onKeyDown(key("ArrowUp").event));
     const enter = key("Enter");
     act(() => void result.current.onKeyDown(enter.event));
     expect(enter.preventDefault).toHaveBeenCalled();
-    // "commit" ranks first, being shorter.
     expect(onPick).toHaveBeenCalledWith("/code-review ");
   });
 
@@ -87,7 +92,7 @@ describe("useMentions", () => {
 
   it("shows nothing for text put back without a caret report", () => {
     const { result, rerender } = setup("/co");
-    expect(result.current.options).toHaveLength(2);
+    expect(result.current.options).toHaveLength(3);
     // Taken back from the queue: the text changes, the caret isn't reported.
     rerender({ text: "/code-review", typed: false });
     expect(result.current.options).toEqual([]);

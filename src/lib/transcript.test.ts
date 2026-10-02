@@ -341,14 +341,17 @@ describe("applyEvent", () => {
       { type: "auto_retry_end", success: false, finalError: "Gave up." },
       { type: "auto_retry_end", success: false },
       { type: "compaction_start", reason: "threshold" },
-      { type: "compaction_end", aborted: false },
-      { type: "compaction_end", aborted: false, errorMessage: "Too big." },
+      {
+        type: "compaction_end",
+        reason: "threshold",
+        aborted: false,
+        errorMessage: "Too big.",
+      },
     ]);
     expect(t.items).toEqual([
       { kind: "notice", text: "Retrying (1/3): 529 overloaded" },
       { kind: "notice", text: "Gave up.", error: true },
       { kind: "notice", text: "The request failed.", error: true },
-      { kind: "notice", text: "Compacting the conversation" },
       { kind: "notice", text: "Too big.", error: true },
     ]);
   });

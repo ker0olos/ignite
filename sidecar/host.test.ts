@@ -1,4 +1,5 @@
 // @vitest-environment node
+import type { StreamFn } from "./compactProgress.ts";
 import { describe, expect, it, vi } from "vitest";
 import type {
   HostMessage,
@@ -71,7 +72,14 @@ function fakeSession() {
   const levels = (m?: ModelInfo): ThinkingLevel[] =>
     m?.id === "opus" ? ["off", "low", "high"] : ["off"];
   const session = {
-    modelRuntime: { getAvailable: async (): Promise<ModelInfo[]> => MODELS },
+    modelRuntime: {
+      getAvailable: async (): Promise<ModelInfo[]> => MODELS,
+      getAuth: vi.fn(
+        async (): Promise<
+          { auth: { apiKey?: string; headers?: unknown } } | undefined
+        > => ({ auth: { apiKey: "key" } }),
+      ),
+    },
     model: OPUS as ModelInfo | undefined,
     thinkingLevel: "low" as ThinkingLevel,
     getAvailableThinkingLevels: () => levels(session.model),
@@ -88,7 +96,10 @@ function fakeSession() {
       session.thinkingLevel = level;
     }),
     messages: [] as AgentMessage[],
-    agent: { state: { messages: [] as AgentMessage[] } },
+    agent: {
+      state: { messages: [] as AgentMessage[] },
+      streamFunction: (() => undefined) as StreamFn,
+    },
     sessionManager: { appendMessage: vi.fn(() => "entry") },
     sendCustomMessage: vi.fn(async () => {}),
     isStreaming: false,
@@ -120,6 +131,9 @@ function fakeSession() {
     abort: vi.fn(async () => {
       session.isStreaming = false;
     }),
+    compact: vi.fn<(instructions?: string) => Promise<unknown>>(
+      async () => ({}),
+    ),
     clearQueue: vi.fn(() => {
       const taken = session.queue;
       session.queue = { steering: [], followUp: [] };
@@ -380,7 +394,10 @@ describe("Claude Code", () => {
         fakeRuntime().runtime,
         async () => ({
           ...fakeSession(),
-          modelRuntime: { getAvailable: async () => [...MODELS, bridged] },
+          modelRuntime: {
+            ...fakeSession().modelRuntime,
+            getAvailable: async () => [...MODELS, bridged],
+          },
         }),
         fakeClaudeCode({ installed: true, loggedIn }),
       );
@@ -1546,6 +1563,85 @@ describe("sessions", () => {
       session: "/work:saved",
       error: "No model selected.",
     });
+  });
+
+  it("compacts the conversation, leaving failures to its compaction events", async () => {
+    const session = fakeSession();
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({
+      id: 1,
+      type: "open_session",
+      cwd: "/work",
+      session: "/work:saved",
+    });
+    await request({ id: 2, type: "compact", instructions: "Keep the API" });
+    expect(session.compact).toHaveBeenCalledWith("Keep the API");
+    session.compact.mockRejectedValueOnce(new Error("Nothing to compact"));
+    await request({ id: 3, type: "compact", instructions: "" });
+    expect(session.compact).toHaveBeenLastCalledWith(undefined);
+    expect(responses().slice(1)).toEqual([
+      { type: "response", id: 2, ok: true },
+      { type: "response", id: 3, ok: true },
+    ]);
+  });
+
+  it("reports the summary's progress while compacting", async () => {
+    const session = fakeSession();
+    const { request, sent } = setup(fakeRuntime().runtime, async () => session);
+    await request({
+      id: 1,
+      type: "open_session",
+      cwd: "/work",
+      session: "/work:saved",
+    });
+    session.agent.streamFunction = async function* () {
+      yield { type: "text_delta", delta: "x".repeat(40) };
+    } as StreamFn;
+    session.compact.mockImplementationOnce(async () => {
+      await (session.agent.streamFunction as () => unknown)();
+      await new Promise((r) => setTimeout(r, 0));
+      return {};
+    });
+    await request({ id: 2, type: "compact" });
+    expect(sent).toContainEqual({
+      type: "session_event",
+      session: "/work:saved",
+      event: { type: "compaction_progress", tokens: 10 },
+    });
+  });
+
+  it("refuses to compact mid-run, and compacts without progress when credentials don't resolve", async () => {
+    const session = fakeSession();
+    const { request, responses, sent } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({
+      id: 1,
+      type: "open_session",
+      cwd: "/work",
+      session: "/work:saved",
+    });
+    session.isStreaming = true;
+    await request({ id: 2, type: "compact" });
+    expect(session.compact).not.toHaveBeenCalled();
+    expect(responses()[1]).toMatchObject({ id: 2, ok: false });
+
+    session.isStreaming = false;
+    session.modelRuntime.getAuth.mockResolvedValueOnce(undefined);
+    const streamFunction = session.agent.streamFunction;
+    session.compact.mockImplementationOnce(async () => {
+      // pi checks its own stream function to pick its strict credentials check.
+      expect(session.agent.streamFunction).toBe(streamFunction);
+      return {};
+    });
+    await request({ id: 3, type: "compact" });
+    expect(session.compact).toHaveBeenCalledTimes(1);
+    expect(responses()[2]).toEqual({ type: "response", id: 3, ok: true });
+    expect(sent.some((m) => m.type === "session_event")).toBe(false);
   });
 
   it("aborts the run", async () => {

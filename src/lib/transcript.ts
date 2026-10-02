@@ -7,10 +7,12 @@ import type {
   ToolResult,
 } from "../../shared/agentTypes";
 import type { GitReview } from "../../shared/git";
+import { applyCompactionEvent, type CompactionItem } from "@/lib/compaction";
 
 export type Item =
   | { kind: "message"; message: AgentMessage }
-  | { kind: "notice"; text: string; error?: boolean };
+  | { kind: "notice"; text: string; error?: boolean }
+  | CompactionItem;
 
 /** A tool call's progress, matched to its call by id. */
 export type ToolRun = {
@@ -119,21 +121,6 @@ function applyRetryEvent(t: Transcript, event: RetryEvent): Transcript {
     : notice(t, event.finalError ?? "The request failed.", true);
 }
 
-type CompactionEvent = Extract<
-  SessionEvent,
-  { type: "compaction_start" | "compaction_end" }
->;
-
-function applyCompactionEvent(
-  t: Transcript,
-  event: CompactionEvent,
-): Transcript {
-  if (event.type === "compaction_start") {
-    return notice(t, "Compacting the conversation");
-  }
-  return event.errorMessage ? notice(t, event.errorMessage, true) : t;
-}
-
 /**
  * Applies one pi session event, following pi's streaming rules
  * (docs/json.md): deltas build a block, `*_end` and `message_end` replace
@@ -166,6 +153,7 @@ function applyBackgroundEvent(t: Transcript, event: SessionEvent): Transcript {
     case "auto_retry_end":
       return applyRetryEvent(t, event);
     case "compaction_start":
+    case "compaction_progress":
     case "compaction_end":
       return applyCompactionEvent(t, event);
     case "queue_update":

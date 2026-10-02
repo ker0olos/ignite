@@ -1,11 +1,16 @@
 import { createElement } from "react";
-import { Image, SquareTerminal, Zap } from "lucide-react";
+import { Image, Shrink, SquareTerminal, Zap } from "lucide-react";
 import { Highlight } from "@/components/command/Highlight";
 import { fileIcon } from "@/lib/fileIcons";
 import type { MentionOption } from "@/lib/mentions";
 import { cn } from "@/lib/utils";
 
-const ICONS = { skill: Zap, image: Image, terminal: SquareTerminal };
+const ICONS = {
+  command: Shrink,
+  skill: Zap,
+  image: Image,
+  terminal: SquareTerminal,
+};
 
 /** The composer's completions for the `/skill` or `@mention` being typed, above the text. */
 export function MentionMenu({

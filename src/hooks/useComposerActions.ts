@@ -8,6 +8,8 @@ import type {
 import type { ImageContent } from "../../shared/agentTypes";
 import type { QueueKind, QueuedMessage, Unqueue } from "../../shared/queue";
 import type { HostClient } from "@/lib/piHost";
+import { useCompact } from "@/hooks/useCompact";
+import { compactCommand } from "@/lib/mentions";
 import type { Queued } from "@/lib/queue";
 
 /** Model and effort picked before a folder's first message, applied once its session starts. */
@@ -29,6 +31,19 @@ const toChoices = ({ model, level }: Pending): Choice[] => [
     : []),
   ...(level ? [{ type: "set_thinking_level" as const, level }] : []),
 ];
+
+const promptRequest = (
+  text: string,
+  images: ImageContent[],
+  session: string | null,
+  queue?: QueueKind,
+) => ({
+  type: "prompt" as const,
+  text,
+  ...(images.length > 0 && { images }),
+  ...(session && { session }),
+  ...(queue && { queue }),
+});
 
 /**
  * Sending, stopping, and the model and effort choices, each for `session`
@@ -67,24 +82,22 @@ export function useComposerActions({
     return s.session;
   }, [opened, folder, start, pending, setState]);
 
+  const compact = useCompact(opened, none, session, setError);
+
   const send = useCallback(
     async (text: string, images: ImageContent[] = [], queue?: QueueKind) => {
       if (!opened || (!text.trim() && !images.length)) return;
+      const instructions = compactCommand(text);
+      if (instructions !== null) return compact(instructions);
       setError(null);
       try {
         const to = none ? await begin() : session;
-        await opened.request({
-          type: "prompt",
-          text,
-          ...(images.length > 0 && { images }),
-          ...(to && { session: to }),
-          ...(queue && { queue }),
-        });
+        await opened.request(promptRequest(text, images, to, queue));
       } catch (e) {
         setError((e as Error).message);
       }
     },
-    [opened, none, session, begin, setError],
+    [opened, none, session, begin, setError, compact],
   );
 
   const change = useCallback(
@@ -135,6 +148,7 @@ export function useComposerActions({
   return {
     pending,
     send,
+    compact,
     stop,
     unqueue,
     setModel: (model: ModelInfo) =>

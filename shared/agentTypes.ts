@@ -143,9 +143,24 @@ export type SessionEvent =
     }
   /** Messages sent mid-run that pi hasn't delivered yet, in delivery order. */
   | { type: "queue_update"; steering: string[]; followUp: string[] }
-  | { type: "compaction_start"; reason: string }
+  | { type: "compaction_start"; reason: CompactionReason }
+  /** The app's own: the tokens `/compact`'s summary has written so far. */
+  | { type: "compaction_progress"; tokens: number }
   | {
       type: "compaction_end";
+      reason: CompactionReason;
+      result?: { summary: string; tokensBefore: number };
       aborted: boolean;
       errorMessage?: string;
     };
+
+/** "manual" is `/compact`; the others happen on their own during or after a run. */
+type CompactionReason = "manual" | "threshold" | "overflow";
+
+/** What pi keeps of a compacted conversation's older messages. */
+export type CompactionSummaryMessage = {
+  role: "compactionSummary";
+  summary: string;
+  tokensBefore: number;
+  timestamp: number;
+};
