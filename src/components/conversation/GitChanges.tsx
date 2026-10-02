@@ -1,9 +1,14 @@
 import type { GitReview } from "../../../shared/git";
 import { GitChangeRow } from "@/components/conversation/GitChangeRow";
 import { GitReviewHeader } from "@/components/conversation/GitReviewHeader";
+import { ScrollMoreChip } from "@/components/conversation/ScrollMoreChip";
+import { useHiddenBelow } from "@/hooks/useHiddenBelow";
+import { cn } from "@/lib/utils";
 
 /** A commit or push's review: its message or commits, then its changed files. */
 export function GitChanges({ review }: { review: GitReview }) {
+  const { ref, hidden, update } = useHiddenBelow<HTMLDivElement>(review.files);
+
   return (
     <div className="divide-y overflow-hidden rounded-lg border bg-muted/30">
       <GitReviewHeader review={review} />
@@ -19,14 +24,38 @@ export function GitChanges({ review }: { review: GitReview }) {
             No file changes.
           </p>
         ) : (
-          review.files.map((file) => (
-            <GitChangeRow
-              key={file.path}
-              repo={review.repo}
-              range={review.range}
-              file={file}
-            />
-          ))
+          <div className="relative">
+            {/* Height ends mid-row so a cut-off row shows the list scrolls. */}
+            <div
+              ref={ref}
+              onScroll={update}
+              className={cn(
+                "max-h-[19rem] space-y-1 overflow-y-auto",
+                hidden > 0 &&
+                  "[mask-image:linear-gradient(to_bottom,black_calc(100%-3rem),transparent)]",
+              )}
+            >
+              {review.files.map((file) => (
+                <GitChangeRow
+                  key={file.path}
+                  repo={review.repo}
+                  range={review.range}
+                  file={file}
+                />
+              ))}
+            </div>
+            {hidden > 0 && (
+              <ScrollMoreChip
+                count={hidden}
+                onClick={() =>
+                  ref.current?.scrollBy({
+                    top: ref.current.clientHeight * 0.8,
+                    behavior: "smooth",
+                  })
+                }
+              />
+            )}
+          </div>
         )}
       </div>
     </div>
