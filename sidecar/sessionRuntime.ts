@@ -26,6 +26,17 @@ export function freshExtensions() {
   loader.clearExtensionCache();
 }
 
+/** pi's built-in tools; its grep/find/ls (ripgrep, fd) skip ignored files. */
+export const defaultTools = [
+  "read",
+  "bash",
+  "edit",
+  "write",
+  "grep",
+  "find",
+  "ls",
+];
+
 // Every session registers its own pi-claude-bridge; in one shared runtime the
 // last registration would take every session's Claude calls.
 /**

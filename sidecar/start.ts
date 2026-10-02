@@ -27,6 +27,7 @@ import { createWorkspaces } from "./worktrees.ts";
 import { createDraft } from "./draftSession.ts";
 import { MCP_STATUS_EVENT, mcpSessionOpener } from "./mcpSession.ts";
 import {
+  defaultTools,
   freshExtensions,
   reselectModel,
   runtimeFor,
@@ -100,12 +101,7 @@ const sibling = (name: string) => fileURLToPath(import.meta.resolve(name));
 const claudeBridge = sibling("pi-claude-bridge/src/index.ts");
 // pi-mcp-adapter, reading only agentDir/mcp.json.
 const mcpExtension = sibling("./mcpExtension.ts");
-const cmemExtension = sibling("./cmemExtension.ts");
 const subagentExtension = sibling("./subagentExtension.ts");
-const gitExtension = sibling("./gitExtension.ts");
-const worktreeExtension = sibling("./worktreeExtension.ts");
-const chromeExtension = sibling("./chromeExtension.ts");
-const imageExtension = sibling("./imageExtension.ts");
 const taskExtension = sibling("./taskExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
 const approvalExtension = sibling("./approvalExtension.ts");
@@ -136,6 +132,7 @@ async function openSession(
   const settingsManager = SettingsManager.create(cwd, agentDir, {
     projectTrusted: trust.get(folder) === "trusted",
   });
+  settingsManager.applyOverrides({ defaultTools });
   // One bus per session, so a closed session's listeners go with it.
   const eventBus = createEventBus();
   eventBus.on(MCP_AUTH_URL_EVENT, (url) => onAuthUrl(String(url)));
@@ -156,13 +153,13 @@ async function openSession(
     additionalExtensionPaths: [
       claudeBridge,
       mcpExtension,
-      cmemExtension,
+      sibling("./cmemExtension.ts"),
       sibling("./askExtension.ts"),
       subagentExtension,
-      gitExtension,
-      worktreeExtension,
-      chromeExtension,
-      imageExtension,
+      sibling("./gitExtension.ts"),
+      sibling("./worktreeExtension.ts"),
+      sibling("./chromeExtension.ts"),
+      sibling("./imageExtension.ts"),
       sibling("./bashExtension.ts"),
       sibling("./terminalExtension.ts"),
       taskExtension,
@@ -209,7 +206,7 @@ async function openSubagent(
   eventBus: ReturnType<typeof createEventBus>,
 ) {
   const settingsManager = SettingsManager.inMemory(
-    {},
+    { defaultTools },
     { projectTrusted: trust.get(folder) === "trusted" },
   );
   const resourceLoader = new DefaultResourceLoader({
