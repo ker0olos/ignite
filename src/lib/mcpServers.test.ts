@@ -165,7 +165,7 @@ describe("scopeLabel", () => {
   it("names the scope, and another folder by its name", () => {
     expect(scopeLabel({ ...source, scope: "user" })).toBe("Global");
     expect(scopeLabel({ ...source, scope: "project" })).toBe(
-      "This project only",
+      "This folder only",
     );
     expect(
       scopeLabel({ ...source, scope: "project", folder: "/code/motr-server" }),

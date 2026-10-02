@@ -16,7 +16,7 @@ export function TaskAgentCard({
   task: ShownTask;
   actions: TaskActions;
 }) {
-  const open = () => task.session && actions.onOpenChat(task.session);
+  const open = () => task.session && actions.onOpenConversation(task.session);
   const markDone = () => actions.edit(task.id, { done: true });
   switch (task.status) {
     case "todo":
@@ -31,12 +31,12 @@ export function TaskAgentCard({
       return (
         <TaskProgress
           step={workingLine(task)}
-          onOpenChat={open}
+          onOpenConversation={open}
           onStop={() => actions.stop(task.id)}
         />
       );
     case "waiting":
-      return <TaskWaiting onOpenChat={open} />;
+      return <TaskWaiting onOpenConversation={open} />;
     case "declined":
     case "review":
       if (task.review?.review) {
@@ -46,17 +46,17 @@ export function TaskAgentCard({
             onAnswer={(approved) =>
               actions.answer(task.review!.toolCallId, approved)
             }
-            onOpenChat={open}
+            onOpenConversation={open}
           />
         );
       }
       return task.pr ? (
-        <TaskReview pr={task.pr} onOpenChat={open} onDone={markDone} />
+        <TaskReview pr={task.pr} onOpenConversation={open} onDone={markDone} />
       ) : (
         <TaskResume
           declined={task.status === "declined"}
           onResume={(text) => actions.resume(task.id, text)}
-          onOpenChat={open}
+          onOpenConversation={open}
           onDone={markDone}
         />
       );

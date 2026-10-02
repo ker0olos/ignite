@@ -8,7 +8,11 @@ const file = (path: string): CommandPick => ({
   folder: "/f",
   path,
 });
-const chat: CommandPick = { kind: "conversation", folder: "/f", id: "c1" };
+const conversation: CommandPick = {
+  kind: "conversation",
+  folder: "/f",
+  id: "c1",
+};
 
 describe("usePreviewPick", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -29,7 +33,7 @@ describe("usePreviewPick", () => {
     act(() => vi.advanceTimersByTime(50));
     expect(result.current).toEqual(file("c.ts"));
 
-    rerender({ pick: chat });
-    expect(result.current).toBe(chat);
+    rerender({ pick: conversation });
+    expect(result.current).toBe(conversation);
   });
 });

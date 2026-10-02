@@ -14,7 +14,7 @@ import { imageUrl } from "@/lib/images";
 /**
  * An image that opens over the window, ready to zoom into and mark up. The
  * result replaces it through `onEdit` (an unsent attachment), else it's added
- * to the showing chat or task input. Esc or a click outside closes it, first
+ * to the showing conversation or task input. Esc or a click outside closes it, first
  * asking to discard any markup worth keeping.
  */
 export function ZoomableImage({

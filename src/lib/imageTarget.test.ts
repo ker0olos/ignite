@@ -11,20 +11,20 @@ describe("imageTarget", () => {
     const unsubscribe = subscribeImageTargets(listener);
     expect(currentImageTarget()).toBeNull();
 
-    const chat = { label: "Add to chat", add: vi.fn() };
+    const conversation = { label: "Add to conversation", add: vi.fn() };
     const sheet = { label: "Add to task", add: vi.fn() };
-    const dropChat = addImageTarget(chat);
+    const dropConversation = addImageTarget(conversation);
     const dropSheet = addImageTarget(sheet);
     expect(currentImageTarget()).toBe(sheet);
 
     dropSheet();
-    expect(currentImageTarget()).toBe(chat);
-    dropChat();
+    expect(currentImageTarget()).toBe(conversation);
+    dropConversation();
     expect(currentImageTarget()).toBeNull();
     expect(listener).toHaveBeenCalledTimes(4);
 
     unsubscribe();
-    addImageTarget(chat)();
+    addImageTarget(conversation)();
     expect(listener).toHaveBeenCalledTimes(4);
   });
 });

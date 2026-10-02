@@ -105,5 +105,5 @@ export type TaskActions = Pick<
   Tasks,
   "start" | "stop" | "edit" | "remove" | "answer" | "resume"
 > & {
-  onOpenChat: (session: string) => void;
+  onOpenConversation: (session: string) => void;
 };

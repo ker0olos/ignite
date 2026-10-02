@@ -34,7 +34,7 @@ async function runOn(s: Session, { model, effort }: Task) {
 
 /**
  * Starts task `id` in a new conversation that runs in the background (the
- * Tasks view follows it, the chat isn't switched), and sends it the task.
+ * Tasks view follows it, the conversation isn't switched), and sends it the task.
  */
 export async function startTask(ctx: HostContext, cwd: string, id: string) {
   if (ctx.starting.has(id)) throw new Error("That task is already starting.");

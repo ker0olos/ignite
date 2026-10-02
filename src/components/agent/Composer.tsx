@@ -63,7 +63,7 @@ export function Composer({
   const stop = () => void session.stop().then(restore);
   const attach = (added: ImageContent[]) =>
     setImages((current) => [...current, ...added]);
-  useProvideImageTarget("Add to chat", (image) => {
+  useProvideImageTarget("Add to conversation", (image) => {
     attach([image]);
     input.current?.focus();
   });

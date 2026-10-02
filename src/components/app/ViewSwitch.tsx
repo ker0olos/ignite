@@ -2,14 +2,14 @@ import { ListChecks, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Which of a folder's two views shows: its conversation or its tasks. */
-export type WorkspaceView = "chat" | "tasks";
+export type WorkspaceView = "conversation" | "tasks";
 
 const VIEWS = [
-  { view: "chat", label: "Chat", Icon: MessageSquare },
+  { view: "conversation", label: "Conversation", Icon: MessageSquare },
   { view: "tasks", label: "Tasks", Icon: ListChecks },
 ] as const;
 
-/** Chat and Tasks as the sidebar's first rows, styled like its conversation rows. */
+/** Conversation and Tasks as the sidebar's first rows, styled like its conversation rows. */
 export function ViewSwitch({
   view,
   onChange,

@@ -14,7 +14,32 @@ const MAX_SUBAGENTS = [1, 2, 3, 4, 5, 6].map((n) => ({
   label: String(n),
 }));
 
-/** Settings rows for how the agent works: questions, subagents, keeping the Mac awake. */
+/** The row that lets Auto run every tool call, unsandboxed. */
+function fullAccessItem(
+  settings: Settings,
+  onChange: (settings: Settings) => void,
+): Item {
+  return {
+    section: "Agent",
+    title: "Full access in Auto",
+    description:
+      "Auto runs every tool call without asking and outside the sandbox: risky commands, files outside the folder, commits and pushes.",
+    keywords: "yolo approval auto sandbox permissions bypass trust",
+    control: (
+      <Switch
+        checked={settings.approval.full_access}
+        onCheckedChange={(full_access) =>
+          onChange({
+            ...settings,
+            approval: { ...settings.approval, full_access },
+          })
+        }
+      />
+    ),
+  };
+}
+
+/** Settings rows for how the agent works: questions, subagents, full access, keeping the Mac awake. */
 export function agentItems({
   settings,
   onChange,
@@ -25,6 +50,7 @@ export function agentItems({
   isMac?: boolean;
 }): Item[] {
   return [
+    fullAccessItem(settings, onChange),
     {
       section: "Agent",
       title: "Ask before deciding",
@@ -92,46 +118,52 @@ export function agentItems({
         </Select>
       ),
     },
-    ...(isMac
-      ? ([
-          {
-            section: "Agent",
-            title: "Keep Mac awake",
-            description:
-              "Your Mac doesn't sleep while the agent works. It can once the agent finishes or waits for you.",
-            keywords: "sleep caffeinate awake power battery",
-            control: (
-              <Switch
-                checked={settings.power.keep_awake}
-                onCheckedChange={(keep_awake) =>
-                  onChange({
-                    ...settings,
-                    power: { ...settings.power, keep_awake },
-                  })
-                }
-              />
-            ),
-          },
-          {
-            section: "Agent",
-            title: "Keep screen awake",
-            description:
-              "The display stays on too while the agent works, so you can watch it.",
-            keywords: "sleep caffeinate awake power battery display screen",
-            control: (
-              <Switch
-                checked={settings.power.keep_screen_awake}
-                disabled={!settings.power.keep_awake}
-                onCheckedChange={(keep_screen_awake) =>
-                  onChange({
-                    ...settings,
-                    power: { ...settings.power, keep_screen_awake },
-                  })
-                }
-              />
-            ),
-          },
-        ] satisfies Item[])
-      : []),
+    ...(isMac ? awakeItems(settings, onChange) : []),
+  ];
+}
+
+/** The macOS rows that keep the Mac, and optionally its screen, awake. */
+function awakeItems(
+  settings: Settings,
+  onChange: (settings: Settings) => void,
+): Item[] {
+  return [
+    {
+      section: "Agent",
+      title: "Keep Mac awake",
+      description:
+        "Your Mac doesn't sleep while the agent works. It can once the agent finishes or waits for you.",
+      keywords: "sleep caffeinate awake power battery",
+      control: (
+        <Switch
+          checked={settings.power.keep_awake}
+          onCheckedChange={(keep_awake) =>
+            onChange({
+              ...settings,
+              power: { ...settings.power, keep_awake },
+            })
+          }
+        />
+      ),
+    },
+    {
+      section: "Agent",
+      title: "Keep screen awake",
+      description:
+        "The display stays on too while the agent works, so you can watch it.",
+      keywords: "sleep caffeinate awake power battery display screen",
+      control: (
+        <Switch
+          checked={settings.power.keep_screen_awake}
+          disabled={!settings.power.keep_awake}
+          onCheckedChange={(keep_screen_awake) =>
+            onChange({
+              ...settings,
+              power: { ...settings.power, keep_screen_awake },
+            })
+          }
+        />
+      ),
+    },
   ];
 }

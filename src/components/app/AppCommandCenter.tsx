@@ -41,6 +41,7 @@ export function AppCommandCenter({
       details={conversations.details}
       themes={codeThemesFor(settings.theme)}
       editor={settings.editor}
+      preview={command.preview}
       actions={{
         onConversation: (folder, id) => conversations.show(folder, id),
         onFile: openFile,

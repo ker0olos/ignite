@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import { overlayFromEnv } from "./shared/modsOverlay.ts";
 import { modsVitePlugin } from "./shared/modsVitePlugin.ts";
 const host = process.env.TAURI_DEV_HOST;
+const devPort = Number(process.env.IGNITE_DEV_PORT || 1420);
+const hmrPort = Number(process.env.IGNITE_DEV_HMR_PORT || devPort + 1);
 const path = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 const root = path(".");
 const overlay = overlayFromEnv(root);
@@ -36,9 +38,9 @@ export default defineConfig(() => ({
   //
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
+  // 2. tauri expects the port chosen by scripts/tauri.mjs
   server: {
-    port: 1420,
+    port: devPort,
     strictPort: true,
     // Shows the app's warnings and errors, including the sidecar's log, in the
     // terminal; Vite only does this by default when an AI agent runs it.
@@ -48,7 +50,7 @@ export default defineConfig(() => ({
       ? {
           protocol: "ws",
           host,
-          port: 1421,
+          port: hmrPort,
         }
       : undefined,
     fs: {

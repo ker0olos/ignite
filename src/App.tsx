@@ -21,6 +21,7 @@ import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useTabs } from "@/hooks/useTabs";
 import { useTextSize } from "@/hooks/useTextSize";
 import { OPEN_HOST, shownRows, shownSession } from "@/lib/demo";
+import { orderedRows } from "@/lib/conversations";
 import { cn } from "@/lib/utils";
 
 export default function App() {
@@ -46,7 +47,7 @@ export default function App() {
   const session = shownSession(agent, providers.hostError);
   const mcp = useMcpServers(host, current);
   const list = useConversationList(host);
-  const chats = useConversations(host, current, agent, {
+  const conversations = useConversations(host, current, agent, {
     select: addFolder,
     dismiss: dismissFolder,
     forget: list.forget,
@@ -56,7 +57,8 @@ export default function App() {
   const openFile = (folder: string, path: string) =>
     openIn(folder, `${folder}/${path}`);
   const command = useCommandCenter();
-  const rows = shownRows(list.rows);
+  const rows = (cwd: string) =>
+    orderedRows(shownRows(list.rows)(cwd), settings.sidebar.conversation_order);
   const dragging = useFolderDrop(addFolder);
   const dialog = useSettingsDialog(providers.host, current);
   const openSettings = dialog.show;
@@ -99,7 +101,20 @@ export default function App() {
           folder={current}
           folders={shownFolders}
           {...{ tabs, settings, setSettings, settingsButton, rows, session }}
-          {...{ chats, home, command, mcp, remote, openFolder, openSettings }}
+          tags={list.tags}
+          tagFilter={list.tagFilter}
+          onToggleTagFilter={list.toggleTagFilter}
+          onClearTagFilter={list.clearTagFilter}
+          onSetConversationTags={list.setConversationTags}
+          {...{
+            conversations,
+            home,
+            command,
+            mcp,
+            remote,
+            openFolder,
+            openSettings,
+          }}
           host={host}
           openIn={openIn}
         />
@@ -122,7 +137,7 @@ export default function App() {
         {...{ command, home, rows, settings, openFile }}
         host={host}
         folders={folders}
-        conversations={chats}
+        conversations={conversations}
         openFolder={addFolder}
       />
     </div>

@@ -3,7 +3,14 @@ import type { AgentStatus } from "../../shared/hostProtocol";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { HostClient } from "@/lib/piHost";
 import { DEMO_FOLDER } from "@/lib/demo";
-import { rowsOf, withRunning, without, type Listed } from "@/lib/conversations";
+import {
+  allTags,
+  rowsOf,
+  withRunning,
+  without,
+  type Listed,
+} from "@/lib/conversations";
+import { useConversationTags } from "@/hooks/useConversationTags";
 import { store } from "@/lib/store";
 
 // Like the shown folder, only the first window's list outlives the app.
@@ -32,6 +39,7 @@ export function useConversationList(
     [pushed, host],
   );
   const [listed, setListed] = useState<Listed>({});
+  const tags = useConversationTags();
   // The sidecar may still report one it hasn't closed yet; it stays off the list.
   const closing = useRef(new Set<string>());
 
@@ -75,7 +83,17 @@ export function useConversationList(
 
   return {
     /** The folder's listed conversations, in order, with what each is doing. */
-    rows: (cwd: string) => rowsOf(listed, agents, cwd),
+    rows: (cwd: string) => rowsOf(listed, agents, cwd, tags.map, tags.filter),
+    /** Every tag used by the listed conversations. */
+    tags: allTags(listed, tags.map),
+    /** Tags currently filtering the sidebar. */
+    tagFilter: tags.filter,
+    /** Adds or removes one sidebar tag filter. */
+    toggleTagFilter: tags.toggleFilter,
+    /** Clears the sidebar tag filter. */
+    clearTagFilter: tags.clearFilter,
+    /** Saves a conversation's tags. */
+    setConversationTags: tags.setTags,
     /** Takes a closed conversation off its folder's list. */
     forget,
   };

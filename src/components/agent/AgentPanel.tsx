@@ -18,6 +18,7 @@ export function AgentPanel({
   codeThemes,
   editor,
   showThinking,
+  stickyUserMessages,
   approval,
 }: {
   folder: string;
@@ -25,6 +26,7 @@ export function AgentPanel({
   codeThemes: CodeThemes;
   editor: Settings["editor"];
   showThinking: boolean;
+  stickyUserMessages: boolean;
   approval: Approval;
 }) {
   const { state, transcript } = session;
@@ -47,6 +49,7 @@ export function AgentPanel({
             editor={editor}
             codeThemes={codeThemes}
             showThinking={showThinking}
+            stickyUserMessages={stickyUserMessages}
             scrollRef={mainRef}
             onApprove={session.answer}
           />

@@ -1,8 +1,13 @@
 import type { AgentStatus } from "../../shared/hostProtocol";
 import type { SavedSession, SessionDetails } from "../../shared/conversations";
+import { normalizedTags, type ConversationTags } from "./conversationTags";
+import type { ConversationOrder } from "./settings";
 
 /** One conversation listed under its folder, running or not. */
 type ListedConversation = { session: string; title: string };
+
+/** A sidebar conversation row, including app-local tags. */
+export type TaggedAgentStatus = AgentStatus & { tags?: string[] };
 
 /** Each folder's listed conversations, in the order they were opened. */
 export type Listed = Record<string, ListedConversation[]>;
@@ -19,7 +24,7 @@ export function withRunning(listed: Listed, agents: AgentStatus[]): Listed {
     const row = rows.find((r) => r.session === session);
     if (row && (row.title === title || !title)) continue;
     const updated = row
-      ? rows.map((r) => (r.session === session ? { session, title } : r))
+      ? rows.map((r) => (r.session === session ? { ...r, title } : r))
       : [...rows, { session, title }];
     next = { ...next, [cwd]: updated };
   }
@@ -40,13 +45,39 @@ export function rowsOf(
   listed: Listed,
   agents: AgentStatus[],
   cwd: string,
+  tags: ConversationTags = {},
+  tagFilter: readonly string[] = [],
+): TaggedAgentStatus[] {
+  const selected = new Set(tagFilter);
+  return (listed[cwd] ?? [])
+    .filter(
+      ({ session }) =>
+        !selected.size || tags[session]?.some((tag) => selected.has(tag)),
+    )
+    .map(({ session, title }) => {
+      const own = tags[session];
+      const running = agents.find((a) => a.session === session);
+      return running
+        ? { ...running, title: running.title || title, tags: own }
+        : { cwd, session, title, running: false, waiting: false, tags: own };
+    });
+}
+
+/** Every tag used by the conversations currently listed. */
+export function allTags(listed: Listed, tags: ConversationTags) {
+  return normalizedTags(
+    Object.values(listed).flatMap((rows) =>
+      rows.flatMap((r) => tags[r.session] ?? []),
+    ),
+  );
+}
+
+/** Returns rows in the selected sidebar conversation order. */
+export function orderedRows(
+  rows: AgentStatus[],
+  order: ConversationOrder,
 ): AgentStatus[] {
-  return (listed[cwd] ?? []).map(({ session, title }) => {
-    const running = agents.find((a) => a.session === session);
-    return running
-      ? { ...running, title: running.title || title }
-      : { cwd, session, title, running: false, waiting: false };
-  });
+  return order === "newest_first" ? [...rows].reverse() : rows;
 }
 
 const MONEY = new Intl.NumberFormat("en-US", {

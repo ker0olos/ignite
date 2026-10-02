@@ -130,7 +130,5 @@ export function needingSignIn(servers: McpServer[] | null): string[] {
 /** Where an importable source's servers apply: everywhere, or one folder. */
 export function scopeLabel(source: McpCatalog["sources"][number]): string {
   if (source.scope === "user") return "Global";
-  return source.folder
-    ? `${basename(source.folder)} only`
-    : "This project only";
+  return source.folder ? `${basename(source.folder)} only` : "This folder only";
 }

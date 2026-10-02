@@ -16,12 +16,12 @@ export function TasksView({
   folder,
   host,
   agents,
-  onOpenChat,
+  onOpenConversation,
 }: {
   folder: string;
   host: HostClient | null;
   agents: AgentStatus[];
-  onOpenChat: (session: string) => void;
+  onOpenConversation: (session: string) => void;
 }) {
   const { tasks, error, create, ...rest } = useTasks(host, folder, agents);
   const [openId, setOpenId] = useState<string | null>(DEMO_OPEN_TASK);
@@ -61,7 +61,7 @@ export function TasksView({
             tasks={tasks.filter((t) => statuses.includes(t.status))}
             openId={openId}
             onToggle={(id) => setOpenId(openId === id ? null : id)}
-            actions={{ ...rest, onOpenChat }}
+            actions={{ ...rest, onOpenConversation }}
           />
         ))}
       </div>

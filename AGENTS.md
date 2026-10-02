@@ -49,9 +49,11 @@ src/                     React frontend (almost all logic lives here)
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
     useDraftState.ts     A folder with no conversation: the models and effort it would start with
     useConversationList.ts Each folder's listed conversations, remembered across launches
+    useConversationTags.ts Conversation tags by id, shared by all windows, kept after one closes; the sidebar's tag filter
     useConversations.ts  Every open folder's conversations for the sidebar: show, create, close, details
-    useCommandCenter.ts  ⌘K / Ctrl+K opens the command center, optionally with a query
-    useCommandSearch.ts  The command center's results: debounced command_search, folders, @/# suggestions
+    useCommandCenter.ts  ⌘K / Ctrl+K opens the command center, optionally with a query;
+                         ⌘P / Ctrl+P opens it on @files with no preview
+    useCommandSearch.ts  The command center's results: debounced command_search, folders, @ suggestions
     useDetailsCache.ts   Session details fetched once each, for the command center preview
     useOpenFile.ts       Opens a tab (file, diff, subagent…) in any folder, switching to it first
     useXterm.ts          An xterm fitted to its element and themed like the app (read-only and interactive views)
@@ -74,7 +76,7 @@ src/                     React frontend (almost all logic lives here)
     useMarkup.ts         An image's marks being drawn: tools, ink, selection, text, undo/redo;
                          useMarkupKeys.ts its shortcuts, useMarkupImage.ts loading and fitting the image,
                          useMarkupView.ts zooming and panning it
-    useImageTarget.ts    The showing input (chat, task sheet) marked-up images are added to
+    useImageTarget.ts    The showing input (conversation, task sheet) marked-up images are added to
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -87,7 +89,8 @@ src/                     React frontend (almost all logic lives here)
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     tabs.ts              Open/close logic for file tabs
     recent.ts            Recent-folders list logic
-    commandQuery.ts      Command center query: `@folder`, `#convos`/`#files`/`#folders`, result picks
+    conversationTags.ts  Conversation tags: splitting typed text, adding, removing, suggestions
+    commandQuery.ts      Command center query: `@folder`, `@convos`/`@files`/`@folders`, result picks
     fileIcons.ts         Extension → monochrome icon
     menu.ts              macOS menu bar
     lifecycle.ts         Confirm before quitting or closing a window
@@ -262,6 +265,11 @@ Two places hold persisted data:
   tool is dropped and the agent is told to decide alone. Read before each run.
   `text_size` (px, default 14, 10–24) sizes user and assistant messages only;
   ⌘/Ctrl +, - and 0 change it (`hooks/useTextSize.ts`).
+- **Sidebar settings** (`[sidebar]`): `conversation_order` (`oldest_first` by
+  default, or `newest_first`) orders each folder's conversations;
+  `max_conversations_enabled` (off) collapses a folder after
+  `max_conversations` (default 5, 1–20); `resizable_split` (off) lets the
+  divider between conversations and files be dragged.
 - **Memory settings** (`[memory]`): `cmem` (on by default) records
   sessions in cmem, recalls its memories and gives the agent cmem's search
   tools. Recording checks it before each run; the tools follow a reload.
@@ -281,7 +289,9 @@ Two places hold persisted data:
   agent the `chrome_*` tools; `disabled_tools` lists ones it doesn't get
   (`shared/chrome.ts`). Read before each run (`sidecar/chromeSettings.ts`).
 - **Approval settings** (`[approval]`): `mode`, `"auto"` (default) or
-  `"manual"`, set from the composer. The sidecar reads it on every tool call.
+  `"manual"`, set from the composer. `full_access` (off by default, Settings →
+  Agent) makes Auto ask for nothing and drops the sandbox: every tool call,
+  git and gh included, runs as is. The sidecar reads both on every tool call.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **pi's own files** in `~/.ignite/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
@@ -301,7 +311,9 @@ Two places hold persisted data:
   caches tool lists in `mcp-cache.json`; OAuth tokens for MCP servers (if any)
   go to the OS keychain.
 - **App state** in `state.json` in the app data folder (`lib/store.ts`): recent
-  folders (shared by all windows) and the main window's last open folder.
+  folders (shared by all windows), the main window's last open folder, and
+  conversation tags (`conversation_tags`, by conversation id, shared by all
+  windows and kept after a conversation closes).
 
 ## The agent (pi)
 
@@ -611,7 +623,7 @@ Without the variable nothing changes.
   `hooks/`, non-React helpers in `lib/`. Do not hand-edit `components/ui/`
   beyond small fixes; it is shadcn-generated.
 - **One UI component per file, grouped by feature.** Every distinct piece of
-  UI (chat box, model menu, file tree, a settings section, a tool row…) is its
+  UI (composer, model menu, file tree, a settings section, a tool row…) is its
   own component in its own file under `components/<feature>/`, so it can be
   edited without touching its neighbours. A parent composes children and
   passes props; it never inlines a child's markup. No private helper
@@ -631,6 +643,15 @@ lint`): one component per file, files ≤250 lines, functions ≤120 lines,
 - **Styling:** Tailwind v4 with shadcn tokens (`bg-background`, `text-muted-foreground`,
   `bg-sidebar`, …). No hard-coded colors. Interface text is 13px (`text-[13px]`)
   to match macOS.
+- **One name per thing (hard rule).** A talk between the user and an agent is a
+  **conversation**: in UI text, aria labels, settings titles and keys, docs,
+  comments and new identifiers. Never "chat", "convo" or "thread". "session"
+  is only pi's term, for pi's session objects and ids in code; the user never
+  reads it. The same holds for every other term: use the name the code and
+  this file already use (folder, not project or workspace; task; subagent;
+  background command; terminal), and grep before naming something new.
+  Settings search `keywords` may list synonyms, since users type them. The
+  one exception: the command center's `@convos` filter, kept short to type.
 - **Comments:** sparse; only for non-obvious constraints. Exported functions get
   a one-line doc comment. Deliberate shortcuts are marked `ponytail:` with
   their limit and upgrade path.

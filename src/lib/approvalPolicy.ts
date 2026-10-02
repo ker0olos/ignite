@@ -1,6 +1,7 @@
 /**
  * Which tool calls wait for the user. Manual asks for every call; Auto only
- * for dangerous shell commands and for anything outside the open folder.
+ * for dangerous shell commands and for anything outside the open folder;
+ * Auto with full access never asks.
  */
 import type { ApprovalMode } from "../../shared/hostProtocol.ts";
 import {
@@ -9,6 +10,9 @@ import {
   type Pipeline,
 } from "./dangerousCommands.ts";
 import { tildify } from "./paths.ts";
+
+/** How tool calls are gated: the composer's mode, or Auto with full access. */
+export type ApprovalGate = ApprovalMode | "full";
 
 /** Where the session runs; both absolute. `windows`: they are Windows paths. */
 export type Place = { cwd: string; home: string; windows?: boolean };
@@ -97,9 +101,9 @@ export function outsidePaths(
   });
 }
 
-/** "Outside the project: ~/x" for a path that resolved outside the folder. */
+/** "Outside the folder: ~/x" for a path that resolved outside the folder. */
 export const outsideReason = (path: string, place: Place) =>
-  `Outside the project: ${tildify(path, resolvePath(place.home, place))}`;
+  `Outside the folder: ${tildify(path, resolvePath(place.home, place))}`;
 
 /** Why a file tool call needs approval under Auto, or null when it may run. */
 function fileReason(path: string, place: Place): string | null {
@@ -152,13 +156,14 @@ function autoReason(
  * Null lets it run.
  */
 export function approvalFor(
-  mode: ApprovalMode,
+  mode: ApprovalGate,
   toolName: string,
   input: Record<string, unknown>,
   place: Place,
   bash: BashCheck = {},
 ): { reason?: string } | null {
   if (mode === "manual") return {};
+  if (mode === "full") return null;
   const reason = autoReason(toolName, input, place, bash);
   return reason === null ? null : { reason };
 }

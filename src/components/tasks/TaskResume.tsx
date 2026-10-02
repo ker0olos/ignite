@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Play } from "lucide-react";
-import { OpenChatButton } from "@/components/tasks/OpenChatButton";
+import { OpenConversationButton } from "@/components/tasks/OpenConversationButton";
 import { TaskStatusIcon } from "@/components/tasks/TaskStatusIcon";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,12 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 export function TaskResume({
   declined,
   onResume,
-  onOpenChat,
+  onOpenConversation,
   onDone,
 }: {
   declined?: boolean;
   onResume: (text: string) => void;
-  onOpenChat: () => void;
+  onOpenConversation: () => void;
   onDone: () => void;
 }) {
   const [text, setText] = useState("");
@@ -30,9 +30,9 @@ export function TaskResume({
         <span className="flex-1">
           {declined
             ? "Pull request declined. Say what to change, then resume."
-            : "Finished without a pull request. The chat says why."}
+            : "Finished without a pull request. The conversation says why."}
         </span>
-        <OpenChatButton onClick={onOpenChat} />
+        <OpenConversationButton onClick={onOpenConversation} />
         <Button size="sm" variant="ghost" onClick={onDone}>
           Mark done
         </Button>

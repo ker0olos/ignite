@@ -17,10 +17,10 @@ describe("useImageTarget", () => {
     const first = vi.fn();
     const second = vi.fn();
     const input = renderHook(
-      ({ add }) => useProvideImageTarget("Add to chat", add),
+      ({ add }) => useProvideImageTarget("Add to conversation", add),
       { initialProps: { add: first } },
     );
-    expect(shown.result.current?.label).toBe("Add to chat");
+    expect(shown.result.current?.label).toBe("Add to conversation");
 
     input.rerender({ add: second });
     act(() => shown.result.current!.add(image, "Shot"));

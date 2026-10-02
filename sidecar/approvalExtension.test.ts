@@ -82,6 +82,15 @@ describe("approvalMode", () => {
     await settings("[approval]\nmode = 'manual'\n");
     expect(await approvalMode()).toBe("manual");
   });
+
+  it("is full for Auto with full access, and Manual still wins", async () => {
+    await settings("[approval]\nfull_access = true\n");
+    expect(await approvalMode()).toBe("full");
+    await settings("[approval]\nmode = 'manual'\nfull_access = true\n");
+    expect(await approvalMode()).toBe("manual");
+    await settings("[approval]\nfull_access = 'yes'\n");
+    expect(await approvalMode()).toBe("auto");
+  });
 });
 
 describe("realPath", () => {
@@ -173,7 +182,7 @@ describe("tool_call", () => {
     const { asks, call } = load();
     const result = call("read", { path: "~/.ssh/config" });
     await vi.waitFor(() => expect(asks).toHaveLength(1));
-    expect(asks[0].request.reason).toBe("Outside the project: ~/.ssh/config");
+    expect(asks[0].request.reason).toBe("Outside the folder: ~/.ssh/config");
     asks[0].answer(false);
     expect(await result).toEqual({ block: true, reason: DENIED });
   });
@@ -183,7 +192,7 @@ describe("tool_call", () => {
     const { asks, call } = load();
     void call("edit", { path: "escape/notes.md" });
     await vi.waitFor(() => expect(asks).toHaveLength(1));
-    expect(asks[0].request.reason).toBe("Outside the project: ~/notes.md");
+    expect(asks[0].request.reason).toBe("Outside the folder: ~/notes.md");
   });
 
   it("asks before every call in Manual", async () => {
@@ -194,6 +203,14 @@ describe("tool_call", () => {
     expect(asks[0].request).toEqual({ toolCallId: "t1" });
     asks[0].answer(true);
     expect(await result).toBeUndefined();
+  });
+
+  it("asks for nothing in Auto with full access", async () => {
+    await settings("[approval]\nfull_access = true\n");
+    const { asks, call } = load();
+    expect(await call("read", { path: "~/.ssh/config" })).toBeUndefined();
+    expect(await call("bash", { command: "git push --force" })).toBeUndefined();
+    expect(asks).toEqual([]);
   });
 
   it("lets ask_user through in Manual; its questions wait instead", async () => {
@@ -229,6 +246,16 @@ describe("the sandbox in Auto", () => {
     const { call, input } = load();
     await call("write", { path: "src/a.ts" });
     expect(input()).toEqual({ path: "src/a.ts" });
+  });
+
+  it("doesn't sandbox or ask with full access", async () => {
+    await settings("[approval]\nfull_access = true\n");
+    const { asks, call, input, result } = load();
+    await call("bash", { command: "rm -rf build" });
+    expect(input().command).toBe("rm -rf build");
+    fake.violation = "file-write-create /Users/me/x";
+    expect(await result("Operation not permitted", true)).toBeUndefined();
+    expect(asks).toEqual([]);
   });
 
   it("doesn't sandbox in Manual, where every command is approved", async () => {

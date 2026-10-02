@@ -5,6 +5,7 @@
  * read from settings.toml on every call, so switching applies at once.
  * In Auto, shell commands that run without asking run in the OS sandbox
  * (sandbox.ts); when it blocks one, the same call asks to run it outside.
+ * Auto with full access asks for nothing and doesn't sandbox.
  */
 import { readFile, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -17,12 +18,16 @@ import {
   type ToolResultEvent,
 } from "@earendil-works/pi-coding-agent";
 import { parse as parseToml } from "smol-toml";
-import type { ApprovalMode, ApprovalRequest } from "../shared/hostProtocol.ts";
+import type { ApprovalRequest } from "../shared/hostProtocol.ts";
 import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
 import { ASK_TOOL, type QuestionAnswer } from "../shared/questions.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
 import { APP_NAME } from "../src/lib/app.ts";
-import { approvalFor, resolvePath } from "../src/lib/approvalPolicy.ts";
+import {
+  approvalFor,
+  resolvePath,
+  type ApprovalGate,
+} from "../src/lib/approvalPolicy.ts";
 import { runBackground } from "./bashExtension.ts";
 import { loadBashParser } from "./bashParser.ts";
 import {
@@ -65,14 +70,19 @@ export const DECLINED_OUTSIDE =
   "The sandbox blocked this command, and the user declined to run it outside the sandbox.";
 const SELF_ASKING = new Set([ASK_TOOL, TASK_ADD_TOOL, GIT_TOOL, GH_TOOL]);
 
-/** The composer's approval mode (`[approval] mode`); Auto unless set to manual. */
+/**
+ * How tool calls are gated (`[approval]`): "manual" when set, "full" for Auto
+ * with `full_access`, else "auto".
+ */
 export async function approvalMode(
   settingsFile = join(homedir(), `.${APP_NAME}`, "settings.toml"),
-): Promise<ApprovalMode> {
+): Promise<ApprovalGate> {
   try {
     const settings = parseToml(await readFile(settingsFile, "utf8"));
-    const approval = settings.approval as { mode?: unknown } | undefined;
-    return approval?.mode === "manual" ? "manual" : "auto";
+    const approval = settings.approval as
+      { mode?: unknown; full_access?: unknown } | undefined;
+    if (approval?.mode === "manual") return "manual";
+    return approval?.full_access === true ? "full" : "auto";
   } catch {
     return "auto";
   }
@@ -196,7 +206,7 @@ export default function approval(pi: ExtensionAPI) {
   async function needed(
     event: ToolCallEvent,
     ctx: ExtensionContext,
-    mode: ApprovalMode,
+    mode: ApprovalGate,
     box: Sandbox | undefined,
   ) {
     const { input, place } = await judged(event.input, ctx.cwd);

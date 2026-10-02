@@ -3,15 +3,15 @@ import { basename } from "@/lib/paths";
 /** What the command center finds. */
 export type ResultKind = "conversation" | "file" | "folder";
 
-/** The `#` filters, as typed and as shown. */
+/** The kind filters, as typed and as shown; they win over a folder of the same name. */
 export const KIND_FILTERS: {
   token: string;
   kind: ResultKind;
   label: string;
 }[] = [
-  { token: "#convos", kind: "conversation", label: "Conversations" },
-  { token: "#files", kind: "file", label: "Files" },
-  { token: "#folders", kind: "folder", label: "Folders" },
+  { token: "@convos", kind: "conversation", label: "Conversations" },
+  { token: "@files", kind: "file", label: "Files" },
+  { token: "@folders", kind: "folder", label: "Folders" },
 ];
 
 export type ParsedQuery = {
@@ -19,10 +19,10 @@ export type ParsedQuery = {
   text: string;
   /** The folder an `@name` names, when it names one. */
   folder: string | null;
-  /** The kinds a `#filter` keeps; null keeps every kind. */
+  /** The kinds an `@files`-style filter keeps; null keeps every kind. */
   kinds: ResultKind[] | null;
-  /** An `@` or `#` token still being typed, to suggest completions for. */
-  typing: { sigil: "@" | "#"; partial: string } | null;
+  /** An `@` token still being typed, to suggest completions for. */
+  typing: { partial: string } | null;
 };
 
 const byName = (folders: string[], name: string) => {
@@ -34,30 +34,29 @@ const byName = (folders: string[], name: string) => {
   );
 };
 
-const typingOf = (last: string | undefined): ParsedQuery["typing"] => {
-  const sigil = last?.[0];
-  return last && (sigil === "@" || sigil === "#")
-    ? { sigil, partial: last.slice(1).toLowerCase() }
-    : null;
-};
+const typingOf = (last: string | undefined): ParsedQuery["typing"] =>
+  last?.startsWith("@") ? { partial: last.slice(1).toLowerCase() } : null;
+
+const kindOf = (token: string) =>
+  KIND_FILTERS.find((f) => f.token === token.toLowerCase());
 
 /**
- * Reads the command center's query: `@name` filters by folder (its name, or
- * the first starting with it), `#convos` / `#files` / `#folders` by kind, the
- * rest is searched for.
+ * Reads the command center's query: `@convos` / `@files` / `@folders` filter
+ * by kind, any other `@name` by folder (its name, or the first starting with
+ * it), the rest is searched for.
  */
 export function parseQuery(input: string, folders: string[]): ParsedQuery {
   const tokens = input.split(/\s+/).filter(Boolean);
   const last = input.endsWith(" ") ? undefined : tokens.at(-1);
   const typing = typingOf(last);
-  const isFolder = (t: string) => t.startsWith("@") && t.length > 1;
+  const isFolder = (t: string) =>
+    t.startsWith("@") && t.length > 1 && !kindOf(t);
   const kinds = new Set<ResultKind>();
   const words: string[] = [];
   for (const token of tokens) {
-    const filter = KIND_FILTERS.find((f) => f.token === token.toLowerCase());
+    const filter = kindOf(token);
     if (filter) kinds.add(filter.kind);
-    else if (isFolder(token)) continue;
-    else if (!(token === last && typing?.sigil === "#")) words.push(token);
+    else if (!isFolder(token) && !(token === last && typing)) words.push(token);
   }
   const named = tokens
     .filter(isFolder)

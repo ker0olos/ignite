@@ -46,7 +46,7 @@ export function shownText(task: Task | null, image: ImageContent): string {
   if (!task || task.shown?.at(-1)?.data === image.data) {
     return "Shown to the user.";
   }
-  return "Shown to the user in the chat, but too big to add to the task. Save a smaller image (e.g. a viewport screenshot) to put it there.";
+  return "Shown to the user in the conversation, but too big to add to the task. Save a smaller image (e.g. a viewport screenshot) to put it there.";
 }
 
 export default function showImage(pi: ExtensionAPI) {

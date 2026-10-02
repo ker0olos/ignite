@@ -32,7 +32,7 @@ describe("dangerousCommand", () => {
       "Rewrites or deletes history on the remote",
     );
     expect(dangerous("sudo rm -rf /")).toBe(
-      "Recursively deletes a broad path (/, ~, the project, a system folder)",
+      "Recursively deletes a broad path (/, ~, the folder, a system folder)",
     );
   });
 

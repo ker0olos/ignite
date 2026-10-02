@@ -17,7 +17,10 @@ const press = (init: KeyboardEventInit) => {
   return e;
 };
 
-function setup(shown: string | null = "s1", view: "chat" | "tasks" = "chat") {
+function setup(
+  shown: string | null = "s1",
+  view: "conversation" | "tasks" = "conversation",
+) {
   const request = vi.fn((r: { type: string }) =>
     Promise.resolve(
       r.type === "terminal_open"
@@ -63,7 +66,7 @@ describe("useTerminalShortcut", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it("opens one in a new chat, before its first message starts it", async () => {
+  it("opens one in a new conversation, before its first message starts it", async () => {
     const { open } = setup(null);
     press({ metaKey: true });
     await waitFor(() =>

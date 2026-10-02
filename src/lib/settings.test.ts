@@ -70,9 +70,12 @@ describe("loadSettings", () => {
       show_thinking: true,
       ask_questions: true,
       text_size: 14,
+      sticky_user_messages: false,
     });
     fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
     expect((await loadSettings()).conversation.ask_questions).toBe(false);
+    fakeFs({ [FILE]: "[conversation]\nsticky_user_messages = true\n" });
+    expect((await loadSettings()).conversation.sticky_user_messages).toBe(true);
   });
 
   it.each([
@@ -85,19 +88,72 @@ describe("loadSettings", () => {
     expect((await loadSettings()).conversation.text_size).toBe(size);
   });
 
+  it("reads whether the sidebar split is resizable", async () => {
+    fakeFs({ [FILE]: "[sidebar]\nresizable_split = true\n" });
+    expect((await loadSettings()).sidebar.resizable_split).toBe(true);
+    fakeFs({ [FILE]: '[sidebar]\nresizable_split = "yes"\n' });
+    expect((await loadSettings()).sidebar.resizable_split).toBe(false);
+  });
+
+  it("reads conversation order settings", async () => {
+    fakeFs({ [FILE]: '[sidebar]\nconversation_order = "newest_first"\n' });
+    expect((await loadSettings()).sidebar.conversation_order).toBe(
+      "newest_first",
+    );
+    fakeFs({ [FILE]: '[sidebar]\nconversation_order = "sideways"\n' });
+    expect((await loadSettings()).sidebar.conversation_order).toBe(
+      "oldest_first",
+    );
+  });
+
+  it.each([
+    ["8", 8],
+    ["99", 20],
+    ["0", 1],
+    ['"many"', 5],
+  ])("reads max_conversations = %s as %d", async (value, count) => {
+    fakeFs({ [FILE]: `[sidebar]\nmax_conversations = ${value}\n` });
+    expect((await loadSettings()).sidebar.max_conversations).toBe(count);
+  });
+
+  it("reads whether the sidebar conversation limit is enabled", async () => {
+    fakeFs({ [FILE]: "[sidebar]\nmax_conversations_enabled = true\n" });
+    expect((await loadSettings()).sidebar.max_conversations_enabled).toBe(true);
+    fakeFs({ [FILE]: '[sidebar]\nmax_conversations_enabled = "yes"\n' });
+    expect((await loadSettings()).sidebar.max_conversations_enabled).toBe(
+      false,
+    );
+  });
+
+  it("defaults the sidebar settings", async () => {
+    fakeFs({});
+    expect((await loadSettings()).sidebar).toEqual({
+      conversation_order: "oldest_first",
+      max_conversations_enabled: false,
+      max_conversations: 5,
+      resizable_split: false,
+    });
+  });
+
   it("reads memory settings", async () => {
     fakeFs({ [FILE]: "[memory]\ncmem = false\n" });
     expect((await loadSettings()).memory).toEqual({ cmem: false });
   });
 
-  it("reads the approval mode", async () => {
-    fakeFs({ [FILE]: '[approval]\nmode = "manual"\n' });
-    expect((await loadSettings()).approval).toEqual({ mode: "manual" });
+  it("reads the Manual approval mode and full access", async () => {
+    fakeFs({ [FILE]: '[approval]\nmode = "manual"\nfull_access = true\n' });
+    expect((await loadSettings()).approval).toEqual({
+      mode: "manual",
+      full_access: true,
+    });
   });
 
   it("falls back to Auto for an approval mode it doesn't know", async () => {
-    fakeFs({ [FILE]: '[approval]\nmode = "never"\n' });
-    expect((await loadSettings()).approval).toEqual({ mode: "auto" });
+    fakeFs({ [FILE]: '[approval]\nmode = "never"\nfull_access = 1\n' });
+    expect((await loadSettings()).approval).toEqual({
+      mode: "auto",
+      full_access: false,
+    });
   });
 
   it("defaults subagents on with a max of 2", async () => {
@@ -190,7 +246,7 @@ describe("approvalSetting", () => {
     approval.onChange("manual");
     expect(save).toHaveBeenCalledWith({
       ...DEFAULT_SETTINGS,
-      approval: { mode: "manual" },
+      approval: { mode: "manual", full_access: false },
     });
   });
 });
@@ -200,9 +256,20 @@ describe("saveSettings", () => {
     theme: "github-dark",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false },
-    conversation: { show_thinking: true, ask_questions: false, text_size: 15 },
+    conversation: {
+      show_thinking: true,
+      ask_questions: false,
+      text_size: 15,
+      sticky_user_messages: true,
+    },
+    sidebar: {
+      conversation_order: "newest_first",
+      max_conversations_enabled: true,
+      max_conversations: 8,
+      resizable_split: true,
+    },
     memory: { cmem: false },
-    approval: { mode: "manual" },
+    approval: { mode: "manual", full_access: false },
     subagents: { enabled: false, max: 4 },
     power: { keep_awake: false, keep_screen_awake: true },
     chrome: { enabled: false, disabled_tools: ["chrome_cdp"] },

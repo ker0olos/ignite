@@ -23,16 +23,32 @@ export type Settings = {
   /**
    * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
    * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
+   * `sticky_user_messages`: user messages pin to the top while their replies scroll.
    */
   conversation: {
     show_thinking: boolean;
     ask_questions: boolean;
     text_size: number;
+    sticky_user_messages: boolean;
+  };
+  /**
+   * `conversation_order`: conversation order within a folder.
+   * `max_conversations_*`: collapse each folder after the configured count.
+   * `resizable_split`: drag-resize conversations vs files.
+   */
+  sidebar: {
+    conversation_order: ConversationOrder;
+    max_conversations_enabled: boolean;
+    max_conversations: number;
+    resizable_split: boolean;
   };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
-  /** `mode`: "auto" asks only before risky tool calls, "manual" before all. */
-  approval: { mode: ApprovalMode };
+  /**
+   * `mode`: "auto" asks only before risky tool calls, "manual" before all.
+   * `full_access`: Auto runs every tool call without asking or the sandbox.
+   */
+  approval: { mode: ApprovalMode; full_access: boolean };
   /** `max`: how many subagents one conversation may start. */
   subagents: { enabled: boolean; max: number };
   /**
@@ -46,6 +62,8 @@ export type Settings = {
   remote: { enabled: boolean; port: number };
 };
 
+export type ConversationOrder = "oldest_first" | "newest_first";
+
 export const DEFAULT_SETTINGS: Settings = {
   theme: SYSTEM_THEME,
   editor: {
@@ -53,9 +71,20 @@ export const DEFAULT_SETTINGS: Settings = {
     word_wrap: true,
   },
   files: { hide_gitignored: true },
-  conversation: { show_thinking: false, ask_questions: true, text_size: 14 },
+  conversation: {
+    show_thinking: false,
+    ask_questions: true,
+    text_size: 14,
+    sticky_user_messages: false,
+  },
+  sidebar: {
+    conversation_order: "oldest_first",
+    max_conversations_enabled: false,
+    max_conversations: 5,
+    resizable_split: false,
+  },
   memory: { cmem: true },
-  approval: { mode: "auto" },
+  approval: { mode: "auto", full_access: false },
   subagents: { enabled: true, max: 2 },
   power: { keep_awake: true, keep_screen_awake: false },
   chrome: { enabled: true, disabled_tools: [] },
@@ -64,9 +93,17 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const MIN_TEXT_SIZE = 10;
 export const MAX_TEXT_SIZE = 24;
+export const MIN_SIDEBAR_CONVERSATIONS = 1;
+export const MAX_SIDEBAR_CONVERSATIONS = 20;
 
 const clampTextSize = (size: number) =>
   Math.min(MAX_TEXT_SIZE, Math.max(MIN_TEXT_SIZE, Math.round(size)));
+
+const clampSidebarConversations = (size: number) =>
+  Math.min(
+    MAX_SIDEBAR_CONVERSATIONS,
+    Math.max(MIN_SIDEBAR_CONVERSATIONS, Math.round(size)),
+  );
 
 /** The message text size after ⌘/Ctrl plus `key`, or null when the key isn't a text size shortcut. */
 export function nextTextSize(size: number, key: string): number | null {
@@ -88,10 +125,34 @@ const readConversation = (
   };
 };
 
+const readSidebar = (
+  sidebar: Partial<Settings["sidebar"]> = {},
+): Settings["sidebar"] => {
+  const merged = { ...DEFAULT_SETTINGS.sidebar, ...sidebar };
+  return {
+    conversation_order:
+      merged.conversation_order === "newest_first"
+        ? "newest_first"
+        : DEFAULT_SETTINGS.sidebar.conversation_order,
+    max_conversations_enabled:
+      typeof merged.max_conversations_enabled === "boolean"
+        ? merged.max_conversations_enabled
+        : DEFAULT_SETTINGS.sidebar.max_conversations_enabled,
+    max_conversations: Number.isFinite(merged.max_conversations)
+      ? clampSidebarConversations(merged.max_conversations)
+      : DEFAULT_SETTINGS.sidebar.max_conversations,
+    resizable_split:
+      typeof merged.resizable_split === "boolean"
+        ? merged.resizable_split
+        : DEFAULT_SETTINGS.sidebar.resizable_split,
+  };
+};
+
 const readApproval = (
   approval: Partial<Settings["approval"]> = {},
 ): Settings["approval"] => ({
   mode: approval.mode === "manual" ? "manual" : "auto",
+  full_access: approval.full_access === true,
 });
 
 const readSubagents = (
@@ -167,6 +228,7 @@ export async function loadSettings(): Promise<Settings> {
     },
     files: { ...DEFAULT_SETTINGS.files, ...raw.files },
     conversation: readConversation(raw.conversation),
+    sidebar: readSidebar(raw.sidebar),
     memory: { ...DEFAULT_SETTINGS.memory, ...raw.memory },
     approval: readApproval(raw.approval),
     subagents: readSubagents(raw.subagents),
@@ -191,7 +253,7 @@ export function approvalSetting(
   return {
     mode: settings.approval.mode,
     onChange: (mode: ApprovalMode) =>
-      void save({ ...settings, approval: { mode } }),
+      void save({ ...settings, approval: { ...settings.approval, mode } }),
   };
 }
 

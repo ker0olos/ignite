@@ -1,8 +1,9 @@
-import { Fragment } from "react";
-import type { AgentStatus } from "../../../shared/hostProtocol";
+import { Fragment, useState } from "react";
 import { ProjectRow } from "@/components/app/ProjectRow";
+import { ConversationTagFilter } from "@/components/sidebar/ConversationTagFilter";
 import { FolderConversations } from "@/components/sidebar/FolderConversations";
 import type { Conversations } from "@/hooks/useConversations";
+import type { TaggedAgentStatus } from "@/lib/conversations";
 import { sortedByName } from "@/lib/paths";
 
 /** Opening and stopping what runs under a conversation. */
@@ -18,15 +19,26 @@ export type ChildActions = {
   onClear: (tab: string) => void;
 };
 
+export type ConversationLimit = {
+  enabled: boolean;
+  max: number;
+};
+
 /** What the sidebar's folder list needs from the app. */
 export type ProjectListProps = {
   childActions: ChildActions;
   folders: string[];
   /** A folder's listed conversations, in the order they were opened. */
-  rows: (cwd: string) => AgentStatus[];
+  rows: (cwd: string) => TaggedAgentStatus[];
+  tags?: string[];
+  tagFilter?: string[];
+  onToggleTagFilter?: (tag: string) => void;
+  onClearTagFilter?: () => void;
+  onSetConversationTags?: (session: string, tags: string[]) => void;
   /** The shown folder's shown conversation. */
   shown: string | null;
   conversations: Conversations;
+  conversationLimit: ConversationLimit;
   home: string;
   /** Takes a folder off the sidebar, ending its conversations. */
   onDismiss: (path: string) => void;
@@ -46,23 +58,47 @@ export function FolderList({
   rows,
   shown,
   conversations,
+  conversationLimit,
   home,
   onDismiss,
   onHistory,
   childActions,
+  tags = [],
+  tagFilter = [],
+  onToggleTagFilter = () => {},
+  onClearTagFilter = () => {},
+  onSetConversationTags = () => {},
 }: {
   folder: string;
   folders: string[];
-  rows: (cwd: string) => AgentStatus[];
+  rows: (cwd: string) => TaggedAgentStatus[];
   shown: string | null;
   conversations: Conversations;
+  conversationLimit: ConversationLimit;
   home: string;
   onDismiss: (path: string) => void;
   onHistory: (path: string) => void;
   childActions: ChildActions;
+  tags?: string[];
+  tagFilter?: string[];
+  onToggleTagFilter?: (tag: string) => void;
+  onClearTagFilter?: () => void;
+  onSetConversationTags?: (session: string, tags: string[]) => void;
 }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggle = (path: string) =>
+    setExpanded((open) => ({ ...open, [path]: !open[path] }));
+
   return (
     <div className="flex flex-col gap-1">
+      <div className="mb-1 flex justify-end">
+        <ConversationTagFilter
+          tags={tags}
+          selected={tagFilter}
+          onToggle={onToggleTagFilter}
+          onClear={onClearTagFilter}
+        />
+      </div>
       {sortedByName(folders).map((path) => (
         <Fragment key={path}>
           <ProjectRow
@@ -79,6 +115,12 @@ export function FolderList({
             shown={path === folder ? shown : null}
             conversations={conversations}
             childActions={childActions}
+            tags={tags}
+            onSetTags={onSetConversationTags}
+            expanded={!!expanded[path]}
+            max={conversationLimit.max}
+            limited={conversationLimit.enabled}
+            onToggle={() => toggle(path)}
           />
         </Fragment>
       ))}

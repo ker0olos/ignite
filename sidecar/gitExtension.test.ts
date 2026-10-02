@@ -65,6 +65,14 @@ const mine: Task = {
   updated: 1,
 };
 
+async function approvalSettings(approval: string) {
+  await mkdir(join(home, `.${APP_NAME}`));
+  await writeFile(
+    join(home, `.${APP_NAME}`, "settings.toml"),
+    `[approval]\n${approval}\n`,
+  );
+}
+
 function load(task: Task | null = null) {
   const events = createEventBus();
   const tools = new Map<string, Execute>();
@@ -155,17 +163,23 @@ describe("the git tool", () => {
   });
 
   it("asks for every call in Manual, without a reason", async () => {
-    await mkdir(join(home, `.${APP_NAME}`));
-    await writeFile(
-      join(home, `.${APP_NAME}`, "settings.toml"),
-      "[approval]\nmode = 'manual'\n",
-    );
+    await approvalSettings("mode = 'manual'");
     const { asks, call } = load();
     const done = call("git", ["status"]);
     await asked(asks);
     expect(asks[0].request).toEqual({ toolCallId: "t1" });
     asks[0].answer(true);
     await done;
+  });
+
+  it("commits without asking with full access", async () => {
+    await approvalSettings("full_access = true");
+    const { asks, call } = load();
+    await call("git", ["add", "a.txt"]);
+    await call("git", ["commit", "-m", "first"]);
+    expect(asks).toEqual([]);
+    const log = await call("git", ["log", "--oneline", "-1"]);
+    expect(log.content[0].text).toContain("first");
   });
 });
 
@@ -180,6 +194,13 @@ describe("the gh tool", () => {
     });
     asks[0].answer(false);
     await expect(done).rejects.toThrow(DENIED);
+  });
+
+  it("doesn't ask before changing something on GitHub with full access", async () => {
+    await approvalSettings("full_access = true");
+    const { asks, call } = load();
+    await expect(call("gh", ["pr", "merge", "3"])).rejects.toThrow();
+    expect(asks).toEqual([]);
   });
 });
 

@@ -116,7 +116,7 @@ describe.each([
     await store.save("/a", task("1", { session: "s1" }));
     changed.mockClear();
     const edit = vi.fn((t: Task) => t);
-    await store.updateBySession("/a", "chat", edit);
+    await store.updateBySession("/a", "conversation", edit);
     expect(edit).not.toHaveBeenCalled();
     expect(changed).not.toHaveBeenCalled();
   });

@@ -51,6 +51,38 @@ describe("useCommandCenter", () => {
     expect(result.current.open).toBe(false);
   });
 
+  it("opens on Cmd+P on @files with no preview, and closes on a second", () => {
+    const { result } = renderHook(() => useCommandCenter());
+    press("p", { metaKey: true });
+    expect(result.current.open).toBe(true);
+    expect(result.current.query).toBe("@files ");
+    expect(result.current.preview).toBe(false);
+    press("p", { metaKey: true });
+    expect(result.current.open).toBe(false);
+  });
+
+  it("switches between Cmd+P and Cmd+K instead of closing", () => {
+    const { result } = renderHook(() => useCommandCenter());
+    press("p", { ctrlKey: true });
+    press("k", { ctrlKey: true });
+    expect(result.current.open).toBe(true);
+    expect(result.current.query).toBe("");
+    expect(result.current.preview).toBe(true);
+  });
+
+  it("ignores shifted shortcuts", () => {
+    const { result } = renderHook(() => useCommandCenter());
+    press("p", { metaKey: true, shiftKey: true });
+    expect(result.current.open).toBe(false);
+  });
+
+  it("openWith shows the preview", () => {
+    const { result } = renderHook(() => useCommandCenter());
+    press("p", { metaKey: true });
+    act(() => result.current.openWith("x"));
+    expect(result.current.preview).toBe(true);
+  });
+
   it("setOpen sets the open state directly", () => {
     const { result } = renderHook(() => useCommandCenter());
     act(() => result.current.setOpen(true));

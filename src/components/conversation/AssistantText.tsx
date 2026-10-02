@@ -1,22 +1,36 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/conversation/CodeBlock";
 import type { Editor } from "@/components/conversation/shared";
+import { useOpenTab } from "@/hooks/useOpenTab";
 import { useSmoothText } from "@/hooks/useSmoothText";
 import type { CodeThemes } from "@/lib/codeThemes";
+import {
+  filePathTarget,
+  isInsideFolder,
+  looksLikeFilePath,
+} from "@/lib/fileLinks";
 
 /** Assistant markdown text, with fenced code blocks syntax-highlighted. */
 export function AssistantText({
   text,
+  folder,
   editor,
   codeThemes,
 }: {
   text: string;
+  folder: string;
   editor: Editor;
   codeThemes: CodeThemes;
 }) {
   const shown = useSmoothText(text);
+  const openTab = useOpenTab();
+  const openFileLink = (text: string) => {
+    const path = filePathTarget(folder, text);
+    if (isInsideFolder(folder, path)) openTab(path);
+    else openPath(path).catch(() => {});
+  };
   const components: Components = {
     a: ({ href, children }) => (
       <a
@@ -24,7 +38,9 @@ export function AssistantText({
         className="text-primary underline decoration-current/40 underline-offset-2 hover:decoration-current"
         onClick={(e) => {
           e.preventDefault();
-          if (href) openUrl(href).catch(() => {});
+          if (!href) return;
+          if (looksLikeFilePath(href)) openFileLink(href);
+          else openUrl(href).catch(() => {});
         }}
       >
         {children}
@@ -76,11 +92,25 @@ export function AssistantText({
         />
       );
     },
-    code: ({ children }) => (
-      <code className="rounded bg-muted px-1 font-mono text-[0.92em]">
-        {children}
-      </code>
-    ),
+    code: ({ children }) => {
+      const text = String(children ?? "");
+      if (!looksLikeFilePath(text)) {
+        return (
+          <code className="rounded bg-muted px-1 font-mono text-[0.92em]">
+            {children}
+          </code>
+        );
+      }
+      return (
+        <button
+          type="button"
+          className="rounded bg-muted px-1 font-mono text-[0.92em] underline decoration-current/40 underline-offset-2 hover:decoration-current"
+          onClick={() => openFileLink(text)}
+        >
+          {children}
+        </button>
+      );
+    },
   };
 
   return (

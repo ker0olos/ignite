@@ -6,6 +6,7 @@ import {
   FolderTree,
   Globe,
   Info,
+  Keyboard,
   MessageSquare,
   Palette,
   Plug,
@@ -44,8 +45,8 @@ export const SECTIONS = {
   },
   Memory: {
     icon: Brain,
-    brief: "Recall across sessions",
-    blurb: "What the agent remembers across sessions, with cmem.",
+    brief: "Recall across conversations",
+    blurb: "What the agent remembers across conversations, with cmem.",
   },
   Remote: {
     icon: Smartphone,
@@ -57,10 +58,15 @@ export const SECTIONS = {
     brief: "What replies show",
     blurb: "What the agent's replies show.",
   },
+  "Keyboard Shortcuts": {
+    icon: Keyboard,
+    brief: "Hotkeys and actions",
+    blurb: "Keyboard shortcuts available in the app.",
+  },
   Appearance: {
     icon: Palette,
-    brief: "Themes and colors",
-    blurb: "Colors for the app and code.",
+    brief: "Themes, colors, sidebar",
+    blurb: "Colors for the app and code, and the sidebar.",
   },
   Editor: {
     icon: Code,

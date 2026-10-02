@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { AgentStatus } from "../../../shared/hostProtocol";
 import type { RemoteStatus } from "../../../shared/remote";
 import { Workspace } from "@/components/app/Workspace";
 import { RemoteDevices } from "@/components/remote/RemoteDevices";
@@ -12,6 +11,7 @@ import type { Conversations } from "@/hooks/useConversations";
 import type { useMcpServers } from "@/hooks/useMcpServers";
 import type { useTabs } from "@/hooks/useTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
+import type { TaggedAgentStatus } from "@/lib/conversations";
 import { needingSignIn } from "@/lib/mcpServers";
 import { basename } from "@/lib/paths";
 import type { HostClient } from "@/lib/piHost";
@@ -27,7 +27,7 @@ export function AppWorkspace({
   folders,
   rows,
   session,
-  chats,
+  conversations,
   home,
   command,
   mcp,
@@ -36,6 +36,11 @@ export function AppWorkspace({
   openSettings,
   host,
   openIn,
+  tags,
+  tagFilter,
+  onToggleTagFilter,
+  onClearTagFilter,
+  onSetConversationTags,
 }: {
   folder: string;
   tabs: ReturnType<typeof useTabs>;
@@ -43,9 +48,14 @@ export function AppWorkspace({
   setSettings: (settings: Settings) => Promise<void>;
   settingsButton: ReactNode;
   folders: string[];
-  rows: (cwd: string) => AgentStatus[];
+  rows: (cwd: string) => TaggedAgentStatus[];
+  tags: string[];
+  tagFilter: string[];
+  onToggleTagFilter: (tag: string) => void;
+  onClearTagFilter: () => void;
+  onSetConversationTags: (session: string, tags: string[]) => void;
   session: ReturnType<typeof useAgentSession>;
-  chats: Conversations;
+  conversations: Conversations;
   home: string;
   command: ReturnType<typeof useCommandCenter>;
   mcp: ReturnType<typeof useMcpServers>;
@@ -65,21 +75,32 @@ export function AppWorkspace({
       editor={settings.editor}
       hideGitIgnored={settings.files.hide_gitignored}
       showThinking={settings.conversation.show_thinking}
+      stickyUserMessages={settings.conversation.sticky_user_messages}
+      resizableProjectSplit={settings.sidebar.resizable_split}
       approval={approvalSetting(settings, setSettings)}
       actions={settingsButton}
       projectList={{
         folders,
         rows,
         shown: session.session,
-        conversations: chats,
+        conversations,
+        conversationLimit: {
+          enabled: settings.sidebar.max_conversations_enabled,
+          max: settings.sidebar.max_conversations,
+        },
         home,
-        onDismiss: chats.dismiss,
-        onHistory: (path) => command.openWith(`@${basename(path)} #convos `),
+        onDismiss: conversations.dismiss,
+        onHistory: (path) => command.openWith(`@${basename(path)} @convos `),
         onOpenFolder: openFolder,
+        tags,
+        tagFilter,
+        onToggleTagFilter,
+        onClearTagFilter,
+        onSetConversationTags,
         childActions: {
           activeTab: tabs.active,
           onOpenTab: (cwd, shown, tab) => {
-            chats.show(cwd, shown);
+            conversations.show(cwd, shown);
             openIn(cwd, tab);
           },
           cleared: cleared.cleared,
