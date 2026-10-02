@@ -1,10 +1,11 @@
-import { Loader2 } from "lucide-react";
+import { useSpinnerFrame } from "@/hooks/useSpinnerFrame";
 
 /** Shown under a tool call that runs with nothing to show yet. */
 export function RunningLine() {
+  const frame = useSpinnerFrame();
   return (
     <p className="flex items-center gap-1.5">
-      <Loader2 className="size-3 animate-spin" />
+      <span className="font-mono">{frame}</span>
       Running…
     </p>
   );

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { stepOf } from "./taskSteps.ts";
+import { stepOf } from "./steps.ts";
 
 describe("stepOf", () => {
   it.each([
@@ -12,6 +12,8 @@ describe("stepOf", () => {
     ["read", { path: "/w/app/root.tsx" }, "Reading app/root.tsx"],
     ["edit", { path: "src/a.ts" }, "Editing src/a.ts"],
     ["write", { path: "/w/b.css" }, "Writing b.css"],
+    ["read", { path: "/w" }, "Reading /w"],
+    ["read", { path: "/other/x.ts" }, "Reading /other/x.ts"],
     ["grep", { pattern: "x" }, "Searching the code"],
     ["mcp", {}, "Using mcp"],
     [

@@ -111,6 +111,22 @@ describe("the demo host", () => {
     expect(heard).toHaveBeenCalledOnce();
   });
 
+  it("starts a working conversation's run moments ago, leaving others' dates", async () => {
+    const host = createDemoHost(TEMPO, 0);
+    const lastUser = async (session: string) => {
+      const opened = await host.request({
+        type: "open_session",
+        cwd: TEMPO,
+        session,
+      });
+      return opened!.messages.findLast((m) => m.role === "user")!.timestamp!;
+    };
+    const age = Date.now() - (await lastUser("tempo-reload"));
+    expect(age).toBeGreaterThanOrEqual(42_000);
+    expect(age).toBeLessThan(60_000);
+    expect(await lastUser("tempo")).toBeLessThan(Date.now() - 86_400_000);
+  });
+
   it("plays a running subagent's progress after its start", async () => {
     const host = createDemoHost(TEMPO, 0);
     const { heard } = listen(host);

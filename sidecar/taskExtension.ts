@@ -21,7 +21,8 @@ import {
 import { ASKING, AUTONOMOUS } from "./askExtension.ts";
 import { COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE } from "./bashExtension.ts";
 import { registerTaskAdd } from "./taskAddTool.ts";
-import { CHANGES_FILES, stepOf } from "./taskSteps.ts";
+import { stepOf } from "../shared/steps.ts";
+import { CHANGES_FILES } from "./taskSteps.ts";
 
 /** pi event bus channel carrying a TaskAsk to the host. */
 export const TASK_EVENT = "app/task";

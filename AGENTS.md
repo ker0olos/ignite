@@ -24,7 +24,7 @@ src/                     React frontend (almost all logic lives here)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring, task composer, model/effort/approval menus, trust prompt
     conversation/        Transcript rendering: messages, thinking, tool rows (with approve/deny, or the
-                         agent's questions) and their pieces
+                         agent's questions) and their pieces; WorkingLine is the run's spinner, step and time
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              Recent cmem observations for the Memory settings
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
@@ -78,6 +78,7 @@ src/                     React frontend (almost all logic lives here)
     useMarkup.ts         An image's marks being drawn: tools, ink, selection, text, undo/redo;
                          useMarkupKeys.ts its shortcuts, useMarkupImage.ts loading and fitting the image,
                          useMarkupView.ts zooming and panning it
+    useSpinnerFrame.ts   The working line's braille spinner frame (still under reduced motion); useNow.ts ticks its elapsed time
     useImageTarget.ts    The showing input (conversation, task sheet) marked-up images are added to
   lib/
     app.ts               APP_NAME, the single source of the app's name
@@ -121,6 +122,7 @@ src/                     React frontend (almost all logic lives here)
     demoQuestions.ts     The demo's second project, waiting on the agent's questions
     questions.ts         ask_user answers being picked: options, own answer, per-option notes
     tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
+    runStep.ts           What a running conversation is doing now (its step, start time, elapsed text)
     runCommand.ts        Which code blocks Run offers for, and a block as terminal keystrokes
     mentions.ts          `/skill` and `@` completions: the token at the caret, options, sending a skill as `/skill:name`
     queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
@@ -191,7 +193,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostTasks.ts           Starts a task in a background conversation; answers the task extension
   taskExtension.ts       task_update, and a task conversation's plan, work and wrap-up phases
   taskAddTool.ts         task_add: any other conversation proposes tasks, added unstarted once approved
-  taskSteps.ts           A tool call as a task's current step ("Editing src/app.ts")
+  taskSteps.ts           Which tools change files (CHANGES_FILES), held until a task is planned
   subagentExtension.ts   subagent tool: hands tasks to its model or a cheaper one from the same provider and talks with it
   subagentQueue.ts       Runs at most `max` subagents at once; the rest wait their turn
   subagentSession.ts     A subagent's session: talking to it and ending it (the 8 last used stay open)
@@ -234,6 +236,7 @@ shared/questions.ts      ask_user's questions and answers (used by both)
 shared/tasks.ts          Tasks and the agent's updates to them (used by both)
 shared/queue.ts          Messages sent mid-run: how they wait, and taking one back (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
+shared/steps.ts          A tool call as a current step ("Editing src/app.ts"), for tasks and the working line
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
