@@ -19,7 +19,7 @@ export type ChildActions = {
   onClear: (tab: string) => void;
 };
 
-export type ChatLimit = {
+export type ConversationLimit = {
   enabled: boolean;
   max: number;
 };
@@ -42,7 +42,7 @@ export type ProjectListProps = {
   /** The shown folder's shown conversation. */
   shown: string | null;
   conversations: Conversations;
-  chatLimit: ChatLimit;
+  conversationLimit: ConversationLimit;
   home: string;
   /** Takes a folder off the sidebar, ending its conversations. */
   onDismiss: (path: string) => void;
@@ -62,7 +62,7 @@ export function FolderList({
   rows,
   shown,
   conversations,
-  chatLimit,
+  conversationLimit,
   home,
   onDismiss,
   onHistory,
@@ -78,7 +78,7 @@ export function FolderList({
   rows: (cwd: string) => TaggedAgentStatus[];
   shown: string | null;
   conversations: Conversations;
-  chatLimit: ChatLimit;
+  conversationLimit: ConversationLimit;
   home: string;
   onDismiss: (path: string) => void;
   onHistory: (path: string) => void;
@@ -127,8 +127,8 @@ export function FolderList({
               onSetConversationTags(path, session, tags)
             }
             expanded={!!expanded[path]}
-            max={chatLimit.max}
-            limited={chatLimit.enabled}
+            max={conversationLimit.max}
+            limited={conversationLimit.enabled}
             onToggle={() => toggle(path)}
           />
         </Fragment>

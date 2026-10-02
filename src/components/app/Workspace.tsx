@@ -64,7 +64,7 @@ export function Workspace({
   const { active } = tabs;
   const openFile = tabs.open;
   const narrow = useNarrow();
-  const [view, setView] = useState<WorkspaceView>("chat");
+  const [view, setView] = useState<WorkspaceView>("conversation");
 
   useTerminalShortcut(host, folder, session.session, view, tabs);
 
@@ -95,9 +95,9 @@ export function Workspace({
         folder={folder}
         host={host}
         agents={projectList.rows(folder)}
-        onOpenChat={(s) => {
+        onOpenConversation={(s) => {
           projectList.conversations.show(folder, s);
-          setView("chat");
+          setView("conversation");
         }}
       />
     ) : (

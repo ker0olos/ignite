@@ -13,26 +13,25 @@ type Found = {
   files: FileHit[];
 };
 
-/** Completions for the `@` or `#` token being typed: folders, or kinds. */
+/** Completions for the `@` token being typed: kinds, then folders. */
 function suggestionsFor(
   typing: ReturnType<typeof parseQuery>["typing"],
   folders: string[],
 ) {
   if (!typing) return [];
-  if (typing.sigil === "#") {
-    return KIND_FILTERS.filter((f) =>
-      f.token.startsWith(`#${typing.partial}`),
-    ).map((f) => ({ token: f.token, label: f.label }));
-  }
-  return folders
+  const kinds = KIND_FILTERS.filter((f) =>
+    f.token.startsWith(`@${typing.partial}`),
+  ).map((f) => ({ token: f.token, label: f.label }));
+  const named = folders
     .filter((f) => basename(f).toLowerCase().startsWith(typing.partial))
     .map((f) => ({ token: `@${basename(f)}`, label: f }));
+  return [...kinds, ...named];
 }
 
 /**
  * What the command center finds for `query`: conversations and files from
  * the sidecar (asked as typing pauses), folders here, and completions for an
- * `@` or `#` token. A kind filter shows more of that kind.
+ * `@` token. A kind filter shows more of that kind.
  */
 export function useCommandSearch(
   host: HostClient | null,

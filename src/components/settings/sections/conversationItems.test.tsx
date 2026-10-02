@@ -74,12 +74,12 @@ describe("conversationItems", () => {
     });
   });
 
-  it("toggles the sidebar chat limit", () => {
+  it("toggles the sidebar conversation limit", () => {
     const onChange = vi.fn();
     const limit = conversationItems({
       settings: DEFAULT_SETTINGS,
       onChange,
-    }).find((i) => i.title === "Limit sidebar chats")!;
+    }).find((i) => i.title === "Limit sidebar conversations")!;
     const { checked, onCheckedChange } = props<SwitchProps>(limit);
     expect(checked).toBe(false);
     onCheckedChange(true);
@@ -87,23 +87,23 @@ describe("conversationItems", () => {
       ...DEFAULT_SETTINGS,
       conversation: {
         ...DEFAULT_SETTINGS.conversation,
-        max_chats_enabled: true,
+        max_conversations_enabled: true,
       },
     });
   });
 
-  it("shows the chat max and disables it until the limit is on", () => {
+  it("shows the conversation max and disables it until the limit is on", () => {
     const onChange = vi.fn();
     const settings = {
       ...DEFAULT_SETTINGS,
       conversation: {
         ...DEFAULT_SETTINGS.conversation,
-        max_chats_enabled: false,
-        max_chats: 7,
+        max_conversations_enabled: false,
+        max_conversations: 7,
       },
     };
     const max = conversationItems({ settings, onChange }).find(
-      (i) => i.title === "Sidebar chats per folder",
+      (i) => i.title === "Sidebar conversations per folder",
     )!;
     const { value, disabled, onValueChange } = props<SelectProps>(max);
     expect(value).toBe("7");
@@ -111,12 +111,12 @@ describe("conversationItems", () => {
     onValueChange("9");
     expect(onChange).toHaveBeenCalledWith({
       ...settings,
-      conversation: { ...settings.conversation, max_chats: 9 },
+      conversation: { ...settings.conversation, max_conversations: 9 },
     });
   });
 
-  it("shows chat order choices", () => {
-    const order = item("Sidebar chat order");
+  it("shows conversation order choices", () => {
+    const order = item("Sidebar conversation order");
     const { value } = props<SelectProps>(order);
     expect(value).toBe("oldest_first");
   });

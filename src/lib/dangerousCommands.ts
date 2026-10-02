@@ -1,6 +1,6 @@
 /**
  * Shell commands that Auto approval still stops for: ones that destroy data
- * beyond the project, take over the machine, or leak secrets. Each rule has
+ * beyond the folder, take over the machine, or leak secrets. Each rule has
  * the reason shown on the tool row.
  */
 
@@ -16,7 +16,7 @@ const ARGS = String.raw`[^;&|\n]*`;
 // Paths too broad to touch recursively: /, the home folder, the parent or
 // current folder, a bare glob, and the system's top-level folders.
 const BROAD = String.raw`(?:\/\*?|~\/?\*?|\$\{?HOME\}?\/?\*?|\.\.?\/?\*?|\*|\/(?:bin|boot|dev|etc|home|lib|opt|private|root|sbin|usr|var|System|Library|Applications|Users|Volumes)(?:\/\S*)?)`;
-// Outside the project, or the system's top-level folders (no . or *).
+// Outside the folder, or the system's top-level folders (no . or *).
 const ROOTS = String.raw`(?:\/\*?|~\/?\*?|\$\{?HOME\}?\/?\*?|\.\.\/?\*?|\/(?:bin|boot|dev|etc|home|lib|opt|private|root|sbin|usr|var|System|Library|Applications|Users|Volumes)(?:\/\S*)?)`;
 const RECURSIVE = String.raw`(?=${ARGS}\s(?:-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)\b)`;
 const END = String.raw`(?=\s|$|[;&|)])`;
@@ -33,7 +33,7 @@ export const DANGEROUS_COMMANDS: readonly {
   {
     pattern: cmd(String.raw`rm\b`, `${RECURSIVE}${ARGS}\\s${BROAD}${END}`),
     reason:
-      "Recursively deletes a broad path (/, ~, the project, a system folder)",
+      "Recursively deletes a broad path (/, ~, the folder, a system folder)",
   },
   {
     pattern: cmd(

@@ -23,19 +23,19 @@ export type Settings = {
   /**
    * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
    * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
-   * `chat_order`: sidebar conversation order within a folder.
+   * `conversation_order`: sidebar conversation order within a folder.
    * `sticky_user_messages`: user messages pin to the top while their replies scroll.
-   * `max_chats_*`: collapse each folder's sidebar chats after the configured count.
+   * `max_conversations_*`: collapse each folder's sidebar conversations after the configured count.
    * `resizable_sidebar_split`: drag-resize conversations vs files in the sidebar.
    */
   conversation: {
     show_thinking: boolean;
     ask_questions: boolean;
     text_size: number;
-    chat_order: ChatOrder;
+    conversation_order: ConversationOrder;
     sticky_user_messages: boolean;
-    max_chats_enabled: boolean;
-    max_chats: number;
+    max_conversations_enabled: boolean;
+    max_conversations: number;
     resizable_sidebar_split: boolean;
   };
   /** `cmem`: record sessions in cmem and recall its memories. */
@@ -55,7 +55,7 @@ export type Settings = {
   remote: { enabled: boolean; port: number };
 };
 
-export type ChatOrder = "oldest_first" | "newest_first";
+export type ConversationOrder = "oldest_first" | "newest_first";
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: SYSTEM_THEME,
@@ -68,10 +68,10 @@ export const DEFAULT_SETTINGS: Settings = {
     show_thinking: false,
     ask_questions: true,
     text_size: 14,
-    chat_order: "oldest_first",
+    conversation_order: "oldest_first",
     sticky_user_messages: false,
-    max_chats_enabled: false,
-    max_chats: 5,
+    max_conversations_enabled: false,
+    max_conversations: 5,
     resizable_sidebar_split: false,
   },
   memory: { cmem: true },
@@ -84,14 +84,17 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const MIN_TEXT_SIZE = 10;
 export const MAX_TEXT_SIZE = 24;
-export const MIN_SIDEBAR_CHATS = 1;
-export const MAX_SIDEBAR_CHATS = 20;
+export const MIN_SIDEBAR_CONVERSATIONS = 1;
+export const MAX_SIDEBAR_CONVERSATIONS = 20;
 
 const clampTextSize = (size: number) =>
   Math.min(MAX_TEXT_SIZE, Math.max(MIN_TEXT_SIZE, Math.round(size)));
 
-const clampSidebarChats = (size: number) =>
-  Math.min(MAX_SIDEBAR_CHATS, Math.max(MIN_SIDEBAR_CHATS, Math.round(size)));
+const clampSidebarConversations = (size: number) =>
+  Math.min(
+    MAX_SIDEBAR_CONVERSATIONS,
+    Math.max(MIN_SIDEBAR_CONVERSATIONS, Math.round(size)),
+  );
 
 /** The message text size after ⌘/Ctrl plus `key`, or null when the key isn't a text size shortcut. */
 export function nextTextSize(size: number, key: string): number | null {
@@ -107,20 +110,20 @@ const readConversation = (
   const merged = { ...DEFAULT_SETTINGS.conversation, ...conversation };
   return {
     ...merged,
-    chat_order:
-      merged.chat_order === "newest_first"
+    conversation_order:
+      merged.conversation_order === "newest_first"
         ? "newest_first"
-        : DEFAULT_SETTINGS.conversation.chat_order,
+        : DEFAULT_SETTINGS.conversation.conversation_order,
     text_size: Number.isFinite(merged.text_size)
       ? clampTextSize(merged.text_size)
       : DEFAULT_SETTINGS.conversation.text_size,
-    max_chats_enabled:
-      typeof merged.max_chats_enabled === "boolean"
-        ? merged.max_chats_enabled
-        : DEFAULT_SETTINGS.conversation.max_chats_enabled,
-    max_chats: Number.isFinite(merged.max_chats)
-      ? clampSidebarChats(merged.max_chats)
-      : DEFAULT_SETTINGS.conversation.max_chats,
+    max_conversations_enabled:
+      typeof merged.max_conversations_enabled === "boolean"
+        ? merged.max_conversations_enabled
+        : DEFAULT_SETTINGS.conversation.max_conversations_enabled,
+    max_conversations: Number.isFinite(merged.max_conversations)
+      ? clampSidebarConversations(merged.max_conversations)
+      : DEFAULT_SETTINGS.conversation.max_conversations,
     resizable_sidebar_split:
       typeof merged.resizable_sidebar_split === "boolean"
         ? merged.resizable_sidebar_split

@@ -23,7 +23,7 @@ export function Sidebar({
   actions: ReactNode;
   /** Shown above the folder name, e.g. a sign-in warning. */
   banner?: ReactNode;
-  /** Above the folders: the switch between chat and tasks. */
+  /** Above the folders: the switch between conversation and tasks. */
   viewSwitch?: ReactNode;
   projectList: ProjectListProps;
   /** Below the files, e.g. the devices using remote access. */

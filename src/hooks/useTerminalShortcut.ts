@@ -7,7 +7,7 @@ import type { HostClient } from "@/lib/piHost";
 
 /**
  * ⌘1 (Ctrl+1, with or without Shift) opens a new terminal tab in the folder
- * while the chat shows, with or without a conversation yet; see
+ * while the conversation shows, with or without a conversation yet; see
  * useTerminalTabs for how they close and come back.
  */
 export function useTerminalShortcut(
@@ -20,7 +20,7 @@ export function useTerminalShortcut(
   const { open } = tabs;
 
   useEffect(() => {
-    if (!host || view !== "chat") return;
+    if (!host || view !== "conversation") return;
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
       if (e.code !== "Digit1") return;
@@ -28,7 +28,7 @@ export function useTerminalShortcut(
       host
         .request({ type: "terminal_open", cwd: folder, cols: 80, rows: 24 })
         .then(({ terminal }) =>
-          // A new chat has no conversation until its first message.
+          // A new conversation has no conversation until its first message.
           open(
             childTabId({ kind: "terminal", session: shown ?? "", terminal }),
           ),

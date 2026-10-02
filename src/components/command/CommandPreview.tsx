@@ -70,7 +70,7 @@ export function CommandPreview({
   return (
     <p className="text-[13px] text-muted-foreground">
       Search conversations, files and folders. Start with @name to look in one
-      folder, or #convos, #files or #folders for one kind.
+      folder, or @conversations, @files or @folders for one kind.
     </p>
   );
 }

@@ -1,6 +1,6 @@
 import type { AgentStatus } from "../../shared/hostProtocol";
 import type { SavedSession, SessionDetails } from "../../shared/conversations";
-import type { ChatOrder } from "./settings";
+import type { ConversationOrder } from "./settings";
 
 /** One conversation listed under its folder, running or not. */
 type ListedConversation = { session: string; title: string; tags?: string[] };
@@ -90,7 +90,7 @@ export function allTags(listed: Listed) {
 /** Returns rows in the selected sidebar conversation order. */
 export function orderedRows(
   rows: AgentStatus[],
-  order: ChatOrder,
+  order: ConversationOrder,
 ): AgentStatus[] {
   return order === "newest_first" ? [...rows].reverse() : rows;
 }

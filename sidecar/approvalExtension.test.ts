@@ -176,7 +176,7 @@ describe("tool_call", () => {
     const { asks, call } = load();
     const result = call("read", { path: "~/.ssh/config" });
     await vi.waitFor(() => expect(asks).toHaveLength(1));
-    expect(asks[0].request.reason).toBe("Outside the project: ~/.ssh/config");
+    expect(asks[0].request.reason).toBe("Outside the folder: ~/.ssh/config");
     asks[0].answer(false);
     expect(await result).toEqual({ block: true, reason: DENIED });
   });
@@ -186,7 +186,7 @@ describe("tool_call", () => {
     const { asks, call } = load();
     void call("edit", { path: "escape/notes.md" });
     await vi.waitFor(() => expect(asks).toHaveLength(1));
-    expect(asks[0].request.reason).toBe("Outside the project: ~/notes.md");
+    expect(asks[0].request.reason).toBe("Outside the folder: ~/notes.md");
   });
 
   it("asks before every call in Manual", async () => {

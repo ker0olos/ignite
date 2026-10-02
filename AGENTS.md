@@ -50,8 +50,9 @@ src/                     React frontend (almost all logic lives here)
     useDraftState.ts     A folder with no conversation: the models and effort it would start with
     useConversationList.ts Each folder's listed conversations, remembered across launches
     useConversations.ts  Every open folder's conversations for the sidebar: show, create, close, details
-    useCommandCenter.ts  ⌘K / Ctrl+K opens the command center, optionally with a query
-    useCommandSearch.ts  The command center's results: debounced command_search, folders, @/# suggestions
+    useCommandCenter.ts  ⌘K / Ctrl+K opens the command center, optionally with a query;
+                         ⌘P / Ctrl+P opens it on @files with no preview
+    useCommandSearch.ts  The command center's results: debounced command_search, folders, @ suggestions
     useDetailsCache.ts   Session details fetched once each, for the command center preview
     useOpenFile.ts       Opens a tab (file, diff, subagent…) in any folder, switching to it first
     useXterm.ts          An xterm fitted to its element and themed like the app (read-only and interactive views)
@@ -74,7 +75,7 @@ src/                     React frontend (almost all logic lives here)
     useMarkup.ts         An image's marks being drawn: tools, ink, selection, text, undo/redo;
                          useMarkupKeys.ts its shortcuts, useMarkupImage.ts loading and fitting the image,
                          useMarkupView.ts zooming and panning it
-    useImageTarget.ts    The showing input (chat, task sheet) marked-up images are added to
+    useImageTarget.ts    The showing input (conversation, task sheet) marked-up images are added to
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
@@ -87,7 +88,7 @@ src/                     React frontend (almost all logic lives here)
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     tabs.ts              Open/close logic for file tabs
     recent.ts            Recent-folders list logic
-    commandQuery.ts      Command center query: `@folder`, `#convos`/`#files`/`#folders`, result picks
+    commandQuery.ts      Command center query: `@folder`, `@conversations`/`@files`/`@folders`, result picks
     fileIcons.ts         Extension → monochrome icon
     menu.ts              macOS menu bar
     lifecycle.ts         Confirm before quitting or closing a window
@@ -611,7 +612,7 @@ Without the variable nothing changes.
   `hooks/`, non-React helpers in `lib/`. Do not hand-edit `components/ui/`
   beyond small fixes; it is shadcn-generated.
 - **One UI component per file, grouped by feature.** Every distinct piece of
-  UI (chat box, model menu, file tree, a settings section, a tool row…) is its
+  UI (composer, model menu, file tree, a settings section, a tool row…) is its
   own component in its own file under `components/<feature>/`, so it can be
   edited without touching its neighbours. A parent composes children and
   passes props; it never inlines a child's markup. No private helper
@@ -631,6 +632,14 @@ lint`): one component per file, files ≤250 lines, functions ≤120 lines,
 - **Styling:** Tailwind v4 with shadcn tokens (`bg-background`, `text-muted-foreground`,
   `bg-sidebar`, …). No hard-coded colors. Interface text is 13px (`text-[13px]`)
   to match macOS.
+- **One name per thing (hard rule).** A talk between the user and an agent is a
+  **conversation**: in UI text, aria labels, settings titles and keys, docs,
+  comments and new identifiers. Never "chat", "convo" or "thread". "session"
+  is only pi's term, for pi's session objects and ids in code; the user never
+  reads it. The same holds for every other term: use the name the code and
+  this file already use (folder, not project or workspace; task; subagent;
+  background command; terminal), and grep before naming something new.
+  Settings search `keywords` may list synonyms, since users type them.
 - **Comments:** sparse; only for non-obvious constraints. Exported functions get
   a one-line doc comment. Deliberate shortcuts are marked `ponytail:` with
   their limit and upgrade path.

@@ -19,7 +19,7 @@ const splitTags = (text: string) =>
     ),
   );
 
-/** A chat row's actions menu, with tag editing. */
+/** A conversation row's actions menu, with tag editing. */
 export function ConversationTagMenu({
   title,
   tags,
@@ -40,7 +40,7 @@ export function ConversationTagMenu({
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label={`Chat options for ${title}`}
+            aria-label={`Conversation options for ${title}`}
             className={cn("shrink-0", buttonClassName)}
             onClick={(event) => event.stopPropagation()}
           />

@@ -1,5 +1,4 @@
 import { AppCommandCenter } from "@/components/app/AppCommandCenter";
-import { AppFileSearchPalette } from "@/components/app/AppFileSearchPalette";
 import { AppSettingsDialog } from "@/components/app/AppSettingsDialog";
 import { AppWorkspace } from "@/components/app/AppWorkspace";
 import { SettingsButton } from "@/components/app/SettingsButton";
@@ -7,7 +6,6 @@ import { WelcomeScreen } from "@/components/app/WelcomeScreen";
 import { ConnectProviders } from "@/components/providers/ConnectProviders";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
 import { useAgentSession } from "@/hooks/useAgentSession";
-import { useFileSearchPalette } from "@/hooks/useFileSearchPalette";
 import { useAppMenu } from "@/hooks/useAppMenu";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
 import { useOpenFile } from "@/hooks/useOpenFile";
@@ -49,7 +47,7 @@ export default function App() {
   const session = shownSession(agent, providers.hostError);
   const mcp = useMcpServers(host, current);
   const list = useConversationList(host);
-  const chats = useConversations(host, current, agent, {
+  const conversations = useConversations(host, current, agent, {
     select: addFolder,
     dismiss: dismissFolder,
     forget: list.forget,
@@ -59,9 +57,11 @@ export default function App() {
   const openFile = (folder: string, path: string) =>
     openIn(folder, `${folder}/${path}`);
   const command = useCommandCenter();
-  const fileSearch = useFileSearchPalette(current);
   const rows = (cwd: string) =>
-    orderedRows(shownRows(list.rows)(cwd), settings.conversation.chat_order);
+    orderedRows(
+      shownRows(list.rows)(cwd),
+      settings.conversation.conversation_order,
+    );
   const dragging = useFolderDrop(addFolder);
   const dialog = useSettingsDialog(providers.host, current);
   const openSettings = dialog.show;
@@ -109,7 +109,15 @@ export default function App() {
           onToggleTagFilter={list.toggleTagFilter}
           onClearTagFilter={list.clearTagFilter}
           onSetConversationTags={list.setConversationTags}
-          {...{ chats, home, command, mcp, remote, openFolder, openSettings }}
+          {...{
+            conversations,
+            home,
+            command,
+            mcp,
+            remote,
+            openFolder,
+            openSettings,
+          }}
           host={host}
           openIn={openIn}
         />
@@ -132,14 +140,8 @@ export default function App() {
         {...{ command, home, rows, settings, openFile }}
         host={host}
         folders={folders}
-        conversations={chats}
+        conversations={conversations}
         openFolder={addFolder}
-      />
-      <AppFileSearchPalette
-        palette={fileSearch}
-        host={host}
-        folder={current}
-        openFile={openFile}
       />
     </div>
   );

@@ -76,7 +76,9 @@ export function FolderConversations({
             <ChevronRight className="size-3.5" />
           )}
           <span className="truncate">
-            {expanded ? "Show fewer chats" : `Show ${hidden} more chats`}
+            {expanded
+              ? "Show fewer conversations"
+              : `Show ${hidden} more conversations`}
           </span>
         </button>
       )}

@@ -98,9 +98,9 @@ export function outsidePaths(
   });
 }
 
-/** "Outside the project: ~/x" for a path that resolved outside the folder. */
+/** "Outside the folder: ~/x" for a path that resolved outside the folder. */
 export const outsideReason = (path: string, place: Place) =>
-  `Outside the project: ${tildify(path, resolvePath(place.home, place))}`;
+  `Outside the folder: ${tildify(path, resolvePath(place.home, place))}`;
 
 /** Why a file tool call needs approval under Auto, or null when it may run. */
 function fileReason(path: string, place: Place): string | null {

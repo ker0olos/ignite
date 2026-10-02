@@ -37,10 +37,10 @@ describe("on Windows", () => {
 
   it("asks for file tools outside the folder", () => {
     expect(file("C:\\Users\\Me\\.ssh\\id_rsa")).toEqual({
-      reason: "Outside the project: ~/.ssh/id_rsa",
+      reason: "Outside the folder: ~/.ssh/id_rsa",
     });
     expect(file("D:\\secrets.txt")).toEqual({
-      reason: "Outside the project: d:/secrets.txt",
+      reason: "Outside the folder: d:/secrets.txt",
     });
     expect(file("..\\app-old\\x")).not.toBeNull();
     expect(file("\\\\server\\share\\x")).not.toBeNull();
@@ -155,18 +155,18 @@ describe("approvalFor", () => {
   it("stops shell commands that reach outside the folder in Auto", () => {
     expect(
       approvalFor("auto", "bash", { command: "cat /etc/hosts" }, place),
-    ).toEqual({ reason: "Outside the project: /etc/hosts" });
+    ).toEqual({ reason: "Outside the folder: /etc/hosts" });
   });
 
   it("stops file tools outside the folder in Auto, naming the path", () => {
     expect(approvalFor("auto", "write", { path: "~/.zshrc" }, place)).toEqual({
-      reason: "Outside the project: ~/.zshrc",
+      reason: "Outside the folder: ~/.zshrc",
     });
     expect(approvalFor("auto", "read", { path: "../x" }, place)).toEqual({
-      reason: "Outside the project: ~/x",
+      reason: "Outside the folder: ~/x",
     });
     expect(approvalFor("auto", "grep", { path: "/etc" }, place)).toEqual({
-      reason: "Outside the project: /etc",
+      reason: "Outside the folder: /etc",
     });
   });
 
@@ -181,7 +181,7 @@ describe("approvalFor", () => {
     // File tools don't run in the sandbox.
     expect(
       approvalFor("auto", "write", { path: "~/.zshrc" }, place, sandboxed),
-    ).toEqual({ reason: "Outside the project: ~/.zshrc" });
+    ).toEqual({ reason: "Outside the folder: ~/.zshrc" });
   });
 
   it("ignores arguments of the wrong type", () => {

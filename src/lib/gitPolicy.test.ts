@@ -72,10 +72,10 @@ describe("gitApproval", () => {
   it("asks for dangerous commands and paths outside the folder", () => {
     expect(git("reset --hard")?.reason).toMatch(/./);
     expect(git("-C ../other status")).toEqual({
-      reason: "Outside the project: ~/other",
+      reason: "Outside the folder: ~/other",
     });
     expect(git("clone url /tmp/x")).toEqual({
-      reason: "Outside the project: /tmp/x",
+      reason: "Outside the folder: /tmp/x",
     });
   });
 });
@@ -108,7 +108,7 @@ describe("ghApproval", () => {
   });
 
   it("asks before cloning outside the folder", () => {
-    expect(gh("repo clone a/b ../b")).toBe("Outside the project: ~/b");
+    expect(gh("repo clone a/b ../b")).toBe("Outside the folder: ~/b");
   });
 });
 

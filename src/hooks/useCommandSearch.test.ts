@@ -34,13 +34,13 @@ describe("useCommandSearch", () => {
     vi.useRealTimers();
   });
 
-  it("raises the limit to 50 once a #kind filter narrows the results", async () => {
+  it("raises the limit to 50 once an @kind filter narrows the results", async () => {
     vi.useFakeTimers();
     const { request, host } = setup(async () => ({
       conversations: [],
       files: [],
     }));
-    renderHook(() => useCommandSearch(host, "#files sentry", FOLDERS));
+    renderHook(() => useCommandSearch(host, "@files sentry", FOLDERS));
     await act(() => vi.advanceTimersByTimeAsync(100));
     expect(request).toHaveBeenCalledWith({
       type: "command_search",
@@ -74,23 +74,24 @@ describe("useCommandSearch", () => {
     expect(result.current.folders).toEqual(["/p/ignition"]);
   });
 
-  it("drops folder hits when a #kind filter excludes folders", () => {
+  it("drops folder hits when an @kind filter excludes folders", () => {
     const { host } = setup(async () => ({ conversations: [], files: [] }));
     const { result } = renderHook(() =>
-      useCommandSearch(host, "#files ignit", FOLDERS),
+      useCommandSearch(host, "@files ignit", FOLDERS),
     );
     expect(result.current.folders).toEqual([]);
   });
 
-  it("suggests folder names for @ and kind filters for #", () => {
+  it("suggests kind filters, then folder names, for @", () => {
     const { host } = setup(async () => ({ conversations: [], files: [] }));
     const at = renderHook(() => useCommandSearch(host, "@ign", FOLDERS));
     expect(at.result.current.suggestions).toEqual([
       { token: "@ignition", label: "/p/ignition" },
     ]);
-    const hash = renderHook(() => useCommandSearch(host, "#fi", FOLDERS));
-    expect(hash.result.current.suggestions.map((s) => s.token)).toEqual([
-      "#files",
+    const kind = renderHook(() => useCommandSearch(host, "@f", FOLDERS));
+    expect(kind.result.current.suggestions.map((s) => s.token)).toEqual([
+      "@files",
+      "@folders",
     ]);
   });
 

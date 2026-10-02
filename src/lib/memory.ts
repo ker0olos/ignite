@@ -11,16 +11,17 @@ export function memoryDescription(
     case undefined:
       return "Checking for cmem";
     case "not-installed":
-      return "Install cmem to give the agent memory across sessions. It works with Claude Code, Codex, Cursor and other agents.";
+      return "Install cmem to give the agent memory across conversations. It works with Claude Code, Codex, Cursor and other agents.";
     case "stopped":
       return "cmem's worker isn't running. It starts with any agent that uses cmem.";
     case "excluded":
       return "This folder is excluded in cmem's own settings.";
   }
-  if (!enabled) return "Off. Sessions aren't recorded and nothing is recalled.";
+  if (!enabled)
+    return "Off. Conversations aren't recorded and nothing is recalled.";
   return folderOpen
-    ? "Records this folder's sessions and recalls past work when a conversation starts."
-    : "Records each folder's sessions and recalls past work when a conversation starts.";
+    ? "Records this folder's conversations and recalls past work when a conversation starts."
+    : "Records each folder's conversations and recalls past work when a conversation starts.";
 }
 
 const PLATFORMS: Record<string, string> = {

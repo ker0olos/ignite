@@ -3,7 +3,7 @@ import { Command as CommandPrimitive } from "cmdk";
 import { Search } from "lucide-react";
 import type { SessionDetails } from "../../../shared/conversations";
 import type { AgentStatus } from "../../../shared/hostProtocol";
-import { Kbd } from "@/components/agent/Kbd";
+import { CommandFooter } from "@/components/command/CommandFooter";
 import { CommandPreview } from "@/components/command/CommandPreview";
 import { CommandResults } from "@/components/command/CommandResults";
 import { Command, CommandEmpty, CommandList } from "@/components/ui/command";
@@ -20,6 +20,19 @@ import {
 } from "@/lib/commandQuery";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
+import { cn } from "@/lib/utils";
+
+const WITH_PREVIEW = {
+  width: "w-[min(960px,94vw)]",
+  height: "h-[min(480px,64vh)]",
+  list: "w-1/2 border-r max-sm:w-full max-sm:border-r-0",
+};
+// Without a preview to fill, the dialog is only as tall as its results.
+const NO_PREVIEW = {
+  width: "w-[min(720px,94vw)]",
+  height: "max-h-[min(480px,64vh)]",
+  list: "w-full",
+};
 
 /** What picking a result does. */
 export type CommandActions = {
@@ -31,7 +44,7 @@ export type CommandActions = {
 /**
  * ⌘K's command center: one search over every folder's conversations and
  * files and the folders themselves, the highlighted result shown beside the
- * list. `@name` and `#kind` narrow it.
+ * list (unless `preview` is off). `@name` and `@files`-style kinds narrow it.
  */
 export function CommandCenter({
   open,
@@ -45,6 +58,7 @@ export function CommandCenter({
   themes,
   editor,
   actions,
+  preview,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -57,6 +71,7 @@ export function CommandCenter({
   themes: CodeThemes;
   editor: Settings["editor"];
   actions: CommandActions;
+  preview: boolean;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [value, setValue] = useState("");
@@ -84,12 +99,16 @@ export function CommandCenter({
   };
 
   const nothing = !found.loading && !first;
+  const layout = preview ? WITH_PREVIEW : NO_PREVIEW;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="top-[12%] w-[min(960px,94vw)] max-w-none max-sm:top-[4%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-none"
+        className={cn(
+          "top-[12%] max-w-none max-sm:top-[4%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-none",
+          layout.width,
+        )}
       >
         <DialogTitle className="sr-only">Command center</DialogTitle>
         <Command
@@ -108,11 +127,11 @@ export function CommandCenter({
               className="h-14 flex-1 bg-transparent text-lg outline-none placeholder:text-muted-foreground"
             />
             <span className="shrink-0 text-xs text-muted-foreground max-sm:hidden">
-              @folder · #convos #files #folders
+              @conversations @files @folders
             </span>
           </div>
-          <div className="flex h-[min(480px,64vh)]">
-            <CommandList className="max-h-none w-1/2 shrink-0 border-r p-2 max-sm:w-full max-sm:border-r-0">
+          <div className={cn("flex", layout.height)}>
+            <CommandList className={cn("max-h-none shrink-0 p-2", layout.list)}>
               {nothing && (
                 <CommandEmpty className="py-8 text-muted-foreground">
                   Nothing matches.
@@ -126,31 +145,23 @@ export function CommandCenter({
               />
             </CommandList>
             {/* On a phone results take the width; tapping one opens it, so no preview. */}
-            <div className="min-w-0 flex-1 overflow-y-auto p-5 max-sm:hidden">
-              <CommandPreview
-                pick={shown}
-                conversations={found.conversations}
-                details={known}
-                rows={rows}
-                home={home}
-                themes={themes}
-                editor={editor}
-                query={found.text}
-              />
-            </div>
+            {preview && (
+              <div className="min-w-0 flex-1 overflow-y-auto p-5 max-sm:hidden">
+                <CommandPreview
+                  pick={shown}
+                  conversations={found.conversations}
+                  details={known}
+                  rows={rows}
+                  home={home}
+                  themes={themes}
+                  editor={editor}
+                  query={found.text}
+                />
+              </div>
+            )}
           </div>
         </Command>
-        <div className="flex justify-end gap-4 border-t px-4 py-2 text-xs text-muted-foreground max-sm:hidden">
-          <span>
-            <Kbd>↑↓</Kbd> to move
-          </span>
-          <span>
-            <Kbd>↵</Kbd> to open
-          </span>
-          <span>
-            <Kbd>⌘K</Kbd> or <Kbd>esc</Kbd> to close
-          </span>
-        </div>
+        <CommandFooter />
       </DialogContent>
     </Dialog>
   );

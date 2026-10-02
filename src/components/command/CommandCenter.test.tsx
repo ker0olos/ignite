@@ -19,8 +19,8 @@ beforeAll(() => {
   Element.prototype.scrollIntoView ??= () => {};
 });
 
-vi.mock("@/components/files/FileView", () => ({
-  FileView: ({ path }: { path: string }) => <div>File preview: {path}</div>,
+vi.mock("@/components/command/CommandPreview", () => ({
+  CommandPreview: () => <div>Preview pane</div>,
 }));
 
 const FOLDERS = ["/p/motr", "/p/sentry-tools"];
@@ -54,7 +54,7 @@ function fakeHost() {
   return { request, host: { request } as unknown as HostClient };
 }
 
-function renderCenter(initialQuery = "") {
+function renderCenter(initialQuery = "", preview = true) {
   const { request, host } = fakeHost();
   const onOpenChange = vi.fn();
   const actions: CommandActions = {
@@ -75,6 +75,7 @@ function renderCenter(initialQuery = "") {
       themes={DEFAULT_CODE_THEMES}
       editor={DEFAULT_SETTINGS.editor}
       actions={actions}
+      preview={preview}
     />,
   );
   return { request, onOpenChange, actions };
@@ -149,5 +150,13 @@ describe("CommandCenter", () => {
     renderCenter();
     type("zzz-nothing-matches");
     expect(await screen.findByText("Nothing matches.")).toBeTruthy();
+  });
+
+  it.each([
+    [true, 1],
+    [false, 0],
+  ])("with preview %s, shows the preview pane %i times", (preview, n) => {
+    renderCenter("", preview);
+    expect(screen.queryAllByText(/Preview pane/)).toHaveLength(n);
   });
 });

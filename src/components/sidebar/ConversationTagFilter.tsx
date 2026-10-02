@@ -34,7 +34,7 @@ export function ConversationTagFilter({
           : "Tags"}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-44">
-        <DropdownMenuLabel>Filter chats</DropdownMenuLabel>
+        <DropdownMenuLabel>Filter conversations</DropdownMenuLabel>
         {tags.map((tag) => (
           <DropdownMenuCheckboxItem
             key={tag}

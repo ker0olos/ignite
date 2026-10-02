@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createSearch } from "./search.ts";
 
-const convo = (id: string, title: string) => ({
+const conversation = (id: string, title: string) => ({
   id,
   title,
   modified: 1,
@@ -12,7 +12,7 @@ const convo = (id: string, title: string) => ({
 
 describe("createSearch", () => {
   it("keeps each folder's lists a while, and only reads what's asked for", async () => {
-    const sessions = { list: vi.fn(async () => [convo("1", "sentry")]) };
+    const sessions = { list: vi.fn(async () => [conversation("1", "sentry")]) };
     const files = vi.fn(async () => ["sentry.ts"]);
     const search = createSearch(sessions, files);
     const ask = { text: "sentry", folders: ["/a"], limit: 5 };

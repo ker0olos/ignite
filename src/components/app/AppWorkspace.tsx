@@ -27,7 +27,7 @@ export function AppWorkspace({
   folders,
   rows,
   session,
-  chats,
+  conversations,
   home,
   command,
   mcp,
@@ -55,7 +55,7 @@ export function AppWorkspace({
   onClearTagFilter: () => void;
   onSetConversationTags: (cwd: string, session: string, tags: string[]) => void;
   session: ReturnType<typeof useAgentSession>;
-  chats: Conversations;
+  conversations: Conversations;
   home: string;
   command: ReturnType<typeof useCommandCenter>;
   mcp: ReturnType<typeof useMcpServers>;
@@ -83,14 +83,15 @@ export function AppWorkspace({
         folders,
         rows,
         shown: session.session,
-        conversations: chats,
-        chatLimit: {
-          enabled: settings.conversation.max_chats_enabled,
-          max: settings.conversation.max_chats,
+        conversations,
+        conversationLimit: {
+          enabled: settings.conversation.max_conversations_enabled,
+          max: settings.conversation.max_conversations,
         },
         home,
-        onDismiss: chats.dismiss,
-        onHistory: (path) => command.openWith(`@${basename(path)} #convos `),
+        onDismiss: conversations.dismiss,
+        onHistory: (path) =>
+          command.openWith(`@${basename(path)} @conversations `),
         onOpenFolder: openFolder,
         tags,
         tagFilter,
@@ -100,7 +101,7 @@ export function AppWorkspace({
         childActions: {
           activeTab: tabs.active,
           onOpenTab: (cwd, shown, tab) => {
-            chats.show(cwd, shown);
+            conversations.show(cwd, shown);
             openIn(cwd, tab);
           },
           cleared: cleared.cleared,

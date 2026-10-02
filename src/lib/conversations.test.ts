@@ -81,7 +81,7 @@ describe("rowsOf", () => {
       "/a": [
         { session: "1", title: "Fix", tags: ["bug"] },
         { session: "2", title: "Plan", tags: ["design", "later"] },
-        { session: "3", title: "Chat" },
+        { session: "3", title: "Conversation" },
       ],
     };
     expect(

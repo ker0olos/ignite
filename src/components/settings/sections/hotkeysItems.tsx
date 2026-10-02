@@ -16,7 +16,7 @@ export function hotkeysItems(): Item[] {
     {
       section: "Keyboard Shortcuts",
       title: "Open file search",
-      description: "Search files in the current project, then open one.",
+      description: "Search files in the open folders, then open one.",
       hint: shortcut("P"),
       keywords:
         "hotkeys shortcuts keybindings command p file palette quick open",
@@ -24,10 +24,16 @@ export function hotkeysItems(): Item[] {
     {
       section: "Keyboard Shortcuts",
       title: "Open command center",
-      description:
-        "Search conversations, files and folders across open projects.",
+      description: "Search the open folders, their conversations and files.",
       hint: shortcut("K"),
       keywords: "hotkeys shortcuts keybindings command k palette",
+    },
+    {
+      section: "Keyboard Shortcuts",
+      title: "Open terminal",
+      description: "Open a terminal tab in the current folder.",
+      hint: shortcut("1"),
+      keywords: "hotkeys shortcuts keybindings command 1 terminal shell",
     },
   ];
 }

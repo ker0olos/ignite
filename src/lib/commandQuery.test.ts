@@ -29,26 +29,26 @@ describe("parseQuery", () => {
   });
 
   it("filters by kind, one or several", () => {
-    expect(parseQuery("#files app", FOLDERS).kinds).toEqual(["file"]);
-    expect(parseQuery("#convos #folders", FOLDERS).kinds).toEqual([
+    expect(parseQuery("@files app", FOLDERS).kinds).toEqual(["file"]);
+    expect(parseQuery("@conversations @folders", FOLDERS).kinds).toEqual([
       "conversation",
       "folder",
     ]);
   });
 
-  it("tells the @ or # token being typed, without searching for it", () => {
+  it("reads a kind filter as a kind, not a folder of that name", () => {
+    expect(parseQuery("@files x", ["/p/files"])).toMatchObject({
+      kinds: ["file"],
+      folder: null,
+    });
+  });
+
+  it("tells the @ token being typed, without searching for it", () => {
     expect(parseQuery("sentry @mo", FOLDERS)).toMatchObject({
       text: "sentry",
-      typing: { sigil: "@", partial: "mo" },
+      typing: { partial: "mo" },
     });
-    expect(parseQuery("#fi", FOLDERS)).toMatchObject({
-      text: "",
-      typing: { sigil: "#", partial: "fi" },
-    });
-    expect(parseQuery("#fi ", FOLDERS)).toMatchObject({
-      text: "#fi",
-      typing: null,
-    });
+    expect(parseQuery("@", FOLDERS)).toMatchObject({ text: "" });
   });
 
   it("keeps the last valid @ when several name a folder", () => {
@@ -60,7 +60,7 @@ describe("parseQuery", () => {
   it("treats a lone @ as a typing token, not a folder filter", () => {
     expect(parseQuery("@", FOLDERS)).toMatchObject({
       folder: null,
-      typing: { sigil: "@", partial: "" },
+      typing: { partial: "" },
     });
   });
 });
@@ -137,6 +137,6 @@ describe("firstPick", () => {
 describe("completed", () => {
   it("replaces the token being typed and leaves room for the next", () => {
     expect(completed("sentry @mo", "@motr")).toBe("sentry @motr ");
-    expect(completed("", "#files")).toBe("#files ");
+    expect(completed("", "@files")).toBe("@files ");
   });
 });

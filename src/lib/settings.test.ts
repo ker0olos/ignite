@@ -70,10 +70,10 @@ describe("loadSettings", () => {
       show_thinking: true,
       ask_questions: true,
       text_size: 14,
-      chat_order: "oldest_first",
+      conversation_order: "oldest_first",
       sticky_user_messages: false,
-      max_chats_enabled: false,
-      max_chats: 5,
+      max_conversations_enabled: false,
+      max_conversations: 5,
       resizable_sidebar_split: false,
     });
     fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
@@ -93,11 +93,15 @@ describe("loadSettings", () => {
     );
   });
 
-  it("reads chat order settings", async () => {
-    fakeFs({ [FILE]: '[conversation]\nchat_order = "newest_first"\n' });
-    expect((await loadSettings()).conversation.chat_order).toBe("newest_first");
-    fakeFs({ [FILE]: '[conversation]\nchat_order = "sideways"\n' });
-    expect((await loadSettings()).conversation.chat_order).toBe("oldest_first");
+  it("reads conversation order settings", async () => {
+    fakeFs({ [FILE]: '[conversation]\nconversation_order = "newest_first"\n' });
+    expect((await loadSettings()).conversation.conversation_order).toBe(
+      "newest_first",
+    );
+    fakeFs({ [FILE]: '[conversation]\nconversation_order = "sideways"\n' });
+    expect((await loadSettings()).conversation.conversation_order).toBe(
+      "oldest_first",
+    );
   });
 
   it.each([
@@ -115,14 +119,16 @@ describe("loadSettings", () => {
     ["99", 20],
     ["0", 1],
     ['"many"', 5],
-  ])("reads max_chats = %s as %d", async (value, count) => {
-    fakeFs({ [FILE]: `[conversation]\nmax_chats = ${value}\n` });
-    expect((await loadSettings()).conversation.max_chats).toBe(count);
+  ])("reads max_conversations = %s as %d", async (value, count) => {
+    fakeFs({ [FILE]: `[conversation]\nmax_conversations = ${value}\n` });
+    expect((await loadSettings()).conversation.max_conversations).toBe(count);
   });
 
-  it("reads whether the sidebar chat limit is enabled", async () => {
-    fakeFs({ [FILE]: "[conversation]\nmax_chats_enabled = true\n" });
-    expect((await loadSettings()).conversation.max_chats_enabled).toBe(true);
+  it("reads whether the sidebar conversation limit is enabled", async () => {
+    fakeFs({ [FILE]: "[conversation]\nmax_conversations_enabled = true\n" });
+    expect((await loadSettings()).conversation.max_conversations_enabled).toBe(
+      true,
+    );
   });
 
   it("reads memory settings", async () => {
@@ -247,10 +253,10 @@ describe("saveSettings", () => {
       show_thinking: true,
       ask_questions: false,
       text_size: 15,
-      chat_order: "newest_first",
+      conversation_order: "newest_first",
       sticky_user_messages: true,
-      max_chats_enabled: true,
-      max_chats: 8,
+      max_conversations_enabled: true,
+      max_conversations: 8,
       resizable_sidebar_split: true,
     },
     memory: { cmem: false },

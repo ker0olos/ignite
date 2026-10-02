@@ -8,22 +8,22 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
-  MAX_SIDEBAR_CHATS,
-  MIN_SIDEBAR_CHATS,
-  type ChatOrder,
+  MAX_SIDEBAR_CONVERSATIONS,
+  MIN_SIDEBAR_CONVERSATIONS,
+  type ConversationOrder,
   type Settings,
 } from "@/lib/settings";
 
 type ConversationSettings = Settings["conversation"];
 
-const CHAT_ORDERS: { value: ChatOrder; label: string }[] = [
+const CONVERSATION_ORDERS: { value: ConversationOrder; label: string }[] = [
   { value: "oldest_first", label: "Oldest first (default)" },
   { value: "newest_first", label: "Newest first" },
 ];
 
 const SIDEBAR_CHAT_COUNTS = Array.from(
-  { length: MAX_SIDEBAR_CHATS - MIN_SIDEBAR_CHATS + 1 },
-  (_, i) => MIN_SIDEBAR_CHATS + i,
+  { length: MAX_SIDEBAR_CONVERSATIONS - MIN_SIDEBAR_CONVERSATIONS + 1 },
+  (_, i) => MIN_SIDEBAR_CONVERSATIONS + i,
 ).map((n) => ({ value: String(n), label: String(n) }));
 
 type ConversationChange = (conversation: ConversationSettings) => void;
@@ -40,7 +40,7 @@ export function conversationItems({
     onChange({ ...settings, conversation });
 
   return [
-    chatOrderItem(settings.conversation, changeConversation),
+    conversationOrderItem(settings.conversation, changeConversation),
     switchItem({
       title: "Show thinking",
       description: "Show the model's reasoning above its replies.",
@@ -73,40 +73,48 @@ export function conversationItems({
         }),
     }),
     switchItem({
-      title: "Limit sidebar chats",
-      description: "Collapse each folder after a maximum number of chats.",
+      title: "Limit sidebar conversations",
+      description:
+        "Collapse each folder after a maximum number of conversations.",
       keywords: "sidebar chats folders collapse maximum limit",
-      checked: settings.conversation.max_chats_enabled,
-      onCheckedChange: (max_chats_enabled) =>
-        changeConversation({ ...settings.conversation, max_chats_enabled }),
+      checked: settings.conversation.max_conversations_enabled,
+      onCheckedChange: (max_conversations_enabled) =>
+        changeConversation({
+          ...settings.conversation,
+          max_conversations_enabled,
+        }),
     }),
     sidebarChatCountItem(settings.conversation, changeConversation),
   ];
 }
 
-function chatOrderItem(
+function conversationOrderItem(
   conversation: ConversationSettings,
   onChange: ConversationChange,
 ): Item {
   return {
     section: "Conversation",
-    title: "Sidebar chat order",
+    title: "Sidebar conversation order",
     description: "Order conversations under each folder in the sidebar.",
     keywords:
       "chat conversation sidebar sort ascending descending newest oldest",
     control: (
       <Select
-        items={CHAT_ORDERS}
-        value={conversation.chat_order}
+        items={CONVERSATION_ORDERS}
+        value={conversation.conversation_order}
         onValueChange={(value) =>
-          value && onChange({ ...conversation, chat_order: value as ChatOrder })
+          value &&
+          onChange({
+            ...conversation,
+            conversation_order: value as ConversationOrder,
+          })
         }
       >
         <SelectTrigger size="sm" className="w-44 text-[13px]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent alignItemWithTrigger={false}>
-          {CHAT_ORDERS.map((order) => (
+          {CONVERSATION_ORDERS.map((order) => (
             <SelectItem
               key={order.value}
               value={order.value}
@@ -149,16 +157,17 @@ function sidebarChatCountItem(
 ): Item {
   return {
     section: "Conversation",
-    title: "Sidebar chats per folder",
-    description: "How many chats to show before the expand button.",
+    title: "Sidebar conversations per folder",
+    description: "How many conversations to show before the expand button.",
     keywords: "sidebar chats folders collapse maximum limit count",
     control: (
       <Select
         items={SIDEBAR_CHAT_COUNTS}
-        value={String(conversation.max_chats)}
-        disabled={!conversation.max_chats_enabled}
+        value={String(conversation.max_conversations)}
+        disabled={!conversation.max_conversations_enabled}
         onValueChange={(value) =>
-          value && onChange({ ...conversation, max_chats: Number(value) })
+          value &&
+          onChange({ ...conversation, max_conversations: Number(value) })
         }
       >
         <SelectTrigger size="sm" className="w-16 text-[13px]">

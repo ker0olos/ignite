@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { rankConversations, rankFiles } from "./commandSearch.ts";
 
-const convo = (id: string, title: string, text = "", modified = 1) => ({
+const conversation = (id: string, title: string, text = "", modified = 1) => ({
   id,
   title,
   modified,
@@ -16,13 +16,13 @@ describe("rankConversations", () => {
         [
           "/a",
           [
-            convo(
+            conversation(
               "1",
               "dark mode",
               "we talked about sentry errors for a while",
             ),
-            convo("2", "check the sentry errors"),
-            convo("3", "unrelated"),
+            conversation("2", "check the sentry errors"),
+            conversation("3", "unrelated"),
           ],
         ],
       ],
@@ -39,8 +39,11 @@ describe("rankConversations", () => {
   it("lists the newest across folders without a query, up to the limit", () => {
     const hits = rankConversations(
       [
-        ["/a", [convo("old", "x", "", 1)]],
-        ["/b", [convo("new", "y", "", 3), convo("mid", "z", "", 2)]],
+        ["/a", [conversation("old", "x", "", 1)]],
+        [
+          "/b",
+          [conversation("new", "y", "", 3), conversation("mid", "z", "", 2)],
+        ],
       ],
       "",
       2,

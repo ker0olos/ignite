@@ -1,7 +1,7 @@
 import type { GitReview } from "../../../shared/git";
 import { GitChanges } from "@/components/conversation/GitChanges";
 import { AgentLine } from "@/components/tasks/AgentLine";
-import { OpenChatButton } from "@/components/tasks/OpenChatButton";
+import { OpenConversationButton } from "@/components/tasks/OpenConversationButton";
 import { TaskStatusIcon } from "@/components/tasks/TaskStatusIcon";
 import { Button } from "@/components/ui/button";
 
@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 export function TaskPrReview({
   review,
   onAnswer,
-  onOpenChat,
+  onOpenConversation,
 }: {
   review: GitReview;
   onAnswer: (approved: boolean) => void;
-  onOpenChat: () => void;
+  onOpenConversation: () => void;
 }) {
   return (
     <div className="space-y-2">
@@ -21,7 +21,7 @@ export function TaskPrReview({
       <AgentLine ok>
         <TaskStatusIcon status="review" />
         <span className="flex-1">Open this pull request?</span>
-        <OpenChatButton onClick={onOpenChat} />
+        <OpenConversationButton onClick={onOpenConversation} />
         <Button size="sm" variant="outline" onClick={() => onAnswer(false)}>
           Decline
         </Button>

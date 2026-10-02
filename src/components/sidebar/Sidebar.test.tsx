@@ -37,7 +37,7 @@ const sidebar = (folders: string[], rows = ROWS, resizable = false) => {
           dismiss: vi.fn(),
           details: vi.fn(async () => null),
         },
-        chatLimit: { enabled: false, max: 5 },
+        conversationLimit: { enabled: false, max: 5 },
         home: "/home/me",
         onDismiss: vi.fn(),
         onHistory: vi.fn(),

@@ -12,7 +12,7 @@ import terminal from "./terminalExtension.ts";
 
 vi.stubEnv("SHELL", "/bin/sh");
 const cwd = realpathSync(mkdtempSync(join(tmpdir(), "terminal-ext-")));
-const ctx = { cwd, sessionManager: { getSessionId: () => "convo" } };
+const ctx = { cwd, sessionManager: { getSessionId: () => "conversation" } };
 
 function load() {
   let tool: ToolDefinition | undefined;
