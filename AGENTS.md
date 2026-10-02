@@ -192,7 +192,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   taskExtension.ts       task_update, and a task conversation's plan, work and wrap-up phases
   taskAddTool.ts         task_add: any other conversation proposes tasks, added unstarted once approved
   taskSteps.ts           A tool call as a task's current step ("Editing src/app.ts")
-  subagentExtension.ts   subagent tool: hands tasks to a smaller model from the same provider and talks with it
+  subagentExtension.ts   subagent tool: hands tasks to its model or a cheaper one from the same provider and talks with it
+  subagentQueue.ts       Runs at most `max` subagents at once; the rest wait their turn
+  subagentSession.ts     A subagent's session: talking to it and ending it (the 8 last used stay open)
   keepAwake.ts           Keeps the Mac from idle-sleeping (caffeinate) while an agent works
   chrome.ts              Chrome over CDP: a headless one the app starts, or the user's own (port 9222) when asked
   chromeExtension.ts     chrome_* tools: tabs, screenshot, eval, navigate, raw CDP calls
@@ -281,8 +283,9 @@ Two places hold persisted data:
   sessions in cmem, recalls its memories and gives the agent cmem's search
   tools. Recording checks it before each run; the tools follow a reload.
 - **Subagent settings** (`[subagents]`): `enabled` (on by default) gives
-  the agent the `subagent` tool; `max` (default 2) caps how many one
-  conversation may start. Read before each run.
+  the agent the `subagent` tool; `max` (default 2) caps how many of a
+  conversation's run at once; it may start any number, and the rest queue
+  (`sidecar/subagentQueue.ts`). Read before each run.
 - **Power settings** (`[power]`): `keep_awake` (on by default, macOS only)
   runs `caffeinate -i` while any folder's agent works, and ends it when
   every agent finishes or waits on the user (`sidecar/keepAwake.ts`).
@@ -475,10 +478,12 @@ calls run only in the user's Chrome. Each screenshot is also saved to a temp fil
 tools; Manual asks.
 
 The `subagent` tool (`sidecar/subagentExtension.ts`) lets the agent start
-another pi session on a task: a smaller model from its own provider (cheaper
-per output token in pi's catalog; claude-bridge models are priced by their
-`anthropic` listing), at an effort below its own (both checked, not just
-suggested). The host
+another pi session on a task: its own model or one from its provider no
+dearer per output token in pi's catalog (claude-bridge models are priced by
+their `anthropic` listing), at its effort or lower (both checked, not just
+suggested). The built-in `/code-review` skill uses it the way Claude Code's
+does: fresh finders per angle, one verifier per candidate; `/security-review`
+likewise: one finder, then one false-positive filter per finding. The host
 opens it in memory (`openSubagent` in `start.ts`) with only the bridge and
 approval extensions, so its tool calls wait for approval like the main
 agent's and show inside the subagent's tool row, rebuilt from the call's

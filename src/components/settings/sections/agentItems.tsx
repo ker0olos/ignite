@@ -73,7 +73,7 @@ export function agentItems({
       section: "Agent",
       title: "Subagents",
       description:
-        "The agent can hand tasks to a smaller model from the same provider, at a lower effort, and talk with it.",
+        "The agent can hand tasks to its own model or a cheaper one from the same provider, at its effort or lower, and talk with it.",
       keywords: "subagents delegate agents helpers",
       control: (
         <Switch
@@ -89,8 +89,9 @@ export function agentItems({
     },
     {
       section: "Agent",
-      title: "Subagents per conversation",
-      description: "How many subagents one conversation may start.",
+      title: "Subagents at once",
+      description:
+        "How many of a conversation's subagents run at the same time; the rest wait their turn.",
       keywords: "subagents delegate agents helpers max",
       control: (
         <Select

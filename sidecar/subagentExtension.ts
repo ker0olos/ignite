@@ -1,9 +1,9 @@
 /**
- * The subagent tool: the main agent hands work to another model from its own
- * provider, at a lower effort, and talks back and forth with it by id. The
+ * The subagent tool: the main agent hands work to its own model or a cheaper
+ * one from its provider, at its effort or lower, and talks with it by id. The
  * host opens each subagent's session (SUBAGENT_EVENT); its tool calls go
  * through the same approvals. `[subagents]` in settings.toml turns it off or
- * caps how many one conversation may start; read before each run.
+ * caps how many of a conversation's run at once (the rest queue); read before each run.
  */
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -15,15 +15,15 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { parse as parseToml } from "smol-toml";
 import { Type } from "typebox";
-import type { AgentMessage, AssistantMessage } from "../shared/agentTypes.ts";
 import {
   EFFORTS,
   nextSubagentId,
   readSubagent,
   SUBAGENT_TOOL,
-  type SubagentDetails,
 } from "../shared/subagents.ts";
 import { APP_NAME } from "../src/lib/app.ts";
+import { concurrency } from "./subagentQueue.ts";
+import { type Agent, end, talk } from "./subagentSession.ts";
 
 /** pi event bus channel asking the host to open a subagent's session. */
 export const SUBAGENT_EVENT = "app/subagent";
@@ -44,7 +44,7 @@ Another agent gave you this task and reads your final reply; the user doesn't se
 
 type Limits = { enabled: boolean; max: number };
 
-/** `[subagents]` in the app's settings: on, at most 2 per conversation, by default. */
+/** `[subagents]` in the app's settings: on, at most 2 running at once, by default. */
 export async function subagentLimits(
   settingsFile = join(homedir(), `.${APP_NAME}`, "settings.toml"),
 ): Promise<Limits> {
@@ -74,30 +74,33 @@ function price(model: Model, all: Model[]): number | undefined {
   );
 }
 
-/** Models a subagent may use: the main model's provider, cheaper per output token than the main model. */
+/** Models a subagent may use: the main model, or one from its provider no dearer per output token. */
 export function allowedModels(ctx: ExtensionContext): Model[] {
   const own = ctx.model;
+  if (!own) return [];
   const all = ctx.modelRegistry.getAll();
-  const ceiling = own && price(own, all);
-  if (!own || !ceiling) return [];
+  const ceiling = price(own, all);
   return ctx.modelRegistry.getAvailable().filter((m) => {
+    if (m.provider !== own.provider) return false;
+    if (m.id === own.id) return true;
     const cost = price(m, all);
-    return m.provider === own.provider && !!cost && cost < ceiling;
+    return !!ceiling && !!cost && cost <= ceiling;
   });
 }
 
-/** Efforts below the main agent's own. */
+/** Efforts up to the main agent's own. */
 export function allowedEfforts(own: string): Effort[] {
-  return EFFORTS.slice(0, Math.max(0, EFFORTS.indexOf(own as Effort)));
+  return EFFORTS.slice(0, EFFORTS.indexOf(own as Effort) + 1);
 }
 
-export function guidance(models: Model[], efforts: Effort[], left: number) {
+export function guidance(models: Model[], efforts: Effort[], max: number) {
   return `## Subagents
-With the ${SUBAGENT_TOOL} tool you can hand a self-contained task to a subagent: it works in the same folder with the same tools and its final reply comes back to you. You may start ${left} more in this conversation.
-- Models (smaller than yours): ${models.map((m) => m.id).join(", ")}. Efforts: ${efforts.join(", ")}.
+With the ${SUBAGENT_TOOL} tool you can hand a self-contained task to a subagent: it works in the same folder with the same tools and its final reply comes back to you. Start as many as the work needs: ${max} run at a time and the rest wait their turn.
+- Models (yours or cheaper): ${models.map((m) => m.id).join(", ")}. Efforts: ${efforts.join(", ")}.
 - It can't see this conversation, so give it everything it needs in the message.
 - To answer its question or give it more work, call ${SUBAGENT_TOOL} again with its id and your message.
-- Several calls in one turn run at the same time.`;
+- Several calls in one turn run at the same time, up to that limit.
+- Only the ${KEPT} you used last stay open to continue by id; older ones end.`;
 }
 
 const Params = Type.Object({
@@ -118,9 +121,8 @@ const Params = Type.Object({
   ),
 });
 
-type Agent = Omit<SubagentDetails, "messages" | "running"> & {
-  opening: Promise<AgentSession>;
-};
+/** Idle subagents kept open to continue by id; the least recently used past this end. */
+const KEPT = 8;
 
 // A reload starts `agents` empty, but the saved calls keep their ids.
 const savedIds = (ctx: ExtensionContext) =>
@@ -129,15 +131,6 @@ const savedIds = (ctx: ExtensionContext) =>
     const id = m?.role === "toolResult" && readSubagent(m.details)?.id;
     return id ? [id] : [];
   });
-
-const replyOf = (messages: AgentMessage[]) => {
-  const last = messages.findLast((m) => m.role === "assistant") as
-    AssistantMessage | undefined;
-  if (!last) return "(no reply)";
-  if (last.stopReason === "error") return `It failed: ${last.errorMessage}`;
-  const text = last.content.flatMap((b) => (b.type === "text" ? [b.text] : []));
-  return text.join("\n") || "(no reply)";
-};
 
 /** The requested model and effort, if the rules allow them. */
 function pick(
@@ -155,52 +148,35 @@ function pick(
   const efforts = allowedEfforts(own);
   const effort = efforts.find((e) => e === params.effort);
   if (!effort) {
-    throw new Error(`Pick an effort below your own: ${efforts.join(", ")}.`);
+    throw new Error(`Pick an effort up to your own: ${efforts.join(", ")}.`);
   }
   return { model, effort };
 }
 
-/** Sends the subagent a message and waits for its reply, reporting progress. */
-async function talk(
-  agent: Agent,
-  message: string,
-  signal: AbortSignal | undefined,
-  onUpdate:
-    ((result: { content: []; details: SubagentDetails }) => void) | undefined,
-) {
-  const session = await agent.opening;
-  if (session.isStreaming)
-    throw new Error(`${agent.id} is still busy with another message.`);
-  const from = session.messages.length;
-  const details = (running: boolean): SubagentDetails => ({
-    id: agent.id,
-    model: agent.model,
-    effort: agent.effort,
-    messages: session.messages.slice(from) as AgentMessage[],
-    running,
-  });
-  const unsubscribe = session.subscribe((event) => {
-    if (event.type === "message_end" || event.type === "tool_execution_end") {
-      onUpdate?.({ content: [], details: details(true) });
-    }
-  });
-  const stop = () => void session.abort();
-  signal?.addEventListener("abort", stop);
-  try {
-    await session.prompt(message);
-  } finally {
-    unsubscribe();
-    signal?.removeEventListener("abort", stop);
-  }
-  const done = details(false);
-  const text = `${agent.id} replied:\n\n${replyOf(done.messages)}`;
-  return { content: [{ type: "text" as const, text }], details: done };
-}
-
 export default function subagents(pi: ExtensionAPI) {
-  // ponytail: per loaded session; a reload or sidecar restart forgets them (and resets the count).
+  // ponytail: per loaded session, most recently used last; a reload or sidecar restart forgets them.
   const agents = new Map<string, Agent>();
   let limits: Limits = { enabled: true, max: 2 };
+  const queue = concurrency(() => limits.max);
+
+  const trim = () => {
+    const idle = [...agents.values()].filter((a) => a.session && !a.busy);
+    for (const agent of idle.slice(0, Math.max(0, idle.length - KEPT))) {
+      agents.delete(agent.id);
+      void end(agent.opening);
+    }
+  };
+
+  /** Runs with the agent already marked busy, then marks it most recently used and ends the oldest idle ones. */
+  async function use(agent: Agent, run: () => ReturnType<typeof talk>) {
+    try {
+      return await run();
+    } finally {
+      agent.busy--;
+      if (agents.delete(agent.id)) agents.set(agent.id, agent);
+      trim();
+    }
+  }
 
   const open = (model: Model, effort: Effort) => {
     let session: Promise<AgentSession> | undefined;
@@ -214,22 +190,21 @@ export default function subagents(pi: ExtensionAPI) {
   };
 
   async function start(
-    params: { model?: string; effort?: string },
+    { model, effort }: { model: Model; effort: Effort },
     ctx: ExtensionContext,
   ): Promise<Agent> {
-    if (!limits.enabled) throw new Error("Subagents are turned off.");
-    if (agents.size >= limits.max) {
-      throw new Error(
-        `This conversation already has ${limits.max} subagents; continue with one of them by id.`,
-      );
-    }
-    const { model, effort } = pick(params, ctx, pi.getThinkingLevel());
     const id = nextSubagentId([...agents.keys(), ...savedIds(ctx)]);
-    // Taken before any await, so parallel calls can't pass the cap together.
-    const agent = { id, model: model.id, effort, opening: open(model, effort) };
+    // Taken before any await, so parallel calls can't share an id.
+    const agent: Agent = {
+      id,
+      model: model.id,
+      effort,
+      opening: open(model, effort),
+      busy: 1,
+    };
     agents.set(id, agent);
     try {
-      await agent.opening;
+      agent.session = await agent.opening;
     } catch (error) {
       agents.delete(id);
       throw error;
@@ -241,15 +216,29 @@ export default function subagents(pi: ExtensionAPI) {
     name: SUBAGENT_TOOL,
     label: "Subagent",
     description:
-      "Start a subagent on a task with a smaller model and lower effort, or send a message to one you started (by id). Returns its reply.",
+      "Start a subagent on a task with your model or a cheaper one, at your effort or lower, or send a message to one you started (by id). Returns its reply.",
     parameters: Params,
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const known = params.id === undefined ? undefined : agents.get(params.id);
       if (params.id !== undefined && !known) {
         throw new Error(`There is no subagent ${params.id}; start a new one.`);
       }
-      const agent = known ?? (await start(params, ctx));
-      return talk(agent, params.message, signal, onUpdate);
+      if (!known && !limits.enabled) {
+        throw new Error("Subagents are turned off.");
+      }
+      // Checked before waiting, so a bad pick fails at once.
+      const picked = known
+        ? undefined
+        : pick(params, ctx, pi.getThinkingLevel());
+      return queue(async () => {
+        const agent = known ? agents.get(known.id) : await start(picked!, ctx);
+        if (!agent) {
+          throw new Error(`${known!.id} has ended; start a new one.`);
+        }
+        // A new one comes back from start already busy.
+        if (known) agent.busy++;
+        return use(agent, () => talk(agent, params.message, signal, onUpdate));
+      }, signal);
     },
   });
 
@@ -257,28 +246,17 @@ export default function subagents(pi: ExtensionAPI) {
     limits = await subagentLimits();
     const models = allowedModels(ctx);
     const efforts = allowedEfforts(pi.getThinkingLevel());
-    const left = limits.max - agents.size;
-    const usable = limits.enabled && models.length > 0 && efforts.length > 0;
+    const on = limits.enabled && models.length > 0 && efforts.length > 0;
     const others = pi.getActiveTools().filter((name) => name !== SUBAGENT_TOOL);
-    // Out of new ones, it can still talk to the ones it has.
-    const on = usable && (left > 0 || agents.size > 0);
     pi.setActiveTools(on ? [...others, SUBAGENT_TOOL] : others);
     if (!on) return;
     return {
-      systemPrompt: `${event.systemPrompt}\n\n${guidance(models, efforts, left)}`,
+      systemPrompt: `${event.systemPrompt}\n\n${guidance(models, efforts, limits.max)}`,
     };
   });
 
   pi.on("session_shutdown", async () => {
-    for (const { opening } of agents.values()) {
-      const session = await opening.catch(() => null);
-      if (!session) continue;
-      await session.extensionRunner.emit({
-        type: "session_shutdown",
-        reason: "quit",
-      });
-      session.dispose();
-    }
+    for (const { opening } of agents.values()) await end(opening);
     agents.clear();
   });
 }

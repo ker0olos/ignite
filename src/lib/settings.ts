@@ -49,7 +49,7 @@ export type Settings = {
    * `full_access`: Auto runs every tool call without asking or the sandbox.
    */
   approval: { mode: ApprovalMode; full_access: boolean };
-  /** `max`: how many subagents one conversation may start. */
+  /** `max`: how many of a conversation's subagents run at once; the rest queue. */
   subagents: { enabled: boolean; max: number };
   /**
    * `keep_awake`: the Mac doesn't idle-sleep while an agent works (macOS only).

@@ -50,7 +50,7 @@ describe("agentItems", () => {
       subagents: { enabled: false, max: 3 },
     };
     const [, , , max] = agentItems({ settings, onChange });
-    expect(max.title).toBe("Subagents per conversation");
+    expect(max.title).toBe("Subagents at once");
     const { value, disabled, onValueChange } = props<SelectProps>(max);
     expect(value).toBe("3");
     expect(disabled).toBe(true);
