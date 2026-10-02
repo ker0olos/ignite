@@ -28,6 +28,14 @@ const BACKGROUND = Type.Optional(
   }),
 );
 
+export const COMMAND_GUIDANCE = `## Running commands
+Run the commands a task needs yourself with bash (setup steps, cloud and deploy CLIs, installs, migrations) instead of handing them to the user; the app asks the user to approve the ones that need it.
+Leave a command to the user only when they have to run it themselves: an interactive sign-in or a secret they type, a production or billing change they should make with their own hands, or when they ask. Then give it in a \`\`\`bash block they can run in one click as is: variables set at the top, no placeholders, no "$ " prompts or output mixed in. It runs in the user's own folder, not a worktree of yours, so it can't use files you changed there until they're merged.`;
+
+/** In a task, which runs with nobody watching: what needs the user goes in the final reply. */
+export const TASK_COMMAND_GUIDANCE = `## Running commands
+Run the commands the task needs yourself with bash; the app asks the user to approve the ones that need it. If one has to be the user's (an interactive sign-in, a secret they type, a production or billing change), don't leave it as a code block nobody runs: finish what you can, and name it in your final reply as what the task still needs from them.`;
+
 const startedText = (b: Background) =>
   `Still running in the background as pid ${b.pid}. Its output goes to ${b.log}; ` +
   `read it with tail, and end it with ${BASH_STOP_TOOL}.`;
@@ -120,6 +128,10 @@ export default function bash(pi: ExtensionAPI) {
       );
     },
   });
+
+  pi.on("before_agent_start", (event) => ({
+    systemPrompt: `${event.systemPrompt}\n\n${COMMAND_GUIDANCE}`,
+  }));
 
   // A reload (after an MCP change) keeps the same conversation going.
   pi.on("session_shutdown", (event, ctx) => {

@@ -19,6 +19,7 @@ import {
   type TaskUpdate,
 } from "../shared/tasks.ts";
 import { ASKING, AUTONOMOUS } from "./askExtension.ts";
+import { COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE } from "./bashExtension.ts";
 import { registerTaskAdd } from "./taskAddTool.ts";
 import { CHANGES_FILES, stepOf } from "./taskSteps.ts";
 
@@ -134,7 +135,9 @@ export default function tasks(pi: ExtensionAPI) {
     pi.setActiveTools([...others, task ? TASK_TOOL : TASK_ADD_TOOL]);
     if (!task) return;
     if (task.declined) void askTask(pi, "update", { declined: false });
-    const prompt = event.systemPrompt.replace(ASKING, AUTONOMOUS);
+    const prompt = event.systemPrompt
+      .replace(ASKING, AUTONOMOUS)
+      .replace(COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE);
     const chrome = others.includes("chrome_navigate")
       ? `\n${CHROME_GUIDANCE}`
       : "";

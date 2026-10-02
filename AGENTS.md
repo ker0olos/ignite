@@ -58,7 +58,8 @@ src/                     React frontend (almost all logic lives here)
     useOpenFile.ts       Opens a tab (file, diff, subagent…) in any folder, switching to it first
     useXterm.ts          An xterm fitted to its element and themed like the app (read-only and interactive views)
     useTerminalSession.ts A terminal view's connection to the host: snapshot, live output, keystrokes
-    useTerminalShortcut.ts ⌘1 / Ctrl+1 opens a terminal tab
+    useTerminalShortcut.ts ⌘1 / Ctrl+1 opens a terminal tab; returns run-in-terminal
+    useRunInTerminal.ts  Run-in-terminal for assistant shell code blocks' Run button
     useTerminalTabs.ts   A closed tab's shell ends; a folder shown again reopens its shells' tabs
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
     useClearedChildren.ts  Finished subagents and background commands cleared from the sidebar
@@ -119,6 +120,7 @@ src/                     React frontend (almost all logic lives here)
     demoQuestions.ts     The demo's second project, waiting on the agent's questions
     questions.ts         ask_user answers being picked: options, own answer, per-option notes
     tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
+    runCommand.ts        Which code blocks Run offers for, and a block as terminal keystrokes
     queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
     demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images

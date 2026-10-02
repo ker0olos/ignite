@@ -7,6 +7,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import type { Task, TaskUpdate } from "../shared/tasks.ts";
 import { ASKING, AUTONOMOUS } from "./askExtension.ts";
+import { COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE } from "./bashExtension.ts";
 import tasks, {
   TASK_EVENT,
   PLAN_FIRST,
@@ -70,7 +71,7 @@ function load(first: Task | null, active = ["read", "ask_user"]) {
   const start = (prompt = "do it") =>
     handlers.get("before_agent_start")!({
       prompt,
-      systemPrompt: `Base\n\n${ASKING}`,
+      systemPrompt: `Base\n\n${ASKING}\n\n${COMMAND_GUIDANCE}`,
     }) as Promise<{ systemPrompt: string } | undefined>;
   const run = (params: object) =>
     tool!.execute("t1", params as never, undefined, undefined, {} as never);
@@ -242,11 +243,11 @@ describe("task tool", () => {
 });
 
 describe("before_agent_start", () => {
-  it("swaps ask_user for the task tool and goes autonomous", async () => {
+  it("swaps ask_user for the task tool, goes autonomous, keeps commands its own", async () => {
     const { start, active } = load(task);
     const result = await start();
     expect(result!.systemPrompt).toBe(
-      `Base\n\n${AUTONOMOUS}\n\n${TASK_GUIDANCE}`,
+      `Base\n\n${AUTONOMOUS}\n\n${TASK_COMMAND_GUIDANCE}\n\n${TASK_GUIDANCE}`,
     );
     expect(active()).toEqual(["read", "task_update"]);
     await start();
@@ -259,7 +260,7 @@ describe("before_agent_start", () => {
     const result = await mine.start();
     expect(mine.active()).toEqual([...withChrome, "task_update"]);
     expect(result!.systemPrompt).toBe(
-      `Base\n\n${AUTONOMOUS}\n\n${TASK_GUIDANCE}\n${CHROME_GUIDANCE}`,
+      `Base\n\n${AUTONOMOUS}\n\n${TASK_COMMAND_GUIDANCE}\n\n${TASK_GUIDANCE}\n${CHROME_GUIDANCE}`,
     );
   });
 

@@ -12,6 +12,7 @@ import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useTerminalShortcut } from "@/hooks/useTerminalShortcut";
 import { useNarrow } from "@/hooks/useNarrow";
 import { OpenTabContext } from "@/hooks/useOpenTab";
+import { RunInTerminalContext } from "@/hooks/useRunInTerminal";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useTabs } from "@/hooks/useTabs";
 import type { HostClient } from "@/lib/piHost";
@@ -66,7 +67,13 @@ export function Workspace({
   const narrow = useNarrow();
   const [view, setView] = useState<WorkspaceView>("conversation");
 
-  useTerminalShortcut(host, folder, session.session, view, tabs);
+  const runInTerminal = useTerminalShortcut(
+    host,
+    folder,
+    session.session,
+    view,
+    tabs,
+  );
 
   // Pane sizes persist, saved separately for with and without the editor.
   const layout = useDefaultLayout({
@@ -116,43 +123,47 @@ export function Workspace({
   if (narrow) {
     return (
       <OpenTabContext.Provider value={openFile}>
-        <MobileWorkspace {...pane} sidebar={sidebar} agent={agent} />
+        <RunInTerminalContext.Provider value={runInTerminal}>
+          <MobileWorkspace {...pane} sidebar={sidebar} agent={agent} />
+        </RunInTerminalContext.Provider>
       </OpenTabContext.Provider>
     );
   }
 
   return (
     <OpenTabContext.Provider value={openFile}>
-      <ResizablePanelGroup
-        orientation="horizontal"
-        className="flex-1"
-        defaultLayout={layout.defaultLayout}
-        onLayoutChanged={layout.onLayoutChanged}
-      >
-        <ResizablePanel
-          id="sidebar"
-          defaultSize="240px"
-          minSize="180px"
-          maxSize="480px"
-          // Like VS Code: the sidebar keeps its width when the window resizes.
-          groupResizeBehavior="preserve-pixel-size"
+      <RunInTerminalContext.Provider value={runInTerminal}>
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="flex-1"
+          defaultLayout={layout.defaultLayout}
+          onLayoutChanged={layout.onLayoutChanged}
         >
-          {sidebar}
-        </ResizablePanel>
-        <PaneHandle />
-        <ResizablePanel
-          id="agent"
-          minSize={view === "tasks" ? "640px" : "320px"}
-        >
-          <div className="relative flex h-full flex-col">{agent}</div>
-        </ResizablePanel>
-        {active && <PaneHandle />}
-        {active && (
-          <ResizablePanel id="editor" minSize="320px">
-            <EditorPane {...pane} active={active} />
+          <ResizablePanel
+            id="sidebar"
+            defaultSize="240px"
+            minSize="180px"
+            maxSize="480px"
+            // Like VS Code: the sidebar keeps its width when the window resizes.
+            groupResizeBehavior="preserve-pixel-size"
+          >
+            {sidebar}
           </ResizablePanel>
-        )}
-      </ResizablePanelGroup>
+          <PaneHandle />
+          <ResizablePanel
+            id="agent"
+            minSize={view === "tasks" ? "640px" : "320px"}
+          >
+            <div className="relative flex h-full flex-col">{agent}</div>
+          </ResizablePanel>
+          {active && <PaneHandle />}
+          {active && (
+            <ResizablePanel id="editor" minSize="320px">
+              <EditorPane {...pane} active={active} />
+            </ResizablePanel>
+          )}
+        </ResizablePanelGroup>
+      </RunInTerminalContext.Provider>
     </OpenTabContext.Provider>
   );
 }
