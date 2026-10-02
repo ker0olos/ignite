@@ -9,7 +9,7 @@ import {
 import { MENU_TRIGGER } from "@/components/agent/styles";
 import { APPROVAL_MODES } from "@/lib/approvalPolicy";
 
-/** Composer's approval toggle: Auto, Manual, or YOLO tool approval. */
+/** Composer's approval toggle: Auto or Manual tool approval. */
 export function ApprovalMenu({
   mode,
   onChange,

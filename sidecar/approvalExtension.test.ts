@@ -78,13 +78,19 @@ describe("approvalMode", () => {
     expect(await approvalMode()).toBe("auto");
   });
 
-  it.each(["manual", "yolo"] as const)(
-    "reads %s from settings.toml",
-    async (mode) => {
-      await settings(`[approval]\nmode = '${mode}'\n`);
-      expect(await approvalMode()).toBe(mode);
-    },
-  );
+  it("reads Manual from settings.toml", async () => {
+    await settings("[approval]\nmode = 'manual'\n");
+    expect(await approvalMode()).toBe("manual");
+  });
+
+  it("is full for Auto with full access, and Manual still wins", async () => {
+    await settings("[approval]\nfull_access = true\n");
+    expect(await approvalMode()).toBe("full");
+    await settings("[approval]\nmode = 'manual'\nfull_access = true\n");
+    expect(await approvalMode()).toBe("manual");
+    await settings("[approval]\nfull_access = 'yes'\n");
+    expect(await approvalMode()).toBe("auto");
+  });
 });
 
 describe("realPath", () => {
@@ -199,8 +205,8 @@ describe("tool_call", () => {
     expect(await result).toBeUndefined();
   });
 
-  it("asks for nothing in YOLO", async () => {
-    await settings("[approval]\nmode = 'yolo'\n");
+  it("asks for nothing in Auto with full access", async () => {
+    await settings("[approval]\nfull_access = true\n");
     const { asks, call } = load();
     expect(await call("read", { path: "~/.ssh/config" })).toBeUndefined();
     expect(await call("bash", { command: "git push --force" })).toBeUndefined();
@@ -242,11 +248,13 @@ describe("the sandbox in Auto", () => {
     expect(input()).toEqual({ path: "src/a.ts" });
   });
 
-  it("sandboxes in YOLO without asking first", async () => {
-    await settings("[approval]\nmode = 'yolo'\n");
-    const { asks, call, input } = load();
-    await call("bash", { command: "git push --force" });
-    expect(input().command).toBe("sandboxed git push --force");
+  it("doesn't sandbox or ask with full access", async () => {
+    await settings("[approval]\nfull_access = true\n");
+    const { asks, call, input, result } = load();
+    await call("bash", { command: "rm -rf build" });
+    expect(input().command).toBe("rm -rf build");
+    fake.violation = "file-write-create /Users/me/x";
+    expect(await result("Operation not permitted", true)).toBeUndefined();
     expect(asks).toEqual([]);
   });
 
@@ -298,17 +306,6 @@ describe("the sandbox in Auto", () => {
     await call("bash", { command: "npm run dev", background: true });
     const running = { background: { pid: 1 } };
     expect(await result("permission denied", false, running)).toBeUndefined();
-    expect(asks).toEqual([]);
-  });
-
-  it("auto-runs outside when YOLO hits a sandbox block", async () => {
-    await settings("[approval]\nmode = 'yolo'\n");
-    const { asks, call, result } = load();
-    await call("bash", { command: "echo outside" });
-    fake.violation = "file-write-create /Users/me/x";
-    const ran = (await result("Operation not permitted", true)) as Outcome;
-    expect(ran.isError).toBe(false);
-    expect(ran.content[0].text.trim()).toBe("outside");
     expect(asks).toEqual([]);
   });
 

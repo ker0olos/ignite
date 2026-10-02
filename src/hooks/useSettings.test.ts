@@ -164,7 +164,7 @@ describe("useSettings", () => {
       files: { hide_gitignored: true },
       conversation: DEFAULT_SETTINGS.conversation,
       memory: { cmem: true },
-      approval: { mode: "auto" },
+      approval: { mode: "auto", full_access: false },
       subagents: { enabled: true, max: 2 },
       power: { keep_awake: true, keep_screen_awake: false },
       chrome: { enabled: true, disabled_tools: [] },

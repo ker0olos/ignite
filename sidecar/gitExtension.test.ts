@@ -65,11 +65,11 @@ const mine: Task = {
   updated: 1,
 };
 
-async function approvalSettings(mode: "manual" | "yolo") {
+async function approvalSettings(approval: string) {
   await mkdir(join(home, `.${APP_NAME}`));
   await writeFile(
     join(home, `.${APP_NAME}`, "settings.toml"),
-    `[approval]\nmode = '${mode}'\n`,
+    `[approval]\n${approval}\n`,
   );
 }
 
@@ -163,7 +163,7 @@ describe("the git tool", () => {
   });
 
   it("asks for every call in Manual, without a reason", async () => {
-    await approvalSettings("manual");
+    await approvalSettings("mode = 'manual'");
     const { asks, call } = load();
     const done = call("git", ["status"]);
     await asked(asks);
@@ -172,8 +172,8 @@ describe("the git tool", () => {
     await done;
   });
 
-  it("commits without asking in YOLO", async () => {
-    await approvalSettings("yolo");
+  it("commits without asking with full access", async () => {
+    await approvalSettings("full_access = true");
     const { asks, call } = load();
     await call("git", ["add", "a.txt"]);
     await call("git", ["commit", "-m", "first"]);
@@ -196,8 +196,8 @@ describe("the gh tool", () => {
     await expect(done).rejects.toThrow(DENIED);
   });
 
-  it("doesn't ask before changing something on GitHub in YOLO", async () => {
-    await approvalSettings("yolo");
+  it("doesn't ask before changing something on GitHub with full access", async () => {
+    await approvalSettings("full_access = true");
     const { asks, call } = load();
     await expect(call("gh", ["pr", "merge", "3"])).rejects.toThrow();
     expect(asks).toEqual([]);

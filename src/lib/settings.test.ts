@@ -136,17 +136,20 @@ describe("loadSettings", () => {
     expect((await loadSettings()).memory).toEqual({ cmem: false });
   });
 
-  it.each(["manual", "yolo"] as const)(
-    "reads the %s approval mode",
-    async (mode) => {
-      fakeFs({ [FILE]: `[approval]\nmode = "${mode}"\n` });
-      expect((await loadSettings()).approval).toEqual({ mode });
-    },
-  );
+  it("reads the Manual approval mode and full access", async () => {
+    fakeFs({ [FILE]: '[approval]\nmode = "manual"\nfull_access = true\n' });
+    expect((await loadSettings()).approval).toEqual({
+      mode: "manual",
+      full_access: true,
+    });
+  });
 
   it("falls back to Auto for an approval mode it doesn't know", async () => {
-    fakeFs({ [FILE]: '[approval]\nmode = "never"\n' });
-    expect((await loadSettings()).approval).toEqual({ mode: "auto" });
+    fakeFs({ [FILE]: '[approval]\nmode = "never"\nfull_access = 1\n' });
+    expect((await loadSettings()).approval).toEqual({
+      mode: "auto",
+      full_access: false,
+    });
   });
 
   it("defaults subagents on with a max of 2", async () => {
@@ -239,7 +242,7 @@ describe("approvalSetting", () => {
     approval.onChange("manual");
     expect(save).toHaveBeenCalledWith({
       ...DEFAULT_SETTINGS,
-      approval: { mode: "manual" },
+      approval: { mode: "manual", full_access: false },
     });
   });
 });
@@ -260,7 +263,7 @@ describe("saveSettings", () => {
       resizable_sidebar_split: true,
     },
     memory: { cmem: false },
-    approval: { mode: "manual" },
+    approval: { mode: "manual", full_access: false },
     subagents: { enabled: false, max: 4 },
     power: { keep_awake: false, keep_screen_awake: true },
     chrome: { enabled: false, disabled_tools: ["chrome_cdp"] },

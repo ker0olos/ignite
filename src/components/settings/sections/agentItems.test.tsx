@@ -14,9 +14,22 @@ const props = <T,>(item: { control?: unknown }) =>
   (item.control as ReactElement<T>).props;
 
 describe("agentItems", () => {
+  it("toggles full access in Auto, first and off by default", () => {
+    const onChange = vi.fn();
+    const [full] = agentItems({ settings: DEFAULT_SETTINGS, onChange });
+    expect(full.title).toBe("Full access in Auto");
+    const { checked, onCheckedChange } = props<SwitchProps>(full);
+    expect(checked).toBe(false);
+    onCheckedChange(true);
+    expect(onChange).toHaveBeenCalledWith({
+      ...DEFAULT_SETTINGS,
+      approval: { mode: "auto", full_access: true },
+    });
+  });
+
   it("toggles subagents on and off", () => {
     const onChange = vi.fn();
-    const [, subagents] = agentItems({
+    const [, , subagents] = agentItems({
       settings: DEFAULT_SETTINGS,
       onChange,
     });
@@ -36,7 +49,7 @@ describe("agentItems", () => {
       ...DEFAULT_SETTINGS,
       subagents: { enabled: false, max: 3 },
     };
-    const [, , max] = agentItems({ settings, onChange });
+    const [, , , max] = agentItems({ settings, onChange });
     expect(max.title).toBe("Subagents per conversation");
     const { value, disabled, onValueChange } = props<SelectProps>(max);
     expect(value).toBe("3");

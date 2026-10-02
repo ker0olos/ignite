@@ -282,7 +282,9 @@ Two places hold persisted data:
   agent the `chrome_*` tools; `disabled_tools` lists ones it doesn't get
   (`shared/chrome.ts`). Read before each run (`sidecar/chromeSettings.ts`).
 - **Approval settings** (`[approval]`): `mode`, `"auto"` (default) or
-  `"manual"`, set from the composer. The sidecar reads it on every tool call.
+  `"manual"`, set from the composer. `full_access` (off by default, Settings →
+  Agent) makes Auto ask for nothing and drops the sandbox: every tool call,
+  git and gh included, runs as is. The sidecar reads both on every tool call.
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **pi's own files** in `~/.ignite/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the

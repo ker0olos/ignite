@@ -1,7 +1,7 @@
 /**
  * Which tool calls wait for the user. Manual asks for every call; Auto only
- * for dangerous shell commands and for anything outside the open folder; YOLO
- * approves all prompts.
+ * for dangerous shell commands and for anything outside the open folder;
+ * Auto with full access never asks.
  */
 import type { ApprovalMode } from "../../shared/hostProtocol.ts";
 import {
@@ -10,6 +10,9 @@ import {
   type Pipeline,
 } from "./dangerousCommands.ts";
 import { tildify } from "./paths.ts";
+
+/** How tool calls are gated: the composer's mode, or Auto with full access. */
+export type ApprovalGate = ApprovalMode | "full";
 
 /** Where the session runs; both absolute. `windows`: they are Windows paths. */
 export type Place = { cwd: string; home: string; windows?: boolean };
@@ -153,14 +156,14 @@ function autoReason(
  * Null lets it run.
  */
 export function approvalFor(
-  mode: ApprovalMode,
+  mode: ApprovalGate,
   toolName: string,
   input: Record<string, unknown>,
   place: Place,
   bash: BashCheck = {},
 ): { reason?: string } | null {
   if (mode === "manual") return {};
-  if (mode === "yolo") return null;
+  if (mode === "full") return null;
   const reason = autoReason(toolName, input, place, bash);
   return reason === null ? null : { reason };
 }
@@ -180,10 +183,5 @@ export const APPROVAL_MODES: readonly {
     mode: "manual",
     label: "Manual",
     description: "Asks before every tool call",
-  },
-  {
-    mode: "yolo",
-    label: "YOLO",
-    description: "Approves everything, retrying sandbox blocks outside it",
   },
 ];

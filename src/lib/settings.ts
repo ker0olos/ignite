@@ -40,8 +40,11 @@ export type Settings = {
   };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
-  /** `mode`: "auto" asks only before risky tool calls, "manual" before all, "yolo" before none. */
-  approval: { mode: ApprovalMode };
+  /**
+   * `mode`: "auto" asks only before risky tool calls, "manual" before all.
+   * `full_access`: Auto runs every tool call without asking or the sandbox.
+   */
+  approval: { mode: ApprovalMode; full_access: boolean };
   /** `max`: how many subagents one conversation may start. */
   subagents: { enabled: boolean; max: number };
   /**
@@ -75,7 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
     resizable_sidebar_split: false,
   },
   memory: { cmem: true },
-  approval: { mode: "auto" },
+  approval: { mode: "auto", full_access: false },
   subagents: { enabled: true, max: 2 },
   power: { keep_awake: true, keep_screen_awake: false },
   chrome: { enabled: true, disabled_tools: [] },
@@ -134,10 +137,8 @@ const readConversation = (
 const readApproval = (
   approval: Partial<Settings["approval"]> = {},
 ): Settings["approval"] => ({
-  mode:
-    approval.mode === "manual" || approval.mode === "yolo"
-      ? approval.mode
-      : "auto",
+  mode: approval.mode === "manual" ? "manual" : "auto",
+  full_access: approval.full_access === true,
 });
 
 const readSubagents = (
@@ -237,7 +238,7 @@ export function approvalSetting(
   return {
     mode: settings.approval.mode,
     onChange: (mode: ApprovalMode) =>
-      void save({ ...settings, approval: { mode } }),
+      void save({ ...settings, approval: { ...settings.approval, mode } }),
   };
 }
 
