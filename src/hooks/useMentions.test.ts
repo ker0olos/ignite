@@ -22,7 +22,12 @@ function key(k: string, shiftKey = false) {
 
 function setup(text: string, host: HostClient | null = null) {
   const onPick = vi.fn();
-  const input = { current: { value: text } as HTMLTextAreaElement };
+  const input = {
+    current: {
+      value: text,
+      setSelectionRange: vi.fn(),
+    } as unknown as HTMLTextAreaElement,
+  };
   const hook = renderHook(
     ({ text, typed = true }: { text: string; typed?: boolean }) => {
       input.current.value = text;
