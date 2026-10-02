@@ -23,20 +23,24 @@ export type Settings = {
   /**
    * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
    * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
-   * `conversation_order`: sidebar conversation order within a folder.
    * `sticky_user_messages`: user messages pin to the top while their replies scroll.
-   * `max_conversations_*`: collapse each folder's sidebar conversations after the configured count.
-   * `resizable_sidebar_split`: drag-resize conversations vs files in the sidebar.
    */
   conversation: {
     show_thinking: boolean;
     ask_questions: boolean;
     text_size: number;
-    conversation_order: ConversationOrder;
     sticky_user_messages: boolean;
+  };
+  /**
+   * `conversation_order`: conversation order within a folder.
+   * `max_conversations_*`: collapse each folder after the configured count.
+   * `resizable_split`: drag-resize conversations vs files.
+   */
+  sidebar: {
+    conversation_order: ConversationOrder;
     max_conversations_enabled: boolean;
     max_conversations: number;
-    resizable_sidebar_split: boolean;
+    resizable_split: boolean;
   };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
@@ -71,11 +75,13 @@ export const DEFAULT_SETTINGS: Settings = {
     show_thinking: false,
     ask_questions: true,
     text_size: 14,
-    conversation_order: "oldest_first",
     sticky_user_messages: false,
+  },
+  sidebar: {
+    conversation_order: "oldest_first",
     max_conversations_enabled: false,
     max_conversations: 5,
-    resizable_sidebar_split: false,
+    resizable_split: false,
   },
   memory: { cmem: true },
   approval: { mode: "auto", full_access: false },
@@ -113,24 +119,32 @@ const readConversation = (
   const merged = { ...DEFAULT_SETTINGS.conversation, ...conversation };
   return {
     ...merged,
-    conversation_order:
-      merged.conversation_order === "newest_first"
-        ? "newest_first"
-        : DEFAULT_SETTINGS.conversation.conversation_order,
     text_size: Number.isFinite(merged.text_size)
       ? clampTextSize(merged.text_size)
       : DEFAULT_SETTINGS.conversation.text_size,
+  };
+};
+
+const readSidebar = (
+  sidebar: Partial<Settings["sidebar"]> = {},
+): Settings["sidebar"] => {
+  const merged = { ...DEFAULT_SETTINGS.sidebar, ...sidebar };
+  return {
+    conversation_order:
+      merged.conversation_order === "newest_first"
+        ? "newest_first"
+        : DEFAULT_SETTINGS.sidebar.conversation_order,
     max_conversations_enabled:
       typeof merged.max_conversations_enabled === "boolean"
         ? merged.max_conversations_enabled
-        : DEFAULT_SETTINGS.conversation.max_conversations_enabled,
+        : DEFAULT_SETTINGS.sidebar.max_conversations_enabled,
     max_conversations: Number.isFinite(merged.max_conversations)
       ? clampSidebarConversations(merged.max_conversations)
-      : DEFAULT_SETTINGS.conversation.max_conversations,
-    resizable_sidebar_split:
-      typeof merged.resizable_sidebar_split === "boolean"
-        ? merged.resizable_sidebar_split
-        : DEFAULT_SETTINGS.conversation.resizable_sidebar_split,
+      : DEFAULT_SETTINGS.sidebar.max_conversations,
+    resizable_split:
+      typeof merged.resizable_split === "boolean"
+        ? merged.resizable_split
+        : DEFAULT_SETTINGS.sidebar.resizable_split,
   };
 };
 
@@ -214,6 +228,7 @@ export async function loadSettings(): Promise<Settings> {
     },
     files: { ...DEFAULT_SETTINGS.files, ...raw.files },
     conversation: readConversation(raw.conversation),
+    sidebar: readSidebar(raw.sidebar),
     memory: { ...DEFAULT_SETTINGS.memory, ...raw.memory },
     approval: readApproval(raw.approval),
     subagents: readSubagents(raw.subagents),

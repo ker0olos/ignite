@@ -127,7 +127,7 @@ export function CommandCenter({
               className="h-14 flex-1 bg-transparent text-lg outline-none placeholder:text-muted-foreground"
             />
             <span className="shrink-0 text-xs text-muted-foreground max-sm:hidden">
-              @conversations @files @folders
+              @convos @files @folders
             </span>
           </div>
           <div className={cn("flex", layout.height)}>

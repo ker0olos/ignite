@@ -65,8 +65,8 @@ export const SECTIONS = {
   },
   Appearance: {
     icon: Palette,
-    brief: "Themes and colors",
-    blurb: "Colors for the app and code.",
+    brief: "Themes, colors, sidebar",
+    blurb: "Colors for the app and code, and the sidebar.",
   },
   Editor: {
     icon: Code,

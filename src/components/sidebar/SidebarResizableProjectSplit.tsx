@@ -36,7 +36,7 @@ export function SidebarResizableProjectSplit({
         </ResizablePanel>
         <SidebarSplitHandle />
         <ResizablePanel id="files" minSize="120px">
-          <nav className="h-full overscroll-contain overflow-y-auto">
+          <nav className="h-full overscroll-contain overflow-y-auto pt-2">
             {files}
           </nav>
         </ResizablePanel>

@@ -11,6 +11,7 @@ import { aboutItems } from "@/components/settings/sections/aboutItems";
 import { agentItems } from "@/components/settings/sections/agentItems";
 import { chromeItems } from "@/components/settings/sections/chromeItems";
 import { appearanceItems } from "@/components/settings/sections/appearanceItems";
+import { sidebarItems } from "@/components/settings/sections/sidebarItems";
 import { conversationItems } from "@/components/settings/sections/conversationItems";
 import { editorItems } from "@/components/settings/sections/editorItems";
 import { filesItems } from "@/components/settings/sections/filesItems";
@@ -99,6 +100,7 @@ export function SettingsDialog({
       onChange,
       onThemesChange: setThemes,
     }),
+    ...sidebarItems({ settings, onChange }),
     ...editorItems({ settings, onChange }),
     ...filesItems({ settings, onChange }),
     ...conversationItems({ settings, onChange }),

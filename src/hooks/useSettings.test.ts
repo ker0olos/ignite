@@ -163,6 +163,7 @@ describe("useSettings", () => {
       editor: { font_family: "Monaco", word_wrap: true },
       files: { hide_gitignored: true },
       conversation: DEFAULT_SETTINGS.conversation,
+      sidebar: DEFAULT_SETTINGS.sidebar,
       memory: { cmem: true },
       approval: { mode: "auto", full_access: false },
       subagents: { enabled: true, max: 2 },

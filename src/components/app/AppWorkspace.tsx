@@ -76,7 +76,7 @@ export function AppWorkspace({
       hideGitIgnored={settings.files.hide_gitignored}
       showThinking={settings.conversation.show_thinking}
       stickyUserMessages={settings.conversation.sticky_user_messages}
-      resizableProjectSplit={settings.conversation.resizable_sidebar_split}
+      resizableProjectSplit={settings.sidebar.resizable_split}
       approval={approvalSetting(settings, setSettings)}
       actions={settingsButton}
       projectList={{
@@ -85,13 +85,12 @@ export function AppWorkspace({
         shown: session.session,
         conversations,
         conversationLimit: {
-          enabled: settings.conversation.max_conversations_enabled,
-          max: settings.conversation.max_conversations,
+          enabled: settings.sidebar.max_conversations_enabled,
+          max: settings.sidebar.max_conversations,
         },
         home,
         onDismiss: conversations.dismiss,
-        onHistory: (path) =>
-          command.openWith(`@${basename(path)} @conversations `),
+        onHistory: (path) => command.openWith(`@${basename(path)} @convos `),
         onOpenFolder: openFolder,
         tags,
         tagFilter,

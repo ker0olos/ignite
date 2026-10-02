@@ -30,7 +30,7 @@ describe("parseQuery", () => {
 
   it("filters by kind, one or several", () => {
     expect(parseQuery("@files app", FOLDERS).kinds).toEqual(["file"]);
-    expect(parseQuery("@conversations @folders", FOLDERS).kinds).toEqual([
+    expect(parseQuery("@convos @folders", FOLDERS).kinds).toEqual([
       "conversation",
       "folder",
     ]);

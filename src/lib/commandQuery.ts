@@ -9,7 +9,7 @@ export const KIND_FILTERS: {
   kind: ResultKind;
   label: string;
 }[] = [
-  { token: "@conversations", kind: "conversation", label: "Conversations" },
+  { token: "@convos", kind: "conversation", label: "Conversations" },
   { token: "@files", kind: "file", label: "Files" },
   { token: "@folders", kind: "folder", label: "Folders" },
 ];
@@ -41,7 +41,7 @@ const kindOf = (token: string) =>
   KIND_FILTERS.find((f) => f.token === token.toLowerCase());
 
 /**
- * Reads the command center's query: `@conversations` / `@files` / `@folders` filter
+ * Reads the command center's query: `@convos` / `@files` / `@folders` filter
  * by kind, any other `@name` by folder (its name, or the first starting with
  * it), the rest is searched for.
  */

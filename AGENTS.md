@@ -88,7 +88,7 @@ src/                     React frontend (almost all logic lives here)
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     tabs.ts              Open/close logic for file tabs
     recent.ts            Recent-folders list logic
-    commandQuery.ts      Command center query: `@folder`, `@conversations`/`@files`/`@folders`, result picks
+    commandQuery.ts      Command center query: `@folder`, `@convos`/`@files`/`@folders`, result picks
     fileIcons.ts         Extension → monochrome icon
     menu.ts              macOS menu bar
     lifecycle.ts         Confirm before quitting or closing a window
@@ -263,6 +263,11 @@ Two places hold persisted data:
   tool is dropped and the agent is told to decide alone. Read before each run.
   `text_size` (px, default 14, 10–24) sizes user and assistant messages only;
   ⌘/Ctrl +, - and 0 change it (`hooks/useTextSize.ts`).
+- **Sidebar settings** (`[sidebar]`): `conversation_order` (`oldest_first` by
+  default, or `newest_first`) orders each folder's conversations;
+  `max_conversations_enabled` (off) collapses a folder after
+  `max_conversations` (default 5, 1–20); `resizable_split` (off) lets the
+  divider between conversations and files be dragged.
 - **Memory settings** (`[memory]`): `cmem` (on by default) records
   sessions in cmem, recalls its memories and gives the agent cmem's search
   tools. Recording checks it before each run; the tools follow a reload.
@@ -641,7 +646,8 @@ lint`): one component per file, files ≤250 lines, functions ≤120 lines,
   reads it. The same holds for every other term: use the name the code and
   this file already use (folder, not project or workspace; task; subagent;
   background command; terminal), and grep before naming something new.
-  Settings search `keywords` may list synonyms, since users type them.
+  Settings search `keywords` may list synonyms, since users type them. The
+  one exception: the command center's `@convos` filter, kept short to type.
 - **Comments:** sparse; only for non-obvious constraints. Exported functions get
   a one-line doc comment. Deliberate shortcuts are marked `ponytail:` with
   their limit and upgrade path.

@@ -58,10 +58,7 @@ export default function App() {
     openIn(folder, `${folder}/${path}`);
   const command = useCommandCenter();
   const rows = (cwd: string) =>
-    orderedRows(
-      shownRows(list.rows)(cwd),
-      settings.conversation.conversation_order,
-    );
+    orderedRows(shownRows(list.rows)(cwd), settings.sidebar.conversation_order);
   const dragging = useFolderDrop(addFolder);
   const dialog = useSettingsDialog(providers.host, current);
   const openSettings = dialog.show;
