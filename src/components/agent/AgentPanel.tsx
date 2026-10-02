@@ -21,6 +21,7 @@ export function AgentPanel({
   editor,
   showThinking,
   stickyUserMessages,
+  gitStatus,
   approval,
 }: {
   host: HostClient | null;
@@ -30,6 +31,8 @@ export function AgentPanel({
   editor: Settings["editor"];
   showThinking: boolean;
   stickyUserMessages: boolean;
+  /** The composer lists the conversation's repositories with unfinished git work. */
+  gitStatus: boolean;
   approval: Approval;
 }) {
   const { state, transcript } = session;
@@ -72,6 +75,7 @@ export function AgentPanel({
         loading={loading}
         running={running}
         approval={approval}
+        gitStatus={gitStatus}
       />
     </>
   );

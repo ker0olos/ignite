@@ -289,6 +289,10 @@ Two places hold persisted data:
   `max_conversations_enabled` (off) collapses a folder after
   `max_conversations` (default 5, 1–20); `resizable_split` (off) lets the
   divider between conversations and files be dragged.
+- **Composer settings** (`[composer]`, shown under Appearance): `git_status`
+  (on by default) lists, after the approval menu, the conversation's
+  repositories with uncommitted files, unpushed commits or an open pull
+  request; off, nothing is read.
 - **Memory settings** (`[memory]`): `cmem` (on by default) records
   sessions in cmem, recalls its memories and gives the agent cmem's search
   tools. Recording checks it before each run; the tools follow a reload.

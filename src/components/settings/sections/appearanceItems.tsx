@@ -1,11 +1,12 @@
 import type { Item } from "@/components/settings/sections";
 import { ThemePicker } from "@/components/settings/ThemePicker";
+import { Switch } from "@/components/ui/switch";
 import type { CodeTheme } from "@/lib/codeThemes";
 import { CUSTOM_THEMES_DIR, listThemes } from "@/lib/codeThemeDiscovery";
 import { importTheme } from "@/lib/codeThemeLoad";
 import type { Settings } from "@/lib/settings";
 
-/** Settings rows for appearance: the theme picker. */
+/** Settings rows for appearance: the theme picker, and the composer's git status. */
 export function appearanceItems({
   themes,
   settings,
@@ -34,6 +35,21 @@ export function appearanceItems({
             onChange({ ...settings, theme });
             if (theme !== id) listThemes(true).then(onThemesChange);
           }}
+        />
+      ),
+    },
+    {
+      section: "Appearance",
+      title: "Git status in the composer",
+      description:
+        "Show each repository the conversation changed with uncommitted files, unpushed commits or an open pull request.",
+      keywords: "git branch pull request pr uncommitted unpushed repository",
+      control: (
+        <Switch
+          checked={settings.composer.git_status}
+          onCheckedChange={(git_status) =>
+            onChange({ ...settings, composer: { git_status } })
+          }
         />
       ),
     },

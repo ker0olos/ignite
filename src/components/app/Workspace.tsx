@@ -28,6 +28,7 @@ type WorkspaceProps = {
   hideGitIgnored: boolean;
   showThinking: boolean;
   stickyUserMessages: boolean;
+  gitStatus: boolean;
   resizableProjectSplit: boolean;
   approval: Approval;
   actions: ReactNode;
@@ -53,6 +54,7 @@ export function Workspace({
   hideGitIgnored,
   showThinking,
   stickyUserMessages,
+  gitStatus,
   resizableProjectSplit,
   approval,
   actions,
@@ -116,6 +118,7 @@ export function Workspace({
         editor={editor}
         showThinking={showThinking}
         stickyUserMessages={stickyUserMessages}
+        gitStatus={gitStatus}
         approval={approval}
       />
     );

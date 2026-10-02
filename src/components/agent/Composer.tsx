@@ -33,6 +33,7 @@ export function Composer({
   loading,
   running,
   approval,
+  gitStatus,
 }: {
   host: HostClient | null;
   folder: string;
@@ -40,12 +41,13 @@ export function Composer({
   loading: boolean;
   running: boolean;
   approval: Approval;
+  gitStatus: boolean;
 }) {
   const { state } = session;
   const [text, setText] = useState("");
   const [images, setImages] = useState<ImageContent[]>([]);
   const input = useRef<HTMLTextAreaElement>(null);
-  const repos = useGitStatus(host, session.session);
+  const repos = useGitStatus(host, gitStatus ? session.session : null);
   const mentions = useMentions({
     host,
     folder,
