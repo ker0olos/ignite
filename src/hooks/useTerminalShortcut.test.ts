@@ -76,6 +76,31 @@ describe("useTerminalShortcut", () => {
     );
   });
 
+  it("runs a command in a new terminal tab", async () => {
+    const { request, open, result } = setup();
+    result.current!("echo hi\necho bye");
+    await waitFor(() =>
+      expect(request).toHaveBeenCalledWith({
+        type: "terminal_input",
+        terminal: "t1",
+        data: "{\recho hi\recho bye\r}\r",
+      }),
+    );
+    expect(open).toHaveBeenCalledWith(
+      childTabId({ kind: "terminal", session: "s1", terminal: "t1" }),
+    );
+  });
+
+  it("has nothing to run with no sidecar", () => {
+    const { result } = renderHook(() =>
+      useTerminalShortcut(null, "/w", "s1", "conversation", {
+        files: [],
+        open: vi.fn(),
+      }),
+    );
+    expect(result.current).toBe(null);
+  });
+
   it("does nothing on the Tasks view", () => {
     const { request } = setup("s1", "tasks");
     const e = press({ metaKey: true });
