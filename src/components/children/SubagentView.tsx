@@ -3,7 +3,12 @@ import { SubagentBody } from "@/components/conversation/SubagentBody";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { Settings } from "@/lib/settings";
-import { runState, subagentConversation } from "@/lib/subagentRows";
+import { currentStep, runStart } from "@/lib/runStep";
+import {
+  runState,
+  subagentConversation,
+  subagentRows,
+} from "@/lib/subagentRows";
 
 /** A subagent's whole conversation, live while its conversation shows, ending in where it stands: working, waiting or finished. */
 export function SubagentView({
@@ -44,7 +49,15 @@ export function SubagentView({
               onApprove={session.answer}
             />
             <div className="mt-4">
-              <RunIndicator state={runState(details, transcript.tools)} />
+              <RunIndicator
+                state={runState(details, transcript.tools)}
+                step={currentStep(
+                  details.messages,
+                  subagentRows(details, transcript.tools).tools,
+                  folder,
+                )}
+                since={runStart(details.messages)}
+              />
             </div>
           </>
         ) : (
