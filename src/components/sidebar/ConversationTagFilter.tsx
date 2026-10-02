@@ -4,6 +4,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -38,16 +39,18 @@ export function ConversationTagFilter({
           : "Tags"}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-44">
-        <DropdownMenuLabel>Filter conversations</DropdownMenuLabel>
-        {tags.map((tag) => (
-          <DropdownMenuCheckboxItem
-            key={tag}
-            checked={selected.includes(tag)}
-            onClick={() => onToggle(tag)}
-          >
-            <span className="truncate">{tag}</span>
-          </DropdownMenuCheckboxItem>
-        ))}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Filter conversations</DropdownMenuLabel>
+          {tags.map((tag) => (
+            <DropdownMenuCheckboxItem
+              key={tag}
+              checked={selected.includes(tag)}
+              onClick={() => onToggle(tag)}
+            >
+              <span className="truncate">{tag}</span>
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuGroup>
         {active && (
           <>
             <DropdownMenuSeparator />
