@@ -13,6 +13,7 @@ export function FolderConversations({
   shown,
   conversations,
   childActions,
+  tags,
   onSetTags,
   expanded,
   max,
@@ -25,6 +26,8 @@ export function FolderConversations({
   shown: string | null;
   conversations: Conversations;
   childActions: ChildActions;
+  /** Every tag in use, offered as suggestions. */
+  tags: string[];
   onSetTags: (session: string, tags: string[]) => void;
   expanded: boolean;
   max: number;
@@ -50,7 +53,8 @@ export function FolderConversations({
             onClose={() =>
               void conversations.close(cwd, agent.session, sessions)
             }
-            onSetTags={(tags) => onSetTags(agent.session, tags)}
+            allTags={tags}
+            onSetTags={(next) => onSetTags(agent.session, next)}
           />
           <ConversationChildren
             agent={agent}

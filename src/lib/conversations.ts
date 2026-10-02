@@ -1,20 +1,16 @@
 import type { AgentStatus } from "../../shared/hostProtocol";
 import type { SavedSession, SessionDetails } from "../../shared/conversations";
+import { normalizedTags, type ConversationTags } from "./conversationTags";
 import type { ConversationOrder } from "./settings";
 
 /** One conversation listed under its folder, running or not. */
-type ListedConversation = { session: string; title: string; tags?: string[] };
+type ListedConversation = { session: string; title: string };
 
 /** A sidebar conversation row, including app-local tags. */
 export type TaggedAgentStatus = AgentStatus & { tags?: string[] };
 
 /** Each folder's listed conversations, in the order they were opened. */
 export type Listed = Record<string, ListedConversation[]>;
-
-const normalizedTags = (tags: readonly string[]) =>
-  Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean))).sort(
-    (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }),
-  );
 
 /**
  * Adds the running conversations the list doesn't have yet (the user just
@@ -49,41 +45,30 @@ export function rowsOf(
   listed: Listed,
   agents: AgentStatus[],
   cwd: string,
+  tags: ConversationTags = {},
   tagFilter: readonly string[] = [],
 ): TaggedAgentStatus[] {
   const selected = new Set(tagFilter);
   return (listed[cwd] ?? [])
     .filter(
-      (row) => !selected.size || row.tags?.some((tag) => selected.has(tag)),
+      ({ session }) =>
+        !selected.size || tags[session]?.some((tag) => selected.has(tag)),
     )
-    .map(({ session, title, tags }) => {
+    .map(({ session, title }) => {
+      const own = tags[session];
       const running = agents.find((a) => a.session === session);
       return running
-        ? { ...running, title: running.title || title, tags }
-        : { cwd, session, title, running: false, waiting: false, tags };
+        ? { ...running, title: running.title || title, tags: own }
+        : { cwd, session, title, running: false, waiting: false, tags: own };
     });
 }
 
-/** Saves a conversation's tag list, creating the row if needed. */
-export function withTags(
-  listed: Listed,
-  cwd: string,
-  session: string,
-  tags: readonly string[],
-): Listed {
-  const rows = listed[cwd] ?? [];
-  const nextTags = normalizedTags(tags);
-  const found = rows.some((r) => r.session === session);
-  const updated = found
-    ? rows.map((r) => (r.session === session ? { ...r, tags: nextTags } : r))
-    : [...rows, { session, title: "", tags: nextTags }];
-  return { ...listed, [cwd]: updated };
-}
-
-/** Every tag used by the listed conversations. */
-export function allTags(listed: Listed) {
+/** Every tag used by the conversations currently listed. */
+export function allTags(listed: Listed, tags: ConversationTags) {
   return normalizedTags(
-    Object.values(listed).flatMap((rows) => rows.flatMap((r) => r.tags ?? [])),
+    Object.values(listed).flatMap((rows) =>
+      rows.flatMap((r) => tags[r.session] ?? []),
+    ),
   );
 }
 

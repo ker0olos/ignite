@@ -49,6 +49,7 @@ src/                     React frontend (almost all logic lives here)
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
     useDraftState.ts     A folder with no conversation: the models and effort it would start with
     useConversationList.ts Each folder's listed conversations, remembered across launches
+    useConversationTags.ts Conversation tags by id, shared by all windows, kept after one closes; the sidebar's tag filter
     useConversations.ts  Every open folder's conversations for the sidebar: show, create, close, details
     useCommandCenter.ts  ⌘K / Ctrl+K opens the command center, optionally with a query;
                          ⌘P / Ctrl+P opens it on @files with no preview
@@ -88,6 +89,7 @@ src/                     React frontend (almost all logic lives here)
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     tabs.ts              Open/close logic for file tabs
     recent.ts            Recent-folders list logic
+    conversationTags.ts  Conversation tags: splitting typed text, adding, removing, suggestions
     commandQuery.ts      Command center query: `@folder`, `@convos`/`@files`/`@folders`, result picks
     fileIcons.ts         Extension → monochrome icon
     menu.ts              macOS menu bar
@@ -309,7 +311,9 @@ Two places hold persisted data:
   caches tool lists in `mcp-cache.json`; OAuth tokens for MCP servers (if any)
   go to the OS keychain.
 - **App state** in `state.json` in the app data folder (`lib/store.ts`): recent
-  folders (shared by all windows) and the main window's last open folder.
+  folders (shared by all windows), the main window's last open folder, and
+  conversation tags (`conversation_tags`, by conversation id, shared by all
+  windows and kept after a conversation closes).
 
 ## The agent (pi)
 

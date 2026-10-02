@@ -34,11 +34,7 @@ export type ProjectListProps = {
   tagFilter?: string[];
   onToggleTagFilter?: (tag: string) => void;
   onClearTagFilter?: () => void;
-  onSetConversationTags?: (
-    cwd: string,
-    session: string,
-    tags: string[],
-  ) => void;
+  onSetConversationTags?: (session: string, tags: string[]) => void;
   /** The shown folder's shown conversation. */
   shown: string | null;
   conversations: Conversations;
@@ -87,11 +83,7 @@ export function FolderList({
   tagFilter?: string[];
   onToggleTagFilter?: (tag: string) => void;
   onClearTagFilter?: () => void;
-  onSetConversationTags?: (
-    cwd: string,
-    session: string,
-    tags: string[],
-  ) => void;
+  onSetConversationTags?: (session: string, tags: string[]) => void;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (path: string) =>
@@ -123,9 +115,8 @@ export function FolderList({
             shown={path === folder ? shown : null}
             conversations={conversations}
             childActions={childActions}
-            onSetTags={(session, tags) =>
-              onSetConversationTags(path, session, tags)
-            }
+            tags={tags}
+            onSetTags={onSetConversationTags}
             expanded={!!expanded[path]}
             max={conversationLimit.max}
             limited={conversationLimit.enabled}

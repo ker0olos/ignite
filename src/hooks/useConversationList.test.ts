@@ -58,19 +58,20 @@ describe("useConversationList", () => {
     const { result, store } = await setup({
       conversations: {
         "/a": [
-          { session: "1", title: "Bug", tags: ["bug"] },
-          { session: "2", title: "Design", tags: ["design"] },
+          { session: "1", title: "Bug" },
+          { session: "2", title: "Design" },
         ],
       },
+      conversation_tags: { "1": ["bug"], "2": ["design"], "9": ["closed"] },
     });
     await waitFor(() => expect(result.current.tags).toEqual(["bug", "design"]));
     act(() => result.current.toggleTagFilter("bug"));
     expect(result.current.rows("/a").map((r) => r.session)).toEqual(["1"]);
-    act(() => result.current.setConversationTags("/a", "2", ["bug", "later"]));
+    act(() => result.current.setConversationTags("2", ["bug", "later"]));
     expect(result.current.rows("/a").map((r) => r.session)).toEqual(["1", "2"]);
     await waitFor(() =>
-      expect(store.data.get("conversations")).toMatchObject({
-        "/a": [{ session: "1" }, { session: "2", tags: ["bug", "later"] }],
+      expect(store.data.get("conversation_tags")).toMatchObject({
+        "2": ["bug", "later"],
       }),
     );
   });

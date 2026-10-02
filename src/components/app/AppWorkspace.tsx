@@ -53,7 +53,7 @@ export function AppWorkspace({
   tagFilter: string[];
   onToggleTagFilter: (tag: string) => void;
   onClearTagFilter: () => void;
-  onSetConversationTags: (cwd: string, session: string, tags: string[]) => void;
+  onSetConversationTags: (session: string, tags: string[]) => void;
   session: ReturnType<typeof useAgentSession>;
   conversations: Conversations;
   home: string;

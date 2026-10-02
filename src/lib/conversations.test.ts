@@ -5,7 +5,6 @@ import {
   rowsOf,
   withRunning,
   without,
-  withTags,
   allTags,
   type Listed,
 } from "./conversations";
@@ -76,36 +75,34 @@ describe("rowsOf", () => {
     expect(rowsOf(listed, [], "/none")).toEqual([]);
   });
 
-  it("filters conversations to any selected tag", () => {
-    const listed: Listed = {
-      "/a": [
-        { session: "1", title: "Fix", tags: ["bug"] },
-        { session: "2", title: "Plan", tags: ["design", "later"] },
-        { session: "3", title: "Conversation" },
-      ],
-    };
+  const listed: Listed = {
+    "/a": [
+      { session: "1", title: "Fix" },
+      { session: "2", title: "Plan" },
+      { session: "3", title: "Conversation" },
+    ],
+  };
+  const tags = { "1": ["bug"], "2": ["design", "later"], "9": ["closed"] };
+
+  it("attaches tags and filters conversations to any selected tag", () => {
+    expect(rowsOf(listed, [], "/a", tags)[0].tags).toEqual(["bug"]);
     expect(
-      rowsOf(listed, [], "/a", ["bug", "later"]).map((r) => r.session),
+      rowsOf(listed, [], "/a", tags, ["bug", "later"]).map((r) => r.session),
     ).toEqual(["1", "2"]);
   });
 });
 
-const tagged: Listed = { "/a": [{ session: "1", title: "Fix" }] };
-
-describe("withTags", () => {
-  it("normalizes and saves tags on listed conversations", () => {
-    expect(withTags(tagged, "/a", "1", [" bug ", "ui", "bug"])).toEqual({
-      "/a": [{ session: "1", title: "Fix", tags: ["bug", "ui"] }],
-    });
-  });
-});
-
 describe("allTags", () => {
-  it("lists unique tags across folders", () => {
+  it("lists unique tags of listed conversations only", () => {
+    const listed: Listed = {
+      "/a": [{ session: "1", title: "" }],
+      "/b": [{ session: "2", title: "" }],
+    };
     expect(
-      allTags({
-        "/a": [{ session: "1", title: "", tags: ["ui", "bug"] }],
-        "/b": [{ session: "2", title: "", tags: ["bug"] }],
+      allTags(listed, {
+        "1": ["ui", "bug"],
+        "2": ["bug"],
+        "9": ["closed"],
       }),
     ).toEqual(["bug", "ui"]);
   });

@@ -27,7 +27,11 @@ export function ConversationTagFilter({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="xs" />}>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="ghost" size="xs" aria-label="Filter conversations" />
+        }
+      >
         <Filter className="size-3" />
         {active
           ? `${selected.length} tag${selected.length === 1 ? "" : "s"}`

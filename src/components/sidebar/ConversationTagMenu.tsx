@@ -1,86 +1,54 @@
-import { useState } from "react";
-import { Ellipsis } from "lucide-react";
+import { Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { TagEditor } from "@/components/sidebar/TagEditor";
 import { cn } from "@/lib/utils";
 
-const splitTags = (text: string) =>
-  Array.from(
-    new Set(
-      text
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    ),
-  );
-
-/** A conversation row's actions menu, with tag editing. */
+/** A conversation row's tag button, opening its tags in a centered dialog like the command center. */
 export function ConversationTagMenu({
   title,
   tags,
+  allTags,
   buttonClassName,
   onSave,
 }: {
   title: string;
   tags: string[];
+  allTags: string[];
   buttonClassName?: string;
   onSave: (tags: string[]) => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger
+    <Dialog>
+      <DialogTrigger
         render={
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label={`Conversation options for ${title}`}
+            aria-label={`Tags for ${title}`}
+            title="Tags"
             className={cn("shrink-0", buttonClassName)}
             onClick={(event) => event.stopPropagation()}
           />
         }
       >
-        <Ellipsis className="size-3.5 text-muted-foreground" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="w-72 p-2"
+        <Tag className="size-3.5 text-muted-foreground" />
+      </DialogTrigger>
+      {/* Focus returning to the row's button would leave it showing, ringed. */}
+      <DialogContent
+        showCloseButton={false}
+        finalFocus={false}
+        className="top-[12%] w-[min(560px,94vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0 max-sm:top-[4%] sm:max-w-none"
         onClick={(event) => event.stopPropagation()}
       >
-        <form
-          className="grid min-w-0 gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const data = new FormData(event.currentTarget);
-            onSave(splitTags(String(data.get("tags") ?? "")));
-            setOpen(false);
-          }}
-        >
-          <div className="grid min-w-0 gap-1">
-            <label className="text-xs font-medium text-muted-foreground">
-              Tags
-            </label>
-            <Input
-              key={tags.join("\0")}
-              name="tags"
-              autoFocus
-              defaultValue={tags.join(", ")}
-              placeholder="bug, design, follow-up"
-              aria-label="Conversation tags"
-              className="w-full min-w-0 text-[13px]"
-            />
-          </div>
-          <Button type="submit" size="sm" className="w-full">
-            Save tags
-          </Button>
-        </form>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <DialogTitle className="sr-only">Tags for {title}</DialogTitle>
+        <TagEditor tags={tags} allTags={allTags} onChange={onSave} />
+      </DialogContent>
+    </Dialog>
   );
 }

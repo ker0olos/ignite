@@ -1,8 +1,11 @@
 import { X } from "lucide-react";
 import { AgentStatusIcon } from "@/components/app/AgentStatusIcon";
 import { ConversationTagMenu } from "@/components/sidebar/ConversationTagMenu";
+import { TagChip } from "@/components/sidebar/TagChip";
 import type { TaggedAgentStatus } from "@/lib/conversations";
 import { cn } from "@/lib/utils";
+
+const ROW_TAGS = 2;
 
 /**
  * One conversation in the sidebar, its title lined up with the folder name
@@ -11,11 +14,14 @@ import { cn } from "@/lib/utils";
 export function ConversationRow({
   agent,
   selected,
+  allTags = [],
   onShow,
   onClose,
   onSetTags,
 }: {
   agent: TaggedAgentStatus;
+  /** Every tag in use, offered as suggestions. */
+  allTags?: string[];
   selected: boolean;
   onShow: () => void;
   onClose: () => void;
@@ -42,30 +48,32 @@ export function ConversationRow({
         className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-[13px]"
       >
         <AgentStatusIcon status={agent} />
-        <span className="min-w-0 flex-1 truncate text-left">
-          <span
-            className={cn("truncate", !selected && "text-muted-foreground")}
-          >
-            {title}
-          </span>
-          {tags.length > 0 && (
-            <span className="mt-0.5 flex min-w-0 gap-1 overflow-hidden">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground ring-1 ring-sidebar-border"
-                >
-                  {tag}
-                </span>
-              ))}
-            </span>
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-left",
+            !selected && "text-muted-foreground",
           )}
+        >
+          {title}
         </span>
+        {tags.length > 0 && (
+          <span className="flex shrink-0 items-center gap-1">
+            {tags.slice(0, ROW_TAGS).map((tag) => (
+              <TagChip key={tag} tag={tag} />
+            ))}
+            {tags.length > ROW_TAGS && (
+              <span className="text-[11px] text-muted-foreground">
+                +{tags.length - ROW_TAGS}
+              </span>
+            )}
+          </span>
+        )}
       </button>
       <div className="mr-1 flex shrink-0 items-center gap-0.5">
         <ConversationTagMenu
           title={title}
           tags={tags}
+          allTags={allTags}
           buttonClassName={actionClass}
           onSave={onSetTags}
         />
