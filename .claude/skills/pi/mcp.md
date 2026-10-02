@@ -3,7 +3,8 @@
 `AD` = `node_modules/pi-mcp-adapter`. It ships TypeScript source (`AD/index.ts`,
 loaded by pi's extension loader) plus compiled `AD/dist/` for the public
 subpaths (`./types`, `./config`, `./metadata-cache`, `./oauth`). Peer range
-covers pi-ai 0.84 to 0.87. README is the reference; `AD/types.ts` and
+covers pi-ai 0.84 to 0.87; `overrides` in package.json gives it pi-ai 1.0
+(it only imports `StringEnum` and types). README is the reference; `AD/types.ts` and
 `AD/index.ts` win when it disagrees.
 
 ## Why this adapter

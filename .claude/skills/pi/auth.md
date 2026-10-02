@@ -1,4 +1,4 @@
-# pi auth (0.87.1)
+# pi auth (1.0.0)
 
 Paths: `CA` = `node_modules/@earendil-works/pi-coding-agent`,
 `AI` = `CA/node_modules/@earendil-works/pi-ai`.

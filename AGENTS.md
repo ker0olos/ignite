@@ -345,7 +345,7 @@ Two places hold persisted data:
 ## The agent (pi)
 
 The harness drives [pi](https://github.com/earendil-works/pi)
-(`@earendil-works/pi-coding-agent`, pinned 0.87.1), run as a Node sidecar.
+(`@earendil-works/pi-coding-agent`, pinned 1.0.0), run as a Node sidecar.
 Before touching agent or provider-credential code, read the project skill in
 `.claude/skills/pi/` (SKILL.md, then auth.md, host.md, sessions.md or mcp.md). The
 old `@mariozechner/*` packages and most online material describe an older,

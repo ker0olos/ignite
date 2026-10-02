@@ -137,11 +137,12 @@ async function runOutside(
   try {
     if (input.background) {
       const done = await runBackground(toolCallId, input as never, ctx);
-      return { ...done, isError: false };
+      return { ...done, isError: done.isError ?? false };
     }
     const bash = createBashTool(ctx.cwd);
     const done = await bash.execute(toolCallId, input as never, ctx.signal);
-    return { content: done.content, details: done.details, isError: false };
+    const { content, details, isError = false } = done;
+    return { content, details, isError };
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);
     return { content: [{ type: "text" as const, text }], isError: true };

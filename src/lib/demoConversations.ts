@@ -177,7 +177,7 @@ function savedConversations(
         "Added a GitHub Actions workflow that installs, type-checks and runs the tests on each pull request, and merged it as #9.",
       ),
       details: {
-        model: "claude-sonnet-5",
+        model: "claude-sonnet-5-5",
         files: [".github/workflows/test.yml", "package.json"],
         toolCalls: 9,
         cost: 0.18,

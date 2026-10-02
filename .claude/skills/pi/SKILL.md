@@ -1,6 +1,6 @@
 ---
 name: pi
-description: How this app embeds and drives the pi coding agent (@earendil-works/pi-coding-agent 0.87.x) — auth and provider login (Claude Pro/Max, ChatGPT/Codex, API keys) via ModelRuntime, running pi as a Node sidecar over RPC, sessions, events, tools, permissions and project trust, MCP servers (pi-mcp-adapter). Use before writing or reviewing any code that talks to pi, adds agent features, or touches provider credentials.
+description: How this app embeds and drives the pi coding agent (@earendil-works/pi-coding-agent 1.0.x) — auth and provider login (Claude Pro/Max, ChatGPT/Codex, API keys) via ModelRuntime, running pi as a Node sidecar over RPC, sessions, events, tools, permissions and project trust, MCP servers (pi-mcp-adapter). Use before writing or reviewing any code that talks to pi, adds agent features, or touches provider credentials.
 ---
 
 # pi in this app
@@ -11,7 +11,9 @@ filesystem and shell). The app talks to the sidecar; the sidecar uses pi.
 
 ## Package facts
 
-- Package: `@earendil-works/pi-coding-agent` **0.87.1** (pinned). The old
+- Package: `@earendil-works/pi-coding-agent` **1.0.0** (pinned). Tool
+  `execute` gets an `ExtensionToolContext`, and pi's bash returns a failed
+  command as `isError: true` instead of throwing. The old
   `@mariozechner/pi-coding-agent` is deprecated; its docs (and most blog posts
   and community skills) describe a different API. Don't copy from them.
 - Repo: github.com/earendil-works/pi · docs: pi.dev/docs/latest
