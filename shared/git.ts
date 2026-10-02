@@ -22,6 +22,8 @@ export type GitReview = {
   repo: string;
   range: string;
   files: GitChange[];
+  /** The repository's origin owner/name (else its folder's name) and branch (none when detached). */
+  place?: { name: string; branch?: string };
   /** The branch a commit pushes to origin right after. */
   push?: string;
   /** The commit message, for a commit. */
@@ -37,6 +39,32 @@ export type GitReview = {
     body: string;
     draft: boolean;
   };
+};
+
+/** A repository a conversation worked in: what of its work isn't committed, pushed or merged. */
+export type GitRepoStatus = {
+  repo: string;
+  /** Its origin's owner/name, else its folder's name. */
+  name: string;
+  /** None when detached. */
+  branch?: string;
+  /** Files with uncommitted changes, untracked ones included. */
+  changed: number;
+  /** Commits no remote has; 0 when it has no remote. */
+  unpushed: number;
+  /** The branch's latest pull request. */
+  pr?: {
+    number: number;
+    url: string;
+    state: "OPEN" | "MERGED" | "CLOSED";
+    isDraft: boolean;
+  };
+};
+
+/** What a repository's pill opens: its uncommitted files (range "HEAD") and the commits no remote has. */
+export type GitRepoDetails = {
+  files: GitChange[];
+  commits: { hash: string; subject: string }[];
 };
 
 /** A range `git_diff` accepts: a keyword or commit hashes, never an option. */

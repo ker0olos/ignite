@@ -33,6 +33,7 @@ import { setTrust } from "./hostTrust.ts";
 import { stop, unqueue } from "./hostQueue.ts";
 import { appUpdate, appVersion } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
+import { conversationGitStatus, repoDetails } from "./gitStatus.ts";
 import {
   backgroundOutput,
   onBackgroundChange,
@@ -152,6 +153,8 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   },
   set_trust: (ctx, r) => setTrust(ctx, r.cwd, r.trusted),
   git_diff: (_ctx, r) => fileDiff(r.repo, r.range, r.path),
+  git_status: (ctx, r) => conversationGitStatus(ctx, r.session),
+  git_repo_details: (_ctx, r) => repoDetails(r.repo),
   background_output: (_ctx, r) => backgroundOutput(r.pid, r.session),
   background_stop: (_ctx, r) => stopBackground(r.pid, r.session),
   tasks_list: (ctx, r) => ctx.tasks.list(r.cwd),

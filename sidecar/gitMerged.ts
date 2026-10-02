@@ -30,7 +30,12 @@ async function target(args: string[], repo: string) {
   return branch ? { local: "HEAD", branch } : null;
 }
 
-async function gh<T>(args: string[], repo: string, signal?: AbortSignal) {
+/** A gh command's JSON output, or null when it fails or takes over 10 seconds. */
+export async function gh<T>(
+  args: string[],
+  repo: string,
+  signal?: AbortSignal,
+) {
   const timeout = AbortSignal.timeout(GH_TIMEOUT_MS);
   const listed = await run("gh", args, {
     cwd: repo,

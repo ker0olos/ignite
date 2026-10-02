@@ -215,6 +215,8 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
     set_thinking_level: () => DEMO_STATE,
     command_search: search,
     git_diff: (r: { path: string }) => DEMO_GIT_DIFFS[r.path] ?? "",
+    git_status: () => [],
+    git_repo_details: () => ({ files: [], commits: [] }),
     background_output: () => DEV_OUTPUT,
     // Nothing runs in the demo, so there's nothing to stop.
     background_stop: () => false,

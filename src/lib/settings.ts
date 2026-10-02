@@ -42,6 +42,8 @@ export type Settings = {
     max_conversations: number;
     resizable_split: boolean;
   };
+  /** `git_status`: the composer lists the conversation's repositories with unfinished git work. */
+  composer: { git_status: boolean };
   /** `cmem`: record sessions in cmem and recall its memories. */
   memory: { cmem: boolean };
   /**
@@ -83,6 +85,7 @@ export const DEFAULT_SETTINGS: Settings = {
     max_conversations: 5,
     resizable_split: false,
   },
+  composer: { git_status: true },
   memory: { cmem: true },
   approval: { mode: "auto", full_access: false },
   subagents: { enabled: true, max: 2 },
@@ -229,6 +232,7 @@ export async function loadSettings(): Promise<Settings> {
     files: { ...DEFAULT_SETTINGS.files, ...raw.files },
     conversation: readConversation(raw.conversation),
     sidebar: readSidebar(raw.sidebar),
+    composer: { git_status: raw.composer?.git_status !== false },
     memory: { ...DEFAULT_SETTINGS.memory, ...raw.memory },
     approval: readApproval(raw.approval),
     subagents: readSubagents(raw.subagents),

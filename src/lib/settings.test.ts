@@ -135,6 +135,15 @@ describe("loadSettings", () => {
     });
   });
 
+  it.each([
+    ["off", "git_status = false", false],
+    ["not a boolean", 'git_status = "no"', true],
+    ["missing", "", true],
+  ])("reads the composer's git status setting when %s", async (_, toml, on) => {
+    fakeFs({ [FILE]: `[composer]\n${toml}\n` });
+    expect((await loadSettings()).composer).toEqual({ git_status: on });
+  });
+
   it("reads memory settings", async () => {
     fakeFs({ [FILE]: "[memory]\ncmem = false\n" });
     expect((await loadSettings()).memory).toEqual({ cmem: false });
@@ -268,6 +277,7 @@ describe("saveSettings", () => {
       max_conversations: 8,
       resizable_split: true,
     },
+    composer: { git_status: false },
     memory: { cmem: false },
     approval: { mode: "manual", full_access: false },
     subagents: { enabled: false, max: 4 },
