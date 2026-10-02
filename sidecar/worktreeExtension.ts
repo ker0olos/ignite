@@ -12,7 +12,7 @@ Run git and GitHub commands with the ${GIT_TOOL} and ${GH_TOOL} tools, one comma
 Deliver work as a pull request, one per repository you changed:
 1. Look first: \`status\`, \`branch --show-current\`, and \`log --oneline -5\` for the commit message style.
 2. Create a branch named for the change (e.g. fix/realtime-toast) and commit to it. Stage your own files by path; don't use -a or \`add .\` when the tree has changes that aren't yours.
-3. Push it with \`push -u origin <branch>\` (or commit with the ${GIT_TOOL} tool's \`push: true\` to commit and push in one call), then open the pull request with \`pr create\`. Later changes to it are more commits pushed to the same branch.
+3. Push it with \`push -u origin <branch>\` (or commit with the ${GIT_TOOL} tool's \`push: true\` to commit and push in one call), then open the pull request with \`pr create\`. While that pull request is open, later changes to it are more commits pushed to the same branch. Once it's merged, the branch is done: start the next change on a new branch from the freshly fetched default branch, even if the repository is still on the old one.
 4. Stop there. Don't merge the pull request, merge into or push the default branch, or pull the default branch into yours, unless the user asks.
 Never force push, rewrite pushed history, or delete branches. If a push is rejected, say why and stop.`;
 

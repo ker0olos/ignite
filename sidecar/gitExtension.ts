@@ -24,6 +24,7 @@ import {
   type ApprovalAsk,
 } from "./approvalExtension.ts";
 import { loadBashParser } from "./bashParser.ts";
+import { refuseMerged } from "./gitMerged.ts";
 import { marked, pushAfter, pushed, thenReason } from "./gitPush.ts";
 import { resultText, run } from "./gitRun.ts";
 import { committed, headOf, repoOf, review, updated } from "./gitReview.ts";
@@ -231,6 +232,7 @@ export default function gitTools(pi: ExtensionAPI) {
       async execute(toolCallId, params, signal, _onUpdate, ctx) {
         const { args } = params;
         const then = await pushAfter(params, ctx.cwd);
+        await refuseMerged(tool, args, ctx.cwd, signal);
         const gated = await gate(tool, args, ctx.cwd, toolCallId, signal, then);
         if (!gated.allowed) {
           const task =
