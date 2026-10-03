@@ -23,9 +23,10 @@ import {
   closeAll,
   prompt,
 } from "./hostSession.ts";
-import { mcpServers, changeMcp, reloadSessions } from "./hostMcp.ts";
+import { mcpServers, changeMcp } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
+import { skillHandlers } from "./hostSkills.ts";
 import { describeError } from "./wire.ts";
 import { memoryStatus } from "./cmem.ts";
 import { answerApproval } from "./hostApproval.ts";
@@ -57,13 +58,6 @@ import {
 } from "./terminal.ts";
 
 type IdRequest = Extract<HostRequest, { id: number }>;
-
-// Sessions read skills on (re)load.
-const changeSkills = async (ctx: HostContext, edit: () => Promise<void>) => {
-  await edit();
-  await reloadSessions(ctx);
-  return ctx.skills.list();
-};
 
 // A running conversation's own messages are newer than its file's.
 const messagesOf = async (ctx: HostContext, cwd: string, session: string) =>
@@ -138,14 +132,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   mcp_catalog: (ctx, r) => mcpCatalog(ctx, r.cwd),
   mcp_add_preset: (ctx, r) => addPreset(ctx, r.preset),
   mcp_import: (ctx, r) => importServers(ctx, r.source, r.names, r.cwd),
-  skills_list: (ctx) => ctx.skills.list(),
-  skills_set_enabled: (ctx, r) =>
-    changeSkills(ctx, () => ctx.skills.setEnabled(r.skill, r.enabled)),
-  skills_remove: (ctx, r) =>
-    changeSkills(ctx, () => ctx.skills.remove(r.skill)),
-  skills_catalog: (ctx) => ctx.skills.catalog(),
-  skills_import: (ctx, r) =>
-    changeSkills(ctx, () => ctx.skills.importSkills(r.source, r.names)),
+  ...skillHandlers,
   memory_status: (_ctx, r) => memoryStatus(r.cwd),
   // The MCP extension reads the setting on (re)load, like mcp.json.
   memory_changed: async (ctx) => {

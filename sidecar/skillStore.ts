@@ -1,20 +1,27 @@
 /**
  * The app's skills in pi's agent dir: standalone ones in skills/ and plugins,
- * each a folder of skills in plugins/. Which are off is kept in skills.json.
+ * each a folder of skills in plugins/. Which are off, and which are always
+ * on (their whole text in every prompt), is kept in skills.json.
  * Sessions load these and the folder's own, never other apps' (pi would read
  * ~/.agents/skills); those are imported by copying instead.
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Skill } from "@earendil-works/pi-coding-agent";
-import type { SkillCatalog, SkillEntry, SkillInfo } from "../shared/skills.ts";
+import type {
+  PluginSkill,
+  SkillCatalog,
+  SkillEntry,
+  SkillInfo,
+} from "../shared/skills.ts";
 import {
   findSkillSources,
   loadSkills,
   type SkillSource,
 } from "./skillCatalog.ts";
+import { alwaysText, isUnder, skillState } from "./skillState.ts";
 
 const info = ({ name, description }: Skill): SkillInfo => ({
   name,
@@ -34,22 +41,6 @@ const origin = (skill: Skill) =>
 const segment = (name: string) =>
   name.replace(/[^A-Za-z0-9_-]+/g, "-") || "skill";
 
-/** The ids turned off in skills.json; none if it's missing or unreadable. */
-function disabledIn(statePath: string): string[] {
-  try {
-    const { disabled } = JSON.parse(readFileSync(statePath, "utf8"));
-    return Array.isArray(disabled)
-      ? disabled.filter((d) => typeof d === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-/** Whether `id` or a folder holding it is off. */
-const isOff = (id: string, disabled: string[]) =>
-  disabled.some((d) => id === d || id.startsWith(`${d}/`));
-
 function foldersIn(dir: string) {
   try {
     return readdirSync(dir, { withFileTypes: true })
@@ -61,7 +52,12 @@ function foldersIn(dir: string) {
 }
 
 /** A plugin folder, named by its plugin.json, else by the folder. */
-async function plugin(pluginsDir: string, name: string, disabled: string[]) {
+async function plugin(
+  pluginsDir: string,
+  name: string,
+  disabled: string[],
+  entry: (skill: Skill) => PluginSkill,
+) {
   const dir = join(pluginsDir, name);
   const id = `plugins/${name}`;
   let manifest: Partial<SkillInfo> = {};
@@ -74,8 +70,9 @@ async function plugin(pluginsDir: string, name: string, disabled: string[]) {
     id,
     name: manifest.name ?? name,
     description: manifest.description ?? "",
-    enabled: !isOff(id, disabled),
-    skills: loadSkills(dir).map(info),
+    enabled: !isUnder(id, disabled),
+    always: false,
+    skills: loadSkills(dir).map(entry),
   };
 }
 
@@ -83,36 +80,62 @@ async function plugin(pluginsDir: string, name: string, disabled: string[]) {
 export function createSkillStore(agentDir: string, home: string) {
   const skillsDir = join(agentDir, "skills");
   const pluginsDir = join(agentDir, "plugins");
-  const statePath = join(agentDir, "skills.json");
 
   const idOf = (skill: Skill) =>
     relative(agentDir, origin(skill)).split(sep).join("/");
 
-  const readDisabled = () => disabledIn(statePath);
+  const state = skillState(join(agentDir, "skills.json"));
 
-  const writeDisabled = (disabled: string[]) =>
-    writeFile(statePath, JSON.stringify({ disabled }, null, 2) + "\n");
+  const entry = (skill: Skill, always: string[]): PluginSkill => ({
+    id: idOf(skill),
+    ...info(skill),
+    always: always.includes(idOf(skill)),
+  });
 
   const pluginDirs = () => foldersIn(pluginsDir);
 
   async function list(): Promise<SkillEntry[]> {
-    const disabled = readDisabled();
+    const { disabled, always } = state.read();
     const standalone = loadSkills(skillsDir).map((skill) => ({
-      id: idOf(skill),
-      ...info(skill),
-      enabled: !isOff(idOf(skill), disabled),
+      ...entry(skill, always),
+      enabled: !isUnder(idOf(skill), disabled),
     }));
     const plugins = await Promise.all(
-      pluginDirs().map((name) => plugin(pluginsDir, name, disabled)),
+      pluginDirs().map((name) =>
+        plugin(pluginsDir, name, disabled, (s) => entry(s, always)),
+      ),
     );
     return [...standalone, ...plugins];
   }
 
+  /** Throws unless `id` is a skill or plugin, or a plugin's skill. */
   async function known(id: string) {
-    if (!(await list()).some((entry) => entry.id === id)) {
+    const entries = (await list()).flatMap((e) => [e, ...(e.skills ?? [])]);
+    if (!entries.some((entry) => entry.id === id)) {
       throw new Error("That skill is no longer there.");
     }
   }
+
+  /** The app's skills that are on, skipping names already in `taken` (which it fills). */
+  function appSkills(taken: Set<string>) {
+    const { disabled } = state.read();
+    return [
+      ...loadSkills(skillsDir),
+      ...pluginDirs()
+        .filter((name) => !isUnder(`plugins/${name}`, disabled))
+        .flatMap((name) => loadSkills(join(pluginsDir, name))),
+    ].filter((s) => {
+      const id = idOf(s);
+      const outside = id.startsWith("..") || isAbsolute(id);
+      if (outside || isUnder(id, disabled) || taken.has(s.name)) return false;
+      taken.add(s.name);
+      return true;
+    });
+  }
+
+  /** Always-on skills: whole in the prompt, so no listed skill may share a name. */
+  const alwaysOnSkills = () =>
+    appSkills(new Set()).filter((s) => state.read().always.includes(idOf(s)));
 
   /** Where a source's skill is copied to. */
   const target = (source: SkillSource, skill: Skill) =>
@@ -128,14 +151,19 @@ export function createSkillStore(agentDir: string, home: string) {
 
     async setEnabled(id: string, enabled: boolean) {
       await known(id);
-      const rest = readDisabled().filter((d) => d !== id);
-      await writeDisabled(enabled ? rest : [...rest, id]);
+      await state.mark("disabled", id, !enabled);
+    },
+
+    /** Puts a skill's whole text in every prompt, or back in the skills list. */
+    async setAlways(id: string, always: boolean) {
+      await known(id);
+      await state.mark("always", id, always);
     },
 
     async remove(id: string) {
       await known(id);
       await rm(join(agentDir, id), { recursive: true, force: true });
-      await writeDisabled(readDisabled().filter((d) => d !== id));
+      await state.forget(id);
     },
 
     async catalog(): Promise<SkillCatalog> {
@@ -181,26 +209,21 @@ export function createSkillStore(agentDir: string, home: string) {
      * favour of ~/.agents/skills, so the app's are loaded here, not filtered.
      */
     sessionSkills<T extends { skills: Skill[] }>(base: T): T {
-      const disabled = readDisabled();
+      const pinned = new Set(alwaysOnSkills().map((s) => s.name));
       const project = base.skills.filter(
-        (s) => s.sourceInfo.scope === "project",
+        (s) => s.sourceInfo.scope === "project" && !pinned.has(s.name),
       );
-      const taken = new Set(project.map((s) => s.name));
-      const ours = [
-        ...loadSkills(skillsDir),
-        ...pluginDirs()
-          .filter((name) => !isOff(`plugins/${name}`, disabled))
-          .flatMap((name) => loadSkills(join(pluginsDir, name))),
-      ].filter((s) => {
-        const id = idOf(s);
-        const outside = id.startsWith("..") || isAbsolute(id);
-        if (outside || isOff(id, disabled) || taken.has(s.name)) return false;
-        taken.add(s.name);
-        return true;
-      });
+      const taken = new Set([...project.map((s) => s.name), ...pinned]);
+      const ours = appSkills(taken);
       const builtIn = loadSkills(BUILT_IN).filter((s) => !taken.has(s.name));
       return { ...base, skills: [...project, ...ours, ...builtIn] };
     },
+
+    /** An `appendSystemPromptOverride`: adds the always-on skills' whole text. */
+    alwaysOn: (base: string[]): string[] => [
+      ...base,
+      ...alwaysOnSkills().map(alwaysText),
+    ],
   };
 }
 

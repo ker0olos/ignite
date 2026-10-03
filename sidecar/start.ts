@@ -164,6 +164,7 @@ async function openSession(
       approvalExtension,
     ],
     skillsOverride,
+    appendSystemPromptOverride: skills.alwaysOn,
   });
   freshExtensions();
   await resourceLoader.reload();
@@ -216,7 +217,7 @@ async function openSubagent(
     eventBus,
     additionalExtensionPaths: [claudeBridge, exploring, approvalExtension],
     skillsOverride,
-    appendSystemPromptOverride: (base) => [...base, prompt],
+    appendSystemPromptOverride: (base) => [...skills.alwaysOn(base), prompt],
   });
   freshExtensions();
   await resourceLoader.reload();

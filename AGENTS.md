@@ -586,7 +586,11 @@ Skills are the app's own, in `~/.ignite/pi/skills` (standalone) and
 code); which are off is kept in `skills.json` (`sidecar/skillStore.ts`).
 pi would also load `~/.agents/skills`; the loader's `skillsOverride` keeps
 only the folder's project skills (once trusted) and the app's that are on.
-pi already loads skills lazily (only descriptions enter the prompt).
+pi already loads skills lazily (only descriptions enter the prompt). A
+skill marked always on (`always` in skills.json, the pin menu on its
+Settings row) leaves that list and its whole text goes in every prompt,
+subagents' too (`alwaysOn`, the loader's `appendSystemPromptOverride`), the
+way a Claude Code session-start hook would.
 Settings imports skills from Claude Code (its skills folder and installed
 plugins' skills), Codex, Cursor and `~/.agents/skills` by copying them
 (symlinks followed); other apps' files are only read. Changes reload the
