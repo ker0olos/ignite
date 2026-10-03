@@ -38,11 +38,7 @@ import { findImports } from "./mcpCatalog.ts";
 import { PRESETS } from "./mcpPresets.ts";
 import { createMcpStore, MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
-import {
-  SUBAGENT_EVENT,
-  WORKER,
-  type SubagentAsk,
-} from "./subagentExtension.ts";
+import { SUBAGENT_EVENT, type SubagentAsk } from "./subagentExtension.ts";
 import { createKeepAwake } from "./keepAwake.ts";
 import { createTrustStore } from "./trust.ts";
 import { createSkillStore } from "./skillStore.ts";
@@ -103,6 +99,7 @@ const claudeBridge = sibling("pi-claude-bridge/src/index.ts");
 const mcpExtension = sibling("./mcpExtension.ts");
 const subagentExtension = sibling("./subagentExtension.ts");
 const taskExtension = sibling("./taskExtension.ts");
+const exploring = sibling("./exploreExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
 const approvalExtension = sibling("./approvalExtension.ts");
 const trust = createTrustStore(agentDir);
@@ -162,7 +159,7 @@ async function openSession(
       sibling("./imageExtension.ts"),
       sibling("./bashExtension.ts"),
       sibling("./terminalExtension.ts"),
-      sibling("./exploreExtension.ts"),
+      exploring,
       taskExtension,
       approvalExtension,
     ],
@@ -205,7 +202,7 @@ async function openSession(
 async function openSubagent(
   folder: string,
   cwd: string,
-  { model, effort }: SubagentAsk,
+  { model, effort, tools, prompt }: SubagentAsk,
   eventBus: ReturnType<typeof createEventBus>,
 ) {
   const settingsManager = SettingsManager.inMemory(
@@ -217,9 +214,9 @@ async function openSubagent(
     agentDir,
     settingsManager,
     eventBus,
-    additionalExtensionPaths: [claudeBridge, approvalExtension],
+    additionalExtensionPaths: [claudeBridge, exploring, approvalExtension],
     skillsOverride,
-    appendSystemPromptOverride: (base) => [...base, WORKER],
+    appendSystemPromptOverride: (base) => [...base, prompt],
   });
   freshExtensions();
   await resourceLoader.reload();
@@ -229,6 +226,7 @@ async function openSubagent(
     modelRuntime: await runtimeFor(logins.store, cwd),
     model,
     thinkingLevel: effort,
+    tools,
     sessionManager: SessionManager.inMemory(cwd),
     settingsManager,
     resourceLoader,

@@ -35,12 +35,23 @@ type Model = NonNullable<ExtensionContext["model"]>;
 export type SubagentAsk = {
   model: Model;
   effort: Effort;
+  /** Only these tools, when set (an explore subagent). */
+  tools?: string[];
+  /** Appended to its system prompt. */
+  prompt: string;
   reply(session: Promise<AgentSession>): void;
 };
 
-/** Appended to every subagent's system prompt. */
-export const WORKER = `## Working as a subagent
+/** Appended to every other subagent's system prompt. */
+const WORKER = `## Working as a subagent
 Another agent gave you this task and reads your final reply; the user doesn't see it. Do the work, then reply with what you found or changed, briefly and completely. If you need a decision or information from that agent, end your reply with the question; its answer comes as your next message.`;
+
+/** The only tools an explore subagent gets. */
+const EXPLORE_TOOLS = ["read", "grep", "find", "ls"];
+
+/** Appended to an explore subagent's system prompt, in place of WORKER. */
+const EXPLORER = `## Exploring as a subagent
+Another agent asked you to find something in the code and reads your final reply; the user doesn't see it. You can only search and read. Make independent grep, find and read calls together in one turn, start broad (grep with filesOnly), then read only the parts that matter, and follow the code to where the answer really is. Reply with your conclusion and the file:line references that support it, each with a line on why it matters. Don't paste file contents.`;
 
 type Limits = { enabled: boolean; max: number };
 
@@ -100,7 +111,8 @@ With the ${SUBAGENT_TOOL} tool you can hand a self-contained task to a subagent:
 - It can't see this conversation, so give it everything it needs in the message.
 - To answer its question or give it more work, call ${SUBAGENT_TOOL} again with its id and your message.
 - Several calls in one turn run at the same time, up to that limit.
-- Only the ${KEPT} you used last stay open to continue by id; older ones end.`;
+- Only the ${KEPT} you used last stay open to continue by id; older ones end.
+- For questions about the code that need a wide search, start it with explore: true: it can only read and search, and replies with its findings and file:line references, so the search stays out of your context. Say how thorough to be.`;
 }
 
 const Params = Type.Object({
@@ -118,6 +130,12 @@ const Params = Type.Object({
   ),
   effort: Type.Optional(
     Type.String({ description: "A new subagent's effort (see Subagents)." }),
+  ),
+  explore: Type.Optional(
+    Type.Boolean({
+      description:
+        "Start a new subagent that can only read and search, to find something in the code.",
+    }),
   ),
 });
 
@@ -178,11 +196,13 @@ export default function subagents(pi: ExtensionAPI) {
     }
   }
 
-  const open = (model: Model, effort: Effort) => {
+  const open = (model: Model, effort: Effort, explore: boolean) => {
     let session: Promise<AgentSession> | undefined;
     pi.events.emit(SUBAGENT_EVENT, {
       model,
       effort,
+      tools: explore ? EXPLORE_TOOLS : undefined,
+      prompt: explore ? EXPLORER : WORKER,
       reply: (s) => (session = s),
     } satisfies SubagentAsk);
     if (!session) throw new Error("Subagents aren't available here.");
@@ -191,6 +211,7 @@ export default function subagents(pi: ExtensionAPI) {
 
   async function start(
     { model, effort }: { model: Model; effort: Effort },
+    explore: boolean,
     ctx: ExtensionContext,
   ): Promise<Agent> {
     const id = nextSubagentId([...agents.keys(), ...savedIds(ctx)]);
@@ -199,7 +220,7 @@ export default function subagents(pi: ExtensionAPI) {
       id,
       model: model.id,
       effort,
-      opening: open(model, effort),
+      opening: open(model, effort, explore),
       busy: 1,
     };
     agents.set(id, agent);
@@ -231,7 +252,9 @@ export default function subagents(pi: ExtensionAPI) {
         ? undefined
         : pick(params, ctx, pi.getThinkingLevel());
       return queue(async () => {
-        const agent = known ? agents.get(known.id) : await start(picked!, ctx);
+        const agent = known
+          ? agents.get(known.id)
+          : await start(picked!, !!params.explore, ctx);
         if (!agent) {
           throw new Error(`${known!.id} has ended; start a new one.`);
         }
