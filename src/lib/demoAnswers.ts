@@ -54,14 +54,18 @@ const DEMO_SKILLS: SkillEntry[] = [
     name: "release-notes",
     description: "Drafts release notes from recent commits.",
     enabled: true,
+    always: false,
   },
   {
     id: "frontend-design",
     name: "frontend-design",
     description: "A bundle of skills for building UI.",
     enabled: true,
+    always: false,
     skills: [
       {
+        id: "plugins/frontend-design/component-layout",
+        always: true,
         name: "component-layout",
         description: "Lays out a new component to match the app's style.",
       },
@@ -145,6 +149,7 @@ export const settingsAnswers = (now = Date.now()) => ({
   mcp_catalog: () => DEMO_CATALOG,
   skills_list: () => DEMO_SKILLS,
   skills_set_enabled: () => DEMO_SKILLS,
+  skills_set_always: () => DEMO_SKILLS,
   skills_remove: () => DEMO_SKILLS,
   skills_catalog: () => DEMO_SKILL_CATALOG,
   skills_import: () => DEMO_SKILLS,

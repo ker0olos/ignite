@@ -3,15 +3,17 @@
 /** A skill in the app's skills folder; only its description enters the prompt. */
 export type SkillInfo = { name: string; description: string };
 
+/** A skill that can be always on: its whole text in every prompt, not just its description. */
+export type PluginSkill = SkillInfo & { id: string; always: boolean };
+
 /**
  * The app's skills: standalone ones and plugins (a bundle of skills, such as
  * one imported from a Claude Code plugin). `id` names it in requests.
  */
-export type SkillEntry = SkillInfo & {
-  id: string;
+export type SkillEntry = PluginSkill & {
   enabled: boolean;
-  /** Set on a plugin: the skills it bundles. */
-  skills?: SkillInfo[];
+  /** Set on a plugin: the skills it bundles. `always` is false on the plugin itself. */
+  skills?: PluginSkill[];
 };
 
 /** Other apps' skills found on this Mac, to copy in. */
@@ -31,6 +33,7 @@ export type SkillCatalog = {
 export type SkillRequest =
   | { id: number; type: "skills_list" }
   | { id: number; type: "skills_set_enabled"; skill: string; enabled: boolean }
+  | { id: number; type: "skills_set_always"; skill: string; always: boolean }
   | { id: number; type: "skills_remove"; skill: string }
   | { id: number; type: "skills_catalog" }
   /** Copies skills from another app (see SkillCatalog.sources). */
@@ -40,6 +43,7 @@ export type SkillRequest =
 export type SkillResponses = {
   skills_list: SkillEntry[];
   skills_set_enabled: SkillEntry[];
+  skills_set_always: SkillEntry[];
   skills_remove: SkillEntry[];
   skills_catalog: SkillCatalog;
   skills_import: SkillEntry[];

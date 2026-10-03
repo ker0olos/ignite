@@ -176,6 +176,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   terminalExtension.ts   terminal_read, and the terminals' new output added to each run;
                          tells the agent what the composer's `@` mentions name
   exploreExtension.ts    Tells the agent how to search the code before answering (parallel calls, follow the flow)
+  grepFiles.ts           pi's grep with `filesOnly`: matching files and their counts, not the lines
   hostChildren.ts        Each conversation's subagents and background commands, for the sidebar
   sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
@@ -522,7 +523,9 @@ likewise: one finder, then one false-positive filter per finding. The host
 opens it in memory (`openSubagent` in `start.ts`) with only the bridge and
 approval extensions, so its tool calls wait for approval like the main
 agent's and show inside the subagent's tool row, rebuilt from the call's
-`details.messages`. Its final reply is the tool result; the main agent
+`details.messages`. With `explore: true` it gets only read, grep, find and ls and replies with
+findings and file:line references, keeping searches out of the main
+conversation. Its final reply is the tool result; the main agent
 answers a subagent's question, or gives it more work, by calling the tool
 again with its id. Subagents end with their session and aren't restored
 after a reload.
@@ -583,7 +586,11 @@ Skills are the app's own, in `~/.ignite/pi/skills` (standalone) and
 code); which are off is kept in `skills.json` (`sidecar/skillStore.ts`).
 pi would also load `~/.agents/skills`; the loader's `skillsOverride` keeps
 only the folder's project skills (once trusted) and the app's that are on.
-pi already loads skills lazily (only descriptions enter the prompt).
+pi already loads skills lazily (only descriptions enter the prompt). A
+skill marked always on (`always` in skills.json, the pin menu on its
+Settings row) leaves that list and its whole text goes in every prompt,
+subagents' too (`alwaysOn`, the loader's `appendSystemPromptOverride`), the
+way a Claude Code session-start hook would.
 Settings imports skills from Claude Code (its skills folder and installed
 plugins' skills), Codex, Cursor and `~/.agents/skills` by copying them
 (symlinks followed); other apps' files are only read. Changes reload the

@@ -6,6 +6,7 @@ import explore, { EXPLORE_GUIDANCE } from "./exploreExtension.ts";
 it("adds the exploring guidance to each run's system prompt", () => {
   let beforeRun: ((event: { systemPrompt: string }) => unknown) | undefined;
   explore({
+    registerTool: () => {},
     on: (_event: string, handler: typeof beforeRun) => (beforeRun = handler),
   } as unknown as ExtensionAPI);
   expect(beforeRun!({ systemPrompt: "Base" })).toEqual({
