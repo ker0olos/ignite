@@ -50,11 +50,11 @@ const WORKER = `## Working as a subagent
 Another agent gave you this task and reads your final reply; the user doesn't see it. Do the work, then reply with what you found or changed, briefly and completely. If you need a decision or information from that agent, end your reply with the question; its answer comes as your next message.`;
 
 /** The only tools an explore subagent gets. */
-const EXPLORE_TOOLS = ["read", "grep", "find", "ls"];
+const EXPLORE_TOOLS = ["read", "grep", "find", "ls", "outline"];
 
 /** Appended to an explore subagent's system prompt, in place of WORKER. */
 const EXPLORER = `## Exploring as a subagent
-Another agent asked you to find something in the code and reads your final reply; the user doesn't see it. You can only search and read. Make independent grep, find and read calls together in one turn, start broad (grep with filesOnly), then read only the parts that matter, and follow the code to where the answer really is. Reply with your conclusion and the file:line references that support it, each with a line on why it matters. Don't paste file contents.`;
+Another agent asked you to find something in the code and reads your final reply; the user doesn't see it. You can only search and read. Make independent grep, find and read calls together in one turn, start broad (grep with filesOnly), outline long files, then read only the parts that matter, and follow the code to where the answer really is. Reply with your conclusion and the file:line references that support it, each with a line on why it matters. Don't paste file contents.`;
 
 type Limits = { enabled: boolean; max: number };
 

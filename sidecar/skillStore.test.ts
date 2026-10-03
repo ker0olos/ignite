@@ -74,7 +74,6 @@ describe("list", () => {
         id: "skills/notes",
         name: "notes",
         description: "notes.",
-        always: false,
         enabled: true,
       },
       {
@@ -82,30 +81,14 @@ describe("list", () => {
         name: "bare",
         description: "",
         enabled: true,
-        always: false,
-        skills: [
-          {
-            id: "plugins/bare/b",
-            name: "b",
-            description: "b.",
-            always: false,
-          },
-        ],
+        skills: [{ name: "b", description: "b." }],
       },
       {
         id: "plugins/kit",
         name: "Kit",
         description: "Tools.",
         enabled: true,
-        always: false,
-        skills: [
-          {
-            id: "plugins/kit/a",
-            name: "a",
-            description: "a.",
-            always: false,
-          },
-        ],
+        skills: [{ name: "a", description: "a." }],
       },
     ]);
   });
@@ -133,7 +116,7 @@ describe("setEnabled and remove", () => {
     expect(existsSync(join(agentDir, "plugins", "kit"))).toBe(false);
     expect(
       JSON.parse(await readFile(join(agentDir, "skills.json"), "utf8")),
-    ).toEqual({ disabled: [], always: [] });
+    ).toEqual({ disabled: [] });
   });
 
   it("refuses ids it doesn't list, so nothing outside is touched", async () => {
@@ -201,15 +184,7 @@ describe("catalog and importSkills", () => {
         name: "supa",
         description: "The supa plugin.",
         enabled: true,
-        always: false,
-        skills: [
-          {
-            id: "plugins/supa/db",
-            name: "db",
-            description: "db.",
-            always: false,
-          },
-        ],
+        skills: [{ name: "db", description: "db." }],
       },
     ]);
   });
@@ -278,67 +253,5 @@ describe("sessionSkills", () => {
       join(agentDir, "skills", "code-review", "SKILL.md"),
       expect.stringMatching(/security-review\/SKILL\.md$/),
     ]);
-  });
-});
-
-describe("always on", () => {
-  it("puts an always-on skill's text in the prompt instead of the list", async () => {
-    await skill(join(agentDir, "plugins", "kit", "lazy"), "lazy");
-    await skill(join(agentDir, "plugins", "kit", "help"), "help");
-    const store = createSkillStore(agentDir, home);
-    await store.setAlways("plugins/kit/lazy", true);
-    const [kit] = await store.list();
-    expect(kit.skills).toEqual([
-      expect.objectContaining({ id: "plugins/kit/help", always: false }),
-      expect.objectContaining({ id: "plugins/kit/lazy", always: true }),
-    ]);
-    const none = { skills: [] as Skill[], diagnostics: [] };
-    expect(store.sessionSkills(none).skills.map((s) => s.name)).not.toContain(
-      "lazy",
-    );
-    const [prompt, ...rest] = store.alwaysOn(["Base"]).slice(1);
-    expect(prompt).toContain("## Skill: lazy (always on)");
-    expect(prompt).toContain("Do lazy.");
-    expect(prompt).not.toContain("description:");
-    expect(rest).toEqual([]);
-  });
-
-  it("leaves out an always-on skill whose plugin is off, and forgets it when removed", async () => {
-    await skill(join(agentDir, "plugins", "kit", "lazy"), "lazy");
-    const store = createSkillStore(agentDir, home);
-    await store.setAlways("plugins/kit/lazy", true);
-    await store.setEnabled("plugins/kit", false);
-    expect(store.alwaysOn(["Base"])).toEqual(["Base"]);
-    await store.remove("plugins/kit");
-    expect(
-      JSON.parse(await readFile(join(agentDir, "skills.json"), "utf8")),
-    ).toEqual({ disabled: [], always: [] });
-  });
-
-  it("drops the folder's skill of the same name, and reads CRLF frontmatter", async () => {
-    const dir = join(agentDir, "skills", "lazy");
-    await mkdir(dir, { recursive: true });
-    await writeFile(
-      join(dir, "SKILL.md"),
-      "---\r\nname: lazy\r\ndescription: Lazy.\r\n---\r\nDo lazy.\r\n",
-    );
-    const store = createSkillStore(agentDir, home);
-    await store.setAlways("skills/lazy", true);
-    const { skills } = store.sessionSkills({
-      skills: [project("lazy"), project("mine")],
-      diagnostics: [],
-    });
-    expect(skills.map((s) => s.name)).toEqual([
-      "mine",
-      "code-review",
-      "security-review",
-    ]);
-    expect(store.alwaysOn([])[0]).toMatch(/Its files are in .*\n\nDo lazy\.$/);
-  });
-
-  it("refuses a skill that isn't there", async () => {
-    await expect(
-      createSkillStore(agentDir, home).setAlways("plugins/gone/x", true),
-    ).rejects.toThrow("no longer there");
   });
 });

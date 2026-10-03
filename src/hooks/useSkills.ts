@@ -4,13 +4,7 @@ import type { HostClient } from "@/lib/piHost";
 
 type SkillChange = Extract<
   Parameters<HostClient["request"]>[0],
-  {
-    type:
-      | "skills_set_enabled"
-      | "skills_set_always"
-      | "skills_remove"
-      | "skills_import";
-  }
+  { type: "skills_set_enabled" | "skills_remove" | "skills_import" }
 >;
 
 /**
@@ -85,9 +79,6 @@ export function useSkills(host: HostClient | null, open: boolean) {
     error,
     setEnabled: (id: string, enabled: boolean) =>
       act({ type: "skills_set_enabled", skill: id, enabled }),
-    /** Puts a skill's whole text in every prompt, not just its description. */
-    setAlways: (id: string, always: boolean) =>
-      act({ type: "skills_set_always", skill: id, always }),
     remove: (id: string) => act({ type: "skills_remove", skill: id }),
     /** Null until loaded; the last one stays while a refresh loads. */
     catalog,

@@ -39,9 +39,7 @@ export function skillsItems({
       <SkillControls
         name={entry.name}
         enabled={entry.enabled}
-        skills={entry.skills ?? [entry]}
         onEnabledChange={(enabled) => skills.setEnabled(entry.id, enabled)}
-        onAlwaysChange={skills.setAlways}
         onRemove={() => skills.remove(entry.id)}
       />
     ),
