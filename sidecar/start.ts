@@ -158,6 +158,7 @@ async function openSession(
       sibling("./gitExtension.ts"),
       sibling("./worktreeExtension.ts"),
       sibling("./chromeExtension.ts"),
+      sibling("./adbExtension.ts"),
       sibling("./imageExtension.ts"),
       sibling("./bashExtension.ts"),
       sibling("./terminalExtension.ts"),

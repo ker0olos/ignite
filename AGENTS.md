@@ -208,6 +208,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   chromeExtension.ts     chrome_* tools: tabs, screenshot, eval, navigate, raw CDP calls
   chromePage.ts          A tab's CDP calls: run JS, wait for load, screenshot
   taskTabs.ts            Which Chrome tabs a task may use: only its own, named by id
+  adbExtension.ts        adb and adb_screenshot: Android devices, run outside the sandbox
   imageExtension.ts      show_image: shows the user an image file from any path in its tool row
                          and, in a task's conversation, on the task's card
   gitExtension.ts        git and gh tools: run outside the sandbox, ask for themselves, redirect bash's
@@ -241,6 +242,7 @@ shared/terminal.ts       The user's terminals: requests, output events, terminal
 shared/memory.ts         cmem status and observations as they cross the wire
 shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
 shared/commandSearch.ts  Ranks conversations and files for the command center (sidecar and demo)
+shared/adb.ts            The adb tool's arguments: its command, host paths, calls that never exit
 shared/questions.ts      ask_user's questions and answers (used by both)
 shared/tasks.ts          Tasks and the agent's updates to them (used by both)
 shared/queue.ts          Messages sent mid-run: how they wait, and taking one back (used by both)
@@ -500,6 +502,14 @@ Other conversations never pick or list a task's tabs, and their browser-wide
 calls run only in the user's Chrome. Each screenshot is also saved to a temp file, so
 `show_image` can put it on the task. Auto runs them without asking, like MCP
 tools; Manual asks.
+
+The `adb` and `adb_screenshot` tools (`sidecar/adbExtension.ts`) run adb
+from an argument list outside the sandbox, which can't reach adb's server
+(localhost:5037). Auto asks only when `push`, `pull`, `install`, `backup`,
+`restore` or `bugreport` names a path on this computer outside the folder
+(`shared/adb.ts`); Manual asks for every call. `adb shell` with no command and
+a streaming `logcat` are refused, and a call stops after 2 minutes. adb is found on PATH, else in `ANDROID_HOME`,
+`ANDROID_SDK_ROOT` or the default SDK folders.
 
 The `subagent` tool (`sidecar/subagentExtension.ts`) lets the agent start
 another pi session on a task: its own model or one from its provider no
