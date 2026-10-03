@@ -12,6 +12,7 @@ import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
 import ask, {
   ASKING,
   AUTONOMOUS,
+  COPYABLE,
   LEFT_TO_AGENT,
   askEnabled,
   replyText,
@@ -121,7 +122,9 @@ describe("ask_user", () => {
 describe("before_agent_start", () => {
   it("offers the tool and asks the agent to include the user", async () => {
     const { start, active } = load();
-    expect((await start()).systemPrompt).toBe(`Base\n\n${ASKING}`);
+    expect((await start()).systemPrompt).toBe(
+      `Base\n\n${ASKING}\n\n${COPYABLE}`,
+    );
     expect(active()).toEqual(["read", "bash", "ask_user"]);
     await start();
     expect(active()).toEqual(["read", "bash", "ask_user"]);
@@ -130,7 +133,9 @@ describe("before_agent_start", () => {
   it("drops the tool and lets the agent decide alone when turned off", async () => {
     await settings("[conversation]\nask_questions = false\n");
     const { start, active } = load(["read", "ask_user"]);
-    expect((await start()).systemPrompt).toBe(`Base\n\n${AUTONOMOUS}`);
+    expect((await start()).systemPrompt).toBe(
+      `Base\n\n${AUTONOMOUS}\n\n${COPYABLE}`,
+    );
     expect(active()).toEqual(["read"]);
   });
 });

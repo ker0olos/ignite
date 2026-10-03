@@ -28,6 +28,9 @@ The user wants to be part of every decision. Whenever the request leaves somethi
 export const AUTONOMOUS = `## Working on your own
 The user wants you to work autonomously. Don't stop to ask questions or wait for confirmation. When something is open, make the sensible choice, carry on, and mention the choices that matter in your final reply.`;
 
+export const COPYABLE = `## Text to copy
+Put text the user will likely copy and paste elsewhere in its own fenced code block, which has a copy button: commands, snippets, file contents, and drafts written for them (replies, messages, emails, commit or PR text). Keep your commentary about it, such as length or alternatives, outside the block. Always tag the block's language: \`\`\`bash for shell commands (the app offers to run those in a terminal), \`\`\`ts, \`\`\`json and so on for code, \`\`\`text for prose.`;
+
 export const LEFT_TO_AGENT =
   "The user left these questions to you. Decide them, and say what you chose and why.";
 
@@ -124,6 +127,8 @@ export default function ask(pi: ExtensionAPI) {
     const others = pi.getActiveTools().filter((name) => name !== ASK_TOOL);
     pi.setActiveTools(asking ? [...others, ASK_TOOL] : others);
     const guidance = asking ? ASKING : AUTONOMOUS;
-    return { systemPrompt: `${event.systemPrompt}\n\n${guidance}` };
+    return {
+      systemPrompt: `${event.systemPrompt}\n\n${guidance}\n\n${COPYABLE}`,
+    };
   });
 }
