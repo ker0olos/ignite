@@ -1,0 +1,62 @@
+[
+  {
+    "q": "Where is it decided whether a bash command needs approval in Auto mode, and where is the list of risky commands?",
+    "expect": ["src/lib/approvalPolicy.ts", "src/lib/dangerousCommands.ts"]
+  },
+  {
+    "q": "Which code refuses a commit or push on a branch whose pull request was already merged?",
+    "expect": ["sidecar/gitMerged.ts"]
+  },
+  {
+    "q": "How does the app find the port claude-mem's worker listens on?",
+    "expect": ["sidecar/cmem.ts"]
+  },
+  {
+    "q": "Where are a folder's ignored files copied copy-on-write into an agent's worktree, and which cp flags does it use?",
+    "expect": ["sidecar/worktreeClone.ts"]
+  },
+  {
+    "q": "What caps how many subagents run at once, and where is that cap read from settings?",
+    "expect": ["sidecar/subagentQueue.ts", "sidecar/subagentExtension.ts"]
+  },
+  {
+    "q": "Where are conversations and files ranked for the command center's results?",
+    "expect": ["shared/commandSearch.ts"]
+  },
+  {
+    "q": "How is a background bash command stopped along with every process it started?",
+    "expect": ["sidecar/backgroundBash.ts"]
+  },
+  {
+    "q": "How does the macOS menu bar keep copy and paste working after the app sets its own menu?",
+    "expect": ["src/lib/menu.ts"]
+  },
+  {
+    "q": "What happens to tool calls that were still pending when a reload or quit cut a run off?",
+    "expect": ["sidecar/hostResume.ts"]
+  },
+  {
+    "q": "Where are the images of messages queued mid-run kept, given that pi's queue only lists text?",
+    "expect": ["sidecar/queuedImages.ts"]
+  },
+  {
+    "q": "Which code decides which Chrome tabs a task's conversation may use?",
+    "expect": ["sidecar/taskTabs.ts"]
+  },
+  {
+    "q": "When does opening a folder report that its trust must be asked, rather than trusted or untrusted?",
+    "expect": ["sidecar/trust.ts"]
+  },
+  {
+    "q": "How does the sidecar load a file from ~/.ignite/mods in place of the repo's file?",
+    "expect": ["sidecar/modsHooks.ts"]
+  },
+  {
+    "q": "Where does the sandbox decide which hosts bash may reach, and where are hosts the user always allowed stored?",
+    "expect": ["sidecar/sandbox.ts", "sidecar/sandboxAllow.ts"]
+  },
+  {
+    "q": "How does a sidecar start find and clean up worktrees left by an app that crashed?",
+    "expect": ["sidecar/worktrees.ts"]
+  }
+]
