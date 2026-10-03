@@ -10,7 +10,6 @@ const releaseNotes: SkillEntry = {
   name: "release-notes",
   description: "Drafts release notes from recent commits.",
   enabled: true,
-  always: false,
 };
 
 const CATALOG: SkillCatalog = {
@@ -104,18 +103,6 @@ describe("useSkills", () => {
     expect(result.current.error).toBeNull();
   });
 
-  it("turns a skill always on", async () => {
-    const host = fakeHost(async () => [releaseNotes]);
-    const { result } = renderHook(() => useSkills(host, true));
-    await waitFor(() => expect(result.current.skills).toEqual([releaseNotes]));
-    await act(() => result.current.setAlways("release-notes", true));
-    expect(host.request).toHaveBeenCalledWith({
-      type: "skills_set_always",
-      skill: "release-notes",
-      always: true,
-    });
-  });
-
   it("removes a skill and shows a failed action until the next succeeds", async () => {
     const remove = vi.fn(async () => {
       throw new Error("Can't remove a built-in skill.");
@@ -176,13 +163,7 @@ describe("useSkills", () => {
         name: "kit",
         description: "",
         enabled: true,
-        always: false,
-        skills: names.map((name) => ({
-          id: `plugins/kit/${name}`,
-          name,
-          description: "",
-          always: false,
-        })),
+        skills: names.map((name) => ({ name, description: "" })),
       });
       const host = fakeHost(async (req) =>
         req.type === "skills_list" ? [kit(["a"])] : [kit(["a", "b"])],
