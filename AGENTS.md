@@ -175,6 +175,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   terminal.ts            The user's terminals: a login shell in a PTY (node-pty), mirrored in a headless xterm
   terminalExtension.ts   terminal_read, and the terminals' new output added to each run;
                          tells the agent what the composer's `@` mentions name
+  exploreExtension.ts    Tells the agent how to search the code before answering (parallel calls, follow the flow)
   hostChildren.ts        Each conversation's subagents and background commands, for the sidebar
   sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
