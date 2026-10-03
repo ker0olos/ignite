@@ -1,5 +1,6 @@
 import {
   BASH_STOP_TOOL,
+  HTML_TOOL,
   IMAGE_TOOL,
   type TextContent,
   type ToolCall,
@@ -12,6 +13,7 @@ import { TASK_ADD_TOOL, readProposed } from "../../../shared/tasks";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
 import type { ToolProps } from "@/components/conversation/shared";
 import { ToolHead } from "@/components/conversation/ToolHead";
+import { ToolHtml } from "@/components/conversation/ToolHtml";
 import { ToolOutcome } from "@/components/conversation/ToolOutcome";
 import { ToolRunOutcome } from "@/components/conversation/ToolRunOutcome";
 import { mcpCall } from "@/lib/mcpToolCall";
@@ -43,6 +45,7 @@ const TOOL_TITLES: Record<string, string> = {
   [ASK_TOOL]: "Questions",
   [SUBAGENT_TOOL]: "Agent",
   [IMAGE_TOOL]: "Image",
+  [HTML_TOOL]: "HTML",
   [TASK_ADD_TOOL]: "Add tasks",
   [BASH_STOP_TOOL]: "Stop",
 };
@@ -90,6 +93,7 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   [ASK_TOOL]: questionsArg,
   [SUBAGENT_TOOL]: subagentArg,
   [IMAGE_TOOL]: pathArg,
+  [HTML_TOOL]: (call) => String(call.arguments.title ?? ""),
   [TASK_ADD_TOOL]: (call) => String(readProposed(call.arguments).length),
   [BASH_STOP_TOOL]: (call) => String(call.arguments.pid ?? ""),
 };
@@ -125,16 +129,20 @@ export function ToolView({
       />
       {run && (
         <ToolOutcome>
-          <ToolRunOutcome
-            call={call}
-            run={run}
-            text={text}
-            editor={editor}
-            codeThemes={codeThemes}
-            folder={folder}
-            tools={tools}
-            onApprove={onApprove}
-          />
+          {call.name === HTML_TOOL && run.status === "done" ? (
+            <ToolHtml args={call.arguments} />
+          ) : (
+            <ToolRunOutcome
+              call={call}
+              run={run}
+              text={text}
+              editor={editor}
+              codeThemes={codeThemes}
+              folder={folder}
+              tools={tools}
+              onApprove={onApprove}
+            />
+          )}
         </ToolOutcome>
       )}
     </div>
