@@ -12,12 +12,11 @@ import type { AgentMessage } from "../shared/agentTypes.ts";
 import { nextSubagentId } from "../shared/subagents.ts";
 import subagents, {
   SUBAGENT_EVENT,
-  allowedEfforts,
-  allowedModels,
   guidance,
   subagentLimits,
   type SubagentAsk,
 } from "./subagentExtension.ts";
+import { allowedEfforts, allowedModels } from "./subagentModels.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 
 let home: string;
@@ -295,6 +294,18 @@ describe("subagent", () => {
       tools: ["read", "grep", "find", "ls"],
       prompt: expect.stringContaining("Exploring as a subagent"),
     });
+  });
+
+  it("runs an explore one on the cheapest model at low effort by default", async () => {
+    const { run, asks } = load();
+    await run({ message: "Where is X?", explore: true });
+    expect(asks[0]).toMatchObject({ model: MODELS[2], effort: "low" });
+  });
+
+  it("gives an explore one the lowest effort allowed when low isn't", async () => {
+    const { run, asks } = load({ level: "minimal" });
+    await run({ message: "Where is X?", explore: true, model: "gpt-big" });
+    expect(asks[0]).toMatchObject({ model: MODELS[0], effort: "minimal" });
   });
 
   it("continues a conversation by id, showing only the new messages", async () => {

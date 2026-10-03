@@ -16,20 +16,23 @@ import type {
 import { parse as parseToml } from "smol-toml";
 import { Type } from "typebox";
 import {
-  EFFORTS,
   nextSubagentId,
   readSubagent,
   SUBAGENT_TOOL,
 } from "../shared/subagents.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { concurrency } from "./subagentQueue.ts";
+import {
+  allowedEfforts,
+  allowedModels,
+  type Effort,
+  type Model,
+  pick,
+} from "./subagentModels.ts";
 import { type Agent, end, talk } from "./subagentSession.ts";
 
 /** pi event bus channel asking the host to open a subagent's session. */
 export const SUBAGENT_EVENT = "app/subagent";
-
-type Effort = (typeof EFFORTS)[number];
-type Model = NonNullable<ExtensionContext["model"]>;
 
 /** A subagent session request on the event bus; `reply` gets the session. */
 export type SubagentAsk = {
@@ -72,38 +75,6 @@ export async function subagentLimits(
   }
 }
 
-// Subscription providers (claude-bridge) list no prices; the same model's
-// API listing (anthropic) has them.
-function price(model: Model, all: Model[]): number | undefined {
-  const priced = (m: Model) => (m.cost?.output > 0 ? m.cost.output : undefined);
-  return (
-    priced(model) ??
-    all
-      .filter((m) => m.id === model.id)
-      .map(priced)
-      .find((p) => p)
-  );
-}
-
-/** Models a subagent may use: the main model, or one from its provider no dearer per output token. */
-export function allowedModels(ctx: ExtensionContext): Model[] {
-  const own = ctx.model;
-  if (!own) return [];
-  const all = ctx.modelRegistry.getAll();
-  const ceiling = price(own, all);
-  return ctx.modelRegistry.getAvailable().filter((m) => {
-    if (m.provider !== own.provider) return false;
-    if (m.id === own.id) return true;
-    const cost = price(m, all);
-    return !!ceiling && !!cost && cost <= ceiling;
-  });
-}
-
-/** Efforts up to the main agent's own. */
-export function allowedEfforts(own: string): Effort[] {
-  return EFFORTS.slice(0, EFFORTS.indexOf(own as Effort) + 1);
-}
-
 export function guidance(models: Model[], efforts: Effort[], max: number) {
   return `## Subagents
 With the ${SUBAGENT_TOOL} tool you can hand a self-contained task to a subagent: it works in the same folder with the same tools and its final reply comes back to you. Start as many as the work needs: ${max} run at a time and the rest wait their turn.
@@ -112,7 +83,7 @@ With the ${SUBAGENT_TOOL} tool you can hand a self-contained task to a subagent:
 - To answer its question or give it more work, call ${SUBAGENT_TOOL} again with its id and your message.
 - Several calls in one turn run at the same time, up to that limit.
 - Only the ${KEPT} you used last stay open to continue by id; older ones end.
-- For questions about the code that need a wide search, start it with explore: true: it can only read and search, and replies with its findings and file:line references, so the search stays out of your context. Say how thorough to be.`;
+- For questions about the code that need a wide search, start it with explore: true: it can only read and search, and replies with its findings and file:line references, so the search stays out of your context. Leave out model and effort to run it on the cheapest model at low effort. Say how thorough to be.`;
 }
 
 const Params = Type.Object({
@@ -149,27 +120,6 @@ const savedIds = (ctx: ExtensionContext) =>
     const id = m?.role === "toolResult" && readSubagent(m.details)?.id;
     return id ? [id] : [];
   });
-
-/** The requested model and effort, if the rules allow them. */
-function pick(
-  params: { model?: string; effort?: string },
-  ctx: ExtensionContext,
-  own: string,
-) {
-  const models = allowedModels(ctx);
-  const model = models.find((m) => m.id === params.model);
-  if (!model) {
-    throw new Error(
-      `Pick a model from: ${models.map((m) => m.id).join(", ")}.`,
-    );
-  }
-  const efforts = allowedEfforts(own);
-  const effort = efforts.find((e) => e === params.effort);
-  if (!effort) {
-    throw new Error(`Pick an effort up to your own: ${efforts.join(", ")}.`);
-  }
-  return { model, effort };
-}
 
 export default function subagents(pi: ExtensionAPI) {
   // ponytail: per loaded session, most recently used last; a reload or sidecar restart forgets them.
