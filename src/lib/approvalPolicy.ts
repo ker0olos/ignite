@@ -3,6 +3,7 @@
  * for dangerous shell commands and for anything outside the open folder;
  * Auto with full access never asks.
  */
+import { ADB_TOOL, adbHostPaths } from "../../shared/adb.ts";
 import type { ApprovalMode } from "../../shared/hostProtocol.ts";
 import {
   dangerousCommand,
@@ -134,6 +135,16 @@ function bashReason(
   return outside ? outsideReason(outside, place) : null;
 }
 
+/** Why an adb call needs approval under Auto: it reads or writes here outside the folder. */
+function adbReason(args: unknown[], place: Place): string | null {
+  const strings = args.filter((a): a is string => typeof a === "string");
+  for (const path of adbHostPaths(strings)) {
+    const reason = fileReason(path, place);
+    if (reason) return reason;
+  }
+  return null;
+}
+
 /** Why a call needs approval under Auto, or null when it may run. */
 function autoReason(
   toolName: string,
@@ -147,6 +158,9 @@ function autoReason(
   if (place.windows && SHELL_TOOLS.has(toolName)) return WINDOWS_SHELL;
   if (FILE_TOOLS.has(toolName) && typeof input.path === "string") {
     return fileReason(input.path, place);
+  }
+  if (toolName === ADB_TOOL && Array.isArray(input.args)) {
+    return adbReason(input.args, place);
   }
   return null;
 }

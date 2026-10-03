@@ -31,6 +31,7 @@ export type RunOptions = {
   signal?: AbortSignal;
   /** Runs the repository's hooks: only for calls the user approved. */
   hooks?: boolean;
+  timeout?: number;
 };
 
 /** A finished run: stdout and stderr as they arrived, and the exit code. */
@@ -40,7 +41,7 @@ export type RunResult = { output: string; code: number | null };
 export function run(
   program: string,
   args: string[],
-  { cwd, signal, hooks = false }: RunOptions,
+  { cwd, signal, hooks = false, timeout = TIMEOUT_MS }: RunOptions,
 ): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const env = { ...process.env, ...QUIET_ENV, ...(hooks ? {} : NO_HOOKS) };
@@ -48,7 +49,7 @@ export function run(
       cwd,
       env,
       signal,
-      timeout: TIMEOUT_MS,
+      timeout,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";

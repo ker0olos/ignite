@@ -189,3 +189,27 @@ describe("approvalFor", () => {
     expect(approvalFor("auto", "read", { path: null }, place)).toBeNull();
   });
 });
+
+describe("adb under Auto", () => {
+  const adb = (...args: string[]) =>
+    approvalFor("auto", "adb", { args }, place);
+
+  it("runs device-only calls and transfers inside the folder", () => {
+    expect(adb("shell", "input", "tap", "1", "2")).toBeNull();
+    expect(adb("push", "build/app.txt", "/sdcard/")).toBeNull();
+    expect(adb("pull", "/sdcard/shot.png")).toBeNull();
+    expect(adb("-s", "emu", "install", "-r", "app.apk")).toBeNull();
+  });
+
+  it("asks for host paths outside the folder", () => {
+    expect(adb("push", "~/.ssh/id_ed25519", "/sdcard/")).toEqual({
+      reason: "Outside the folder: ~/.ssh/id_ed25519",
+    });
+    expect(adb("pull", "/sdcard/x", "/Users/me/.zshrc")).toEqual({
+      reason: "Outside the folder: ~/.zshrc",
+    });
+    expect(adb("-s", "emu", "install", "../other.apk")).toEqual({
+      reason: "Outside the folder: ~/other.apk",
+    });
+  });
+});
