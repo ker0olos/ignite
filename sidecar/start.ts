@@ -162,6 +162,7 @@ async function openSession(
       sibling("./imageExtension.ts"),
       sibling("./bashExtension.ts"),
       sibling("./terminalExtension.ts"),
+      sibling("./exploreExtension.ts"),
       taskExtension,
       approvalExtension,
     ],
