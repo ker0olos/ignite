@@ -1,17 +1,34 @@
 #!/usr/bin/env node
-// Asks the agent questions about this repo through the real sidecar and scores
-// whether its answer names the right files. `node scripts/search-eval.mjs [label] [count]`
+// Asks the agent questions about a folder through the real sidecar and scores
+// whether its answer names the right files. Its conversations are moved out of
+// the app's history afterwards, to ~/.ignite/eval-conversations-backup.
+// `node scripts/search-eval.mjs [label] [count] [--folder dir] [--questions file]`
 import { spawn } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import {
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
+import { parseArgs } from "node:util";
 
 const root = join(import.meta.dirname, "..");
-const label = process.argv[2] ?? "run";
+const { values, positionals } = parseArgs({
+  allowPositionals: true,
+  options: { folder: { type: "string" }, questions: { type: "string" } },
+});
+const label = positionals[0] ?? "run";
+const folder = resolve(values.folder ?? root);
 const questions = JSON.parse(
-  readFileSync(join(import.meta.dirname, "search-eval.json"), "utf8"),
-).slice(0, Number(process.argv[3] ?? Infinity));
+  readFileSync(
+    values.questions ?? join(import.meta.dirname, "search-eval.json"),
+    "utf8",
+  ),
+).slice(0, Number(positionals[1] ?? Infinity));
 const TIMEOUT_MS = Number(process.env.EVAL_TIMEOUT_MS ?? 5 * 60_000);
 
 const sidecar = spawn("node", ["sidecar/main.ts"], {
@@ -81,7 +98,7 @@ function record(r, e) {
 
 async function ask({ q, expect }) {
   const started = Date.now();
-  const { session } = await request({ type: "new_session", cwd: root });
+  const { session } = await request({ type: "new_session", cwd: folder });
   const r = { q, turns: 0, tools: {}, tokens: 0, cost: 0, answer: "" };
   const done = new Promise((resolve) => {
     const finish = () => {
@@ -114,7 +131,8 @@ async function ask({ q, expect }) {
     text: `${q}\n\nAnswer with the file paths (and lines) that show it.`,
   });
   await done;
-  await request({ type: "close_session", cwd: root, session });
+  await request({ type: "close_session", cwd: folder, session });
+  r.session = session;
   r.seconds = Math.round((Date.now() - started) / 1000);
   r.missing = expect.filter((path) => !r.answer.includes(path));
   return r;
@@ -134,6 +152,18 @@ for (const [i, question] of questions.entries()) {
   );
 }
 sidecar.stdin.end();
+
+// pi saves each conversation as <time>_<id>.jsonl under its folder's sessions dir.
+const sessions = join(homedir(), ".ignite/pi/sessions");
+const backup = join(homedir(), ".ignite/eval-conversations-backup");
+mkdirSync(backup, { recursive: true });
+const ours = new Set(results.map((r) => r.session));
+for (const dir of readdirSync(sessions)) {
+  for (const name of readdirSync(join(sessions, dir))) {
+    const id = /_([^_]+)\.jsonl$/.exec(name)?.[1];
+    if (ours.has(id)) renameSync(join(sessions, dir, name), join(backup, name));
+  }
+}
 
 const sum = (f) => results.reduce((a, r) => a + f(r), 0);
 const out = join(tmpdir(), `ignite-search-eval-${label}.json`);
