@@ -66,10 +66,8 @@ function questionsArg(call: ToolCall) {
 }
 
 function subagentArg(call: ToolCall) {
-  const arg = (key: string) => String(call.arguments[key] ?? "");
-  return call.arguments.id
-    ? String(call.arguments.id)
-    : `${arg("model")}, ${arg("effort")}`;
+  const { description, id, model } = call.arguments;
+  return String(description || id || model || "");
 }
 
 // Paths in the folder are shown relative to it, like `-C server`.

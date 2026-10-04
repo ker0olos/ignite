@@ -7,10 +7,17 @@ import { GitChanges } from "@/components/conversation/GitChanges";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
 import type { ToolProps } from "@/components/conversation/shared";
 import { QuestionPrompt } from "@/components/conversation/QuestionPrompt";
-import { SubagentBody } from "@/components/conversation/SubagentBody";
+import { SubagentSummary } from "@/components/conversation/SubagentSummary";
 import { ToolBody } from "@/components/conversation/ToolBody";
 import { readQuestions } from "@/lib/questions";
 import type { ToolRun } from "@/lib/transcript";
+
+/** A subagent call's details; null while it hasn't started, undefined for other calls or one that reported nothing. */
+function subagentOf(call: ToolProps["call"], run: ToolRun) {
+  if (call.name !== SUBAGENT_TOOL) return undefined;
+  const details = readSubagent(run.result?.details);
+  return details ?? (run.status === "running" ? null : undefined);
+}
 
 /** What a started call shows: an approval prompt or questions, its error, or its output. */
 export function ToolRunOutcome({
@@ -51,12 +58,11 @@ export function ToolRunOutcome({
   if (run.status === "error") {
     return <OutputPreview text={text || "Failed."} error />;
   }
-  const details =
-    call.name === SUBAGENT_TOOL ? readSubagent(run.result?.details) : undefined;
-  if (details) {
+  const subagent = subagentOf(call, run);
+  if (subagent !== undefined) {
     return (
-      <SubagentBody
-        details={details}
+      <SubagentSummary
+        details={subagent}
         tools={tools}
         folder={folder}
         editor={editor}
