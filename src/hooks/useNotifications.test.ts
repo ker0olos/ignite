@@ -20,7 +20,7 @@ const agent = (running: boolean): AgentStatus => ({
   waiting: false,
 });
 
-function setup(enabled = true, focused = false) {
+function setup(enabled = true, focused = false, sound = false) {
   vi.spyOn(document, "hasFocus").mockReturnValue(focused);
   const listeners = new Set<(m: HostMessage) => void>();
   const host = {
@@ -29,7 +29,8 @@ function setup(enabled = true, focused = false) {
       return () => void listeners.delete(cb);
     },
   } as unknown as HostClient;
-  renderHook(() => useNotifications(host, enabled));
+  const settings = { enabled, sound };
+  renderHook(() => useNotifications(host, settings, true));
   return (agents: AgentStatus[]) =>
     act(() => listeners.forEach((cb) => cb({ type: "agents", agents })));
 }
@@ -48,6 +49,19 @@ describe("useNotifications", () => {
       expect(plugin.sendNotification).toHaveBeenCalledWith({
         title: "Fix it · a",
         body: "Finished",
+      }),
+    );
+  });
+
+  it("plays the chime when the sound is on", async () => {
+    const push = setup(true, false, true);
+    push([agent(true)]);
+    push([agent(false)]);
+    await waitFor(() =>
+      expect(plugin.sendNotification).toHaveBeenCalledWith({
+        title: "Fix it · a",
+        body: "Finished",
+        sound: "Glass",
       }),
     );
   });

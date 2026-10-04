@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentStatus } from "../../shared/hostProtocol";
-import { notices } from "./notifications";
+import { chime, notices } from "./notifications";
 
 const agent = (over: Partial<AgentStatus> = {}): AgentStatus => ({
   cwd: "/work/app",
@@ -63,5 +63,12 @@ describe("notices", () => {
     expect(notices([], [agent({ title: "", waiting: true })])[0].title).toBe(
       "Conversation · app",
     );
+  });
+});
+
+describe("chime", () => {
+  it("is a macOS system sound on the Mac, else the freedesktop one", () => {
+    expect(chime(true)).toBe("Glass");
+    expect(chime(false)).toBe("message-new-instant");
   });
 });

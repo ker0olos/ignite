@@ -322,7 +322,8 @@ Two places hold persisted data:
 - **Notification settings** (`[notifications]`): `enabled` (on by default)
   sends a system notification when a conversation finishes or starts waiting
   on the user, only while the app window isn't focused
-  (`hooks/useNotifications.ts`).
+  (`hooks/useNotifications.ts`). `sound` (on by default) plays a chime with
+  it: macOS's Glass, the freedesktop theme's on Linux.
 - **Remote settings** (`[remote]`): `enabled` (off by default) and `port`
   (4280). The main window's sidecar serves the UI to any browser that
   reaches the port, with no password; when Tailscale is connected (a

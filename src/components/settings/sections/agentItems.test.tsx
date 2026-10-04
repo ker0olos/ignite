@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { agentItems } from "./agentItems";
 
-type SwitchProps = { checked: boolean; onCheckedChange: (v: boolean) => void };
+type SwitchProps = {
+  checked: boolean;
+  disabled?: boolean;
+  onCheckedChange: (v: boolean) => void;
+};
 type SelectProps = {
   value: string;
   disabled?: boolean;
@@ -68,15 +72,36 @@ describe("agentItems", () => {
       onChange,
       isMac: false,
     });
-    const notify = items.at(-1)!;
+    const notify = items.at(-2)!;
     expect(notify.title).toBe("Notifications");
     const { checked, onCheckedChange } = props<SwitchProps>(notify);
     expect(checked).toBe(true);
     onCheckedChange(false);
     expect(onChange).toHaveBeenCalledWith({
       ...DEFAULT_SETTINGS,
-      notifications: { enabled: false },
+      notifications: { enabled: false, sound: true },
     });
+  });
+
+  it("toggles the chime, on by default, and only while notifications are on", () => {
+    const onChange = vi.fn();
+    const sound = (settings: typeof DEFAULT_SETTINGS) =>
+      agentItems({ settings, onChange, isMac: false }).at(-1)!;
+    expect(sound(DEFAULT_SETTINGS).title).toBe("Notification sound");
+    const { checked, disabled, onCheckedChange } = props<SwitchProps>(
+      sound(DEFAULT_SETTINGS),
+    );
+    expect([checked, disabled]).toEqual([true, false]);
+    onCheckedChange(false);
+    expect(onChange).toHaveBeenCalledWith({
+      ...DEFAULT_SETTINGS,
+      notifications: { enabled: true, sound: false },
+    });
+    const off = {
+      ...DEFAULT_SETTINGS,
+      notifications: { enabled: false, sound: true },
+    };
+    expect(props<SwitchProps>(sound(off)).disabled).toBe(true);
   });
 
   it("toggles keeping the Mac awake, and shows it only on macOS", () => {

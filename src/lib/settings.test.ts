@@ -282,7 +282,7 @@ describe("saveSettings", () => {
     approval: { mode: "manual", full_access: false },
     subagents: { enabled: false, max: 4 },
     power: { keep_awake: false, keep_screen_awake: true },
-    notifications: { enabled: false },
+    notifications: { enabled: false, sound: false },
     chrome: { enabled: false, disabled_tools: ["chrome_cdp"] },
     remote: { enabled: true, port: 5000 },
   };

@@ -15,6 +15,13 @@ const bodyOf = (a: AgentStatus, prev?: AgentStatus) => {
 };
 
 /** The conversations that just finished or started waiting on the user, between two agent lists. */
+/**
+ * The chime notifications play: a macOS system sound, else the freedesktop
+ * theme's; Windows toasts play their own.
+ */
+export const chime = (isMac: boolean) =>
+  isMac ? "Glass" : "message-new-instant";
+
 export function notices(before: AgentStatus[], after: AgentStatus[]): Notice[] {
   const was = new Map(before.map((a) => [a.session, a]));
   return after.flatMap((a) => {
