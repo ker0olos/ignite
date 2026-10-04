@@ -3,8 +3,8 @@
 **The only AI coding app you'll need.** Hand off work, draw on what's wrong,
 review the pull request.
 
-A native macOS app for running AI coding agents on your projects, several at
-once.
+A desktop app for running AI coding agents on your projects, several at
+once. Made for macOS; and others.
 
 <p align="center">
   <img src="docs/conversation.png" alt="An agent that added dark mode opening its pull request, with its commit and the four files it changes, and one file's diff open beside the conversation; the sidebar shows the project's other conversations, one waiting for review and one still working" width="32%">
@@ -20,7 +20,9 @@ once.
 
 - Run several agents at once. Each conversation works in its own git
   worktree, so agents never touch each other's work or yours, and the sidebar
-  shows which are working, done or waiting for you.
+  shows which are working, done or waiting for you. Its `node_modules`,
+  builds and `.env` are copy-on-write clones of yours, so a new worktree is
+  ready at once and costs almost no disk until something changes.
 - Work comes back as a pull request, every file's diff a click away, and your
   folder updates when it merges.
 - Write a task, attach screenshots or sketches, pick a model and start it.
@@ -65,6 +67,14 @@ npm run setup
 
 Ignite is now in `~/Applications`. It updates itself each time it opens,
 and goes back to the last working version if an update fails to start.
+
+On Linux and Windows, install Node.js, Rust and
+[Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/), then run
+it with `npm install` and `npm run tauri dev`. Linux sandboxes commands with
+[bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`); Windows has
+no sandbox, so Auto asks before every shell command. Worktrees clone
+copy-on-write on Btrfs and XFS; elsewhere agents install and build their own
+dependencies.
 
 ## Make it yours
 
