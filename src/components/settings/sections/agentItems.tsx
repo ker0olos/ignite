@@ -54,7 +54,35 @@ function notificationsItem(
       <Switch
         checked={settings.notifications.enabled}
         onCheckedChange={(enabled) =>
-          onChange({ ...settings, notifications: { enabled } })
+          onChange({
+            ...settings,
+            notifications: { ...settings.notifications, enabled },
+          })
+        }
+      />
+    ),
+  };
+}
+
+/** The row that plays a chime with each notification. */
+function notificationSoundItem(
+  settings: Settings,
+  onChange: (settings: Settings) => void,
+): Item {
+  return {
+    section: "Agent",
+    title: "Notification sound",
+    description: "Plays a short chime with each notification.",
+    keywords: "notify alert sound chime bell audio",
+    control: (
+      <Switch
+        checked={settings.notifications.sound}
+        disabled={!settings.notifications.enabled}
+        onCheckedChange={(sound) =>
+          onChange({
+            ...settings,
+            notifications: { ...settings.notifications, sound },
+          })
         }
       />
     ),
@@ -142,6 +170,7 @@ export function agentItems({
       ),
     },
     notificationsItem(settings, onChange),
+    notificationSoundItem(settings, onChange),
     ...(isMac ? awakeItems(settings, onChange) : []),
   ];
 }

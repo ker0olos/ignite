@@ -7,15 +7,23 @@ import {
 import type { AgentStatus } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
 import { isRemote } from "@/lib/remote";
-import { notices } from "@/lib/notifications";
+import { chime, notices } from "@/lib/notifications";
+import type { Settings } from "@/lib/settings";
 
-/** Notifies when a conversation finishes or waits on the user, while the window isn't focused. */
-export function useNotifications(host: HostClient | null, enabled: boolean) {
+/**
+ * Notifies when a conversation finishes or waits on the user, while the
+ * window isn't focused, with a chime unless `sound` is off.
+ */
+export function useNotifications(
+  host: HostClient | null,
+  settings: Settings["notifications"],
+  isMac = navigator.userAgent.includes("Mac"),
+) {
   const granted = useRef<Promise<boolean> | null>(null);
-  const on = useRef(enabled);
+  const on = useRef(settings);
   useEffect(() => {
-    on.current = enabled;
-  }, [enabled]);
+    on.current = settings;
+  }, [settings]);
 
   useEffect(() => {
     if (!host || isRemote()) return;
@@ -28,17 +36,18 @@ export function useNotifications(host: HostClient | null, enabled: boolean) {
       if (message.type !== "agents") return;
       const found = notices(previous, message.agents);
       previous = message.agents;
-      if (!on.current || document.hasFocus() || !found.length) return;
+      if (!on.current.enabled || document.hasFocus() || !found.length) return;
       void allowed().then((ok) => {
         if (!ok) return;
         for (const { title, body } of found) {
           try {
-            sendNotification({ title, body });
+            const sound = on.current.sound ? { sound: chime(isMac) } : {};
+            sendNotification({ title, body, ...sound });
           } catch {
             // a failed notification is not worth surfacing
           }
         }
       });
     });
-  }, [host]);
+  }, [host, isMac]);
 }
