@@ -115,6 +115,13 @@ describe("AssistantText code blocks", () => {
     expect(run).toHaveBeenCalledWith("echo hi");
   });
 
+  it("runs an untagged one-line block too", () => {
+    const run = vi.fn();
+    block("", run);
+    fireEvent.click(screen.getByRole("button", { name: "Run in terminal" }));
+    expect(run).toHaveBeenCalledWith("echo hi");
+  });
+
   it("offers only Copy for other languages, or with no terminal", () => {
     block("ts", vi.fn());
     block("bash", null);
