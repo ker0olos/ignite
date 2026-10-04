@@ -275,6 +275,18 @@ describe("deleteTask", () => {
     expect(left).toEqual([]);
   });
 
+  it("keeps a conversation the user follows open", async () => {
+    const tasks = createTaskStore(null);
+    await tasks.save("/a", task({ session: "s1", interactive: true }));
+    const left = await deleteTask(
+      { tasks } as unknown as HostContext,
+      "/a",
+      "t1",
+    );
+    expect(close).not.toHaveBeenCalled();
+    expect(left).toEqual([]);
+  });
+
   it("leaves conversations alone for a task never started", async () => {
     const tasks = createTaskStore(null);
     await tasks.save("/a", task());

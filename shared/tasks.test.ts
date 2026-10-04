@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   applyUpdate,
+  autonomous,
+  conversationTask,
   prUrl,
   proposedTask,
   readProposed,
@@ -152,5 +154,26 @@ describe("proposedTask", () => {
       created: 5,
       updated: 5,
     });
+  });
+});
+
+describe("autonomous", () => {
+  it("holds for a task from the Tasks view, not one the user follows", () => {
+    expect(autonomous(task)).toBe(true);
+    expect(autonomous({ ...task, interactive: true })).toBe(false);
+    expect(autonomous(null)).toBe(false);
+  });
+});
+
+describe("conversationTask", () => {
+  it("joins the list with the conversation, titled after it", () => {
+    expect(conversationTask("s1", "Fix login", 5)).toMatchObject({
+      title: "Fix login",
+      session: "s1",
+      interactive: true,
+      subtasks: [],
+      created: 5,
+    });
+    expect(conversationTask("s1", "", 5).title).toBe("Conversation");
   });
 });

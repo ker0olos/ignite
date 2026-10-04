@@ -1,4 +1,4 @@
-import { applyUpdate, type Task } from "../shared/tasks.ts";
+import { applyUpdate, autonomous, type Task } from "../shared/tasks.ts";
 import { current, type HostContext, type Session } from "./hostTypes.ts";
 import { close, launch, prompt } from "./hostSession.ts";
 import { describeError } from "./wire.ts";
@@ -111,10 +111,10 @@ export async function resumeTask(
   return ctx.tasks.list(cwd);
 }
 
-/** Ends task `id`'s conversation if it's open here, then removes the task. */
+/** Removes task `id`, ending its conversation if it's open here, unless the user follows it in the composer. */
 export async function deleteTask(ctx: HostContext, cwd: string, id: string) {
   const task = (await ctx.tasks.list(cwd)).find((t) => t.id === id);
-  if (task?.session) await close(ctx, cwd, task.session);
+  if (task?.session && autonomous(task)) await close(ctx, cwd, task.session);
   return ctx.tasks.remove(cwd, id);
 }
 

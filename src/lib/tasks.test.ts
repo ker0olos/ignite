@@ -112,7 +112,7 @@ describe("tasksLead", () => {
   });
   it("counts running and waiting", () => {
     expect(tasksLead(shown("working", "working", "waiting"))).toBe(
-      "2 running on full auto · 1 waiting on you",
+      "2 running · 1 waiting on you",
     );
   });
   it("counts only what applies", () => {

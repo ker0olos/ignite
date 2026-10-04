@@ -50,7 +50,32 @@ export type Task = {
   /** What its conversation runs on; unset uses the saved defaults. */
   model?: { provider: string; id: string };
   effort?: ThinkingLevel;
+  /** A conversation from the composer that planned its work: the user follows it there, so it isn't autonomous. */
+  interactive?: true;
 };
+
+/** Whether `task` runs with nobody watching: one started from the Tasks view. */
+export const autonomous = (task: Task | null): boolean =>
+  !!task && !task.interactive;
+
+/** The task a composer conversation joins the list with when it first plans. */
+export function conversationTask(
+  session: string,
+  title: string,
+  now: number,
+): Task {
+  return {
+    id: crypto.randomUUID(),
+    title: title || "Conversation",
+    notes: "",
+    images: [],
+    subtasks: [],
+    created: now,
+    updated: now,
+    session,
+    interactive: true,
+  };
+}
 
 /** The fields a user may change on a task; the agent's progress is never one of them. */
 export const USER_FIELDS = [

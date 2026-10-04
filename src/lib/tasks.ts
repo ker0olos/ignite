@@ -75,7 +75,7 @@ export function tasksLead(tasks: ShownTask[]) {
   const count = (status: TaskStatus) =>
     tasks.filter((t) => t.status === status).length;
   const parts = [
-    count("working") && `${count("working")} running on full auto`,
+    count("working") && `${count("working")} running`,
     count("waiting") && `${count("waiting")} waiting on you`,
   ].filter(Boolean);
   return parts.length ? parts.join(" · ") : "Nothing running";
