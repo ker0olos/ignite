@@ -58,6 +58,7 @@ export type Settings = {
    * `keep_screen_awake`: nor does the display.
    */
   power: { keep_awake: boolean; keep_screen_awake: boolean };
+  notifications: { enabled: boolean };
   /** `disabled_tools`: Chrome tools (shared/chrome.ts) the agent doesn't get. */
   chrome: { enabled: boolean; disabled_tools: string[] };
   /** Remote access from browsers on other devices. */
@@ -90,6 +91,7 @@ export const DEFAULT_SETTINGS: Settings = {
   approval: { mode: "auto", full_access: false },
   subagents: { enabled: true, max: 2 },
   power: { keep_awake: true, keep_screen_awake: false },
+  notifications: { enabled: true },
   chrome: { enabled: true, disabled_tools: [] },
   remote: { enabled: false, port: 4280 },
 };
@@ -237,6 +239,10 @@ export async function loadSettings(): Promise<Settings> {
     approval: readApproval(raw.approval),
     subagents: readSubagents(raw.subagents),
     power: { ...DEFAULT_SETTINGS.power, ...raw.power },
+    notifications: {
+      ...DEFAULT_SETTINGS.notifications,
+      ...raw.notifications,
+    },
     chrome: readChrome(raw.chrome),
     remote: readRemote(raw.remote),
   };

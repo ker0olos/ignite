@@ -8,6 +8,8 @@ export type AgentStatus = {
   /** The first line of its first message; empty until it has one. */
   title: string;
   running: boolean;
+  /** Its last run ended in an error. */
+  failed?: boolean;
   /** A tool call waits for the user. */
   waiting: boolean;
   /** The pull request waiting for the user's review, if one is. */

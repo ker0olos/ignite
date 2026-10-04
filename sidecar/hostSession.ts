@@ -20,7 +20,7 @@ import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
 import { askApproval, denyAll } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { followSubagents, subagentsIn } from "./hostChildren.ts";
-import { firstTitle, pushProjects, titleOf } from "./hostProjects.ts";
+import { firstTitle, pushProjects, titleOf, trackRun } from "./hostProjects.ts";
 import { resume } from "./hostResume.ts";
 import { delivered, rememberImages } from "./queuedImages.ts";
 
@@ -207,10 +207,7 @@ function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
     });
   }
   const subagentsChanged = followSubagents(agent, event);
-  if (event.type === "agent_start" || event.type === "agent_settled") {
-    agent.running = event.type === "agent_start";
-    pushProjects(ctx);
-  } else if (subagentsChanged) pushProjects(ctx);
+  if (trackRun(agent, event) || subagentsChanged) pushProjects(ctx);
   if (event.type === "message_start") delivered(agent, event.message);
   // The first message names the conversation; pi stores it only afterwards.
   const first = event.type === "message_start" && !agent.title;

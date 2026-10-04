@@ -39,6 +39,28 @@ function fullAccessItem(
   };
 }
 
+/** The row that turns on notifications for finished and waiting conversations. */
+function notificationsItem(
+  settings: Settings,
+  onChange: (settings: Settings) => void,
+): Item {
+  return {
+    section: "Agent",
+    title: "Notifications",
+    description:
+      "Tells you when a conversation finishes or waits for you, while the app isn't in front.",
+    keywords: "notify alert done finished waiting banner",
+    control: (
+      <Switch
+        checked={settings.notifications.enabled}
+        onCheckedChange={(enabled) =>
+          onChange({ ...settings, notifications: { enabled } })
+        }
+      />
+    ),
+  };
+}
+
 /** Settings rows for how the agent works: questions, subagents, full access, keeping the Mac awake. */
 export function agentItems({
   settings,
@@ -119,6 +141,7 @@ export function agentItems({
         </Select>
       ),
     },
+    notificationsItem(settings, onChange),
     ...(isMac ? awakeItems(settings, onChange) : []),
   ];
 }
