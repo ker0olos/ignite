@@ -11,6 +11,7 @@ import { COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE } from "./bashExtension.ts";
 import tasks, {
   TASK_EVENT,
   PLAN_FIRST,
+  PLAN_GUIDANCE,
   TASK_GUIDANCE,
   CHROME_GUIDANCE,
   WRAP_UP,
@@ -61,11 +62,12 @@ function load(first: Task | null, active = ["read", "ask_user"]) {
       sent.push([text, options]),
     events,
   } as unknown as ExtensionAPI);
-  const asks: { kind: string; update?: TaskUpdate }[] = [];
+  const asks: { kind: string; update?: TaskUpdate; tasks?: Task[] }[] = [];
   events.on(TASK_EVENT, (data) => {
     const ask = data as TaskAsk;
     asks.push(ask);
     ask.heard = true;
+    if (ask.kind === "add") mine = ask.tasks[0];
     ask.reply(mine);
   });
   const start = (prompt = "do it") =>
@@ -74,7 +76,14 @@ function load(first: Task | null, active = ["read", "ask_user"]) {
       systemPrompt: `Base\n\n${ASKING}\n\n${COMMAND_GUIDANCE}`,
     }) as Promise<{ systemPrompt: string } | undefined>;
   const run = (params: object) =>
-    tool!.execute("t1", params as never, undefined, undefined, {} as never);
+    tool!.execute("t1", params as never, undefined, undefined, {
+      sessionManager: {
+        getSessionId: () => "s1",
+        getBranch: () => [
+          { type: "message", message: { role: "user", content: "Fix login" } },
+        ],
+      },
+    } as never);
   const call = (toolName: string, input: object) =>
     handlers.get("tool_call")!({ toolName, input }, { cwd: "/w" });
   const end = (stopReason?: string) =>
@@ -141,12 +150,12 @@ describe("tool_call", () => {
   });
 
   it("blocks file changes until the task is planned", async () => {
-    const { call, set, asks } = load(task);
+    const { call, run, asks } = load(task);
     const blocked = { block: true, reason: PLAN_FIRST };
     expect(await call("edit", { path: "a.ts" })).toEqual(blocked);
     expect(await call("write", { path: "a.ts" })).toEqual(blocked);
     expect(await call("read", { path: "a.ts" })).toBeUndefined();
-    set({ ...task, planned: true });
+    await run({});
     expect(await call("edit", { path: "a.ts" })).toBeUndefined();
     expect(await call("write", { path: "a.ts" })).toBeUndefined();
     await vi.waitFor(() =>
@@ -159,8 +168,19 @@ describe("tool_call", () => {
     );
   });
 
-  it("never blocks a conversation without a task", async () => {
-    const { call } = load(null);
+  it("lets a task planned before a reload change files", async () => {
+    const { start, call } = load({ ...task, planned: true });
+    await start();
+    expect(await call("edit", { path: "a.ts" })).toBeUndefined();
+  });
+
+  it("blocks a conversation's file changes until it plans", async () => {
+    const { call, run } = load(null);
+    expect(await call("edit", { path: "a.ts" })).toEqual({
+      block: true,
+      reason: PLAN_FIRST,
+    });
+    await run({ add: ["x"] });
     expect(await call("edit", { path: "a.ts" })).toBeUndefined();
   });
 });
@@ -211,6 +231,13 @@ describe("agent_end", () => {
     expect(sent).toEqual([]);
   });
 
+  it("doesn't nudge a conversation the user follows", async () => {
+    const { start, end, sent } = load({ ...task, interactive: true });
+    await start();
+    await end("stop");
+    expect(sent).toEqual([]);
+  });
+
   it("doesn't nudge a conversation without a task", async () => {
     const { start, end, sent } = load(null);
     await start();
@@ -220,10 +247,21 @@ describe("agent_end", () => {
 });
 
 describe("task tool", () => {
+  it("runs its batch in order, so an edit beside the plan isn't blocked", () => {
+    let tool: ToolDefinition | undefined;
+    tasks({
+      on: () => {},
+      registerTool: (t: ToolDefinition) => (tool = t),
+      events: createEventBus(),
+    } as unknown as ExtensionAPI);
+    expect(tool!.executionMode).toBe("sequential");
+  });
+
   it("emits the update and returns the progress", async () => {
     const { asks, run } = load(task);
     const result = await run({ subtask: 2, status: "done" });
     expect(asks).toMatchObject([
+      { kind: "get" },
       {
         kind: "update",
         update: { subtask: 2, status: "done", planned: true },
@@ -234,11 +272,44 @@ describe("task tool", () => {
     ]);
   });
 
-  it("says the conversation has no task", async () => {
-    const result = await load(null).run({ add: ["x"] });
+  it("adds a conversation without a task to the list, once", async () => {
+    const { asks, run, start } = load(null);
+    await start();
+    await Promise.all([run({ add: ["x"] }), run({ subtask: 1 })]);
+    expect(asks.filter((a) => a.kind === "add")).toHaveLength(1);
+    expect(asks.find((a) => a.kind === "add")!.tasks![0]).toMatchObject({
+      title: "Fix login",
+      session: "s1",
+      interactive: true,
+    });
+  });
+
+  it("says when the subtasks couldn't be saved, and lets edits through", async () => {
+    const events = createEventBus();
+    const handlers = new Map<string, Handler>();
+    let tool: ToolDefinition | undefined;
+    tasks({
+      on: (name: string, h: Handler) => handlers.set(name, h),
+      registerTool: (t: ToolDefinition) => (tool = t),
+      events,
+    } as unknown as ExtensionAPI);
+    const result = await tool!.execute(
+      "t1",
+      { add: ["x"] } as never,
+      undefined,
+      undefined,
+      {
+        sessionManager: { getSessionId: () => "s1", getBranch: () => [] },
+      } as never,
+    );
     expect(result.content).toEqual([
-      { type: "text", text: "This conversation has no task." },
+      { type: "text", text: "Couldn't save the subtasks." },
     ]);
+    const edit = handlers.get("tool_call")!(
+      { toolName: "edit", input: { path: "a.ts" } },
+      { cwd: "/w" },
+    );
+    expect(await edit).toBeUndefined();
   });
 });
 
@@ -275,10 +346,18 @@ describe("before_agent_start", () => {
     expect(fresh.asks.map((a) => a.kind)).toEqual(["get"]);
   });
 
-  it("swaps the task tool for task_add and changes nothing without a task", async () => {
+  it("has a conversation without a task plan, and keeps it interactive", async () => {
     const { start, active } = load(null, ["read", "ask_user", "task_update"]);
-    expect(await start()).toBeUndefined();
-    expect(active()).toEqual(["read", "ask_user", "task_add"]);
+    expect((await start())!.systemPrompt).toBe(
+      `Base\n\n${ASKING}\n\n${COMMAND_GUIDANCE}\n\n${PLAN_GUIDANCE}`,
+    );
+    expect(active()).toEqual(["read", "ask_user", "task_update", "task_add"]);
+  });
+
+  it("keeps a conversation the user follows interactive", async () => {
+    const { start, active } = load({ ...task, interactive: true });
+    expect((await start())!.systemPrompt).toContain(ASKING);
+    expect(active()).toEqual(["read", "ask_user", "task_update", "task_add"]);
   });
 
   it("drops task_add from a task's conversation", async () => {

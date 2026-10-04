@@ -41,6 +41,12 @@ describe("scopeOf", () => {
     expect((await scope.at("docs", true)).user).toBe(true);
   });
 
+  it("treats a conversation the user follows like a normal one", async () => {
+    const scope = scopeOf(piWith({ id: "t", interactive: true } as Task));
+    expect(await scope.task()).toBe(false);
+    expect((await scope.at("docs", true)).user).toBe(true);
+  });
+
   it("holds a task to the app's Chrome and its own tabs", async () => {
     const scope = scopeOf(piWith({ id: "t" } as Task));
     expect(await scope.task()).toBe(true);

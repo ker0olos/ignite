@@ -202,7 +202,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
   taskStore.ts           Each folder's tasks in ~/.ignite/tasks, written one at a time, pushed on change
   hostTasks.ts           Starts a task in a background conversation; answers the task extension
-  taskExtension.ts       task_update, and a task conversation's plan, work and wrap-up phases
+  taskExtension.ts       task_update for every conversation (plan before edits, joins the task list);
+                         a Tasks-view task's autonomy and wrap-up phase
   taskAddTool.ts         task_add: any other conversation proposes tasks, added unstarted once approved
   taskSteps.ts           Which tools change files (CHANGES_FILES), held until a task is planned
   subagentExtension.ts   subagent tool: hands tasks to its model or a cheaper one from the same provider and talks with it
@@ -239,7 +240,7 @@ docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/validation.ts     Checks on typed API keys and MCP servers (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
-shared/conversations.ts  Saved conversations, their details, command search hits (used by both)
+shared/conversations.ts  Saved conversations, their details, command search hits, titles (used by both)
 shared/skills.ts         Skills, plugins and importable skills as they cross the wire, and their requests;
                          a skill's expanded message shown as the `/name` typed
 shared/mcpCatalog.ts     MCP presets and other apps' servers the MCP settings offer
@@ -467,16 +468,22 @@ anywhere with the message's images (`@image1`), the folder's terminals
 (`@t1`) and files (`@src/app.ts`). Mentions stay plain text; the system
 prompt says what they name.
 
-Tasks (the sidebar's Tasks view) hand work to an agent that runs on its own.
+Tasks and conversations are one thing shown two ways. Every conversation
+plans before it changes files: `task_update` lays out its subtasks and keeps
+them current, and a conversation from the composer joins the Tasks view
+then, as an `interactive` task (titled by its first message) that keeps
+`ask_user`, the user's Chrome and git review as usual. Tasks started from
+the Tasks view hand work to an agent that runs on its own.
 Each folder's tasks live in `~/.ignite/tasks/` (`sidecar/taskStore.ts`,
 one JSON file per folder, images inline). Starting one opens a conversation
 in the background on the task's model and effort (never saved as defaults)
 and sends it the title, notes, subtasks and images. `taskExtension.ts` gives
-only that conversation `task_update`, drops `ask_user`, points its
-`chrome_*` tools at the app's own Chrome, and runs it in phases: edits and writes are blocked until it has laid
-out or confirmed the subtasks (`planned`), each tool call becomes its step,
-and a run that ends with subtasks open or no pull request gets one wrap-up
-message. Any other conversation can fill the list with `task_add`
+only that conversation autonomy: it drops `ask_user`, points its
+`chrome_*` tools at the app's own Chrome, and adds a wrap-up phase: a run
+that ends with subtasks open or no pull request gets one wrap-up message.
+In every conversation, edits and writes are blocked until it has laid out
+or confirmed the subtasks (`planned`), and each tool call becomes its task's
+step. Any conversation not started from the Tasks view can fill the list with `task_add`
 (`sidecar/taskAddTool.ts`): its row shows the proposed tasks as cards, and
 approving adds them unstarted. In a task, a commit and a plain push of its own branch run without
 asking (`taskRunsAlone` in `lib/gitPolicy.ts`); `gh pr create` still waits

@@ -321,6 +321,15 @@ describe("a task's conversation", () => {
     await expect(done).rejects.toThrow(DENIED);
   });
 
+  it("asks for a commit in a conversation the user follows", async () => {
+    await withRemote();
+    const { asks, call } = load({ ...mine, interactive: true });
+    const done = call("git", ["commit", "--allow-empty", "-m", "x"]);
+    await asked(asks);
+    asks[0].answer(false);
+    await expect(done).rejects.toThrow(DENIED);
+  });
+
   it("asks before gh pr create, then reports the pull request", async () => {
     const bin = join(home, "bin");
     await mkdir(bin);
@@ -347,6 +356,16 @@ describe("a task's conversation", () => {
     asks[0].answer(false);
     await expect(done).rejects.toThrow(PR_DECLINED);
     expect(updates).toEqual([{ declined: true }]);
+  });
+
+  it("denies a pull request plainly in a conversation the user follows", async () => {
+    const { asks, updates, call } = load({ ...mine, interactive: true });
+    const done = call("gh", ["pr", "create", "--fill"]);
+    await asked(asks);
+    asks[0].declined!();
+    asks[0].answer(false);
+    await expect(done).rejects.toThrow(DENIED);
+    expect(updates).toEqual([]);
   });
 
   it("doesn't count a stop or close as declining the pull request", async () => {

@@ -20,7 +20,8 @@ import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
 import { askApproval, denyAll } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { followSubagents, subagentsIn } from "./hostChildren.ts";
-import { firstTitle, pushProjects, titleOf } from "./hostProjects.ts";
+import { firstTitle, titleOf } from "../shared/conversations.ts";
+import { pushProjects } from "./hostProjects.ts";
 import { resume } from "./hostResume.ts";
 import { delivered, rememberImages } from "./queuedImages.ts";
 

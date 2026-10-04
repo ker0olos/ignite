@@ -1,5 +1,7 @@
 /** A folder's saved conversations, as the command center finds, lists and describes them. */
+import type { AgentMessage, UserMessage } from "./agentTypes.ts";
 import type { SessionSummary } from "./memory.ts";
+import { typedSkill } from "./skills.ts";
 
 /** A conversation pi saved for a folder. */
 export type SavedSession = {
@@ -50,3 +52,23 @@ export type CommandSearchResult = {
   conversations: ConversationHit[];
   files: FileHit[];
 };
+
+const TITLE_LENGTH = 80;
+
+const isUser = (m: AgentMessage): m is UserMessage => m.role === "user";
+
+/** A user message as a title: its first line of text, or "". */
+export function titleOf(message: AgentMessage | undefined): string {
+  const content = message && isUser(message) ? message.content : undefined;
+  const text =
+    typeof content === "string"
+      ? content
+      : content?.find((c) => c.type === "text")?.text;
+  return typedSkill((text ?? "").trim())
+    .split("\n")[0]
+    .slice(0, TITLE_LENGTH);
+}
+
+/** A conversation's title: its first user message, as the history lists it, or "" before one. */
+export const firstTitle = (messages: AgentMessage[]) =>
+  titleOf(messages.find(isUser));

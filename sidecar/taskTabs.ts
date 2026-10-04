@@ -1,6 +1,7 @@
 /** Which Chrome tabs a task's conversation may use: only the ones it opened, named by id. */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { APP_NAME } from "../src/lib/app.ts";
+import { autonomous } from "../shared/tasks.ts";
 import { askTask } from "./taskExtension.ts";
 
 export const NEEDS_TAB =
@@ -55,7 +56,7 @@ export function scopeOf(pi: Pick<ExtensionAPI, "events">): Scope {
   // ponytail: kept per loaded session, so a reload forgets the task's tabs and it opens new ones.
   const mine = new Set<string>();
   const claimed = (shared[CLAIMED] ??= new Set());
-  const task = async () => !!(await askTask(pi, "get"));
+  const task = async () => autonomous(await askTask(pi, "get"));
   return {
     mine,
     claimed,
