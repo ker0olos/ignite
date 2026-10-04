@@ -121,7 +121,7 @@ export type ApprovalRequest = {
   reason?: string;
   /** What a commit or push would change. */
   review?: GitReview;
-  /** What the sandbox blocked that the user may always allow (a host, socket or path). */
+  /** What the sandbox blocked that the user may always allow (a host, socket, path, or a program to run outside it). */
   allow?: string;
 };
 

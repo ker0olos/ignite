@@ -62,16 +62,27 @@ const CREDENTIALS = [
   `.${APP_NAME}/pi/auth.json`,
 ];
 
+// Programs that run whatever they're given (versioned too: python3.12) or
+// copy any file anywhere: always running them outside would turn the sandbox off.
+const RUNS_ANYTHING =
+  /^(?:(?:ba|z|da|k|c|tc|fi)?sh|env|sudo|doas|xargs|nohup|nice|time|timeout|watch|script|exec|command|eval|source|make|find|(?:g|m|n)?awk|ssh|docker|podman|kubectl|osascript|open|(?:node|deno|bun|python|ruby|perl|php|lua|java|pip|go)[\d.]*|npm|npx|pnpm|pnpx|yarn|bunx|tsx|ts-node|uv|uvx|cargo|rustc|gcc|clang|cat|cp|mv|ln|dd|tar|zip|unzip|rsync|scp|curl|wget|nc|head|tail|less|more|grep|rg|sed|base64|xxd|od|strings|security)$/;
+
+/** Whether `path` is one of the credentials sandboxed commands can't read. */
+export function isCredential(path: string, home: string): boolean {
+  return CREDENTIALS.map((p) => join(home, p)).some(
+    (p) => path === p || path.startsWith(p + "/"),
+  );
+}
+
 /**
- * Whether "Always allow" is worth offering for `rule`: never for credentials,
- * and not again once saved, since the sandbox's own protections (a worktree's
- * git files, shell rc files) outrank the allowlist.
+ * Whether "Always allow" is worth offering for `rule`: never for credentials
+ * or programs that run anything, and not again once saved, since the
+ * sandbox's own protections (a worktree's git files, shell rc files) outrank
+ * the allowlist.
  */
 export async function canAllow(rule: AllowRule, home: string) {
-  const secret = CREDENTIALS.map((p) => join(home, p)).some(
-    (p) => rule.target === p || rule.target.startsWith(p + "/"),
-  );
-  if (secret) return false;
+  if (isCredential(rule.target, home)) return false;
+  if (rule.kind === "commands" && RUNS_ANYTHING.test(rule.target)) return false;
   const allowed = await loadAllowed(allowedFile(home));
   return !allowed[rule.kind].includes(rule.target);
 }
@@ -128,8 +139,8 @@ export function sandboxConfig(
   };
 }
 
-/** What the sandbox blocked, from output `explain` annotated; null if nothing. */
-export function blockedSummary(output: string): string | null {
+/** The sandbox's report line for the file or network denial it logged first. */
+function blockedLine(output: string): string | undefined {
   const report = /<sandbox_violations>\s*([\s\S]*?)<\/sandbox_violations>/.exec(
     output,
   );
@@ -137,7 +148,17 @@ export function blockedSummary(output: string): string | null {
   // macOS also logs lookups (system-info, mach-lookup) that commands failing
   // for their own reasons made, e.g. a grep with no match; only a file or
   // network denial is worth asking to run outside the sandbox.
-  const first = lines.find((l) => /file-|network/.test(l));
+  return lines.find((l) => /file-|network/.test(l));
+}
+
+/** The program the sandbox blocked ("doppler(123) deny(1) …" → doppler); null if unnamed. */
+export function blockedProgram(output: string): string | null {
+  return /^(\S+)\(\d+\)\s+deny/.exec(blockedLine(output) ?? "")?.[1] ?? null;
+}
+
+/** What the sandbox blocked, from output `explain` annotated; null if nothing. */
+export function blockedSummary(output: string): string | null {
+  const first = blockedLine(output);
   // "touch(123) deny(1) file-write-create /path" → "file-write-create /path",
   // and the proxy's "deny network-outbound host:443 (…)" → "network-outbound …".
   return first

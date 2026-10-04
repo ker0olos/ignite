@@ -9,6 +9,8 @@ import {
   allowRuleFor,
   loadAllowed,
   NOTHING_ALLOWED,
+  programsOf,
+  runsOnly,
 } from "./sandboxAllow.ts";
 
 let home: string;
@@ -96,5 +98,33 @@ describe("allowRuleFor", () => {
   it("is null for anything else", () => {
     expect(allowRuleFor("mach-lookup com.apple.x")).toBeNull();
     expect(allowRuleFor("gibberish")).toBeNull();
+  });
+});
+
+const run = (words: string[]) => ({ words, redirects: [] });
+
+describe("programsOf", () => {
+  it("names programs run from PATH, not paths or ones run with assignments", () => {
+    expect(
+      programsOf([
+        [run(["doppler", "run"]), run(["tail"])],
+        [run(["./doppler"])],
+        [run(["PATH=.", "doppler"])],
+      ]),
+    ).toEqual(["doppler", "tail"]);
+  });
+});
+
+describe("runsOnly", () => {
+  it("is true when every pipeline starts with the program or a cd", () => {
+    const line = [[run(["cd", "x"])], [run(["doppler", "run"]), run(["tail"])]];
+    expect(runsOnly(line, ["doppler"])).toBe(true);
+  });
+
+  it("is false when anything else starts, or the program doesn't", () => {
+    const chained = [[run(["doppler"])], [run(["curl", "evil.example"])]];
+    expect(runsOnly(chained, ["doppler"])).toBe(false);
+    expect(runsOnly([[run(["cd", "x"])]], ["doppler"])).toBe(false);
+    expect(runsOnly([[run(["./doppler"])]], ["doppler"])).toBe(false);
   });
 });

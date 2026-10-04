@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import type {
   ExtensionAPI,
@@ -12,7 +12,12 @@ import {
   forgetBackground,
   STARTUP_MS,
 } from "./backgroundBash.ts";
-import bash, { COMMAND_GUIDANCE, runBackground } from "./bashExtension.ts";
+import bash, {
+  COMMAND_GUIDANCE,
+  runBackground,
+  scratchGuidance,
+  scratchpad,
+} from "./bashExtension.ts";
 
 const cwd = realpathSync(tmpdir());
 const ctx = {
@@ -53,11 +58,13 @@ describe.runIf(process.platform !== "win32")("bash extension", () => {
     ]);
   });
 
-  it("tells the agent to run commands itself", () => {
+  it("tells the agent to run commands itself and where its scratchpad is", async () => {
     const start = load().handlers.get("before_agent_start")!;
-    expect(start({ systemPrompt: "base" })).toEqual({
-      systemPrompt: `base\n\n${COMMAND_GUIDANCE}`,
+    const scratch = scratchpad("s1");
+    expect(await start({ systemPrompt: "base" }, ctx)).toEqual({
+      systemPrompt: `base\n\n${COMMAND_GUIDANCE}\n\n${scratchGuidance(scratch)}`,
     });
+    expect(existsSync(scratch)).toBe(true);
   });
 
   it("runs commands as pi's bash does without it", async () => {
