@@ -27,7 +27,7 @@ export function CodeBlockActions({
 
   return (
     <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-      {run && isShellBlock(lang) && (
+      {run && isShellBlock(lang, code) && (
         <Button
           size="xs"
           variant="outline"
