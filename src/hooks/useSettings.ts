@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import type { ThemeKind } from "@/lib/codeThemes";
+import { codeThemesFor, type ThemeKind } from "@/lib/codeThemes";
 import { DEMO_FOLDER } from "@/lib/demo";
 import { importTheme, themeKind } from "@/lib/codeThemeLoad";
+import { applyPalettes, loadPalettes } from "@/lib/themePalette";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -12,7 +13,7 @@ import {
 
 /**
  * User settings from ~/.<APP_NAME>/settings.toml, synced across windows.
- * Also applies the theme as the `dark` class on <html>. Demo mode starts from
+ * Also applies the theme as the `dark` class on <html>, and its accent colors. Demo mode starts from
  * the defaults and never reads or saves the user's.
  */
 export function useSettings(demo = !!DEMO_FOLDER) {
@@ -49,6 +50,9 @@ export function useSettings(demo = !!DEMO_FOLDER) {
       if (cancelled) return;
       kind = k;
       apply();
+    });
+    loadPalettes(codeThemesFor(theme)).then((palettes) => {
+      if (!cancelled) applyPalettes(palettes);
     });
     media.addEventListener("change", apply);
     return () => {
