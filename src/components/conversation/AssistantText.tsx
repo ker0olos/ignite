@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/conversation/CodeBlock";
 import { CodeBlockActions } from "@/components/conversation/CodeBlockActions";
+import { InlineCode } from "@/components/conversation/InlineCode";
 import type { Editor } from "@/components/conversation/shared";
 import { useOpenTab } from "@/hooks/useOpenTab";
 import { useSmoothText } from "@/hooks/useSmoothText";
@@ -96,25 +97,15 @@ export function AssistantText({
         </div>
       );
     },
-    code: ({ children }) => {
-      const text = String(children ?? "");
-      if (!looksLikeFilePath(text)) {
-        return (
-          <code className="rounded bg-muted px-1 font-mono text-[0.92em]">
-            {children}
-          </code>
-        );
-      }
-      return (
-        <button
-          type="button"
-          className="rounded bg-muted px-1 font-mono text-[0.92em] underline decoration-current/40 underline-offset-2 hover:decoration-current"
-          onClick={() => openFileLink(text)}
-        >
-          {children}
-        </button>
-      );
-    },
+    code: ({ children }) => (
+      <InlineCode
+        text={String(children ?? "")}
+        folder={folder}
+        onOpen={openFileLink}
+      >
+        {children}
+      </InlineCode>
+    ),
   };
 
   return (

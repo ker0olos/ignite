@@ -58,6 +58,7 @@ src/                     React frontend (almost all logic lives here)
     useCommandSearch.ts  The command center's results: debounced command_search, folders, @ suggestions
     useDetailsCache.ts   Session details fetched once each, for the command center preview
     useOpenFile.ts       Opens a tab (file, diff, subagent…) in any folder, switching to it first
+    useFileExists.ts     Whether a path exists, checked once; inline code links only to ones that do
     useXterm.ts          An xterm fitted to its element and themed like the app (read-only and interactive views)
     useTerminalSession.ts A terminal view's connection to the host: snapshot, live output, keystrokes
     useTerminalShortcut.ts ⌘1 / Ctrl+1 opens a terminal tab; returns run-in-terminal

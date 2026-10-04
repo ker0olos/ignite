@@ -12,11 +12,19 @@ const opener = vi.hoisted(() => ({
 }));
 
 vi.mock("@tauri-apps/plugin-opener", () => opener);
+vi.mock("@tauri-apps/plugin-fs", async (actual) => ({
+  ...(await actual<object>()),
+  exists: async (path: string) =>
+    [
+      "/repo/tmp/core-user-tenets-notes.md",
+      "/tmp/core-user-tenets-notes.md",
+    ].includes(path),
+}));
 
 describe("AssistantText file links", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("opens inline repo file paths in an app tab", () => {
+  it("opens inline repo file paths in an app tab", async () => {
     const openTab = vi.fn();
     render(
       <OpenTabContext.Provider value={openTab}>
@@ -29,12 +37,12 @@ describe("AssistantText file links", () => {
       </OpenTabContext.Provider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /core-user/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /core-user/ }));
     expect(openTab).toHaveBeenCalledWith("/repo/tmp/core-user-tenets-notes.md");
     expect(opener.openPath).not.toHaveBeenCalled();
   });
 
-  it("opens external absolute file paths through the OS", () => {
+  it("opens external absolute file paths through the OS", async () => {
     const openTab = vi.fn();
     render(
       <OpenTabContext.Provider value={openTab}>
@@ -47,11 +55,25 @@ describe("AssistantText file links", () => {
       </OpenTabContext.Provider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /core-user/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /core-user/ }));
     expect(openTab).not.toHaveBeenCalled();
     expect(opener.openPath).toHaveBeenCalledWith(
       "/tmp/core-user-tenets-notes.md",
     );
+  });
+
+  it("leaves branches and files that don't exist as plain code", async () => {
+    render(
+      <AssistantText
+        text="Pushed `feat/self-hosted-server`; see `motr.json`."
+        folder="/repo"
+        editor={DEFAULT_SETTINGS.editor}
+        codeThemes={DEFAULT_CODE_THEMES}
+      />,
+    );
+    await screen.findByText("motr.json");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByRole("button")).toBe(null);
   });
 });
 
