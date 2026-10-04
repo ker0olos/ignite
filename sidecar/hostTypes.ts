@@ -175,6 +175,8 @@ export type Agent = {
   opening: Promise<Session>;
   /** Between agent_start and agent_settled. */
   running: boolean;
+  /** Its last run ended in an error. */
+  failed?: boolean;
   /** Unsubscribe from the session's events. */
   unsubscribe: () => void;
   /** Adapter status per server name, from the session's latest snapshot. */

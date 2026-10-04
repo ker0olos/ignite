@@ -82,6 +82,7 @@
     },
     "shell:allow-stdin-write",
     "shell:allow-kill",
-    "opener:default"
+    "opener:default",
+    "notification:default"
   ]
 }

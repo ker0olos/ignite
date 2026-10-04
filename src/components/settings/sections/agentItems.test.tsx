@@ -61,6 +61,24 @@ describe("agentItems", () => {
     });
   });
 
+  it("toggles notifications, on by default, before the awake rows", () => {
+    const onChange = vi.fn();
+    const items = agentItems({
+      settings: DEFAULT_SETTINGS,
+      onChange,
+      isMac: false,
+    });
+    const notify = items.at(-1)!;
+    expect(notify.title).toBe("Notifications");
+    const { checked, onCheckedChange } = props<SwitchProps>(notify);
+    expect(checked).toBe(true);
+    onCheckedChange(false);
+    expect(onChange).toHaveBeenCalledWith({
+      ...DEFAULT_SETTINGS,
+      notifications: { enabled: false },
+    });
+  });
+
   it("toggles keeping the Mac awake, and shows it only on macOS", () => {
     const onChange = vi.fn();
     const items = agentItems({

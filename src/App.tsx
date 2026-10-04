@@ -16,6 +16,7 @@ import { useConversationList } from "@/hooks/useConversationList";
 import { useConversations } from "@/hooks/useConversations";
 import { useProviders } from "@/hooks/useProviders";
 import { useRemoteAccess } from "@/hooks/useRemoteAccess";
+import { useNotifications } from "@/hooks/useNotifications";
 import { useSettings } from "@/hooks/useSettings";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useTabs } from "@/hooks/useTabs";
@@ -43,6 +44,7 @@ export default function App() {
   const { host } = providers;
   const connectScreen = useConnectScreen(providers.statuses);
   const remote = useRemoteAccess(host, settings.remote);
+  useNotifications(host, settings.notifications.enabled);
   const agent = useAgentSession(host, current, providers.statuses);
   const session = shownSession(agent, providers.hostError);
   const mcp = useMcpServers(host, current);

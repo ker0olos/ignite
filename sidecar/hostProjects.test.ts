@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { pushProjects } from "./hostProjects.ts";
+import { pushProjects, trackRun } from "./hostProjects.ts";
+import type { SessionEvent } from "../shared/agentTypes.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
 
 const agent = (running: boolean, waiting: boolean, ...requests: object[]) =>
@@ -56,5 +57,41 @@ describe("pushProjects", () => {
     expect(push({ "/a": agent(true, true), "/b": agent(true, false) })).toEqual(
       [true],
     );
+  });
+});
+
+const reply = (stopReason: string) =>
+  ({
+    type: "message_end",
+    message: { role: "assistant", content: [], stopReason },
+  }) as unknown as SessionEvent;
+
+describe("trackRun", () => {
+  it("follows a run starting and settling", () => {
+    const agent = { running: false } as Agent;
+    expect(trackRun(agent, { type: "agent_start" } as SessionEvent)).toBe(true);
+    expect(agent.running).toBe(true);
+    expect(trackRun(agent, { type: "agent_settled" } as SessionEvent)).toBe(
+      true,
+    );
+    expect(agent.running).toBe(false);
+  });
+
+  it("remembers whether the last reply ended in an error", () => {
+    const agent = { running: true } as Agent;
+    expect(trackRun(agent, reply("error"))).toBe(false);
+    expect(agent.failed).toBe(true);
+    trackRun(agent, reply("stop"));
+    expect(agent.failed).toBe(false);
+  });
+
+  it("ignores the user's messages and other events", () => {
+    const agent = { running: true, failed: true } as Agent;
+    const user = {
+      type: "message_end",
+      message: { role: "user", content: "hi" },
+    } as unknown as SessionEvent;
+    expect(trackRun(agent, user)).toBe(false);
+    expect(agent).toEqual({ running: true, failed: true });
   });
 });
