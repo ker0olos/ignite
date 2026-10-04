@@ -89,11 +89,13 @@ export function AssistantText({
       const code = String(codeProps.children ?? "").replace(/\n$/, "");
       return (
         <div className="group relative">
+          {/* Tall enough for its buttons on one line. */}
           <CodeBlock
             code={code}
             lang={match?.[1]}
             editor={editor}
             codeThemes={codeThemes}
+            className="[&_pre]:py-1.5"
           />
           <CodeBlockActions code={code} lang={match?.[1]} />
         </div>
