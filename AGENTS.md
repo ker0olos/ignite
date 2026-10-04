@@ -58,6 +58,7 @@ src/                     React frontend (almost all logic lives here)
     useCommandSearch.ts  The command center's results: debounced command_search, folders, @ suggestions
     useDetailsCache.ts   Session details fetched once each, for the command center preview
     useOpenFile.ts       Opens a tab (file, diff, subagent…) in any folder, switching to it first
+    useFileExists.ts     Whether a path exists, checked once; inline code links only to ones that do
     useXterm.ts          An xterm fitted to its element and themed like the app (read-only and interactive views)
     useTerminalSession.ts A terminal view's connection to the host: snapshot, live output, keystrokes
     useTerminalShortcut.ts ⌘1 / Ctrl+1 opens a terminal tab; returns run-in-terminal
@@ -93,6 +94,7 @@ src/                     React frontend (almost all logic lives here)
     codeThemes.ts        Theme types, built-ins, and grouping for the picker
     codeThemeDiscovery.ts Finds themes: Shiki bundle, VS Code-family editors, custom files
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
+    themePalette.ts      The theme's colors for inline code, success, warning and errors
     tabs.ts              Open/close logic for file tabs
     recent.ts            Recent-folders list logic
     conversationTags.ts  Conversation tags: splitting typed text, adding, removing, suggestions
@@ -281,8 +283,9 @@ Two places hold persisted data:
 - **User settings** in `~/.ignite/settings.toml` (`lib/settings.ts`).
   Human-editable; add new options to the `Settings` type and `DEFAULT_SETTINGS`.
 - **Themes:** the `theme` setting is `"system"` (GitHub Light/Dark following
-  macOS) or a theme id. The chosen theme colours code and decides light or dark
-  mode. Themes come from Shiki, from extensions installed in VS Code, VSCodium,
+  macOS) or a theme id. The chosen theme colours code, decides light or dark
+  mode, and lends the app its colors for inline code (its strings), success,
+  warning and errors (its terminal colors), where it sets them. Themes come from Shiki, from extensions installed in VS Code, VSCodium,
   Cursor or Windsurf, or from `~/.ignite/themes/*.json`. Picking an
   editor theme copies it (includes merged) into that folder and saves the
   copy's id, so uninstalling the editor later can't break it; the copy records

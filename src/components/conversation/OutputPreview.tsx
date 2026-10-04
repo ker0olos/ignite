@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Plain-text tool output, collapsed to its line count unless it's one short
- * line or an error; opened, a few lines with an expand button.
+ * line; opened, a few lines with an expand button. Errors are red.
  */
 export function OutputPreview({
   text,
@@ -19,7 +19,7 @@ export function OutputPreview({
 }) {
   const [opened, setOpen] = useState(false);
   // Decided on each render: streaming output starts short and grows.
-  const open = opened || error || isShortOutput(text);
+  const open = opened || isShortOutput(text);
   const [all, setAll] = useState(false);
   const trimmed = text.replace(/\n+$/, "");
   const lines = trimmed.split("\n").length;
