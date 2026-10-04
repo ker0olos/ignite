@@ -1,18 +1,21 @@
 /**
  * What the user chose to always let sandboxed commands do, beyond the
- * sandbox's own rules: hosts, Unix sockets, and paths to read or write.
+ * sandbox's own rules: hosts, Unix sockets, paths to read or write, and
+ * programs whose commands run outside it.
  * Kept in ~/.ignite/sandbox.json, read before every sandboxed command.
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
+import type { Pipeline } from "../src/lib/dangerousCommands.ts";
 
 export type Allowed = {
   hosts: string[];
   sockets: string[];
   read: string[];
   write: string[];
+  commands: string[];
 };
 
 /** One thing to always allow: which list it goes in, and what. */
@@ -23,6 +26,7 @@ export const NOTHING_ALLOWED: Allowed = {
   sockets: [],
   read: [],
   write: [],
+  commands: [],
 };
 
 /** Where the allowlist lives for `home`. */
@@ -44,6 +48,7 @@ export async function loadAllowed(file = allowedFile()): Promise<Allowed> {
       sockets: strings(data.sockets),
       read: strings(data.read),
       write: strings(data.write),
+      commands: strings(data.commands),
     };
   } catch {
     return NOTHING_ALLOWED;
@@ -92,4 +97,26 @@ export function allowRuleFor(summary: string): AllowRule | null {
   if (target.startsWith("/")) return { kind: "sockets", target };
   const host = target.split(" ")[0].replace(/:\d+$/, "");
   return host ? { kind: "hosts", target: host } : null;
+}
+
+/** The programs a command line runs by name from PATH; `./x`, `/bin/x` and `PATH=. x` don't count. */
+export function programsOf(pipelines: Pipeline[]): string[] {
+  return pipelines
+    .flat()
+    .flatMap(({ words: [program] }) =>
+      program && !/[/=]/.test(program) ? [program] : [],
+    );
+}
+
+/**
+ * Whether a command line runs one of `programs` and every pipeline in it
+ * (`$(…)` and `bash -c` included) starts with one of them or a cd, so it
+ * may run outside the sandbox without taking other commands along.
+ */
+export function runsOnly(pipelines: Pipeline[], programs: string[]): boolean {
+  const heads = pipelines.map(([first]) => programsOf([[first]])[0]);
+  return (
+    heads.some((head) => programs.includes(head)) &&
+    heads.every((head) => head === "cd" || programs.includes(head))
+  );
 }

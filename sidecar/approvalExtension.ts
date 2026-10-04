@@ -8,7 +8,7 @@
  * Auto with full access asks for nothing and doesn't sandbox.
  */
 import { readFile, realpath } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import {
   createBashTool,
@@ -32,15 +32,23 @@ import { runBackground } from "./bashExtension.ts";
 import { loadBashParser } from "./bashParser.ts";
 import {
   blockedAction,
+  blockedProgram,
   blockedSummary,
   canAllow,
   createSandbox,
+  isCredential,
   mayBeBlocked,
   refusedLine,
   shortHome,
   type Sandbox,
 } from "./sandbox.ts";
-import { allowAlways, allowRuleFor } from "./sandboxAllow.ts";
+import {
+  allowAlways,
+  allowRuleFor,
+  loadAllowed,
+  runsOnly,
+  type AllowRule,
+} from "./sandboxAllow.ts";
 
 // Without these, commands are still checked: as raw text, and for paths
 // outside the folder instead of in the sandbox.
@@ -106,9 +114,16 @@ export async function realPath(path: string): Promise<string> {
 async function judged(input: Record<string, unknown>, cwd: string) {
   const windows = process.platform === "win32";
   if (windows || typeof input.path !== "string") {
-    return { input, place: { cwd, home: homedir(), windows } };
+    return {
+      input,
+      place: { cwd, home: homedir(), temp: [tmpdir()], windows },
+    };
   }
-  const place = { cwd: await realPath(cwd), home: await realPath(homedir()) };
+  const place = {
+    cwd: await realPath(cwd),
+    home: await realPath(homedir()),
+    temp: [...new Set(await Promise.all([tmpdir(), "/tmp"].map(realPath)))],
+  };
   const path = await realPath(resolvePath(input.path, place));
   return { input: { ...input, path }, place };
 }
@@ -126,6 +141,41 @@ function blockedReason(what: string) {
   return action
     ? `Auto mode stopped this because it tried to ${action}.`
     : `Auto mode stopped this (${what}).`;
+}
+
+/**
+ * What to offer to always allow for a blocked command: what it hit, or, when
+ * that was a credential (a CLI's token in the keychain), the program that
+ * read it, when the command runs it by name.
+ */
+async function ruleFor(
+  explained: string,
+  command: string,
+): Promise<AllowRule | null> {
+  const summary = blockedSummary(explained);
+  const hit = summary ? allowRuleFor(summary) : null;
+  if (!hit) return null;
+  if (await canAllow(hit, homedir())) return hit;
+  const program = blockedProgram(explained);
+  const pipelines = (await bashParser)?.(command);
+  if (!program || !pipelines || !runsOnly(pipelines, [program])) return null;
+  if (!isCredential(hit.target, homedir())) return null;
+  const rule = { kind: "commands" as const, target: program };
+  return (await canAllow(rule, homedir())) ? rule : null;
+}
+
+/** How the prompt names `rule` after "Always allow". */
+const allowLabel = (rule: AllowRule) =>
+  rule.kind === "commands"
+    ? `${rule.target} to run outside the sandbox`
+    : shortHome(rule.target, homedir());
+
+/** Whether `command` runs a program the user always lets run outside the sandbox. */
+async function runsOutside(command: string): Promise<boolean> {
+  const { commands } = await loadAllowed();
+  if (!commands.length) return false;
+  const pipelines = (await bashParser)?.(command);
+  return !!pipelines && runsOnly(pipelines, commands);
 }
 
 // ponytail: pi's default shell, not a shellPath or commandPrefix from pi's settings.
@@ -171,14 +221,12 @@ export default function approval(pi: ExtensionAPI) {
     explained: string,
     what: string,
   ) {
-    const summary = blockedSummary(explained);
-    const found = summary ? allowRuleFor(summary) : null;
-    const rule = found && (await canAllow(found, homedir())) ? found : null;
+    const rule = await ruleFor(explained, command);
     const { approved, always } = await ask(
       {
         toolCallId: event.toolCallId,
         reason: blockedReason(what),
-        ...(rule && { allow: shortHome(rule.target, homedir()) }),
+        ...(rule && { allow: allowLabel(rule) }),
       },
       ctx,
     );
@@ -233,7 +281,7 @@ export default function approval(pi: ExtensionAPI) {
       // An approved command runs as is, outside the sandbox.
       return;
     }
-    if (!box || command === undefined) return;
+    if (!box || command === undefined || (await runsOutside(command))) return;
     sandboxed.set(event.toolCallId, command);
     const input = event.input as { command: string };
     input.command = await box.wrap(command, ctx.cwd, event.toolCallId);
