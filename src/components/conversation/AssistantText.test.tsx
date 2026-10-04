@@ -62,6 +62,21 @@ describe("AssistantText file links", () => {
     );
   });
 
+  it("opens URLs in the browser", () => {
+    render(
+      <AssistantText
+        text="Opened https://github.com/ker0olos/ignite/pull/66."
+        folder="/repo"
+        editor={DEFAULT_SETTINGS.editor}
+        codeThemes={DEFAULT_CODE_THEMES}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /pull\/66/ }));
+    expect(opener.openUrl).toHaveBeenCalledWith(
+      "https://github.com/ker0olos/ignite/pull/66",
+    );
+  });
+
   it("leaves branches and files that don't exist as plain code", async () => {
     render(
       <AssistantText

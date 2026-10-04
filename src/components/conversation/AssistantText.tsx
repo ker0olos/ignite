@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/conversation/CodeBlock";
 import { CodeBlockActions } from "@/components/conversation/CodeBlockActions";
 import { InlineCode } from "@/components/conversation/InlineCode";
+import { LinkPill } from "@/components/conversation/LinkPill";
 import type { Editor } from "@/components/conversation/shared";
 import { useOpenTab } from "@/hooks/useOpenTab";
 import { useSmoothText } from "@/hooks/useSmoothText";
@@ -34,20 +35,21 @@ export function AssistantText({
     else openPath(path).catch(() => {});
   };
   const components: Components = {
-    a: ({ href, children }) => (
-      <a
-        href={href}
-        className="text-primary underline decoration-current/40 underline-offset-2 hover:decoration-current"
-        onClick={(e) => {
-          e.preventDefault();
-          if (!href) return;
-          if (looksLikeFilePath(href)) openFileLink(href);
-          else openUrl(href).catch(() => {});
-        }}
-      >
-        {children}
-      </a>
-    ),
+    a: ({ href = "", children }) => {
+      const file = looksLikeFilePath(href);
+      return (
+        <LinkPill
+          kind={file ? "file" : "url"}
+          onOpen={() => {
+            if (!href) return;
+            if (file) openFileLink(href);
+            else openUrl(href).catch(() => {});
+          }}
+        >
+          {children}
+        </LinkPill>
+      );
+    },
     h1: ({ children }) => (
       <h1 className="mt-4 mb-2 text-[1.2em] font-semibold first:mt-0">
         {children}
