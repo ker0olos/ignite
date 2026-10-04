@@ -10,8 +10,11 @@ goal is a short list of real problems, not a long list of opinions.
 
 You coordinate the review. Fresh subagents (the `subagent` tool, on your own
 model and effort) find candidates and check them, so each one judges the code
-without this conversation's assumptions. Don't change any files unless the
-user asks you to fix what you found.
+without this conversation's assumptions. Start them without `explore`, which
+has no git and runs on a cheaper model, and leave out `model` and `effort` so
+they use yours. Give each a `description` like "Find: line by line" or
+"Verify: promptCache.ts:86". Don't change any files unless the user asks you
+to fix what you found.
 
 ## Level
 

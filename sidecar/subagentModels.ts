@@ -60,7 +60,7 @@ function exploreDefaults(
   };
 }
 
-/** The requested model and effort, if the rules allow them. */
+/** The requested model and effort, if the rules allow them; left out, the main agent's own (an explore subagent's defaults when exploring). */
 export function pick(
   requested: { model?: string; effort?: string; explore?: boolean },
   ctx: ExtensionContext,
@@ -68,7 +68,10 @@ export function pick(
 ) {
   const params = requested.explore
     ? exploreDefaults(requested, ctx, own)
-    : requested;
+    : {
+        model: requested.model ?? ctx.model?.id,
+        effort: requested.effort ?? own,
+      };
   const models = allowedModels(ctx);
   const model = models.find((m) => m.id === params.model);
   if (!model) {

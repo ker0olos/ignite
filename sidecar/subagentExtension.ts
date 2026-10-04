@@ -78,7 +78,8 @@ export async function subagentLimits(
 export function guidance(models: Model[], efforts: Effort[], max: number) {
   return `## Subagents
 With the ${SUBAGENT_TOOL} tool you can hand a self-contained task to a subagent: it works in the same folder with the same tools and its final reply comes back to you. Start as many as the work needs: ${max} run at a time and the rest wait their turn.
-- Models (yours or cheaper): ${models.map((m) => m.id).join(", ")}. Efforts: ${efforts.join(", ")}.
+- Models (yours or cheaper): ${models.map((m) => m.id).join(", ")}. Efforts: ${efforts.join(", ")}. Leave them out to use your own.
+- Give each new one a short description, shown to the user.
 - It can't see this conversation, so give it everything it needs in the message.
 - To answer its question or give it more work, call ${SUBAGENT_TOOL} again with its id and your message.
 - Several calls in one turn run at the same time, up to that limit.
@@ -91,16 +92,28 @@ const Params = Type.Object({
     description:
       "The task for a new subagent, or your message to an existing one.",
   }),
+  description: Type.Optional(
+    Type.String({
+      description:
+        'What it does, in 3 to 6 words, shown to the user (e.g. "Find: removed behaviour").',
+    }),
+  ),
   id: Type.Optional(
     Type.String({
       description: "An existing subagent's id, to continue with it.",
     }),
   ),
   model: Type.Optional(
-    Type.String({ description: "A new subagent's model id (see Subagents)." }),
+    Type.String({
+      description:
+        "A new subagent's model id (see Subagents); yours if left out.",
+    }),
   ),
   effort: Type.Optional(
-    Type.String({ description: "A new subagent's effort (see Subagents)." }),
+    Type.String({
+      description:
+        "A new subagent's effort (see Subagents); yours if left out.",
+    }),
   ),
   explore: Type.Optional(
     Type.Boolean({
