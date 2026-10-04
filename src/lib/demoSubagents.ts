@@ -15,12 +15,14 @@ const HELPER = { model: "claude-haiku-4-5", effort: "low" };
 const serve = call("p1", "bash", { command: "npm run dev", background: true });
 const searchAgent = call("p2", SUBAGENT_TOOL, {
   ...HELPER,
+  description: "Check: ingredient search",
   message:
     "The Pantry API runs on http://localhost:3000. Try GET /recipes with odd `with` lists (empty, spaces, repeats, unknown items) and report anything wrong.",
 });
 /** The subagent still checking saving recipes. */
 const SAVE_AGENT = call("p3", SUBAGENT_TOOL, {
   ...HELPER,
+  description: "Check: saving recipes",
   message:
     "The Pantry API runs on http://localhost:3000. POST /recipes with bad bodies (not JSON, missing fields, wrong types) and report how it answers.",
 });

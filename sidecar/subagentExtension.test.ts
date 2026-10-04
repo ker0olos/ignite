@@ -342,6 +342,12 @@ describe("subagent", () => {
     expect(asks[0]).toMatchObject({ model: MODELS[0], effort: "high" });
   });
 
+  it("starts one on its own model and effort when they're left out", async () => {
+    const { run, asks } = load();
+    await run({ message: "x" });
+    expect(asks[0]).toMatchObject({ model: MODELS[0], effort: "high" });
+  });
+
   it("refuses an unknown id", async () => {
     await expect(load().run({ message: "x", id: "agent-9" })).rejects.toThrow(
       "There is no subagent agent-9",

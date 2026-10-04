@@ -10,6 +10,7 @@ import {
   type ToolRun,
   type Transcript,
 } from "./transcript";
+import { currentStep } from "./runStep";
 import { firstWaiting, toRows, type Row } from "./toolRows";
 
 /** Rows for a subagent's own conversation, its tool runs merged over the parent's; `waiting` while one of its calls waits for the user. */
@@ -52,6 +53,27 @@ export function subagentConversation(
     ...parts[parts.length - 1],
     messages: parts.flatMap((p) => p.messages),
   };
+}
+
+/** A subagent call's one-line summary ("Reading a.ts · 3 tool calls"); `waiting` while one of its calls waits for the user. */
+export function subagentSummary(
+  details: SubagentDetails,
+  tools: Record<string, ToolRun> | undefined,
+  folder: string,
+): { line: string; waiting: boolean } {
+  const { tools: runs, waiting } = subagentRows(details, tools);
+  const calls = details.messages.flatMap((m) =>
+    m.role === "assistant"
+      ? (m as AssistantMessage).content.filter((b) => b.type === "toolCall")
+      : [],
+  ).length;
+  const count = `${calls} tool ${calls === 1 ? "call" : "calls"}`;
+  const state = waiting
+    ? "Waiting for you"
+    : details.running
+      ? currentStep(details.messages, runs, folder)
+      : "Done";
+  return { line: `${state} · ${count}`, waiting };
 }
 
 /** Where a subagent stands: working, waiting for the user on one of its calls, or finished. */

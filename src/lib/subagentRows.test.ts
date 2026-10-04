@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { AgentMessage } from "../../shared/agentTypes";
 import type { SubagentDetails } from "../../shared/subagents";
-import { runState, subagentConversation, subagentRows } from "./subagentRows";
+import {
+  runState,
+  subagentConversation,
+  subagentRows,
+  subagentSummary,
+} from "./subagentRows";
 import type { ToolRun, Transcript } from "./transcript";
 
 const details = (
@@ -169,5 +174,42 @@ describe("runState", () => {
     expect(runState(details([call], true), {})).toBe("working");
     const asking = { n1: { status: "running" as const, approval: {} } };
     expect(runState(details([call], true), asking)).toBe("waiting");
+  });
+});
+
+describe("subagentSummary", () => {
+  const call = (id: string, name = "read"): AgentMessage => ({
+    role: "assistant",
+    content: [
+      { type: "toolCall", id, name, arguments: { path: "/repo/a.ts" } },
+    ],
+    provider: "anthropic",
+    model: "claude-haiku",
+    stopReason: "toolUse",
+    timestamp: 0,
+  });
+
+  it("names the current step and counts tool calls while it runs", () => {
+    const d = details([call("t1"), call("t2")], true);
+    expect(subagentSummary(d, undefined, "/repo")).toEqual({
+      line: "Reading a.ts · 2 tool calls",
+      waiting: false,
+    });
+  });
+
+  it("says done once finished", () => {
+    expect(subagentSummary(details([call("t1")]), undefined, "/repo")).toEqual({
+      line: "Done · 1 tool call",
+      waiting: false,
+    });
+  });
+
+  it("says it waits for the user when a nested call does", () => {
+    const tools: Record<string, ToolRun> = {
+      t1: { status: "running", approval: { reason: "risky" } },
+    };
+    expect(
+      subagentSummary(details([call("t1", "bash")], true), tools, "/repo"),
+    ).toEqual({ line: "Waiting for you · 1 tool call", waiting: true });
   });
 });
