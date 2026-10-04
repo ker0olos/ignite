@@ -26,7 +26,7 @@ export function CodeBlockActions({
       .catch(() => {});
 
   return (
-    <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+    <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
       {run && isShellBlock(lang, code) && (
         <Button
           size="xs"
