@@ -1,19 +1,22 @@
 /**
- * The task tool, and the life of a task's conversation: plan (lay out or
- * confirm the subtasks, before any file changes), work (its step is taken
- * from each tool call), then wrap up (subtasks done, commit, pull request),
- * nudged once if a run ends short of that. It runs on its own: no ask_user,
- * and its chrome_* tools drive the app's own Chrome (chromeExtension.ts), so
- * nothing prompts in the user's. Other conversations don't get the tool. Loaded after askExtension, whose
- * guidance it replaces.
+ * The task tool, and the life of every conversation's work: plan (lay out or
+ * confirm the subtasks, before any file changes; a composer conversation
+ * joins the task list then), work (its step is taken from each tool call).
+ * A task started from the Tasks view also wraps up (subtasks done, commit,
+ * pull request), nudged once if a run ends short of that, and runs on its
+ * own: no ask_user, and its chrome_* tools drive the app's own Chrome
+ * (chromeExtension.ts). Loaded after askExtension, whose guidance it replaces.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { IMAGE_TOOL } from "../shared/agentTypes.ts";
 import { ASK_TOOL } from "../shared/questions.ts";
+import { firstTitle } from "../shared/conversations.ts";
 import {
   TASK_ADD_TOOL,
   TASK_TOOL,
+  autonomous,
+  conversationTask,
   unfinished,
   type Task,
   type TaskUpdate,
@@ -39,17 +42,26 @@ export type TaskAsk = { heard: boolean; reply(task: Task | null): void } & (
   | { kind: "add"; tasks: Task[] }
 );
 
+const ask = (
+  pi: Pick<ExtensionAPI, "events">,
+  body:
+    | { kind: "get" }
+    | { kind: "update"; update: TaskUpdate }
+    | { kind: "add"; tasks: Task[] },
+): Promise<Task | null> =>
+  new Promise((reply) => {
+    const sent = { ...body, reply, heard: false } as TaskAsk;
+    pi.events.emit(TASK_EVENT, sent);
+    if (!sent.heard) reply(null);
+  });
+
 /** Asks the host for this session's task, or updates it; null if it has none. */
 export const askTask = (
   pi: Pick<ExtensionAPI, "events">,
   kind: "get" | "update",
   update: TaskUpdate = {},
 ): Promise<Task | null> =>
-  new Promise((reply) => {
-    const ask = { kind, update, reply, heard: false } as TaskAsk;
-    pi.events.emit(TASK_EVENT, ask);
-    if (!ask.heard) reply(null);
-  });
+  ask(pi, kind === "get" ? { kind } : { kind, update });
 
 export const TASK_GUIDANCE = `## Working on a task
 This conversation carries out a task from the user's task list; the user follows it there, not in the conversation. Work in three phases, keeping the subtasks current with the ${TASK_TOOL} tool:
@@ -62,7 +74,11 @@ Only stop for the user when you can't go on without them. End with a short summa
 /** Added when the task has the Chrome tools (Settings may turn them off). */
 export const CHROME_GUIDANCE = `The chrome_* tools drive a separate Chrome that's yours for this task, not the user's: act freely in it, including filling in and submitting forms. Open your own tab with chrome_navigate and new_tab: true, and name it by id in every call; other tabs are refused. Check pages you build there; chrome_screenshot says where it saved each shot, for ${IMAGE_TOOL}.`;
 
-export const PLAN_FIRST = `Plan first: call ${TASK_TOOL} to add the task's subtasks, or to confirm the ones it has, before changing files.`;
+/** For conversations the user follows: plan with subtasks too, but stay interactive. */
+export const PLAN_GUIDANCE = `## Planning the work
+Before changing any files, call ${TASK_TOOL} to lay out the work as subtasks (this adds the conversation to the user's task list). Then, before starting a subtask, set it to "working"; when it's finished, set it to "done". Answering questions or reading code needs no plan.`;
+
+export const PLAN_FIRST = `Plan first: call ${TASK_TOOL} to lay out the subtasks, or to confirm the ones given, before changing files.`;
 
 export const WRAP_UP = `Wrap up the task: set every finished subtask to "done" with ${TASK_TOOL}, then commit on a branch, push, and open a pull request. If the folder can't take one, leave the changes uncommitted and say why.`;
 
@@ -96,9 +112,20 @@ function endedNormally(messages: readonly unknown[]) {
   return last?.stopReason !== "aborted" && last?.stopReason !== "error";
 }
 
+// What the extension keeps of the conversation's task between calls.
+type Known = { has: boolean; planned: boolean; autonomous: boolean };
+
+const knownOf = (task: Task | null): Known => ({
+  has: !!task,
+  planned: !!task?.planned,
+  autonomous: autonomous(task),
+});
+
 export default function tasks(pi: ExtensionAPI) {
-  // Whether this conversation has a task; asked once, then on every run.
-  let isTask: Promise<boolean> | null = null;
+  // Asked once, then on every run; kept current by the task tool.
+  let known: Promise<Known> | null = null;
+  // A composer conversation joins the list once, however many calls race.
+  let joining: Promise<unknown> | null = null;
   // One wrap-up nudge per run the user started.
   let nudged = false;
 
@@ -107,35 +134,61 @@ export default function tasks(pi: ExtensionAPI) {
     name: TASK_TOOL,
     label: "Update the task",
     description:
-      "Report progress on this conversation's task: add subtasks, confirm them (call with no changes), or set a subtask's status.",
+      "Lay out this conversation's work as subtasks (it joins the user's task list), confirm them (call with no changes), or set a subtask's status.",
     parameters: Params,
-    async execute(_toolCallId, params) {
+    // pi checks a parallel batch's calls before running any, so an edit beside the plan would be blocked.
+    executionMode: "sequential",
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      known ??= askTask(pi, "get").then(knownOf);
+      if (!(await known).has) {
+        const title = firstTitle(
+          ctx.sessionManager
+            .getBranch()
+            .flatMap((e) => (e.type === "message" ? [e.message] : [])),
+        );
+        const id = ctx.sessionManager.getSessionId();
+        joining ??= ask(pi, {
+          kind: "add",
+          tasks: [conversationTask(id, title, Date.now())],
+        });
+        await joining;
+      }
       const task = await askTask(pi, "update", {
         subtask: params.subtask,
         status: params.status,
         add: params.add,
         planned: true,
       });
-      const text = task ? progressText(task) : "This conversation has no task.";
+      // Planned even if the task file failed, so edits never wait on it.
+      known = Promise.resolve({ ...knownOf(task), planned: true });
+      const text = task ? progressText(task) : "Couldn't save the subtasks.";
       return { content: [{ type: "text", text }], details: undefined };
     },
   });
 
   pi.on("before_agent_start", async (event) => {
     const task = await askTask(pi, "get");
-    isTask = Promise.resolve(!!task);
+    known = Promise.resolve(knownOf(task));
+    // Its task deleted from the list, it joins again when it next plans.
+    if (!task) joining = null;
     if (event.prompt !== WRAP_UP) nudged = false;
+    const alone = autonomous(task);
     const others = pi
       .getActiveTools()
       .filter(
         (name) =>
           name !== TASK_TOOL &&
           name !== TASK_ADD_TOOL &&
-          !(task && name === ASK_TOOL),
+          !(alone && name === ASK_TOOL),
       );
-    pi.setActiveTools([...others, task ? TASK_TOOL : TASK_ADD_TOOL]);
-    if (!task) return;
-    if (task.declined) void askTask(pi, "update", { declined: false });
+    pi.setActiveTools([
+      ...others,
+      TASK_TOOL,
+      ...(alone ? [] : [TASK_ADD_TOOL]),
+    ]);
+    if (task?.declined) void askTask(pi, "update", { declined: false });
+    if (!alone)
+      return { systemPrompt: `${event.systemPrompt}\n\n${PLAN_GUIDANCE}` };
     const prompt = event.systemPrompt
       .replace(ASKING, AUTONOMOUS)
       .replace(COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE);
@@ -146,18 +199,18 @@ export default function tasks(pi: ExtensionAPI) {
   });
 
   pi.on("tool_call", async (event, ctx) => {
-    isTask ??= askTask(pi, "get").then((task) => !!task);
-    if (!(await isTask)) return;
-    if (CHANGES_FILES.has(event.toolName)) {
-      const task = await askTask(pi, "get");
-      if (task && !task.planned) return { block: true, reason: PLAN_FIRST };
-    }
+    known ??= askTask(pi, "get").then(knownOf);
+    const { has, planned } = await known;
+    if (CHANGES_FILES.has(event.toolName) && !planned)
+      return { block: true, reason: PLAN_FIRST };
+    if (!has) return;
     const step = stepOf(event.toolName, event.input, ctx.cwd);
     if (step) void askTask(pi, "update", { step });
   });
 
   pi.on("agent_end", async (event) => {
-    if (nudged || !(await isTask) || !endedNormally(event.messages)) return;
+    if (nudged || !(await known)?.autonomous || !endedNormally(event.messages))
+      return;
     const task = await askTask(pi, "get");
     if (!task || !unfinished(task)) return;
     nudged = true;

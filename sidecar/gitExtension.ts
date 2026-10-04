@@ -10,7 +10,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { GH_TOOL, GIT_TOOL, type GitReview } from "../shared/git.ts";
 import type { ApprovalRequest } from "../shared/hostProtocol.ts";
-import { prUrl } from "../shared/tasks.ts";
+import { autonomous, prUrl } from "../shared/tasks.ts";
 import {
   ghApproval,
   gitApproval,
@@ -129,7 +129,7 @@ async function taskMayRun(
   args: string[],
   cwd: string,
 ) {
-  if (!(await askTask(pi, "get"))) return false;
+  if (!autonomous(await askTask(pi, "get"))) return false;
   // The repository the call runs in, which -C may name.
   const repo = repoOf(args, cwd);
   const [current, remoteHead] = await Promise.all([
@@ -178,6 +178,13 @@ async function afterDelivery(tool: Tool, args: string[], cwd: string) {
 // Without the parser, a rough split into commands is enough to spot git and gh.
 const roughWords = (command: string) =>
   command.split(/[;&|()\n`]+/).map((part) => part.trim().split(/\s+/));
+
+// A task's declined pull request waits on its card; in a conversation the user follows, it was declined in front of them.
+async function refusal(pi: Pick<ExtensionAPI, "events">, declinedPr: boolean) {
+  if (!declinedPr || !autonomous(await askTask(pi, "get"))) return DENIED;
+  await askTask(pi, "update", { declined: true });
+  return PR_DECLINED;
+}
 
 export default function gitTools(pi: ExtensionAPI) {
   // "declined" only when the user answered no; a stop or close is "denied".
@@ -235,11 +242,9 @@ export default function gitTools(pi: ExtensionAPI) {
         await refuseMerged(tool, args, ctx.cwd, signal);
         const gated = await gate(tool, args, ctx.cwd, toolCallId, signal, then);
         if (!gated.allowed) {
-          const task =
-            gated.declined &&
-            createsPr(tool, args) &&
-            (await askTask(pi, "update", { declined: true }));
-          throw new Error(task ? PR_DECLINED : DENIED);
+          throw new Error(
+            await refusal(pi, !!gated.declined && createsPr(tool, args)),
+          );
         }
         const before = await headBefore(tool, args, ctx.cwd);
         const result = await run(tool, args, {
