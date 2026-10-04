@@ -132,6 +132,7 @@ src/                     React frontend (almost all logic lives here)
     mentions.ts          `/compact`, `/skill` and `@` completions: the token at the caret, options, sending a skill as `/skill:name`
     queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
+    demoHtml.ts          The page the dark mode conversation embeds with show_html
     demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
     window.ts            Window sizing and New Window
@@ -215,6 +216,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   adbExtension.ts        adb and adb_screenshot: Android devices, run outside the sandbox
   imageExtension.ts      show_image: shows the user an image file from any path in its tool row
                          and, in a task's conversation, on the task's card
+  htmlExtension.ts       show_html: embeds an HTML page in its tool row, in a sandboxed iframe
   gitExtension.ts        git and gh tools: run outside the sandbox, ask for themselves, redirect bash's
   gitPush.ts             The git tool's `push: true`: a commit that pushes its branch in the same call
   gitMerged.ts           Refuses a commit or push on a branch whose pull request was already merged

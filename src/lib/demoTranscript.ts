@@ -4,12 +4,14 @@
  * diffs here match them (checked in demo.test.ts).
  */
 import {
+  HTML_TOOL,
   IMAGE_TOOL,
   type AgentMessage,
   type AssistantMessage,
   type ToolCall,
   type ToolResultMessage,
 } from "../../shared/agentTypes";
+import { THEME_PREVIEW } from "./demoHtml";
 import { DARK_MOCKUP } from "./demoTaskImages";
 
 export const T = Date.UTC(2026, 8, 27, 9, 30);
@@ -50,6 +52,11 @@ const readSettings = call("r1", "read", { path: "src/settings.ts" });
 const readStyles = call("r2", "read", { path: "src/styles.css" });
 const search = call("r3", "grep", { pattern: "prefers-color-scheme" });
 const showDark = call("i1", IMAGE_TOOL, { path: "/tmp/tempo-dark.png" });
+const showPreview = call("h1", HTML_TOOL, {
+  title: "Tempo theme preview",
+  html: THEME_PREVIEW,
+  height: 300,
+});
 
 export const THEME = `export type Theme = "system" | "light" | "dark";
 
@@ -189,4 +196,12 @@ export const DEMO_WORK: AgentMessage[] = [
     showDark,
   ]),
   result(showDark, "Shown to the user.", { image: DARK_MOCKUP }),
+  assistant([
+    {
+      type: "text",
+      text: "And a live preview of both palettes, so you can flip between them:",
+    },
+    showPreview,
+  ]),
+  result(showPreview, "Shown to the user."),
 ];

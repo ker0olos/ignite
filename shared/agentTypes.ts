@@ -49,6 +49,9 @@ export type ToolResult = {
 /** The tool the agent shows the user an image file with; the image is in `details.image`. */
 export const IMAGE_TOOL = "show_image";
 
+/** The tool the agent embeds an HTML page in the conversation with; the page is in its `html` argument. */
+export const HTML_TOOL = "show_html";
+
 /** The tool that ends a bash command left running in the background. */
 export const BASH_STOP_TOOL = "bash_stop";
 
