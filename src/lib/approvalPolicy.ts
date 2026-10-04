@@ -15,8 +15,16 @@ import { tildify } from "./paths.ts";
 /** How tool calls are gated: the composer's mode, or Auto with full access. */
 export type ApprovalGate = ApprovalMode | "full";
 
-/** Where the session runs; both absolute. `windows`: they are Windows paths. */
-export type Place = { cwd: string; home: string; windows?: boolean };
+/**
+ * Where the session runs; all absolute. `temp`: folders file tools may also
+ * use, as the sandbox lets bash. `windows`: they are Windows paths.
+ */
+export type Place = {
+  cwd: string;
+  home: string;
+  temp?: string[];
+  windows?: boolean;
+};
 
 /** Shell commands on Windows ask in Auto too: no sandbox, and a denylist for Unix. */
 export const WINDOWS_SHELL = "Shell commands aren't sandboxed on Windows";
@@ -117,7 +125,10 @@ export const outsideReason = (path: string, place: Place) =>
 /** Why a file tool call needs approval under Auto, or null when it may run. */
 function fileReason(path: string, place: Place): string | null {
   const resolved = resolvePath(path, place);
-  const inside = isInside(resolved, resolvePath(place.cwd, place));
+  const folders = [place.cwd, ...(place.temp ?? [])].map((folder) =>
+    resolvePath(folder, place),
+  );
+  const inside = folders.some((folder) => isInside(resolved, folder));
   return inside ? null : outsideReason(resolved, place);
 }
 

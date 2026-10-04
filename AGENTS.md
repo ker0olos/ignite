@@ -395,7 +395,14 @@ the model gets the sandbox's report. When the sandbox named what it blocked
 one already on the list), the prompt also offers
 **Always allow**, which adds it to `~/.ignite/sandbox.json`
 (`sidecar/sandboxAllow.ts`, read before every command) and runs this one
-outside. Approving a denylisted command also runs it outside. Where the
+outside. When what it hit can't be allowed (a credential, like a CLI's token
+in the keychain), it offers the program the report names instead, if the
+command runs it by name: from then on, a command line whose every pipeline
+(`$(…)` and `bash -c` included) starts with that program or a cd runs
+outside the sandbox. Shells, interpreters, package runners and file tools
+(`node`, `npm`, `xargs`, `cat`, `curl`, `security`…) are never offered. File tools may also use temp folders without asking, as
+sandboxed bash can, and each conversation is told of its own scratchpad
+(`$TMPDIR/ignite-scratchpad/<session id>`). Approving a denylisted command also runs it outside. Where the
 sandbox can't start, Auto instead asks for bash commands naming absolute, `~`
 or `..` paths outside the folder. On Windows (no sandbox, and a denylist
 written for Unix) Auto asks for every bash and PowerShell command; file

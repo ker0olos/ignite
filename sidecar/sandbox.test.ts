@@ -17,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   ALLOWED_DOMAINS,
   blockedAction,
+  blockedProgram,
   blockedSummary,
   canAllow,
   createSandbox,
@@ -64,6 +65,7 @@ describe("sandboxConfig", () => {
       sockets: ["/Users/me/.docker/run/docker.sock"],
       read: ["/Users/me/.docker/config.json"],
       write: ["/Users/me/.zshrc"],
+      commands: [],
     });
     expect(allowed.network.allowedDomains).toContain("example.com");
     expect(allowed.network.allowUnixSockets).toEqual([
@@ -90,9 +92,33 @@ describe("canAllow", () => {
       expect(await canAllow(sock, home)).toBe(true);
       await allowAlways(sock, allowedFile(home));
       expect(await canAllow(sock, home)).toBe(false);
+      const run = (target: string) => ({ kind: "commands", target }) as const;
+      expect(await canAllow(run("doppler"), home)).toBe(true);
+      for (const program of ["bash", "python3.12", "npm", "cat", "security"]) {
+        expect(await canAllow(run(program), home)).toBe(false);
+      }
     } finally {
       await rm(home, { recursive: true, force: true });
     }
+  });
+});
+
+describe("blockedProgram", () => {
+  it("names the program behind the first file or network denial", () => {
+    const output =
+      "<sandbox_violations>\nsh(1) deny(1) system-info x\n" +
+      "doppler(42) deny(1) file-read-data /Users/me/Library/Keychains/login.keychain-db\n" +
+      "</sandbox_violations>";
+    expect(blockedProgram(output)).toBe("doppler");
+  });
+
+  it("is null without a report naming one", () => {
+    expect(blockedProgram("Operation not permitted")).toBeNull();
+    expect(
+      blockedProgram(
+        "<sandbox_violations>\ndeny network-outbound x:443\n</sandbox_violations>",
+      ),
+    ).toBeNull();
   });
 });
 

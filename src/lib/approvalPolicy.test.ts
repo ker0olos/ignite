@@ -170,6 +170,16 @@ describe("approvalFor", () => {
     });
   });
 
+  it("lets file tools use temp folders in Auto, like sandboxed bash", () => {
+    const withTemp = { ...place, temp: ["/private/tmp"] };
+    expect(
+      approvalFor("auto", "read", { path: "/private/tmp/p.png" }, withTemp),
+    ).toBeNull();
+    expect(
+      approvalFor("auto", "read", { path: "/private/tmpx/p" }, withTemp),
+    ).toEqual({ reason: "Outside the folder: /private/tmpx/p" });
+  });
+
   it("leaves paths to the sandbox when commands run in it, but not dangers", () => {
     const sandboxed = { sandboxed: true };
     const bash = (command: string) =>
