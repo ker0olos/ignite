@@ -29,7 +29,9 @@ export const AUTONOMOUS = `## Working on your own
 The user wants you to work autonomously. Don't stop to ask questions or wait for confirmation. When something is open, make the sensible choice, carry on, and mention the choices that matter in your final reply.`;
 
 export const COPYABLE = `## Text to copy
-Put text the user will likely copy and paste elsewhere in its own fenced code block, which has a copy button: commands, snippets, file contents, and drafts written for them (replies, messages, emails, commit or PR text). Keep your commentary about it, such as length or alternatives, outside the block. Always tag the block's language: \`\`\`bash for shell commands (the app offers to run those in a terminal), \`\`\`ts, \`\`\`json and so on for code, \`\`\`text for prose.`;
+Text the user will likely copy and paste elsewhere always goes in a block of its own, which has a copy button; never leave it as a plain paragraph. Keep your commentary about it, such as length or alternatives, outside the block.
+- Prose written for them (replies, reviews, messages, emails, commit or PR text): a markdown blockquote, every line starting with \`> \`. It's copied as written, so use markdown inside only where it's pasted as markdown (GitHub, commit messages), and plain text elsewhere (app store replies, emails, chat messages).
+- Commands, snippets and file contents: a fenced code block tagged with its language, \`\`\`bash for shell commands (the app offers to run those in a terminal), \`\`\`ts, \`\`\`json and so on for code.`;
 
 export const LEFT_TO_AGENT =
   "The user left these questions to you. Decide them, and say what you chose and why.";

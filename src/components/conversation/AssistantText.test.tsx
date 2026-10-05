@@ -139,6 +139,26 @@ describe("AssistantText code blocks", () => {
   });
 });
 
+describe("AssistantText quotes", () => {
+  const writeText = vi.fn(async () => {});
+  beforeEach(() => Object.assign(navigator, { clipboard: { writeText } }));
+
+  it("copies a quote as written, with one button for nested ones", () => {
+    render(
+      <AssistantText
+        text={"Reply:\n\n> - Thanks **Kenny**!\n>\n> > [PR](https://x.dev)"}
+        folder="/repo"
+        editor={DEFAULT_SETTINGS.editor}
+        codeThemes={DEFAULT_CODE_THEMES}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    expect(writeText).toHaveBeenCalledWith(
+      "- Thanks **Kenny**!\n\n> [PR](https://x.dev)",
+    );
+  });
+});
+
 describe("AssistantText code blocks without a clipboard", () => {
   it("hides Copy, as over plain-HTTP remote access", () => {
     Object.assign(navigator, { clipboard: undefined });
