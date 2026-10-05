@@ -163,6 +163,8 @@ async function openSession(
       exploring,
       taskExtension,
       approvalExtension,
+      // After approval: snapshots only calls that will run, and sees a rerun outside the sandbox.
+      sibling("./shellEditsExtension.ts"),
     ],
     skillsOverride,
   });

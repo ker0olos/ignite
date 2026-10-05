@@ -93,6 +93,21 @@ describe("toRows", () => {
     ]);
   });
 
+  it("takes a command that changed files out of its group, so its edits show", () => {
+    const edits = [{ path: "a.ts", diff: "" }];
+    const rows = toRows(
+      [assistant([call("read", "a"), call("bash", "b")])],
+      false,
+      {
+        b: { status: "done", result: { content: [], details: { edits } } },
+      },
+    );
+    expect(rows).toEqual([
+      { kind: "tool", call: call("read", "a") },
+      { kind: "tool", call: call("bash", "b") },
+    ]);
+  });
+
   it("text breaks a group", () => {
     const rows = toRows([
       assistant([
