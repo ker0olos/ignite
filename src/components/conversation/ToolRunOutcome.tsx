@@ -11,6 +11,7 @@ import type { ToolProps } from "@/components/conversation/shared";
 import { QuestionPrompt } from "@/components/conversation/QuestionPrompt";
 import { SubagentSummary } from "@/components/conversation/SubagentSummary";
 import { ToolBody } from "@/components/conversation/ToolBody";
+import { approvalCallout } from "@/lib/mcpToolCall";
 import { readQuestions } from "@/lib/questions";
 import type { ToolRun } from "@/lib/transcript";
 
@@ -45,12 +46,7 @@ export function ToolRunOutcome({
   if (run.approval) {
     return (
       <ApprovalPrompt
-        why={
-          typeof call.arguments.reason === "string"
-            ? call.arguments.reason
-            : undefined
-        }
-        reason={run.approval.reason}
+        {...approvalCallout(call.name, call.arguments, run.approval.reason)}
         allow={run.approval.allow}
         shortcuts={first}
         onAnswer={(approved, always) =>
