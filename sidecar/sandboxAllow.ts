@@ -99,24 +99,49 @@ export function allowRuleFor(summary: string): AllowRule | null {
   return host ? { kind: "hosts", target: host } : null;
 }
 
-/** The programs a command line runs by name from PATH; `./x`, `/bin/x` and `PATH=. x` don't count. */
-export function programsOf(pipelines: Pipeline[]): string[] {
-  return pipelines
-    .flat()
-    .flatMap(({ words: [program] }) =>
-      program && !/[/=]/.test(program) ? [program] : [],
-    );
+const isCd = (pipeline: Pipeline) => pipeline[0]?.words[0] === "cd";
+
+/**
+ * A pipeline's first command run by name from PATH, with its subcommand
+ * ("doppler run"); null for `./x`, `/bin/x` or `PATH=. x`.
+ */
+function commandOf([first]: Pipeline): string | null {
+  const [program, sub] = first?.words ?? [];
+  if (!program || /[/=]/.test(program)) return null;
+  return sub && /^[a-z][\w-]*$/.test(sub) ? `${program} ${sub}` : program;
+}
+
+/** Whether the pipeline's first command starts with `command`'s words. */
+function startsWith(pipeline: Pipeline, command: string): boolean {
+  const words = pipeline[0]?.words ?? [];
+  return (
+    !/[/=]/.test(words[0] ?? "/") &&
+    command.split(" ").every((word, i) => words[i] === word)
+  );
 }
 
 /**
- * Whether a command line runs one of `programs` and every pipeline in it
- * (`$(…)` and `bash -c` included) starts with one of them or a cd, so it
- * may run outside the sandbox without taking other commands along.
+ * Whether every pipeline of a command line (`$(…)` and `bash -c` included)
+ * besides cds starts with one of `commands` ("doppler run"), so it may run
+ * outside the sandbox without taking other commands along.
  */
-export function runsOnly(pipelines: Pipeline[], programs: string[]): boolean {
-  const heads = pipelines.map(([first]) => programsOf([[first]])[0]);
+export function runsOnly(pipelines: Pipeline[], commands: string[]): boolean {
+  const rest = pipelines.filter((pipeline) => !isCd(pipeline));
   return (
-    heads.some((head) => programs.includes(head)) &&
-    heads.every((head) => head === "cd" || programs.includes(head))
+    rest.length > 0 &&
+    rest.every((pipeline) => commands.some((c) => startsWith(pipeline, c)))
   );
+}
+
+/**
+ * The command to offer running outside the sandbox: the one program and
+ * subcommand besides cd that starts every pipeline, whichever process (the
+ * program, or a helper like doppler's `security`) hit the credential.
+ */
+export function commandToAllow(pipelines: Pipeline[]): string | null {
+  const commands = new Set(
+    pipelines.filter((pipeline) => !isCd(pipeline)).map(commandOf),
+  );
+  const [command] = commands;
+  return commands.size === 1 && command ? command : null;
 }

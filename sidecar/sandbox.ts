@@ -82,7 +82,8 @@ export function isCredential(path: string, home: string): boolean {
  */
 export async function canAllow(rule: AllowRule, home: string) {
   if (isCredential(rule.target, home)) return false;
-  if (rule.kind === "commands" && RUNS_ANYTHING.test(rule.target)) return false;
+  if (rule.kind === "commands" && RUNS_ANYTHING.test(rule.target.split(" ")[0]))
+    return false;
   const allowed = await loadAllowed(allowedFile(home));
   return !allowed[rule.kind].includes(rule.target);
 }

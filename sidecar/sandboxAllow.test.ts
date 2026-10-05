@@ -7,9 +7,9 @@ import {
   allowAlways,
   allowedFile,
   allowRuleFor,
+  commandToAllow,
   loadAllowed,
   NOTHING_ALLOWED,
-  programsOf,
   runsOnly,
 } from "./sandboxAllow.ts";
 
@@ -103,28 +103,52 @@ describe("allowRuleFor", () => {
 
 const run = (words: string[]) => ({ words, redirects: [] });
 
-describe("programsOf", () => {
-  it("names programs run from PATH, not paths or ones run with assignments", () => {
-    expect(
-      programsOf([
-        [run(["doppler", "run"]), run(["tail"])],
-        [run(["./doppler"])],
-        [run(["PATH=.", "doppler"])],
-      ]),
-    ).toEqual(["doppler", "tail"]);
-  });
-});
-
 describe("runsOnly", () => {
-  it("is true when every pipeline starts with the program or a cd", () => {
-    const line = [[run(["cd", "x"])], [run(["doppler", "run"]), run(["tail"])]];
+  const line = [
+    [run(["cd", "x"])],
+    [run(["doppler", "run", "--", "npm", "test"]), run(["tail"])],
+  ];
+
+  it("is true when every pipeline starts with the command or is a cd", () => {
+    expect(runsOnly(line, ["doppler run"])).toBe(true);
     expect(runsOnly(line, ["doppler"])).toBe(true);
   });
 
-  it("is false when anything else starts, or the program doesn't", () => {
-    const chained = [[run(["doppler"])], [run(["curl", "evil.example"])]];
-    expect(runsOnly(chained, ["doppler"])).toBe(false);
-    expect(runsOnly([[run(["cd", "x"])]], ["doppler"])).toBe(false);
-    expect(runsOnly([[run(["./doppler"])]], ["doppler"])).toBe(false);
+  it("is false when anything else starts, or the command doesn't", () => {
+    const chained = [
+      [run(["doppler", "run"])],
+      [run(["curl", "evil.example"])],
+    ];
+    expect(runsOnly(chained, ["doppler run"])).toBe(false);
+    expect(runsOnly([[run(["doppler", "secrets"])]], ["doppler run"])).toBe(
+      false,
+    );
+    expect(runsOnly([[run(["cd", "x"])]], ["doppler run"])).toBe(false);
+    expect(runsOnly([[run(["./doppler", "run"])]], ["doppler run"])).toBe(
+      false,
+    );
+  });
+});
+
+describe("commandToAllow", () => {
+  it("is the one program and subcommand starting every pipeline", () => {
+    const line = [
+      [run(["cd", "x"])],
+      [run(["doppler", "run", "--", "sh"]), run(["tail"])],
+      [run(["doppler", "run", "--", "env"])],
+    ];
+    expect(commandToAllow(line)).toBe("doppler run");
+  });
+
+  it("is the program alone when no subcommand follows it", () => {
+    expect(commandToAllow([[run(["doppler", "--version"])]])).toBe("doppler");
+  });
+
+  it("is null for several commands, none, or one run by path or assignment", () => {
+    const two = [[run(["doppler", "run"])], [run(["doppler", "secrets"])]];
+    expect(commandToAllow(two)).toBeNull();
+    expect(commandToAllow([[run(["cd", "x"])]])).toBeNull();
+    expect(commandToAllow([[run(["./doppler", "run"])]])).toBeNull();
+    expect(commandToAllow([[run(["PATH=.", "doppler"])]])).toBeNull();
   });
 });
