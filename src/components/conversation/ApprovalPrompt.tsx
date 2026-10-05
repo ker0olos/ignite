@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ApprovalCallout } from "./ApprovalCallout";
 import { useApprovalKeys } from "@/hooks/useApprovalKeys";
 import { approvalHints } from "@/lib/approvalKeys";
 
@@ -28,15 +28,7 @@ export function ApprovalPrompt({
   return (
     <div className="space-y-2 text-[13px]">
       {children}
-      <div className="flex gap-2 rounded-lg bg-warning/10 px-3 py-2">
-        <Lock aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning" />
-        <div className="min-w-0 space-y-0.5">
-          <p className="font-medium text-warning">
-            {reason ?? "Allow this tool call?"}
-          </p>
-          {why && <p className="text-foreground">{why}</p>}
-        </div>
-      </div>
+      <ApprovalCallout reason={reason} why={why} />
       <div className="flex gap-2 pt-1">
         <Button
           size="sm"

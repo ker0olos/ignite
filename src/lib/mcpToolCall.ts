@@ -1,3 +1,5 @@
+import { ADB_TOOL } from "../../shared/adb.ts";
+import { CHROME_TOOLS } from "../../shared/chrome.ts";
 import { GH_TOOL, GIT_TOOL } from "../../shared/git.ts";
 import { ASK_TOOL } from "../../shared/questions.ts";
 
@@ -154,4 +156,26 @@ export function approvalArgs(name: string, args: Record<string, unknown>) {
   return yaml(
     Object.fromEntries(Object.entries(args).filter(([k]) => k !== "reason")),
   );
+}
+
+// The app's own tools, whose rows already show what they'd do: only the app's reason warns.
+const NO_CALLOUT = new Set<string>([
+  GIT_TOOL,
+  GH_TOOL,
+  ADB_TOOL,
+  "adb_screenshot",
+  ...CHROME_TOOLS.map((t) => t.name),
+]);
+
+/** A waiting call's warning callout: the app's reason, and the agent's except for the app's own tools. */
+export function approvalCallout(
+  name: string,
+  args: Record<string, unknown>,
+  reason?: string,
+): { reason?: string; why?: string } {
+  if (NO_CALLOUT.has(name)) return { reason };
+  return {
+    reason,
+    why: typeof args.reason === "string" ? args.reason : undefined,
+  };
 }

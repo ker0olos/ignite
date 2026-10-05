@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { approvalArgs, argsText, mcpCall } from "./mcpToolCall";
+import {
+  approvalArgs,
+  approvalCallout,
+  argsText,
+  mcpCall,
+} from "./mcpToolCall";
 
 describe("approvalArgs", () => {
   it("shows an MCP call's arguments, multi-line strings as blocks", () => {
@@ -126,4 +131,19 @@ describe("mcpCall", () => {
       args: {},
     });
   });
+});
+
+it("warns for git, gh, adb and Chrome only with the app's reason", () => {
+  const args = { reason: "Pushes the fix" };
+  for (const name of ["git", "gh", "adb", "adb_screenshot", "chrome_eval"]) {
+    expect(approvalCallout(name, args)).toEqual({});
+    expect(approvalCallout(name, args, "Rewrites history")).toEqual({
+      reason: "Rewrites history",
+    });
+  }
+  expect(approvalCallout("bash", args, "Tried to write outside")).toEqual({
+    reason: "Tried to write outside",
+    why: "Pushes the fix",
+  });
+  expect(approvalCallout("edit", {})).toEqual({});
 });
