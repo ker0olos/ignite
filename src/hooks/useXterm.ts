@@ -41,7 +41,9 @@ export function useXterm(
     const fit = new FitAddon();
     t.loadAddon(fit);
     t.loadAddon(
-      new WebLinksAddon((_, uri) => void openUrl(uri).catch(() => {})),
+      new WebLinksAddon((e, uri) => {
+        if (e.metaKey || e.ctrlKey) void openUrl(uri).catch(() => {});
+      }),
     );
     t.open(host.current!);
     const refit = () => {
