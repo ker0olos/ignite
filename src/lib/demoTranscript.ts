@@ -11,6 +11,7 @@ import {
   type ToolCall,
   type ToolResultMessage,
 } from "../../shared/agentTypes";
+import { TASK_TOOL, type Subtask } from "../../shared/tasks";
 import { THEME_PREVIEW } from "./demoHtml";
 import { DARK_MOCKUP } from "./demoTaskImages";
 
@@ -51,6 +52,18 @@ export const result = (
 const readSettings = call("r1", "read", { path: "src/settings.ts" });
 const readStyles = call("r2", "read", { path: "src/styles.css" });
 const search = call("r3", "grep", { pattern: "prefers-color-scheme" });
+const PLAN = [
+  "Theme module that follows the system",
+  "Save the choice with the settings",
+  "Dark colors in the stylesheet",
+  "Light / Dark picker in Settings",
+  "Run the tests",
+];
+const plan = call("p1", TASK_TOOL, { add: PLAN });
+const planned: Subtask[] = PLAN.map((title, i) => ({
+  title,
+  status: i === 0 ? "working" : "todo",
+}));
 const showDark = call("i1", IMAGE_TOOL, { path: "/tmp/tempo-dark.png" });
 const showPreview = call("h1", HTML_TOOL, {
   title: "Tempo theme preview",
@@ -177,11 +190,17 @@ export const DEMO_WORK: AgentMessage[] = [
       type: "text",
       text: "The colors are hard-coded in the stylesheet, so I'll move them into variables and add a dark set. Then a small theme module, the choice saved with the other settings, and a picker.",
     },
+    plan,
     writeTheme,
     editSettings,
     editStyles,
     editHtml,
   ]),
+  result(
+    plan,
+    planned.map((s, i) => `${i + 1}. [${s.status}] ${s.title}`).join("\n"),
+    { subtasks: planned },
+  ),
   result(writeTheme, "Wrote src/theme.ts"),
   edited(editSettings),
   edited(editStyles),

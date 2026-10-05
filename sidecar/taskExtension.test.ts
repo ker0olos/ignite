@@ -16,6 +16,7 @@ import tasks, {
   CHROME_GUIDANCE,
   WRAP_UP,
   askTask,
+  planReminder,
   progressText,
   type TaskAsk,
 } from "./taskExtension.ts";
@@ -270,6 +271,7 @@ describe("task tool", () => {
     expect(result.content).toEqual([
       { type: "text", text: "1. [done] a\n2. [working] b" },
     ]);
+    expect(result.details).toEqual({ subtasks: task.subtasks });
   });
 
   it("adds a conversation without a task to the list, once", async () => {
@@ -354,9 +356,12 @@ describe("before_agent_start", () => {
     expect(active()).toEqual(["read", "ask_user", "task_update", "task_add"]);
   });
 
-  it("keeps a conversation the user follows interactive", async () => {
-    const { start, active } = load({ ...task, interactive: true });
-    expect((await start())!.systemPrompt).toContain(ASKING);
+  it("keeps a conversation the user follows interactive, reminded of its plan", async () => {
+    const mine: Task = { ...task, interactive: true };
+    const { start, active } = load(mine);
+    expect((await start())!.systemPrompt).toBe(
+      `Base\n\n${ASKING}\n\n${COMMAND_GUIDANCE}\n\n${PLAN_GUIDANCE}\n\n${planReminder(mine)}`,
+    );
     expect(active()).toEqual(["read", "ask_user", "task_update", "task_add"]);
   });
 
