@@ -5,6 +5,7 @@ import { CodeBlock } from "@/components/conversation/CodeBlock";
 import { CodeBlockActions } from "@/components/conversation/CodeBlockActions";
 import { InlineCode } from "@/components/conversation/InlineCode";
 import { LinkPill } from "@/components/conversation/LinkPill";
+import { QuoteBlock } from "@/components/conversation/QuoteBlock";
 import type { Editor } from "@/components/conversation/shared";
 import { useOpenTab } from "@/hooks/useOpenTab";
 import { useSmoothText } from "@/hooks/useSmoothText";
@@ -14,6 +15,7 @@ import {
   isInsideFolder,
   looksLikeFilePath,
 } from "@/lib/fileLinks";
+import { quoteSource } from "@/lib/quote";
 
 /** Assistant markdown text, with fenced code blocks syntax-highlighted. */
 export function AssistantText({
@@ -69,6 +71,17 @@ export function AssistantText({
     ),
     ol: ({ children }) => (
       <ol className="mb-2 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>
+    ),
+    blockquote: ({ node, children }) => (
+      <QuoteBlock
+        source={quoteSource(
+          shown,
+          node?.position?.start.offset,
+          node?.position?.end.offset,
+        )}
+      >
+        {children}
+      </QuoteBlock>
     ),
     table: ({ children }) => (
       <div className="mb-2 overflow-x-auto last:mb-0">

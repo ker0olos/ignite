@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Check, Copy, Play } from "lucide-react";
+import { Play } from "lucide-react";
+import { CopyButton } from "@/components/conversation/CopyButton";
 import { Button } from "@/components/ui/button";
 import { useRunInTerminal } from "@/hooks/useRunInTerminal";
 import { isShellBlock } from "@/lib/runCommand";
@@ -13,17 +13,6 @@ export function CodeBlockActions({
   lang: string | undefined;
 }) {
   const run = useRunInTerminal();
-  const [copied, setCopied] = useState(false);
-  // Missing over plain-HTTP remote access, where the page isn't a secure context.
-  const clipboard = navigator.clipboard as Clipboard | undefined;
-  const copy = () =>
-    clipboard
-      ?.writeText(code)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      })
-      .catch(() => {});
 
   return (
     <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
@@ -38,16 +27,7 @@ export function CodeBlockActions({
           Run
         </Button>
       )}
-      {clipboard && (
-        <Button
-          size="icon-xs"
-          variant="outline"
-          aria-label={copied ? "Copied" : "Copy"}
-          onClick={() => void copy()}
-        >
-          {copied ? <Check /> : <Copy />}
-        </Button>
-      )}
+      <CopyButton text={() => code} />
     </div>
   );
 }
