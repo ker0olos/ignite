@@ -1,4 +1,5 @@
 import type { ITheme } from "@xterm/xterm";
+import { ANSI } from "./themePalette";
 
 const TOKENS = {
   background: "--background",
@@ -9,14 +10,23 @@ const TOKENS = {
   selectionBackground: "--accent",
 } as const;
 
-/** Maps each theme slot to its CSS token's value run through `resolve`. */
+/**
+ * Maps each theme slot to its CSS token's value run through `resolve`, and
+ * each ANSI color the theme sets (`--theme-<color>-<kind>`) to its own.
+ */
 export function themeFromTokens(
   read: (token: string) => string,
   resolve: (color: string) => string,
+  kind: "light" | "dark",
 ): ITheme {
-  return Object.fromEntries(
+  const theme: Record<string, string> = Object.fromEntries(
     Object.entries(TOKENS).map(([slot, token]) => [slot, resolve(read(token))]),
   );
+  for (const color of ANSI) {
+    const value = read(`--theme-${color}-${kind}`);
+    if (value) theme[color] = resolve(value);
+  }
+  return theme;
 }
 
 function canvasColor(color: string): string {
@@ -29,8 +39,13 @@ function canvasColor(color: string): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-/** xterm's theme from the app's shadcn tokens, resolved from oklch to rgb. */
+/** xterm's theme from the app's shadcn tokens and code theme, resolved to rgb. */
 export function terminalTheme(): ITheme {
-  const style = getComputedStyle(document.documentElement);
-  return themeFromTokens((t) => style.getPropertyValue(t).trim(), canvasColor);
+  const root = document.documentElement;
+  const style = getComputedStyle(root);
+  return themeFromTokens(
+    (t) => style.getPropertyValue(t).trim(),
+    canvasColor,
+    root.classList.contains("dark") ? "dark" : "light",
+  );
 }
