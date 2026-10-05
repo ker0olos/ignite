@@ -5,12 +5,15 @@ import { approvalHints } from "@/lib/approvalKeys";
 
 /** Approve or deny a tool call that waits for the user, with why it waits and what it runs. */
 export function ApprovalPrompt({
+  why,
   reason,
   allow,
   children,
   shortcuts = false,
   onAnswer,
 }: {
+  /** The agent's own reason for the call. */
+  why?: string;
   reason?: string;
   /** What the sandbox blocked, which the user may always allow. */
   allow?: string;
@@ -23,8 +26,11 @@ export function ApprovalPrompt({
   const hints = shortcuts ? approvalHints() : null;
   return (
     <div className="space-y-2 text-[13px]">
+      {why && <p className="text-foreground">{why}</p>}
       {children}
-      <p className="text-foreground">{reason ?? "Allow this tool call?"}</p>
+      <p className="text-muted-foreground">
+        {reason ?? "Allow this tool call?"}
+      </p>
       <div className="flex gap-2 pt-1">
         <Button
           size="sm"

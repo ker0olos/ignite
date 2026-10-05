@@ -43,6 +43,11 @@ export function ToolRunOutcome({
   if (run.approval) {
     return (
       <ApprovalPrompt
+        why={
+          typeof call.arguments.reason === "string"
+            ? call.arguments.reason
+            : undefined
+        }
         reason={run.approval.reason}
         allow={run.approval.allow}
         shortcuts={first}

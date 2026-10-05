@@ -169,6 +169,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
+  toolReason.ts          `reason` on bash and MCP tools: the agent's why, shown on the approval prompt
   bashParser.ts          Parses bash (tree-sitter) into pipelines for the approval rules
   sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts
   bashExtension.ts       pi's bash with `background: true` (dev servers, watchers), and bash_stop to end them
@@ -374,7 +375,9 @@ pi has no approval prompts of its own. `sidecar/approvalExtension.ts` (loaded
 last into every session) handles `tool_call`: `lib/approvalPolicy.ts` decides
 whether the call waits, the question goes to the host over pi's event bus
 (`app/approval`) and on to the app as `approval_request`, and the tool row
-shows Approve / Deny, answered with `approval_answer`. A denied call returns
+shows Approve / Deny, answered with `approval_answer`. bash and every MCP tool take a `reason`
+(`sidecar/toolReason.ts`, dropped before the tool runs), shown above what the
+call would run (its command, or an MCP call's arguments). A denied call returns
 `{ block: true, reason }` to the model; stopping the run or closing the
 folder denies what's waiting. A hidden folder's question waits until it's
 shown again. The `ask_user` tool (`sidecar/askExtension.ts`) uses the same

@@ -4,8 +4,9 @@ import { CodeBlock } from "@/components/conversation/CodeBlock";
 import { ProposedTasks } from "@/components/conversation/ProposedTasks";
 import type { Editor } from "@/components/conversation/shared";
 import type { CodeThemes } from "@/lib/codeThemes";
+import { approvalArgs } from "@/lib/mcpToolCall";
 
-/** What a waiting call would do: a bash call's whole command, or the tasks it would add. */
+/** What a waiting call would do: a bash call's whole command, an MCP call's arguments, or the tasks it would add. */
 export function ApprovalCommand({
   call,
   editor,
@@ -18,11 +19,15 @@ export function ApprovalCommand({
   if (call.name === TASK_ADD_TOOL) {
     return <ProposedTasks tasks={readProposed(call.arguments)} />;
   }
-  if (call.name !== "bash") return null;
+  const shown =
+    call.name === "bash"
+      ? { code: String(call.arguments.command ?? ""), lang: "sh" }
+      : approvalArgs(call.name, call.arguments);
+  if (!shown) return null;
   return (
     <CodeBlock
-      code={String(call.arguments.command ?? "")}
-      lang="sh"
+      code={shown.code}
+      lang={shown.lang}
       editor={editor}
       codeThemes={codeThemes}
       className="terminal wrap [&_pre]:w-auto"

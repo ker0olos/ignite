@@ -23,6 +23,7 @@ import {
   stopBackground,
   type Background,
 } from "./backgroundBash.ts";
+import { REASON, withoutReason } from "./toolReason.ts";
 
 const BACKGROUND = Type.Optional(
   Type.Boolean({
@@ -116,8 +117,10 @@ export default function bash(pi: ExtensionAPI) {
     parameters: Type.Object({
       ...builtin.parameters.properties,
       background: BACKGROUND,
+      reason: REASON,
     }),
-    async execute(id, { background, ...input }, signal, onUpdate, ctx) {
+    async execute(id, params, signal, onUpdate, ctx) {
+      const { background, ...input } = withoutReason(params);
       if (!background) return builtin.execute(id, input, signal, onUpdate, ctx);
       const command = written.get(id);
       written.delete(id);
