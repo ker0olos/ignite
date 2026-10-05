@@ -99,7 +99,8 @@ export function allowRuleFor(summary: string): AllowRule | null {
   return host ? { kind: "hosts", target: host } : null;
 }
 
-const isCd = (pipeline: Pipeline) => pipeline[0]?.words[0] === "cd";
+const isCd = (pipeline: Pipeline) =>
+  pipeline.length === 1 && pipeline[0].words[0] === "cd";
 
 /**
  * A pipeline's first command run by name from PATH, with its subcommand

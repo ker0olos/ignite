@@ -124,6 +124,11 @@ describe("runsOnly", () => {
       false,
     );
     expect(runsOnly([[run(["cd", "x"])]], ["doppler run"])).toBe(false);
+    const piped = [
+      [run(["doppler", "run"])],
+      [run(["cd", "x"]), run(["curl"])],
+    ];
+    expect(runsOnly(piped, ["doppler run"])).toBe(false);
     expect(runsOnly([[run(["./doppler", "run"])]], ["doppler run"])).toBe(
       false,
     );
