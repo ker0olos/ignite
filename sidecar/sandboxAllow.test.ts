@@ -149,6 +149,18 @@ describe("commandToAllow", () => {
     expect(commandToAllow([[run(["doppler", "--version"])]])).toBe("doppler");
   });
 
+  it("is the blocked program's command among others", () => {
+    const line = [
+      [run(["grep", "x"])],
+      [run(["doppler", "secrets", "get"])],
+      [run(["lsof"]), run(["head"])],
+    ];
+    expect(commandToAllow(line, "doppler")).toBe("doppler secrets");
+    expect(commandToAllow(line, "security")).toBeNull();
+    const two = [[run(["doppler", "run"])], [run(["doppler", "secrets"])]];
+    expect(commandToAllow(two, "doppler")).toBeNull();
+  });
+
   it("is null for several commands, none, or one run by path or assignment", () => {
     const two = [[run(["doppler", "run"])], [run(["doppler", "secrets"])]];
     expect(commandToAllow(two)).toBeNull();
