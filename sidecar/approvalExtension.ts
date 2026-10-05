@@ -161,7 +161,7 @@ async function ruleFor(
   const named = blockedProgram(explained);
   const pipelines = (await bashParser)?.(command);
   if (!named || !pipelines || !isCredential(hit.target, homedir())) return null;
-  const target = commandToAllow(pipelines);
+  const target = commandToAllow(pipelines, named);
   if (!target) return null;
   const rule = { kind: "commands" as const, target };
   return (await canAllow(rule, homedir())) ? rule : null;

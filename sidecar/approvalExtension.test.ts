@@ -471,6 +471,20 @@ describe("the sandbox in Auto", () => {
     asks[0].answer(false);
   });
 
+  it("offers the program that read the credential among other commands", async () => {
+    const { asks, call, result } = load();
+    await call("bash", {
+      command:
+        "cd x && grep -n dev package.json; doppler secrets get PORT --plain; lsof -iTCP | head",
+    });
+    fake.program = "doppler";
+    fake.violation = `file-read-data ${home}/Library/Keychains/login.keychain-db`;
+    void result("Operation not permitted", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.allow).toBe("doppler secrets");
+    asks[0].answer(false);
+  });
+
   it("offers the program only for a credential it read", async () => {
     await allowAlways({ kind: "write", target: "/etc/x" });
     const { asks, call, result } = load();

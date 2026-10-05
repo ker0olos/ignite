@@ -134,15 +134,24 @@ export function runsOnly(pipelines: Pipeline[], commands: string[]): boolean {
   );
 }
 
-/**
- * The command to offer running outside the sandbox: the one program and
- * subcommand besides cd that starts every pipeline, whichever process (the
- * program, or a helper like doppler's `security`) hit the credential.
- */
-export function commandToAllow(pipelines: Pipeline[]): string | null {
-  const commands = new Set(
-    pipelines.filter((pipeline) => !isCd(pipeline)).map(commandOf),
-  );
+const single = (commands: Set<string | null>) => {
   const [command] = commands;
   return commands.size === 1 && command ? command : null;
+};
+
+/**
+ * The command to offer running outside the sandbox: the one that `blocked`
+ * (the process that hit the credential) starts, among other commands too;
+ * else the one program and subcommand besides cd that starts every pipeline,
+ * whichever process (it, or a helper like doppler's `security`) hit it.
+ */
+export function commandToAllow(
+  pipelines: Pipeline[],
+  blocked?: string,
+): string | null {
+  const commands = pipelines
+    .filter((pipeline) => !isCd(pipeline))
+    .map(commandOf);
+  const own = commands.filter((c) => c?.split(" ")[0] === blocked);
+  return single(new Set(own)) ?? single(new Set(commands));
 }
