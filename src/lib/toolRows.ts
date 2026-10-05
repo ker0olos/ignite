@@ -3,6 +3,7 @@ import type {
   ToolCall,
   UserMessage,
 } from "../../shared/agentTypes";
+import { readShellEdits } from "../../shared/shellEdits";
 import { compactionOf, type CompactionItem } from "./compaction";
 import type { Item, ToolRun } from "./transcript";
 
@@ -24,10 +25,15 @@ type Block = AssistantMessage["content"][number];
 
 /**
  * Folds a quiet call into the group before it. A failed call stands alone, so
- * a red row always means that call.
+ * a red row always means that call, and so does a command that changed files.
  */
 function pushCall(rows: Row[], call: ToolCall, tools: Record<string, ToolRun>) {
-  if (!QUIET.has(call.name) || tools[call.id]?.status === "error") {
+  const run = tools[call.id];
+  if (
+    !QUIET.has(call.name) ||
+    run?.status === "error" ||
+    readShellEdits(run?.result?.details).length
+  ) {
     rows.push({ kind: "tool", call });
     return;
   }

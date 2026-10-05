@@ -174,6 +174,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts
   bashExtension.ts       pi's bash with `background: true` (dev servers, watchers), and bash_stop to end them
   backgroundBash.ts      Background commands per conversation: their logs, stopping them with what they started
+  shellEditsExtension.ts The files a bash command changed (working tree before and after), shown as edits
   ptyShell.ts            Shells in a PTY (node-pty): spawning, killing its tree, its output as screen text
   ptyBash.ts             Background commands' shell in a PTY: stdin from /dev/null, pagers off
   terminal.ts            The user's terminals: a login shell in a PTY (node-pty), mirrored in a headless xterm
@@ -257,6 +258,7 @@ shared/questions.ts      ask_user's questions and answers (used by both)
 shared/tasks.ts          Tasks and the agent's updates to them (used by both)
 shared/queue.ts          Messages sent mid-run: how they wait, and taking one back (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
+shared/shellEdits.ts     The files a bash call changed, as its result carries them (used by both)
 shared/steps.ts          A tool call as a current step ("Editing src/app.ts"), for tasks and the working line
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)

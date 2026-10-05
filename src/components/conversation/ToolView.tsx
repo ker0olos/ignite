@@ -11,6 +11,7 @@ import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL } from "../../../shared/subagents";
 import { TASK_ADD_TOOL, TASK_TOOL, readProposed } from "../../../shared/tasks";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
+import { ShellEdits } from "@/components/conversation/ShellEdits";
 import type { ToolProps } from "@/components/conversation/shared";
 import { ToolHead } from "@/components/conversation/ToolHead";
 import { ToolHtml } from "@/components/conversation/ToolHtml";
@@ -114,36 +115,39 @@ export function ToolView({
   const mcp = mcpCall(call.name, call.arguments);
   const text = resultText(run?.result);
   return (
-    <div className="space-y-1">
-      <ToolHead
-        run={run}
-        title={
-          mcp ? (
-            <McpCallLabel call={mcp} failed={run?.status === "error"} />
-          ) : (
-            toolTitle(call)
-          )
-        }
-        arg={mcp ? "" : toolArg(call, folder)}
-      />
-      {run && (
-        <ToolOutcome>
-          {call.name === HTML_TOOL && run.status === "done" ? (
-            <ToolHtml args={call.arguments} />
-          ) : (
-            <ToolRunOutcome
-              call={call}
-              run={run}
-              text={text}
-              editor={editor}
-              codeThemes={codeThemes}
-              folder={folder}
-              tools={tools}
-              onApprove={onApprove}
-            />
-          )}
-        </ToolOutcome>
-      )}
+    <div className="space-y-2">
+      <div className="space-y-1">
+        <ToolHead
+          run={run}
+          title={
+            mcp ? (
+              <McpCallLabel call={mcp} failed={run?.status === "error"} />
+            ) : (
+              toolTitle(call)
+            )
+          }
+          arg={mcp ? "" : toolArg(call, folder)}
+        />
+        {run && (
+          <ToolOutcome>
+            {call.name === HTML_TOOL && run.status === "done" ? (
+              <ToolHtml args={call.arguments} />
+            ) : (
+              <ToolRunOutcome
+                call={call}
+                run={run}
+                text={text}
+                editor={editor}
+                codeThemes={codeThemes}
+                folder={folder}
+                tools={tools}
+                onApprove={onApprove}
+              />
+            )}
+          </ToolOutcome>
+        )}
+      </div>
+      <ShellEdits run={run} editor={editor} codeThemes={codeThemes} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
+import { access, copyFile, mkdtemp, rm } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import {
@@ -77,8 +77,38 @@ export function worktreePath(repo: string, id: string, root = WORKTREES) {
 }
 
 /**
- * Commits `dir`'s working state (tracked and untracked files, not ignored
- * ones) on top of its HEAD, without touching its index or any branch.
+ * The tree of `dir`'s working state (tracked and untracked files, not ignored
+ * ones), staged in `indexFile` instead of its index. Reusing one `indexFile`
+ * keeps its stat cache, so only files changed since are hashed again.
+ */
+export async function workingTree(
+  dir: string,
+  indexFile: string,
+): Promise<string> {
+  const env = { GIT_INDEX_FILE: indexFile };
+  const fresh = await access(indexFile).then(
+    () => false,
+    () => true,
+  );
+  if (fresh) {
+    // A copy of the real index starts with its stat cache.
+    const index = await git(dir, [
+      "rev-parse",
+      "--path-format=absolute",
+      "--git-path",
+      "index",
+    ]);
+    await copyFile(index, indexFile).catch(() =>
+      git(dir, ["read-tree", "HEAD"], env),
+    );
+  }
+  await git(dir, ["add", "-A", ":/"], env);
+  return git(dir, ["write-tree"], env);
+}
+
+/**
+ * Commits `dir`'s working state on top of its HEAD, without touching its
+ * index or any branch.
  */
 export async function snapshot(
   dir: string,
@@ -86,19 +116,7 @@ export async function snapshot(
 ): Promise<string> {
   const tmp = await mkdtemp(join(tmpdir(), `${APP_NAME}-index-`));
   try {
-    const env = { GIT_INDEX_FILE: join(tmp, "index") };
-    // A copy of the real index keeps its stat cache, so unchanged files aren't hashed again.
-    const index = await git(dir, [
-      "rev-parse",
-      "--path-format=absolute",
-      "--git-path",
-      "index",
-    ]);
-    await copyFile(index, env.GIT_INDEX_FILE).catch(() =>
-      git(dir, ["read-tree", "HEAD"], env),
-    );
-    await git(dir, ["add", "-A", ":/"], env);
-    const tree = await git(dir, ["write-tree"], env);
+    const tree = await workingTree(dir, join(tmp, "index"));
     return await git(
       dir,
       ["commit-tree", tree, "-p", "HEAD", "-m", message],
