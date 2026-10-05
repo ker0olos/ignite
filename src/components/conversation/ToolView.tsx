@@ -9,7 +9,7 @@ import {
 import { GH_TOOL, GIT_TOOL } from "../../../shared/git";
 import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL } from "../../../shared/subagents";
-import { TASK_ADD_TOOL, readProposed } from "../../../shared/tasks";
+import { TASK_ADD_TOOL, TASK_TOOL, readProposed } from "../../../shared/tasks";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
 import type { ToolProps } from "@/components/conversation/shared";
 import { ToolHead } from "@/components/conversation/ToolHead";
@@ -47,6 +47,7 @@ const TOOL_TITLES: Record<string, string> = {
   [IMAGE_TOOL]: "Image",
   [HTML_TOOL]: "HTML",
   [TASK_ADD_TOOL]: "Add tasks",
+  [TASK_TOOL]: "Plan",
   [BASH_STOP_TOOL]: "Stop",
 };
 

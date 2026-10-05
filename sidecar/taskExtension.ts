@@ -17,6 +17,7 @@ import {
   TASK_TOOL,
   autonomous,
   conversationTask,
+  type PlanDetails,
   unfinished,
   type Task,
   type TaskUpdate,
@@ -76,7 +77,15 @@ export const CHROME_GUIDANCE = `The chrome_* tools drive a separate Chrome that'
 
 /** For conversations the user follows: plan with subtasks too, but stay interactive. */
 export const PLAN_GUIDANCE = `## Planning the work
-Before changing any files, call ${TASK_TOOL} to lay out the work as subtasks (this adds the conversation to the user's task list). Then, before starting a subtask, set it to "working"; when it's finished, set it to "done". Answering questions or reading code needs no plan.`;
+Before changing any files, call ${TASK_TOOL} to lay out the work as subtasks (this adds the conversation to the user's task list). Answering questions or reading code needs no plan.
+The user follows the plan as you go, so keep it true:
+- Work through the subtasks in order. Before starting one, set it to "working"; the moment it's finished, set it to "done", before moving on.
+- When the user asks for more, or the work turns out to need a step the plan lacks, add it as a subtask before doing it.
+- Before you end a reply, every subtask you finished is "done".`;
+
+/** The plan so far, added to an interactive conversation's prompt each run so it picks up where it left off. */
+export const planReminder = (task: Task): string =>
+  `### The plan so far\n${progressText(task)}`;
 
 export const PLAN_FIRST = `Plan first: call ${TASK_TOOL} to lay out the subtasks, or to confirm the ones given, before changing files.`;
 
@@ -162,7 +171,10 @@ export default function tasks(pi: ExtensionAPI) {
       // Planned even if the task file failed, so edits never wait on it.
       known = Promise.resolve({ ...knownOf(task), planned: true });
       const text = task ? progressText(task) : "Couldn't save the subtasks.";
-      return { content: [{ type: "text", text }], details: undefined };
+      const details: PlanDetails | undefined = task
+        ? { subtasks: task.subtasks }
+        : undefined;
+      return { content: [{ type: "text", text }], details };
     },
   });
 
@@ -187,8 +199,12 @@ export default function tasks(pi: ExtensionAPI) {
       ...(alone ? [] : [TASK_ADD_TOOL]),
     ]);
     if (task?.declined) void askTask(pi, "update", { declined: false });
-    if (!alone)
-      return { systemPrompt: `${event.systemPrompt}\n\n${PLAN_GUIDANCE}` };
+    if (!alone) {
+      const plan = task?.subtasks.length ? `\n\n${planReminder(task)}` : "";
+      return {
+        systemPrompt: `${event.systemPrompt}\n\n${PLAN_GUIDANCE}${plan}`,
+      };
+    }
     const prompt = event.systemPrompt
       .replace(ASKING, AUTONOMOUS)
       .replace(COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE);

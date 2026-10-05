@@ -1,9 +1,22 @@
 /** Tasks as they cross the wire: what the user hands an agent, and what it reports back. */
-import type { ImageContent } from "./agentTypes.ts";
+import type { ImageContent, ToolResult } from "./agentTypes.ts";
 import type { ThinkingLevel } from "./hostProtocol.ts";
 
 /** The tool a task's agent reports its progress with. */
 export const TASK_TOOL = "task_update";
+
+/** What a task_update call returns beside its text: the subtasks after it. */
+export type PlanDetails = { subtasks: Subtask[] };
+
+/** A task_update call's subtasks; undefined for other calls, an empty plan, or ones saved before it reported them. */
+export function readPlan(
+  result: ToolResult | undefined,
+): Subtask[] | undefined {
+  const d = result?.details as Partial<PlanDetails> | undefined;
+  return Array.isArray(d?.subtasks) && d.subtasks.length
+    ? d.subtasks
+    : undefined;
+}
 
 /** The tool any other conversation adds tasks to the list with, once the user approves. */
 export const TASK_ADD_TOOL = "task_add";

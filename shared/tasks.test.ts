@@ -8,6 +8,7 @@ import {
   readProposed,
   unfinished,
   type Task,
+  readPlan,
 } from "./tasks.ts";
 
 const task: Task = {
@@ -175,5 +176,16 @@ describe("conversationTask", () => {
       created: 5,
     });
     expect(conversationTask("s1", "", 5).title).toBe("Conversation");
+  });
+});
+
+describe("readPlan", () => {
+  it("reads a task_update call's subtasks, or nothing", () => {
+    const result = (details: unknown) => ({ content: [], details });
+    const subtasks = [{ title: "a", status: "done" }];
+    expect(readPlan(result({ subtasks }))).toEqual(subtasks);
+    expect(readPlan(result({ subtasks: [] }))).toBeUndefined();
+    expect(readPlan(result(undefined))).toBeUndefined();
+    expect(readPlan(undefined)).toBeUndefined();
   });
 });
