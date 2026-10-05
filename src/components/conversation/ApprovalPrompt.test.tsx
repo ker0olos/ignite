@@ -19,7 +19,7 @@ it("offers only approve and deny otherwise", () => {
   ]);
 });
 
-it("shows the agent's reason before the app's", () => {
+it("titles the agent's reason with the app's", () => {
   render(
     <ApprovalPrompt
       why="Removes the test user"
@@ -28,7 +28,7 @@ it("shows the agent's reason before the app's", () => {
     />,
   );
   expect(screen.getAllByRole("paragraph").map((p) => p.textContent)).toEqual([
-    "Removes the test user",
     "May make changes: execute_sql",
+    "Removes the test user",
   ]);
 });
