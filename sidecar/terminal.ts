@@ -9,7 +9,7 @@ import type {
   TerminalSnapshot,
 } from "../shared/terminal.ts";
 import { APP_NAME } from "../src/lib/app.ts";
-import { spawnPty, terminalEnv } from "./ptyShell.ts";
+import { headlessTerminal, spawnPty, terminalEnv } from "./ptyShell.ts";
 
 type Terminal = {
   info: TerminalInfo;
@@ -62,12 +62,7 @@ export function openTerminal(
 ): TerminalInfo {
   const { file, args } = shell();
   const pty = spawnPty(file, args, { cwd, env: terminalEnv(), cols, rows });
-  const screen = new xterm.Terminal({
-    cols,
-    rows,
-    scrollback: SCROLLBACK,
-    allowProposedApi: true,
-  });
+  const screen = headlessTerminal({ cols, rows, scrollback: SCROLLBACK });
   const serializer = new serialize.SerializeAddon();
   screen.loadAddon(serializer);
   const id = `t${registry.next++}`;

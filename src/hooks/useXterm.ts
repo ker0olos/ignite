@@ -1,10 +1,23 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal, type ITerminalOptions } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
 import { terminalTheme } from "@/lib/terminalTheme";
+
+// Falls back to the DOM renderer when WebGL is missing or its context is lost.
+function loadWebgl(t: Terminal) {
+  try {
+    const webgl = new WebglAddon();
+    webgl.onContextLoss(() => webgl.dispose());
+    t.loadAddon(webgl);
+  } catch {
+    // DOM renderer stays
+  }
+}
 
 /**
  * An xterm in the returned `host` element: fitted to it, themed like the app
@@ -32,6 +45,7 @@ export function useXterm(
       lineHeight: 1.4,
       scrollback: 5000,
       allowTransparency: false,
+      allowProposedApi: true,
       // VS Code's default: lifts dim ANSI colors off the background
       minimumContrastRatio: 4.5,
       ...latest.current.options,
@@ -45,7 +59,10 @@ export function useXterm(
         if (e.metaKey || e.ctrlKey) void openUrl(uri).catch(() => {});
       }),
     );
+    t.loadAddon(new Unicode11Addon());
+    t.unicode.activeVersion = "11";
     t.open(host.current!);
+    loadWebgl(t);
     const refit = () => {
       fit.fit();
       latest.current.onResize?.(t.cols, t.rows);

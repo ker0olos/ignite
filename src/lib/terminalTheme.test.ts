@@ -25,5 +25,14 @@ it("takes the ANSI colors the theme sets for its kind", () => {
     "dark",
   );
   expect(theme.blue).toBe("#58a6ff");
-  expect(theme.red).toBeUndefined();
+  expect(theme.red).toBe("#cd3131");
+});
+
+it("falls back to VS Code's light colors in light mode", () => {
+  const theme = themeFromTokens(
+    () => "",
+    (c) => c,
+    "light",
+  );
+  expect(theme.blue).toBe("#0451a5");
 });

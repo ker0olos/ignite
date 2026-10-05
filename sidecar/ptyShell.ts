@@ -2,6 +2,7 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import unicode11 from "@xterm/addon-unicode11";
 import xterm from "@xterm/headless";
 import { spawn, type IPty } from "node-pty";
 import { APP_NAME } from "../src/lib/app.ts";
@@ -77,18 +78,27 @@ export function killTree(
   }
 }
 
+/** A headless xterm measuring widths like the app's (Unicode 11). */
+export function headlessTerminal(
+  options: ConstructorParameters<typeof xterm.Terminal>[0],
+) {
+  const screen = new xterm.Terminal({ ...options, allowProposedApi: true });
+  screen.loadAddon(new unicode11.Unicode11Addon());
+  screen.unicode.activeVersion = "11";
+  return screen;
+}
+
 /**
  * A PTY's output as the lines a terminal ends up showing, for the agent:
  * colors, cursor moves and spinners rendered away. Each line is passed on
  * once it ends; `end` passes the last one.
  */
 export function screenText(onText: (text: string) => void, cols = 120) {
-  const screen = new xterm.Terminal({
+  const screen = headlessTerminal({
     cols,
     rows: 40,
     // Room for a long line's wrapped rows (minified JS, a JSON reply).
     scrollback: 1000,
-    allowProposedApi: true,
   });
   const buffer = () => screen.buffer.active;
   // The text of the row `row` ends, with the rows it wrapped from.
