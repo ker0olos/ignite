@@ -12,14 +12,34 @@ type TokenRule = {
   settings?: { foreground?: string };
 };
 
-const ROLES = ["code", "success", "warning", "destructive"] as const;
+/** The terminal's 16 colors, named as xterm's theme names them. */
+export const ANSI = [
+  "black",
+  "red",
+  "green",
+  "yellow",
+  "blue",
+  "magenta",
+  "cyan",
+  "white",
+  "brightBlack",
+  "brightRed",
+  "brightGreen",
+  "brightYellow",
+  "brightBlue",
+  "brightMagenta",
+  "brightCyan",
+  "brightWhite",
+] as const;
+
+const ROLES = ["code", "success", "warning", "destructive", ...ANSI] as const;
 type Role = (typeof ROLES)[number];
 
-/** The app's accent colours a theme sets; index.css keeps its own for the rest. */
+/** The app's accent and terminal colours a theme sets; the app keeps its own for the rest. */
 export type Palette = Partial<Record<Role, string>>;
 
 // Editor color keys per role, first found wins.
-const COLOR_KEYS: Record<Exclude<Role, "code">, string[]> = {
+const COLOR_KEYS = {
   success: ["terminal.ansiGreen", "gitDecoration.addedResourceForeground"],
   warning: ["terminal.ansiYellow", "editorWarning.foreground"],
   destructive: [
@@ -27,6 +47,9 @@ const COLOR_KEYS: Record<Exclude<Role, "code">, string[]> = {
     "terminal.ansiRed",
     "errorForeground",
   ],
+  ...Object.fromEntries(
+    ANSI.map((c) => [c, [`terminal.ansi${c[0].toUpperCase()}${c.slice(1)}`]]),
+  ),
 };
 
 function scopeColor(theme: ThemeData, scope: string) {

@@ -1,4 +1,6 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal, type ITerminalOptions } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
@@ -30,12 +32,17 @@ export function useXterm(
       lineHeight: 1.4,
       scrollback: 5000,
       allowTransparency: false,
+      // VS Code's default: lifts dim ANSI colors off the background
+      minimumContrastRatio: 4.5,
       ...latest.current.options,
       fontFamily,
       theme: terminalTheme(),
     });
     const fit = new FitAddon();
     t.loadAddon(fit);
+    t.loadAddon(
+      new WebLinksAddon((_, uri) => void openUrl(uri).catch(() => {})),
+    );
     t.open(host.current!);
     const refit = () => {
       fit.fit();
@@ -50,7 +57,7 @@ export function useXterm(
     });
     dark.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class"],
+      attributeFilter: ["class", "style"],
     });
     return () => {
       resize.disconnect();
