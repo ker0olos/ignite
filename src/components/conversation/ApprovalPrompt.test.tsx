@@ -18,3 +18,17 @@ it("offers only approve and deny otherwise", () => {
     "Deny",
   ]);
 });
+
+it("shows the agent's reason before the app's", () => {
+  render(
+    <ApprovalPrompt
+      why="Removes the test user"
+      reason="May make changes: execute_sql"
+      onAnswer={vi.fn()}
+    />,
+  );
+  expect(screen.getAllByRole("paragraph").map((p) => p.textContent)).toEqual([
+    "Removes the test user",
+    "May make changes: execute_sql",
+  ]);
+});

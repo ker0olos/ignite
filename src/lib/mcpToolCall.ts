@@ -1,3 +1,6 @@
+import { GH_TOOL, GIT_TOOL } from "../../shared/git.ts";
+import { ASK_TOOL } from "../../shared/questions.ts";
+
 /**
  * pi-mcp-adapter's tools as the conversation shows them. The model reaches
  * MCP servers through `mcp` (search, describe, connect or call a tool), one
@@ -107,4 +110,48 @@ export function isMcpDirect(
   if (mcpCall(name, {})) return false;
   const tool = tools.find((t) => t.name === name);
   return /[/\\]mcpExtension\.ts$/.test(tool?.sourceInfo.path ?? "");
+}
+
+/** A tool's arguments as YAML-like lines, multi-line strings (SQL, scripts) kept readable. */
+export function argsText(args: unknown): string {
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    return typeof args === "string" ? args : JSON.stringify(args, null, 2);
+  }
+  return Object.entries(args)
+    .map(([key, value]) => {
+      if (typeof value !== "string") return `${key}: ${JSON.stringify(value)}`;
+      if (!value.includes("\n")) return `${key}: ${value}`;
+      return `${key}: |\n${value.replace(/^/gm, "  ")}`;
+    })
+    .join("\n");
+}
+
+// Built-in tools whose row already shows what they'd do (path, pattern, review).
+const SHOWN = new Set([
+  "read",
+  "write",
+  "edit",
+  "ls",
+  "grep",
+  "find",
+  GIT_TOOL,
+  GH_TOOL,
+  ASK_TOOL,
+]);
+
+function yaml(args: unknown) {
+  const code = argsText(args);
+  return code ? { code, lang: "yaml" } : null;
+}
+
+/** What a waiting call's approval shows of its arguments, or null when its row already does. */
+export function approvalArgs(name: string, args: Record<string, unknown>) {
+  const mcp = mcpCall(name, args);
+  if (mcp?.kind === "script") return { code: mcp.code, lang: "js" };
+  // The server tool's own arguments: a `reason` there is the server's, not the agent's.
+  if (mcp?.kind === "call") return yaml(mcp.args);
+  if (mcp || SHOWN.has(name)) return null;
+  return yaml(
+    Object.fromEntries(Object.entries(args).filter(([k]) => k !== "reason")),
+  );
 }

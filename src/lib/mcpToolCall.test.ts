@@ -1,5 +1,55 @@
 import { describe, expect, it } from "vitest";
-import { mcpCall } from "./mcpToolCall";
+import { approvalArgs, argsText, mcpCall } from "./mcpToolCall";
+
+describe("approvalArgs", () => {
+  it("shows an MCP call's arguments, multi-line strings as blocks", () => {
+    expect(
+      approvalArgs("mcp__supabase", {
+        tool: "execute_sql",
+        args: { project_id: "abc", query: "delete from users\nwhere id = 1" },
+        reason: "Removes the test user",
+      }),
+    ).toEqual({
+      code: "project_id: abc\nquery: |\n  delete from users\n  where id = 1",
+      lang: "yaml",
+    });
+  });
+
+  it("keeps the server tool's own reason, and shows nothing with no arguments", () => {
+    expect(
+      approvalArgs("mcp", {
+        tool: "refund",
+        args: { reason: "fraudulent" },
+        reason: "Why",
+      }),
+    ).toEqual({ code: "reason: fraudulent", lang: "yaml" });
+    expect(approvalArgs("mcp", { tool: "list_projects" })).toBeNull();
+  });
+
+  it("shows a script's code", () => {
+    expect(approvalArgs("mcpScript", { code: "emit(1)" })).toEqual({
+      code: "emit(1)",
+      lang: "js",
+    });
+  });
+
+  it("shows other tools' arguments without the reason, values as JSON", () => {
+    expect(
+      approvalArgs("supabase_execute_sql", { limit: 2, reason: "Why" }),
+    ).toEqual({ code: "limit: 2", lang: "yaml" });
+  });
+
+  it("shows nothing when the row already does, or there are no arguments", () => {
+    expect(approvalArgs("write", { path: "/x", content: "y" })).toBeNull();
+    expect(approvalArgs("mcp", { search: "sql" })).toBeNull();
+    expect(approvalArgs("chrome_tabs", { reason: "Why" })).toBeNull();
+  });
+
+  it("shows arguments that aren't an object as they are", () => {
+    expect(argsText("raw")).toBe("raw");
+    expect(argsText([1])).toBe("[\n  1\n]");
+  });
+});
 
 describe("mcpCall", () => {
   it("ignores other tools", () => {

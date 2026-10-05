@@ -47,7 +47,7 @@ afterEach(() => {
 });
 
 describe.runIf(process.platform !== "win32")("bash extension", () => {
-  it("keeps bash's own parameters and adds background", () => {
+  it("keeps bash's own parameters and adds background and reason", () => {
     const params = load().tools.get("bash")!.parameters as {
       properties: object;
     };
@@ -55,6 +55,7 @@ describe.runIf(process.platform !== "win32")("bash extension", () => {
       "command",
       "timeout",
       "background",
+      "reason",
     ]);
   });
 
