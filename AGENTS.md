@@ -382,8 +382,11 @@ channel: its call waits as an approval, the row shows its questions, and
 `approval_answer` carries the answers (declining leaves the choice to the
 agent). The approval gate never asks about `ask_user` itself. **Manual** asks for every tool call (built-in,
 MCP, everything); approved commands run as is. **Auto** asks for bash
-commands on the denylist in `lib/dangerousCommands.ts` and for file tools
-whose resolved path (symlinks followed) is outside the open folder. Every
+commands on the denylist in `lib/dangerousCommands.ts`, for file tools
+whose resolved path (symlinks followed) is outside the open folder, and for
+MCP calls (`mcp`, `mcp__<server>`, `mcpScript`, and direct tools, known by
+the extension that registered them) unless the tool's name reads as a read
+only (`get_list`, not `create_comment` or `query`; `lib/mcpToolCall.ts`). Every
 other bash command runs without asking inside an OS sandbox
 (`sidecar/sandbox.ts`, Anthropic's `@anthropic-ai/sandbox-runtime`: Seatbelt
 on macOS, bubblewrap on Linux). It may write only in the folder, temp
@@ -529,8 +532,7 @@ and may act freely in it, but only in tabs it opened, named by id
 (`sidecar/taskTabs.ts`; browser-wide `chrome_cdp` calls are refused).
 Other conversations never pick or list a task's tabs, and their browser-wide
 calls run only in the user's Chrome. Each screenshot is also saved to a temp file, so
-`show_image` can put it on the task. Auto runs them without asking, like MCP
-tools; Manual asks.
+`show_image` can put it on the task. Auto runs them without asking; Manual asks.
 
 The `adb` and `adb_screenshot` tools (`sidecar/adbExtension.ts`) run adb
 from an argument list outside the sandbox, which can't reach adb's server
