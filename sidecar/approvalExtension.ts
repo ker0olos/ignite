@@ -28,6 +28,7 @@ import {
   resolvePath,
   type ApprovalGate,
 } from "../src/lib/approvalPolicy.ts";
+import { isMcpDirect } from "../src/lib/mcpToolCall.ts";
 import { runBackground } from "./bashExtension.ts";
 import { loadBashParser } from "./bashParser.ts";
 import {
@@ -263,6 +264,7 @@ export default function approval(pi: ExtensionAPI) {
     return approvalFor(mode, event.toolName, input, place, {
       parse,
       sandboxed: !!box,
+      mcpDirect: isMcpDirect(event.toolName, pi.getAllTools()),
     });
   }
 

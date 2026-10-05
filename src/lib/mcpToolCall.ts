@@ -53,3 +53,58 @@ export function mcpCall(
   if (args.connect) return { kind: "connect", server: text(args.connect) };
   return { kind: "other" };
 }
+
+const READS = new Set(
+  "get list search find read fetch describe view show lookup count check status inspect preview poll timeline".split(
+    " ",
+  ),
+);
+// `query`, `sql` and the like run whatever they're given, so they ask too.
+const CHANGES = new Set(
+  "create update delete remove add set send post put patch edit write move rename archive attach upload download import export execute exec eval run call invoke query sql shell script generate install merge close assign invite start stop cancel publish deploy apply reply comment toggle enable disable reset restore submit approve reject insert upsert drop push transfer buy pay purchase sign revoke trigger save duplicate copy kill pause unpause request change mark complete resolve replace commit share grant schedule clear notify modify mutate sync clone fork upgrade migrate seed truncate purge destroy terminate activate deactivate lock unlock subscribe unsubscribe follow unfollow reserve transition convert fill click press navigate login logout".split(
+    " ",
+  ),
+);
+
+/**
+ * Whether an MCP tool reads only, judged by the verbs in its name
+ * (`clickup_get_list` yes, `clickup_create_comment` no); unknown ones don't.
+ */
+// ponytail: names only, so a change verb missing from CHANGES slips through; servers' readOnlyHint isn't in the adapter's cache.
+function readsOnly(tool: string): boolean {
+  const words = tool
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/);
+  return words.some((w) => READS.has(w)) && !words.some((w) => CHANGES.has(w));
+}
+
+/**
+ * Why Auto asks before an MCP call (it may change something), or null.
+ * `direct`: the tool is one of the adapter's direct tools (`<server>_<tool>`).
+ */
+export function mcpReason(
+  name: string,
+  args: Record<string, unknown>,
+  direct = false,
+): string | null {
+  const call = direct
+    ? { kind: "call" as const, tool: name }
+    : mcpCall(name, args);
+  if (call?.kind === "script") return "Runs MCP calls from a script";
+  if (call?.kind !== "call" || !call.tool || readsOnly(call.tool)) return null;
+  return `May make changes: ${call.tool}`;
+}
+
+/**
+ * Whether a tool is one of the adapter's direct tools, which are named by
+ * server (`clickup_create_task`); `tools` is pi's getAllTools().
+ */
+export function isMcpDirect(
+  name: string,
+  tools: { name: string; sourceInfo: { path: string } }[],
+): boolean {
+  if (mcpCall(name, {})) return false;
+  const tool = tools.find((t) => t.name === name);
+  return /[/\\]mcpExtension\.ts$/.test(tool?.sourceInfo.path ?? "");
+}

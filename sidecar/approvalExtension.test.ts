@@ -113,12 +113,14 @@ type Handler = (event: object, ctx?: object) => Promise<unknown>;
  * `call` returns the handler's result, `input` the call's (maybe rewritten)
  * input, and `result` plays the tool's output back through tool_result.
  */
-function load() {
+function load(tools: { name: string; path: string }[] = []) {
   const events = createEventBus();
   const handlers = new Map<string, Handler>();
   approval({
     on: (name: string, h: Handler) => handlers.set(name, h),
     events,
+    getAllTools: () =>
+      tools.map(({ name, path }) => ({ name, sourceInfo: { path } })),
   } as unknown as ExtensionAPI);
   const asks: ApprovalAsk[] = [];
   events.on(APPROVAL_EVENT, (data) => void asks.push(data as ApprovalAsk));
@@ -158,6 +160,24 @@ describe("tool_call", () => {
     expect(await call("bash", { command: "npm test" })).toBeUndefined();
     expect(await call("write", { path: "src/a.ts" })).toBeUndefined();
     expect(asks).toEqual([]);
+  });
+
+  it("asks before an MCP server's direct tool that may change something", async () => {
+    const path = "/app/sidecar/mcpExtension.ts";
+    const { asks, call } = load([
+      { name: "clickup_get_task", path },
+      { name: "clickup_delete_task", path },
+      { name: "remove_thing", path: "/app/sidecar/other.ts" },
+    ]);
+    expect(await call("clickup_get_task", {})).toBeUndefined();
+    expect(await call("remove_thing", {})).toBeUndefined();
+    const result = call("clickup_delete_task", {});
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.reason).toBe(
+      "May make changes: clickup_delete_task",
+    );
+    asks[0].answer(false);
+    expect(await result).toEqual({ block: true, reason: DENIED });
   });
 
   it("asks before a dangerous command and runs it once approved", async () => {

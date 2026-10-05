@@ -1,6 +1,7 @@
 /**
  * Which tool calls wait for the user. Manual asks for every call; Auto only
- * for dangerous shell commands and for anything outside the open folder;
+ * for dangerous shell commands, MCP calls that may change something, and
+ * anything outside the open folder;
  * Auto with full access never asks.
  */
 import { ADB_TOOL, adbHostPaths } from "../../shared/adb.ts";
@@ -10,6 +11,7 @@ import {
   type ParseBash,
   type Pipeline,
 } from "./dangerousCommands.ts";
+import { mcpReason } from "./mcpToolCall.ts";
 import { tildify } from "./paths.ts";
 
 /** How tool calls are gated: the composer's mode, or Auto with full access. */
@@ -132,19 +134,21 @@ function fileReason(path: string, place: Place): string | null {
   return inside ? null : outsideReason(resolved, place);
 }
 
-/** How shell commands are judged under Auto. */
-export type BashCheck = {
+/** How calls are judged under Auto. */
+export type Checks = {
   /** Splits commands for a precise check; without it, the raw text is checked. */
   parse?: ParseBash;
   /** Commands run in the OS sandbox, which keeps them in the folder itself. */
   sandboxed?: boolean;
+  /** The tool is one of an MCP server's direct tools. */
+  mcpDirect?: boolean;
 };
 
 /** Why a shell command needs approval under Auto, or null when it may run. */
 function bashReason(
   command: string,
   place: Place,
-  { parse, sandboxed }: BashCheck,
+  { parse, sandboxed }: Checks,
 ): string | null {
   const pipelines = parse?.(command);
   const danger = dangerousCommand(command, pipelines);
@@ -169,10 +173,10 @@ function autoReason(
   toolName: string,
   input: Record<string, unknown>,
   place: Place,
-  bash: BashCheck,
+  checks: Checks,
 ): string | null {
   if (toolName === "bash" && typeof input.command === "string") {
-    return bashReason(input.command, place, bash);
+    return bashReason(input.command, place, checks);
   }
   if (place.windows && SHELL_TOOLS.has(toolName)) return WINDOWS_SHELL;
   if (FILE_TOOLS.has(toolName) && typeof input.path === "string") {
@@ -181,7 +185,7 @@ function autoReason(
   if (toolName === ADB_TOOL && Array.isArray(input.args)) {
     return adbReason(input.args, place);
   }
-  return null;
+  return mcpReason(toolName, input, checks.mcpDirect);
 }
 
 /**
@@ -193,11 +197,11 @@ export function approvalFor(
   toolName: string,
   input: Record<string, unknown>,
   place: Place,
-  bash: BashCheck = {},
+  checks: Checks = {},
 ): { reason?: string } | null {
   if (mode === "manual") return {};
   if (mode === "full") return null;
-  const reason = autoReason(toolName, input, place, bash);
+  const reason = autoReason(toolName, input, place, checks);
   return reason === null ? null : { reason };
 }
 
@@ -210,7 +214,8 @@ export const APPROVAL_MODES: readonly {
   {
     mode: "auto",
     label: "Auto",
-    description: "Asks only for risky commands and paths outside the folder",
+    description:
+      "Asks for risky commands, MCP changes and paths outside the folder",
   },
   {
     mode: "manual",

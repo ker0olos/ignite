@@ -146,6 +146,36 @@ describe("approvalFor", () => {
     expect(approvalFor("auto", "mcp", { tool: "search" }, place)).toBeNull();
   });
 
+  it("asks before MCP calls that may change something in Auto", () => {
+    const call = (tool: string) =>
+      approvalFor("auto", "mcp__clickup", { tool }, place);
+    expect(call("clickup_get_list")).toBeNull();
+    expect(call("clickup_create_comment")).toEqual({
+      reason: "May make changes: clickup_create_comment",
+    });
+    expect(call("updateTaskStatus")).not.toBeNull();
+    expect(call("clickup_get_or_create_task")).not.toBeNull();
+    expect(call("do_something")).not.toBeNull();
+    expect(call("mysql_query")).not.toBeNull();
+    expect(call("search_replace")).not.toBeNull();
+    expect(
+      approvalFor("auto", "clickup_get_task", {}, place, { mcpDirect: true }),
+    ).toBeNull();
+    expect(
+      approvalFor("auto", "clickup_delete_task", {}, place, {
+        mcpDirect: true,
+      }),
+    ).toEqual({ reason: "May make changes: clickup_delete_task" });
+    expect(approvalFor("auto", "mcp", { tool: "x_delete" }, place)).toEqual({
+      reason: "May make changes: x_delete",
+    });
+    expect(approvalFor("auto", "mcpScript", { code: "" }, place)).toEqual({
+      reason: "Runs MCP calls from a script",
+    });
+    expect(approvalFor("auto", "mcp", { search: "status" }, place)).toBeNull();
+    expect(approvalFor("auto", "mcp__clickup", {}, place)).toBeNull();
+  });
+
   it("stops dangerous commands in Auto, with the reason", () => {
     expect(
       approvalFor("auto", "bash", { command: "git reset --hard" }, place),
