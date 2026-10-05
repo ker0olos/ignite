@@ -310,7 +310,7 @@ describe("the sandbox in Auto", () => {
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     expect(asks[0].request).toEqual({
       toolCallId: "t1",
-      reason: "Auto mode stopped this because it tried to create /Users/me/x.",
+      reason: "Tried to create /Users/me/x",
       allow: "/Users/me/x",
     });
     asks[0].answer(true);
@@ -359,7 +359,7 @@ describe("the sandbox in Auto", () => {
     const refused = "touch: /Users/me/x: Operation not permitted";
     const outcome = result(refused, true);
     await vi.waitFor(() => expect(asks).toHaveLength(1));
-    expect(asks[0].request.reason).toBe(`Auto mode stopped this (${refused}).`);
+    expect(asks[0].request.reason).toBe(`Blocked by the sandbox: ${refused}`);
     asks[0].answer(false);
     expect(((await outcome) as Outcome).content[0].text).toBe(
       `${refused}\n\n${DECLINED_OUTSIDE}`,
@@ -390,7 +390,7 @@ describe("the sandbox in Auto", () => {
     const outcome = result("permission denied while trying to connect", false);
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     expect(asks[0].request.reason).toBe(
-      "Auto mode stopped this because it tried to connect to /Users/me/.docker/run/docker.sock.",
+      "Tried to connect to /Users/me/.docker/run/docker.sock",
     );
     asks[0].answer(false);
     await outcome;

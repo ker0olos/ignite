@@ -140,9 +140,7 @@ function commandOf(event: ToolCallEvent): string | undefined {
 /** Why a command the sandbox blocked waits for the user. */
 function blockedReason(what: string) {
   const action = blockedAction(what, homedir());
-  return action
-    ? `Auto mode stopped this because it tried to ${action}.`
-    : `Auto mode stopped this (${what}).`;
+  return action ? `Tried to ${action}` : `Blocked by the sandbox: ${what}`;
 }
 
 /**
