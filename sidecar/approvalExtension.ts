@@ -46,6 +46,7 @@ import {
   allowAlways,
   allowRuleFor,
   loadAllowed,
+  commandToAllow,
   runsOnly,
   type AllowRule,
 } from "./sandboxAllow.ts";
@@ -145,8 +146,8 @@ function blockedReason(what: string) {
 
 /**
  * What to offer to always allow for a blocked command: what it hit, or, when
- * that was a credential (a CLI's token in the keychain), the program that
- * read it, when the command runs it by name.
+ * that was a credential (a CLI's token in the keychain), the program and
+ * subcommand the command runs by name ("doppler run").
  */
 async function ruleFor(
   explained: string,
@@ -156,19 +157,18 @@ async function ruleFor(
   const hit = summary ? allowRuleFor(summary) : null;
   if (!hit) return null;
   if (await canAllow(hit, homedir())) return hit;
-  const program = blockedProgram(explained);
+  const named = blockedProgram(explained);
   const pipelines = (await bashParser)?.(command);
-  if (!program || !pipelines || !runsOnly(pipelines, [program])) return null;
-  if (!isCredential(hit.target, homedir())) return null;
-  const rule = { kind: "commands" as const, target: program };
+  if (!named || !pipelines || !isCredential(hit.target, homedir())) return null;
+  const target = commandToAllow(pipelines);
+  if (!target) return null;
+  const rule = { kind: "commands" as const, target };
   return (await canAllow(rule, homedir())) ? rule : null;
 }
 
 /** How the prompt names `rule` after "Always allow". */
 const allowLabel = (rule: AllowRule) =>
-  rule.kind === "commands"
-    ? `${rule.target} to run outside the sandbox`
-    : shortHome(rule.target, homedir());
+  rule.kind === "commands" ? rule.target : shortHome(rule.target, homedir());
 
 /** Whether `command` runs a program the user always lets run outside the sandbox. */
 async function runsOutside(command: string): Promise<boolean> {

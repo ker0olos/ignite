@@ -399,9 +399,10 @@ one already on the list), the prompt also offers
 **Always allow**, which adds it to `~/.ignite/sandbox.json`
 (`sidecar/sandboxAllow.ts`, read before every command) and runs this one
 outside. When what it hit can't be allowed (a credential, like a CLI's token
-in the keychain), it offers the program the report names instead, if the
-command runs it by name: from then on, a command line whose every pipeline
-(`$(…)` and `bash -c` included) starts with that program or a cd runs
+in the keychain), it offers instead the one program and subcommand the
+command runs by name (`doppler run`), whichever process read it (doppler
+reads through `security`): from then on, a command line whose every pipeline
+(`$(…)` and `bash -c` included) starts with that command or a cd runs
 outside the sandbox. Shells, interpreters, package runners and file tools
 (`node`, `npm`, `xargs`, `cat`, `curl`, `security`…) are never offered. File tools may also use temp folders without asking, as
 sandboxed bash can, and each conversation is told of its own scratchpad
