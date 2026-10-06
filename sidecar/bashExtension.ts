@@ -123,9 +123,10 @@ export default function bash(pi: ExtensionAPI) {
     async execute(id, params, signal, onUpdate, ctx) {
       const { background, ...input } = withoutReason(params);
       if (!background) {
+        // A skipped result's `{ skipped: true }` details aren't among pi's bash details.
         return skippable(id, signal, (s) =>
           builtin.execute(id, input, s, onUpdate, ctx),
-        );
+        ) as ReturnType<typeof builtin.execute>;
       }
       const command = written.get(id);
       written.delete(id);
