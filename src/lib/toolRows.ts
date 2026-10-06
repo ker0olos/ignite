@@ -175,18 +175,23 @@ export function isShortOutput(text: string): boolean {
   return !trimmed.includes("\n") && trimmed.length <= SHORT_CHARS;
 }
 
-/** The first tool call in the conversation that waits for the user, which the keyboard answers. */
-export function firstWaiting(
+/** `waiting` ordered as in `before`, with calls that just began to wait at the end: a prompt being answered keeps its place. */
+export function inArrivalOrder(before: string[], waiting: string[]): string[] {
+  const now = new Set(waiting);
+  const kept = before.filter((id) => now.has(id));
+  return [...kept, ...waiting.filter((id) => !kept.includes(id))];
+}
+
+/** Every call waiting for the user, in transcript order. */
+export function waitingCalls(
   items: Item[],
   tools: Record<string, ToolRun>,
-): string | null {
-  for (const item of items) {
-    if (item.kind !== "message" || item.message.role !== "assistant") continue;
-    const { content } = item.message as AssistantMessage;
-    const call = content.find(
-      (b) => b.type === "toolCall" && tools[b.id]?.approval,
-    );
-    if (call?.type === "toolCall") return call.id;
-  }
-  return null;
+): string[] {
+  return items.flatMap((item) =>
+    item.kind === "message" && item.message.role === "assistant"
+      ? (item.message as AssistantMessage).content.flatMap((b) =>
+          b.type === "toolCall" && tools[b.id]?.approval ? [b.id] : [],
+        )
+      : [],
+  );
 }

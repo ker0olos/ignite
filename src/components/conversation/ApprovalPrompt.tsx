@@ -11,6 +11,7 @@ export function ApprovalPrompt({
   allow,
   children,
   shortcuts = false,
+  queued = 0,
   onAnswer,
 }: {
   /** The agent's own reason for the call. */
@@ -21,6 +22,8 @@ export function ApprovalPrompt({
   children?: ReactNode;
   /** Takes ⌘↩ and ⌘⌫, and shows them: only the first waiting call does. */
   shortcuts?: boolean;
+  /** Other calls waiting behind this one; each opens here once this is answered. */
+  queued?: number;
   onAnswer: (approved: boolean, always?: boolean) => void;
 }) {
   useApprovalKeys(shortcuts, onAnswer);
@@ -68,6 +71,11 @@ export function ApprovalPrompt({
             </span>
           )}
         </Button>
+        {queued > 0 && (
+          <span className="self-center text-xs text-muted-foreground">
+            {queued} more waiting
+          </span>
+        )}
       </div>
     </div>
   );

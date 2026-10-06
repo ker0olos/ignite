@@ -388,7 +388,9 @@ shows Approve / Deny, answered with `approval_answer`. bash and every MCP tool t
 call would run (its command, or an MCP call's arguments). A denied call returns
 `{ block: true, reason }` to the model; stopping the run or closing the
 folder denies what's waiting. A hidden folder's question waits until it's
-shown again. The `ask_user` tool (`sidecar/askExtension.ts`) uses the same
+shown again. When several calls wait, only the first shows its prompt (with
+how many more wait behind it); the rest show their place in line and open
+in turn, so nothing waits off screen. The `ask_user` tool (`sidecar/askExtension.ts`) uses the same
 channel: its call waits as an approval, the row shows its questions, and
 `approval_answer` carries the answers (declining leaves the choice to the
 agent). The approval gate never asks about `ask_user` itself. **Manual** asks for every tool call (built-in,

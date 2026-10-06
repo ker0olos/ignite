@@ -4,11 +4,11 @@ import type { Editor, ToolProps } from "@/components/conversation/shared";
 import { RowBoundary } from "@/components/conversation/RowBoundary";
 import { RowView } from "@/components/conversation/RowView";
 import { RunIndicator } from "@/components/conversation/RunIndicator";
-import { FirstApprovalContext } from "@/hooks/useFirstApproval";
+import { WaitingCallsContext, useWaitingOrder } from "@/hooks/useWaitingPlace";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { workingLine } from "@/lib/runStep";
 import type { Transcript } from "@/lib/transcript";
-import { firstWaiting, toRows } from "@/lib/toolRows";
+import { toRows, waitingCalls } from "@/lib/toolRows";
 import type { CodeThemes } from "@/lib/codeThemes";
 
 /** The conversation so far, auto-scrolling unless the user has scrolled up. */
@@ -41,11 +41,13 @@ export function Conversation({
     lastMessage.stopReason === "pending" &&
     lastMessage.content.at(-1)?.type === "text";
 
-  const waiting = firstWaiting(transcript.items, transcript.tools);
+  const waiting = useWaitingOrder(
+    waitingCalls(transcript.items, transcript.tools),
+  );
   const working = workingLine(transcript, folder, showThinking);
 
   return (
-    <FirstApprovalContext.Provider value={waiting}>
+    <WaitingCallsContext.Provider value={waiting}>
       <div
         ref={contentRef}
         className="always-bounce mx-auto select-text max-w-3xl space-y-4 px-4 py-6 text-[13px]"
@@ -65,13 +67,13 @@ export function Conversation({
         ))}
         {working && !lastIsStreamingText && (
           <RunIndicator
-            state={waiting === null ? "working" : "waiting"}
+            state={waiting.length === 0 ? "working" : "waiting"}
             step={working.step}
             since={working.since}
             thought={working.thought}
           />
         )}
       </div>
-    </FirstApprovalContext.Provider>
+    </WaitingCallsContext.Provider>
   );
 }
