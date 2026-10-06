@@ -14,7 +14,6 @@ export type Row =
   | CompactionItem
   | { kind: "user"; message: UserMessage }
   | { kind: "text"; text: string }
-  | { kind: "thinking"; thinking: string }
   | { kind: "tool"; call: ToolCall }
   | { kind: "group"; calls: ToolCall[] }
   | { kind: "end"; message: AssistantMessage };
@@ -58,19 +57,10 @@ function pushCall(rows: Row[], call: ToolCall, tools: Record<string, ToolRun>) {
 }
 
 /** Adds one assistant content block to `rows`. */
-function pushBlock(
-  rows: Row[],
-  block: Block,
-  showThinking: boolean,
-  tools: Record<string, ToolRun>,
-) {
+function pushBlock(rows: Row[], block: Block, tools: Record<string, ToolRun>) {
   if (block.type === "text") {
     if (block.text) rows.push({ kind: "text", text: block.text });
-  } else if (block.type === "thinking") {
-    if (showThinking && (block.thinking || !block.redacted)) {
-      rows.push({ kind: "thinking", thinking: block.thinking });
-    }
-  } else {
+  } else if (block.type !== "thinking") {
     pushCall(rows, block, tools);
   }
 }
@@ -87,7 +77,6 @@ const unfoldSingle = (row: Row): Row =>
 /** Flattens the transcript into rows, folding two or more consecutive quiet tool calls that didn't fail. */
 export function toRows(
   items: Item[],
-  showThinking = false,
   tools: Record<string, ToolRun> = {},
 ): Row[] {
   const rows: Row[] = [];
@@ -105,7 +94,7 @@ export function toRows(
     if (message.role !== "assistant") continue;
     const assistant = message as AssistantMessage;
     for (const block of assistant.content) {
-      pushBlock(rows, block, showThinking, tools);
+      pushBlock(rows, block, tools);
     }
     if (isEndOfRun(assistant)) {
       rows.push({ kind: "end", message: assistant });

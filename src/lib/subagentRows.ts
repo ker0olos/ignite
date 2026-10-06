@@ -21,7 +21,7 @@ export function subagentRows(
   const t = fromHistory(details.messages, details.running);
   const runs = { ...tools, ...t.tools };
   return {
-    rows: toRows(t.items, false, runs),
+    rows: toRows(t.items, runs),
     tools: runs,
     waiting: firstWaiting(t.items, runs) !== null,
   };

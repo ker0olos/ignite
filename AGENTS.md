@@ -23,8 +23,9 @@ src/                     React frontend (almost all logic lives here)
     files/               Lazy directory tree, read-only syntax-highlighted file view
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring, task composer, model/effort/approval menus, git status, trust prompt
-    conversation/        Transcript rendering: messages, thinking, tool rows (with approve/deny, or the
-                         agent's questions) and their pieces; WorkingLine is the run's spinner, step and time
+    conversation/        Transcript rendering: messages, tool rows (with approve/deny, or the
+                         agent's questions) and their pieces; WorkingLine is the run's spinner, step and time,
+                         and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              Recent cmem observations for the Memory settings
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
@@ -296,8 +297,9 @@ Two places hold persisted data:
   settings; only their installed theme files.
 - **Editor settings** (`[editor]` in settings.toml): `font_family` (CSS list,
   default Menlo) and `word_wrap` for the file viewer.
-- **Conversation settings** (`[conversation]`): `show_thinking` shows the
-  model's reasoning rows (off by default). `ask_questions` (on by default)
+- **Conversation settings** (`[conversation]`): `show_thinking` (off by
+  default) adds the newest sentence of the model's reasoning to the working
+  line while it thinks; nothing of it stays. `ask_questions` (on by default)
   has the agent bring open decisions to the user with `ask_user`; off, the
   tool is dropped and the agent is told to decide alone. Read before each run.
   `text_size` (px, default 14, 10–24) sizes user and assistant messages only;

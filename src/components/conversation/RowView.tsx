@@ -2,7 +2,6 @@ import { AssistantText } from "@/components/conversation/AssistantText";
 import { CompactionRow } from "@/components/conversation/CompactionRow";
 import type { Editor, ToolProps } from "@/components/conversation/shared";
 import { EndRow } from "@/components/conversation/EndRow";
-import { ThinkingRow } from "@/components/conversation/ThinkingRow";
 import { ToolGroup } from "@/components/conversation/ToolGroup";
 import { ToolView } from "@/components/conversation/ToolView";
 import { UserMessageRow } from "@/components/conversation/UserMessageRow";
@@ -56,8 +55,6 @@ export function RowView({
           codeThemes={codeThemes}
         />
       );
-    case "thinking":
-      return <ThinkingRow thinking={row.thinking} />;
     case "tool":
       return (
         <ToolView

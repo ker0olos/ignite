@@ -7,10 +7,12 @@ export function RunIndicator({
   state,
   step,
   since,
+  thought,
 }: {
   state: RunState;
   step?: string;
   since?: number;
+  thought?: string;
 }) {
   return (
     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -25,7 +27,7 @@ export function RunIndicator({
           Finished
         </>
       ) : (
-        <WorkingLine step={step} since={since} />
+        <WorkingLine step={step} since={since} thought={thought} />
       )}
     </div>
   );
