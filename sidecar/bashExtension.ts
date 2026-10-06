@@ -23,6 +23,7 @@ import {
   stopBackground,
   type Background,
 } from "./backgroundBash.ts";
+import { skippable } from "./skipWait.ts";
 import { REASON, withoutReason } from "./toolReason.ts";
 
 const BACKGROUND = Type.Optional(
@@ -121,7 +122,11 @@ export default function bash(pi: ExtensionAPI) {
     }),
     async execute(id, params, signal, onUpdate, ctx) {
       const { background, ...input } = withoutReason(params);
-      if (!background) return builtin.execute(id, input, signal, onUpdate, ctx);
+      if (!background) {
+        return skippable(id, signal, (s) =>
+          builtin.execute(id, input, s, onUpdate, ctx),
+        );
+      }
       const command = written.get(id);
       written.delete(id);
       return runBackground(id, input, ctx, signal, command);

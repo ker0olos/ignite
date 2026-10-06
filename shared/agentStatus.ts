@@ -46,9 +46,12 @@ export type ChildRequest =
   /** A background command's output, by its conversation and pid. */
   | { id: number; type: "background_output"; session: string; pid: number }
   /** Stops a background command; false when it had already ended. */
-  | { id: number; type: "background_stop"; session: string; pid: number };
+  | { id: number; type: "background_stop"; session: string; pid: number }
+  /** Ends a running bash call, the agent carrying on with its output so far; false when none runs. */
+  | { id: number; type: "skip_wait"; toolCallId: string };
 
 export type ChildResponses = {
   background_output: BackgroundOutput;
   background_stop: boolean;
+  skip_wait: boolean;
 };

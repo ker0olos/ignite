@@ -1,3 +1,4 @@
+import { createContext } from "react";
 import type { ToolCall } from "../../../shared/agentTypes";
 import type { QuestionAnswer } from "../../../shared/questions";
 import type { ToolRun } from "@/lib/transcript";
@@ -22,6 +23,11 @@ export type ToolProps = {
     always?: boolean,
   ) => void;
 };
+
+/** Ends a running bash call so the agent carries on, false when none ran; null where nothing can (a subagent's calls). */
+export const SkipWaitContext = createContext<
+  ((toolCallId: string) => Promise<boolean>) | null
+>(null);
 
 // Lines shown before "… +N lines"; clicking it shows the rest.
 export const PREVIEW_LINES = 5;

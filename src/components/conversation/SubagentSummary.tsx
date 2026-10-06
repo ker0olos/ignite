@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import type { SubagentDetails } from "../../../shared/subagents";
-import type { Editor, ToolProps } from "@/components/conversation/shared";
+import {
+  SkipWaitContext,
+  type Editor,
+  type ToolProps,
+} from "@/components/conversation/shared";
 import { SubagentBody } from "@/components/conversation/SubagentBody";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { subagentSummary } from "@/lib/subagentRows";
@@ -43,14 +47,17 @@ export function SubagentSummary({
         {line}
       </button>
       {open && (
-        <SubagentBody
-          details={details}
-          tools={tools}
-          folder={folder}
-          editor={editor}
-          codeThemes={codeThemes}
-          onApprove={onApprove}
-        />
+        // A subagent's bash is pi's own, which can't be skipped.
+        <SkipWaitContext.Provider value={null}>
+          <SubagentBody
+            details={details}
+            tools={tools}
+            folder={folder}
+            editor={editor}
+            codeThemes={codeThemes}
+            onApprove={onApprove}
+          />
+        </SkipWaitContext.Provider>
       )}
     </div>
   );

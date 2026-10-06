@@ -86,6 +86,14 @@ export function useAgentSession(
   }, [opened, shown, statuses, setState]);
 
   const answer = useSessionEvents(opened, shownRef, update, setError);
+  const skipWait = useCallback(
+    async (toolCallId: string) =>
+      !!opened &&
+      opened
+        .request({ type: "skip_wait", toolCallId })
+        .catch((e: Error) => (setError(e.message), false)),
+    [opened],
+  );
 
   const setTrust = useCallback(
     async (trusted: boolean) => {
@@ -149,6 +157,8 @@ export function useAgentSession(
     close: (session: string, open: string[]) => close(session, shown, open),
     /** Approves or denies a tool call that waits for the user. */
     answer,
+    /** Ends a running bash call, the agent carrying on with its output so far; false when none ran. */
+    skipWait,
     setTrust,
     setModel: actions.setModel,
     setThinkingLevel: actions.setThinkingLevel,

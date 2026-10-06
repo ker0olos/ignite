@@ -162,6 +162,22 @@ describe("useAgentSession", () => {
     });
   });
 
+  it("skips waiting on a bash call, showing why it couldn't", async () => {
+    const host = fakeHost(async (req) =>
+      req.type === "skip_wait" ? Promise.reject(new Error("Gone")) : STATE,
+    );
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.state).toEqual(STATE));
+    let ended = true;
+    await act(async () => void (ended = await result.current.skipWait("c1")));
+    expect(host.request).toHaveBeenCalledWith({
+      type: "skip_wait",
+      toolCallId: "c1",
+    });
+    expect(ended).toBe(false);
+    expect(result.current.error).toBe("Gone");
+  });
+
   it("sends the answers to an ask_user call's questions", async () => {
     const host = fakeHost(async () => STATE);
     const { result } = renderHook(() => useAgentSession(host, "/work", null));

@@ -13,6 +13,7 @@ import type {
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import { createHost } from "./host.ts";
+import { skippable } from "./skipWait.ts";
 import { createTaskStore } from "./taskStore.ts";
 import { createSearch } from "./search.ts";
 import { describeError, toWireEvent } from "./wire.ts";
@@ -781,6 +782,25 @@ describe("prompt answers with no pending prompt", () => {
     await request({ type: "prompt_answer", promptId: 99, value: "x" });
     await request({ type: "prompt_cancel", promptId: 99 });
     expect(sent).toEqual([]);
+  });
+});
+
+describe("skip_wait", () => {
+  it("ends the running bash call, and says when none runs", async () => {
+    const { runtime } = fakeRuntime();
+    const { request, responses } = setup(runtime);
+    const run = skippable(
+      "c1",
+      undefined,
+      (signal) =>
+        new Promise((_, reject) =>
+          signal.addEventListener("abort", () => reject(new Error("aborted"))),
+        ),
+    );
+    await request({ id: 1, type: "skip_wait", toolCallId: "c1" });
+    await expect(run).resolves.toMatchObject({ details: { skipped: true } });
+    await request({ id: 2, type: "skip_wait", toolCallId: "c1" });
+    expect(responses()).toMatchObject([{ data: true }, { data: false }]);
   });
 });
 

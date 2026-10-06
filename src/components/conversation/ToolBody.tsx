@@ -5,6 +5,7 @@ import { OutputPreview } from "@/components/conversation/OutputPreview";
 import { ReadToolBody } from "@/components/conversation/ReadToolBody";
 import { RunningLine } from "@/components/conversation/RunningLine";
 import type { ToolProps } from "@/components/conversation/shared";
+import { SkipWaitButton } from "@/components/conversation/SkipWaitButton";
 import { ToolImages } from "@/components/conversation/ToolImages";
 import { WriteToolBody } from "@/components/conversation/WriteToolBody";
 import { shownReview } from "@/lib/diffTabs";
@@ -62,6 +63,16 @@ export function ToolBody({
     return <ToolImages images={images} text={text} tool={call.name} />;
   }
 
-  if (!text) return running ? <RunningLine /> : <p>(No output)</p>;
-  return <OutputPreview text={text} />;
+  return (
+    <>
+      {text ? (
+        <OutputPreview text={text} />
+      ) : running ? (
+        <RunningLine />
+      ) : (
+        <p>(No output)</p>
+      )}
+      <SkipWaitButton call={call} run={run} />
+    </>
+  );
 }
