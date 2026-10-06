@@ -164,6 +164,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   worktreeGit.ts         Worktree paths, snapshots of a working state, folderOf / gitWritable
   worktreeClone.ts       Copy-on-write clones of the folder's ignored files into a worktree
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
+  hostAnswers.ts         Requests that get no response: prompt answers, approval answers, skip wait
   hostQueue.ts           Messages sent mid-run: stop takes them back; one taken back, moved up or sent now
   compactProgress.ts     `/compact`'s progress: the summary's tokens, read off pi's stream as it's written
   queuedImages.ts        Queued messages' images (pi's queue lists only text), forgotten once delivered
@@ -175,6 +176,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts
   bashExtension.ts       pi's bash with `background: true` (dev servers, watchers), and bash_stop to end them
   backgroundBash.ts      Background commands per conversation: their logs, stopping them with what they started
+  skipWait.ts            Skip wait: the user ends a running bash call and the agent carries on with its output so far
+  runOutside.ts          Runs a bash call outside the sandbox once the user approved it
   shellEditsExtension.ts The files a bash command changed (working tree before and after), shown as edits
   ptyShell.ts            Shells in a PTY (node-pty): spawning, killing its tree, its output as screen text
   ptyBash.ts             Background commands' shell in a PTY: stdin from /dev/null, pagers off

@@ -182,6 +182,16 @@ export function inArrivalOrder(before: string[], waiting: string[]): string[] {
   return [...kept, ...waiting.filter((id) => !kept.includes(id))];
 }
 
+/** Whether the user can skip waiting on `call`: a foreground bash command still running. */
+export function canSkipWait(call: ToolCall, run: ToolRun): boolean {
+  return (
+    call.name === "bash" &&
+    !call.arguments.background &&
+    run.status === "running" &&
+    !run.approval
+  );
+}
+
 /** Every call waiting for the user, in transcript order. */
 export function waitingCalls(
   items: Item[],

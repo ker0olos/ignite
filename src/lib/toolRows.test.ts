@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AssistantMessage, ToolCall } from "../../shared/agentTypes";
 import {
+  canSkipWait,
   inArrivalOrder,
   waitingCalls,
   diffSummary,
@@ -278,6 +279,22 @@ describe("isShortOutput", () => {
     expect(isShortOutput("Already up to date.\n")).toBe(true);
     expect(isShortOutput("a\nb")).toBe(false);
     expect(isShortOutput("x".repeat(121))).toBe(false);
+  });
+});
+
+describe("canSkipWait", () => {
+  const running = { status: "running" } as const;
+
+  it("offers it on a running foreground bash command only", () => {
+    expect(canSkipWait(call("bash"), running)).toBe(true);
+    expect(canSkipWait(call("read"), running)).toBe(false);
+    expect(canSkipWait(call("bash"), { status: "done" })).toBe(false);
+  });
+
+  it("not on a background command or one waiting for approval", () => {
+    const background = { ...call("bash"), arguments: { background: true } };
+    expect(canSkipWait(background, running)).toBe(false);
+    expect(canSkipWait(call("bash"), { ...running, approval: {} })).toBe(false);
   });
 });
 

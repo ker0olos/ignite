@@ -28,7 +28,7 @@ import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
 import { describeError } from "./wire.ts";
 import { memoryStatus } from "./cmem.ts";
-import { answerApproval } from "./hostApproval.ts";
+import { answered } from "./hostAnswers.ts";
 import { setTrust } from "./hostTrust.ts";
 import { compact, stop, unqueue } from "./hostQueue.ts";
 import { appUpdate, appVersion } from "./appUpdate.ts";
@@ -40,6 +40,7 @@ import {
   stopBackground,
 } from "./backgroundBash.ts";
 import { pushProjects } from "./hostProjects.ts";
+import { skipWait } from "./skipWait.ts";
 import { describeSession } from "./describeSession.ts";
 import { listFiles } from "./fileIndex.ts";
 import { createSearch } from "./search.ts";
@@ -158,6 +159,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   git_repo_details: (_ctx, r) => repoDetails(r.repo),
   background_output: (_ctx, r) => backgroundOutput(r.pid, r.session),
   background_stop: (_ctx, r) => stopBackground(r.pid, r.session),
+  skip_wait: (_ctx, r) => skipWait(r.toolCallId),
   tasks_list: (ctx, r) => ctx.tasks.list(r.cwd),
   task_save: (ctx, r) => ctx.tasks.save(r.cwd, r.task),
   task_edit: (ctx, r) => ctx.tasks.edit(r.cwd, r.taskId, r.patch),
@@ -226,24 +228,7 @@ export function createHost(
 
   /** Handles one request from the app; never throws. */
   async function handle(request: HostRequest): Promise<void> {
-    if (request.type === "prompt_answer") {
-      ctx.prompts.get(request.promptId)?.resolve(request.value);
-      return;
-    }
-    if (request.type === "prompt_cancel") {
-      ctx.prompts.get(request.promptId)?.reject(new Error("Cancelled"));
-      return;
-    }
-    if (request.type === "approval_answer") {
-      answerApproval(
-        ctx,
-        request.toolCallId,
-        request.approved,
-        request.answers,
-        request.always,
-      );
-      return;
-    }
+    if (answered(ctx, request)) return;
     try {
       const run = handlers[request.type] as Handler<IdRequest["type"]>;
       const data = await run(ctx, request as never);

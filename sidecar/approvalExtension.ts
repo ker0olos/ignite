@@ -11,7 +11,6 @@ import { readFile, realpath } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import {
-  createBashTool,
   type ExtensionAPI,
   type ExtensionContext,
   type ToolCallEvent,
@@ -29,7 +28,6 @@ import {
   type ApprovalGate,
 } from "../src/lib/approvalPolicy.ts";
 import { isMcpDirect } from "../src/lib/mcpToolCall.ts";
-import { runBackground } from "./bashExtension.ts";
 import { loadBashParser } from "./bashParser.ts";
 import {
   blockedProgram,
@@ -51,6 +49,7 @@ import {
   runsOnly,
   type AllowRule,
 } from "./sandboxAllow.ts";
+import { runOutside } from "./runOutside.ts";
 import { unplannedWrite, writableUntilPlanned } from "./taskSteps.ts";
 
 // Without these, commands are still checked: as raw text, and for paths
@@ -172,25 +171,11 @@ async function runsOutside(command: string): Promise<boolean> {
   return !!pipelines && runsOnly(pipelines, commands);
 }
 
-// ponytail: pi's default shell, not a shellPath or commandPrefix from pi's settings.
-async function runOutside(
-  toolCallId: string,
-  input: Record<string, unknown>,
-  ctx: ExtensionContext,
-) {
-  try {
-    if (input.background) {
-      const done = await runBackground(toolCallId, input as never, ctx);
-      return { ...done, isError: done.isError ?? false };
-    }
-    const bash = createBashTool(ctx.cwd);
-    const done = await bash.execute(toolCallId, input as never, ctx.signal);
-    const { content, details, isError = false } = done;
-    return { content, details, isError };
-  } catch (error) {
-    const text = error instanceof Error ? error.message : String(error);
-    return { content: [{ type: "text" as const, text }], isError: true };
-  }
+/** Left running or skipped by the user: asking to run it outside would start it again. */
+function notRerun(details: unknown) {
+  const ran = details as
+    { background?: unknown; skipped?: unknown } | undefined;
+  return !!(ran?.background || ran?.skipped);
 }
 
 export default function approval(pi: ExtensionAPI) {
@@ -298,10 +283,7 @@ export default function approval(pi: ExtensionAPI) {
     // A command that succeeded wasn't stopped, whatever else macOS logged,
     // unless its output says something was refused.
     if (!event.isError && !mayBeBlocked(text)) return;
-    // Left running, so asking would start a second copy.
-    if ((event.details as { background?: unknown } | undefined)?.background) {
-      return;
-    }
+    if (notRerun(event.details)) return;
     const explained = await box.explain(event.toolCallId, text);
     const what = blockedSummary(explained) ?? refusedLine(text);
     if (!what) return;
