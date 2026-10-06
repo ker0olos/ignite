@@ -6,14 +6,18 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
 import { access, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { extname, join, relative } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
+import { IMAGE_TYPES } from "../shared/agentTypes.ts";
 import type { ShellEdit } from "../shared/shellEdits.ts";
 import { CHANGED_UNPLANNED, isPlanned } from "./taskSteps.ts";
-import { git, workingTree } from "./worktreeGit.ts";
+import { git, gitBlob, workingTree } from "./worktreeGit.ts";
 
 // Kept on the session file with the result, so a mass rewrite can't bloat it.
 const MAX_DIFF_CHARS = 200_000;
+
+// Images are kept there too, both versions of each, so they share a smaller cap per call.
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const DIFF = ["--no-color", "--no-renames", "--no-ext-diff", "--no-textconv"];
 
@@ -47,6 +51,62 @@ export async function changedFiles(
     .split("\0")
     .filter(Boolean)
     .map((path, i) => ({ path, diff: diffs[i] ?? "" }));
+}
+
+/** What's left of a call's room for images, in bytes. */
+type ImageBudget = { bytes: number };
+
+/** A new budget for one bash call's images. */
+export const imageBudget = (): ImageBudget => ({ bytes: MAX_IMAGE_BYTES });
+
+const toImage = (bytes: Buffer | null, mimeType: string) =>
+  bytes
+    ? { type: "image" as const, data: bytes.toString("base64"), mimeType }
+    : undefined;
+
+// A modified image keeps both versions or neither, so one never stands in for the other.
+async function imagePair(
+  repo: string,
+  trees: [string, string],
+  edit: ShellEdit,
+  budget: ImageBudget,
+) {
+  const added = /^new file mode/m.test(edit.diff);
+  const deleted = /^deleted file mode/m.test(edit.diff);
+  const was = added
+    ? null
+    : await gitBlob(repo, `${trees[0]}:${edit.path}`, budget.bytes);
+  const room = budget.bytes - (was?.length ?? 0);
+  const now = deleted
+    ? null
+    : await gitBlob(repo, `${trees[1]}:${edit.path}`, room);
+  if ((!added && !was) || (!deleted && !now) || (!was && !now)) return null;
+  budget.bytes = room - (now?.length ?? 0);
+  return [was, now] as const;
+}
+
+/** `edits` with each changed image's versions before and after (one when added or deleted), while `budget` lasts. */
+export async function withImages(
+  repo: string,
+  trees: [string, string],
+  edits: ShellEdit[],
+  budget: ImageBudget,
+): Promise<ShellEdit[]> {
+  const out: ShellEdit[] = [];
+  for (const edit of edits) {
+    const mimeType = IMAGE_TYPES[extname(edit.path).toLowerCase()];
+    const pair = mimeType && (await imagePair(repo, trees, edit, budget));
+    out.push(
+      pair
+        ? {
+            ...edit,
+            before: toImage(pair[0], mimeType),
+            after: toImage(pair[1], mimeType),
+          }
+        : edit,
+    );
+  }
+  return out;
 }
 
 function capped(edits: ShellEdit[]): ShellEdit[] {
@@ -134,18 +194,25 @@ export default function shellEdits(pi: ExtensionAPI) {
   pi.on("tool_result", async (event, ctx) => {
     const starts = (await before.get(event.toolCallId)) ?? [];
     before.delete(event.toolCallId);
-    const changed = await Promise.all(
+    const found = await Promise.all(
       starts.map(async ({ repo, at }) => {
         const end = at && (await tree(repo));
-        if (!at || !end) return [];
-        const prefix = relative(ctx.cwd, repo).replaceAll("\\", "/");
+        if (!at || !end) return null;
         const edits = await changedFiles(repo, at, end).catch(() => []);
-        return edits.map((e) =>
-          prefix ? { ...e, path: `${prefix}/${e.path}` } : e,
-        );
+        return { repo, trees: [at, end] as [string, string], edits };
       }),
     );
-    const edits = capped(changed.flat());
+    // One at a time, so every repository's images share the call's budget.
+    const budget = imageBudget();
+    const changed: ShellEdit[] = [];
+    for (const { repo, trees, edits } of found.filter((f) => !!f)) {
+      const prefix = relative(ctx.cwd, repo).replaceAll("\\", "/");
+      const shown = await withImages(repo, trees, edits, budget);
+      for (const e of shown) {
+        changed.push(prefix ? { ...e, path: `${prefix}/${e.path}` } : e);
+      }
+    }
+    const edits = capped(changed);
     if (!edits.length) return;
     const details = { ...(event.details as object), edits };
     if (await isPlanned(pi)) return { details };

@@ -27,40 +27,55 @@ const APP_IDENTITY = {
   GIT_COMMITTER_EMAIL: `${APP_NAME}@localhost`,
 };
 
+// Long paths: a worktree's node_modules can pass Windows' 260 characters.
+const gitArgs = (args: string[]) => [
+  "-c",
+  "core.hooksPath=/dev/null",
+  // Nothing in a repository's config runs a program on these calls.
+  "-c",
+  "core.fsmonitor=false",
+  "-c",
+  "core.longpaths=true",
+  ...args,
+];
+
+const gitOptions = (cwd: string, env: Record<string, string> = {}) => ({
+  cwd,
+  env: {
+    // Offline, an SSH remote gives up in seconds rather than minutes.
+    GIT_SSH_COMMAND: "ssh -o BatchMode=yes -o ConnectTimeout=10",
+    ...process.env,
+    GIT_TERMINAL_PROMPT: "0",
+    ...env,
+  },
+  maxBuffer: 256 * 1024 * 1024,
+  // A fetch or pull that hangs on the network mustn't hold an agent up.
+  timeout: 120_000,
+});
+
 /** Runs git with hooks and prompts off; returns stdout, trimmed. Throws if it fails. */
 export async function git(
   cwd: string,
   args: string[],
   env: Record<string, string> = {},
 ): Promise<string> {
-  const { stdout } = await exec(
-    "git",
-    // Long paths: a worktree's node_modules can pass Windows' 260 characters.
-    [
-      "-c",
-      "core.hooksPath=/dev/null",
-      // Nothing in a repository's config runs a program on these calls.
-      "-c",
-      "core.fsmonitor=false",
-      "-c",
-      "core.longpaths=true",
-      ...args,
-    ],
-    {
-      cwd,
-      env: {
-        // Offline, an SSH remote gives up in seconds rather than minutes.
-        GIT_SSH_COMMAND: "ssh -o BatchMode=yes -o ConnectTimeout=10",
-        ...process.env,
-        GIT_TERMINAL_PROMPT: "0",
-        ...env,
-      },
-      maxBuffer: 256 * 1024 * 1024,
-      // A fetch or pull that hangs on the network mustn't hold an agent up.
-      timeout: 120_000,
-    },
-  );
+  const { stdout } = await exec("git", gitArgs(args), gitOptions(cwd, env));
   return stdout.trim();
+}
+
+/** The bytes of `object` (`<tree>:<path>`), or null when it can't be read, is empty or is over `max` bytes. */
+export async function gitBlob(
+  cwd: string,
+  object: string,
+  max: number,
+): Promise<Buffer | null> {
+  if (max <= 0) return null;
+  const { stdout } = await exec("git", gitArgs(["cat-file", "blob", object]), {
+    ...gitOptions(cwd),
+    encoding: "buffer",
+    maxBuffer: max,
+  }).catch(() => ({ stdout: null }));
+  return stdout?.length ? stdout : null;
 }
 
 /** Like `git`, but null when it fails. */
