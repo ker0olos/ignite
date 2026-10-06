@@ -17,7 +17,8 @@ export function conversationItems({
   return [
     switchItem({
       title: "Show thinking",
-      description: "Show the model's reasoning above its replies.",
+      description:
+        "Show the newest line of the model's reasoning while it thinks.",
       keywords: "reasoning thoughts",
       checked: conversation.show_thinking,
       onCheckedChange: (show_thinking) => change({ show_thinking }),

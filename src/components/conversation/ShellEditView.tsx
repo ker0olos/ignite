@@ -4,13 +4,11 @@ import {
   DIFF_PREVIEW_LINES,
   type Editor,
 } from "@/components/conversation/shared";
-import { ToolHead } from "@/components/conversation/ToolHead";
-import { ToolOutcome } from "@/components/conversation/ToolOutcome";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { parseUnifiedDiff } from "@/lib/gitDiff";
 import { diffSummary } from "@/lib/toolRows";
 
-/** A file a shell command changed, drawn as an edit: `● Update(path)` and its diff. */
+/** A file a shell command changed, under its bash call: the path, a summary and its diff. */
 export function ShellEditView({
   edit,
   editor,
@@ -22,24 +20,21 @@ export function ShellEditView({
 }) {
   const lines = parseUnifiedDiff(edit.diff);
   return (
-    <div className="space-y-1">
-      <ToolHead run={{ status: "done" }} title="Update" arg={edit.path} />
-      <ToolOutcome>
-        {lines.length ? (
-          <>
-            <p>{diffSummary(lines)}</p>
-            <CodeLines
-              lines={lines}
-              path={edit.path}
-              max={DIFF_PREVIEW_LINES}
-              editor={editor}
-              codeThemes={codeThemes}
-            />
-          </>
-        ) : (
-          <p>Changed</p>
-        )}
-      </ToolOutcome>
-    </div>
+    <>
+      <p>
+        <span className="text-foreground">{edit.path}</span>
+        {" · "}
+        {lines.length ? diffSummary(lines) : "Changed"}
+      </p>
+      {lines.length > 0 && (
+        <CodeLines
+          lines={lines}
+          path={edit.path}
+          max={DIFF_PREVIEW_LINES}
+          editor={editor}
+          codeThemes={codeThemes}
+        />
+      )}
+    </>
   );
 }

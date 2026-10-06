@@ -84,7 +84,6 @@ describe("toRows", () => {
         assistant([call("task_update", "c"), call("task_update", "d")]),
         assistant([call("task_update", "e"), call("read")]),
       ],
-      false,
       { a: plan("done"), b: plan("done"), c: plan("done"), e: plan("done") },
     );
     expect(rows).toEqual([
@@ -106,7 +105,6 @@ describe("toRows", () => {
           call("ls", "e"),
         ]),
       ],
-      false,
       { a: { status: "done" }, b: { status: "done" }, c: { status: "error" } },
     );
     expect(rows).toEqual([
@@ -118,13 +116,9 @@ describe("toRows", () => {
 
   it("takes a command that changed files out of its group, so its edits show", () => {
     const edits = [{ path: "a.ts", diff: "" }];
-    const rows = toRows(
-      [assistant([call("read", "a"), call("bash", "b")])],
-      false,
-      {
-        b: { status: "done", result: { content: [], details: { edits } } },
-      },
-    );
+    const rows = toRows([assistant([call("read", "a"), call("bash", "b")])], {
+      b: { status: "done", result: { content: [], details: { edits } } },
+    });
     expect(rows).toEqual([
       { kind: "tool", call: call("read", "a") },
       { kind: "tool", call: call("bash", "b") },
@@ -159,28 +153,16 @@ describe("toRows", () => {
     ]);
   });
 
-  it("hides thinking unless asked to show it", () => {
+  it("shows no row for thinking", () => {
     const rows = toRows([
       assistant([{ type: "thinking", thinking: "why" }], "stop"),
     ]);
     expect(rows).toEqual([]);
   });
 
-  it("skips empty text and redacted empty thinking, keeps other thinking", () => {
-    const rows = toRows(
-      [
-        assistant(
-          [
-            { type: "text", text: "" },
-            { type: "thinking", thinking: "", redacted: true },
-            { type: "thinking", thinking: "why" },
-          ],
-          "stop",
-        ),
-      ],
-      true,
-    );
-    expect(rows).toEqual([{ kind: "thinking", thinking: "why" }]);
+  it("skips empty text", () => {
+    const rows = toRows([assistant([{ type: "text", text: "" }], "stop")]);
+    expect(rows).toEqual([]);
   });
 
   it("passes notices and user messages through", () => {

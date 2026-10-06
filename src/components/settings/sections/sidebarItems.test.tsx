@@ -26,24 +26,8 @@ describe("sidebarItems", () => {
       "Sidebar conversation order",
       "Limit sidebar conversations",
       "Sidebar conversations per folder",
-      "Resizable sidebar split",
     ]);
     expect(items.every((i) => i.section === "Appearance")).toBe(true);
-  });
-
-  it("toggles the resizable sidebar split", () => {
-    const onChange = vi.fn();
-    const split = find(
-      sidebarItems({ settings: DEFAULT_SETTINGS, onChange }),
-      "Resizable sidebar split",
-    );
-    const { checked, onCheckedChange } = props<SwitchProps>(split);
-    expect(checked).toBe(false);
-    onCheckedChange(true);
-    expect(onChange).toHaveBeenCalledWith({
-      ...DEFAULT_SETTINGS,
-      sidebar: { ...DEFAULT_SETTINGS.sidebar, resizable_split: true },
-    });
   });
 
   it("toggles the sidebar conversation limit", () => {

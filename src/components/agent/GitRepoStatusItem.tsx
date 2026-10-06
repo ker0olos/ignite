@@ -27,7 +27,7 @@ const PR_ICON = {
   closed: GitPullRequestClosed,
 };
 const PR_CLASS = {
-  open: "text-success",
+  open: "",
   draft: "text-muted-foreground",
   merged: "text-muted-foreground",
   closed: "text-destructive",

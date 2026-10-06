@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import type { AgentStatus } from "../../../shared/hostProtocol";
 import { fakeFs } from "@/test/fakeFs";
@@ -16,7 +16,12 @@ const ROWS: Record<string, AgentStatus[]> = {
   "/work/motr": [row("/work/motr", "b", "Sentry errors")],
 };
 
-const sidebar = (folders: string[], rows = ROWS, resizable = false) => {
+const sidebar = (
+  folders: string[],
+  rows = ROWS,
+  resizable = false,
+  showTree = true,
+) => {
   fakeFs({ "/work/ignition/a.txt": "" });
   render(
     <Sidebar
@@ -26,6 +31,7 @@ const sidebar = (folders: string[], rows = ROWS, resizable = false) => {
       onOpenFile={vi.fn()}
       hideGitIgnored={false}
       resizableProjectSplit={resizable}
+      showTree={showTree}
       projectList={{
         folders,
         rows: (cwd) => rows[cwd] ?? [],
@@ -68,4 +74,20 @@ it("lists the folders even when there's one, with the open-folder button and no 
   ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Open Folder" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Projects" })).toBeNull();
+});
+
+it("shows the tree under the folders unless it's hidden", async () => {
+  sidebar(["/work/ignition"]);
+  expect(await screen.findByText("a.txt")).toBeTruthy();
+});
+
+it("leaves no tree when it's hidden, in either split", () => {
+  sidebar(["/work/ignition"], ROWS, false, false);
+  expect(screen.getByText("Fix the tree")).toBeTruthy();
+  expect(screen.queryByText("a.txt")).toBeNull();
+  cleanup();
+  sidebar(["/work/ignition"], ROWS, true, false);
+  expect(screen.getByText("Fix the tree")).toBeTruthy();
+  expect(screen.queryByText("a.txt")).toBeNull();
+  expect(screen.queryByRole("separator")).toBeNull();
 });

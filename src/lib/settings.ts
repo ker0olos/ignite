@@ -19,7 +19,8 @@ export type Settings = {
   theme: string;
   /** How the file viewer shows code. `font_family` is a CSS font-family list. */
   editor: { font_family: string; word_wrap: boolean };
-  files: { hide_gitignored: boolean };
+  /** `show_tree`: the sidebar lists the folder's files under its conversations. */
+  files: { hide_gitignored: boolean; show_tree: boolean };
   /**
    * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
    * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
@@ -73,7 +74,7 @@ export const DEFAULT_SETTINGS: Settings = {
     font_family: "Menlo, Monaco, 'Courier New', monospace",
     word_wrap: true,
   },
-  files: { hide_gitignored: true },
+  files: { hide_gitignored: true, show_tree: true },
   conversation: {
     show_thinking: false,
     ask_questions: true,
@@ -84,7 +85,7 @@ export const DEFAULT_SETTINGS: Settings = {
     conversation_order: "oldest_first",
     max_conversations_enabled: false,
     max_conversations: 5,
-    resizable_split: false,
+    resizable_split: true,
   },
   composer: { git_status: true },
   memory: { cmem: true },
@@ -152,6 +153,19 @@ const readSidebar = (
         : DEFAULT_SETTINGS.sidebar.resizable_split,
   };
 };
+
+const readFiles = (
+  files: Partial<Settings["files"]> = {},
+): Settings["files"] => ({
+  hide_gitignored:
+    typeof files.hide_gitignored === "boolean"
+      ? files.hide_gitignored
+      : DEFAULT_SETTINGS.files.hide_gitignored,
+  show_tree:
+    typeof files.show_tree === "boolean"
+      ? files.show_tree
+      : DEFAULT_SETTINGS.files.show_tree,
+});
 
 const readApproval = (
   approval: Partial<Settings["approval"]> = {},
@@ -231,7 +245,7 @@ export async function loadSettings(): Promise<Settings> {
           ? editor.word_wrap
           : DEFAULT_SETTINGS.editor.word_wrap,
     },
-    files: { ...DEFAULT_SETTINGS.files, ...raw.files },
+    files: readFiles(raw.files),
     conversation: readConversation(raw.conversation),
     sidebar: readSidebar(raw.sidebar),
     composer: { git_status: raw.composer?.git_status !== false },

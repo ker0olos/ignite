@@ -26,6 +26,7 @@ type WorkspaceProps = {
   codeThemes: CodeThemes;
   editor: Settings["editor"];
   hideGitIgnored: boolean;
+  showFileTree: boolean;
   showThinking: boolean;
   stickyUserMessages: boolean;
   gitStatus: boolean;
@@ -52,6 +53,7 @@ export function Workspace({
   codeThemes,
   editor,
   hideGitIgnored,
+  showFileTree,
   showThinking,
   stickyUserMessages,
   gitStatus,
@@ -95,6 +97,7 @@ export function Workspace({
       selected={active}
       onOpenFile={openFile}
       hideGitIgnored={hideGitIgnored}
+      showTree={showFileTree}
       resizableProjectSplit={resizableProjectSplit}
     />
   );

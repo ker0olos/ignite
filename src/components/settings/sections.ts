@@ -3,7 +3,6 @@ import {
   Bot,
   Brain,
   Code,
-  FolderTree,
   Globe,
   Info,
   Keyboard,
@@ -66,17 +65,12 @@ export const SECTIONS = {
   Appearance: {
     icon: Palette,
     brief: "Themes, colors, sidebar",
-    blurb: "Colors for the app and code, and the sidebar.",
+    blurb: "Colors for the app and code, the sidebar and the file tree.",
   },
   Editor: {
     icon: Code,
     brief: "Font, wrapping, text size",
     blurb: "How files and messages look.",
-  },
-  Files: {
-    icon: FolderTree,
-    brief: "What the tree shows",
-    blurb: "What the file tree shows.",
   },
   About: {
     icon: Info,

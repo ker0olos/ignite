@@ -2,14 +2,22 @@ import type { AgentMessage, AssistantMessage } from "../../shared/agentTypes";
 import { stepOf } from "../../shared/steps";
 import type { ToolRun, Transcript } from "@/lib/transcript";
 
+/** The current run's latest assistant message: none before the last user message counts. */
+function runReply(messages: AgentMessage[]): AssistantMessage | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") return undefined;
+    if (messages[i].role === "assistant")
+      return messages[i] as AssistantMessage;
+  }
+}
+
 /** What the run is doing now: the latest unfinished tool call, thinking, or just working. */
 export function currentStep(
   messages: AgentMessage[],
   tools: Record<string, ToolRun>,
   folder: string,
 ): string {
-  const last = messages.findLast((m) => m.role === "assistant") as
-    AssistantMessage | undefined;
+  const last = runReply(messages);
   if (!last) return "Working";
   const call = last.content.findLast(
     (b) =>
@@ -32,11 +40,27 @@ export function elapsed(ms: number): string {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-/** The working line's step and start, or null when nothing runs or compaction shows its own progress. */
+// Only one line shows, so splitting the whole reasoning on every streamed token is wasted.
+const TAIL_CHARS = 600;
+
+/** The newest sentence of the reasoning the run is streaming now, if it's thinking. */
+export function latestThought(messages: AgentMessage[]): string | undefined {
+  const block = runReply(messages)?.content.at(-1);
+  if (block?.type !== "thinking" || block.redacted) return undefined;
+  const sentences = block.thinking
+    .slice(-TAIL_CHARS)
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return sentences.at(-1);
+}
+
+/** The working line's step, start and (when asked for) newest thought, or null when nothing runs or compaction shows its own progress. */
 export function workingLine(
   t: Transcript,
   folder: string,
-): { step: string; since?: number } | null {
+  withThought: boolean,
+): { step: string; since?: number; thought?: string } | null {
   const last = t.items.at(-1);
   const compacting = last?.kind === "compaction" && !last.summary;
   if (!t.running || compacting) return null;
@@ -46,5 +70,6 @@ export function workingLine(
   return {
     step: currentStep(messages, t.tools, folder),
     since: runStart(messages),
+    thought: withThought ? latestThought(messages) : undefined,
   };
 }
