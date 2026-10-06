@@ -1,10 +1,15 @@
-/** With Model Router on, the router picks a new conversation's model and effort before its first message is sent. */
+/**
+ * With Model Router on, the router picks a new conversation's model and
+ * effort before its first message is sent. A model the user picked for the
+ * conversation turns the router off for it: it picks nothing, effort included.
+ */
 import type {
   ImageContent,
   RouterPick,
   SessionEvent,
   UserMessage,
 } from "../shared/agentTypes.ts";
+import type { ThinkingLevel } from "../shared/hostProtocol.ts";
 import { titleOf } from "../shared/conversations.ts";
 import { autonomous } from "../shared/tasks.ts";
 import { pushProjects } from "./hostProjects.ts";
@@ -15,68 +20,61 @@ import {
   type HostContext,
   type Session,
 } from "./hostTypes.ts";
-import { modelRouterOn, route, type Route } from "./router.ts";
-import type { Effort } from "./subagentModels.ts";
+import { modelRouterOn, route } from "./router.ts";
 
-/** Notes that the user picked conversation `session`'s model or effort, so the router leaves it; noted before any await, so a send right after still sees it. */
-export function userChose(
-  ctx: HostContext,
-  session: string | undefined,
-  part: "model" | "effort",
-) {
+type Pick = {
+  model?: { provider: string; id: string };
+  effort?: ThinkingLevel;
+};
+
+/** Notes that the user picked conversation `session`'s model, so the router leaves it; noted before any await, so a send right after still sees it. */
+export function userPickedModel(ctx: HostContext, session?: string) {
   const agent = target(ctx, session);
-  if (agent) agent.chosen = { ...agent.chosen, [part]: true };
-}
-
-// Only a conversation's first message, and not a Tasks-view task's, which
-// runs on the task's own pick, nor one whose model and effort the user chose.
-async function routes(ctx: HostContext, agent: Agent, s: Session) {
-  if (s.messages.length || !(await modelRouterOn())) return false;
-  if (agent.chosen?.model && agent.chosen.effort) return false;
-  const task = (await ctx.tasks.list(agent.cwd)).find(
-    (t) => t.session === agent.id,
-  );
-  return !autonomous(task ?? null);
+  if (agent) agent.pickedModel = true;
 }
 
 /**
- * Applies the router's pick, leaving what the user chose for this
- * conversation, and not persisted, so it never becomes the default for new
- * ones; true when it changed something. Stopped meanwhile, the conversation
- * goes back to what it ran on.
+ * Runs `s` on `pick`, not persisted, so it never becomes the default for new
+ * conversations; true when its model was available (one that isn't leaves the
+ * model as it is).
  */
-async function pick(
-  agent: Agent,
-  s: Session,
-  text: string,
-  signal: AbortSignal,
-) {
+export async function runOn(s: Session, { model, effort }: Pick) {
+  const found =
+    model &&
+    (await s.modelRuntime.getAvailable()).find(
+      (m) => m.provider === model.provider && m.id === model.id,
+    );
+  if (found) await s.setModel(found, { persist: false });
+  if (effort) s.setThinkingLevel(effort, { persist: false });
+  return !!found;
+}
+
+// Only a conversation's first message, and not one whose model the user
+// picked; a Tasks-view task's own model counts while it's still available.
+async function routes(ctx: HostContext, agent: Agent, s: Session) {
+  if (s.messages.length || agent.pickedModel) return false;
+  if (!(await modelRouterOn())) return false;
+  const task = (await ctx.tasks.list(agent.cwd)).find(
+    (t) => t.session === agent.id,
+  );
+  if (!task?.model || !autonomous(task)) return true;
+  return !(await s.modelRuntime.getAvailable()).some(
+    (m) => m.provider === task.model!.provider && m.id === task.model!.id,
+  );
+}
+
+/**
+ * Applies the router's pick; true when it had one. Stopped meanwhile, the
+ * conversation goes back to what it ran on.
+ */
+async function pick(s: Session, text: string, signal: AbortSignal) {
   const routed = await route(s, text, signal);
-  if (signal.aborted) return false;
-  const change = changes(agent, routed);
-  if (!change.model && !change.effort) return false;
+  if (signal.aborted || !(routed?.model || routed?.effort)) return false;
   const before = { model: s.model, effort: s.thinkingLevel };
-  await runOn(s, change);
+  await runOn(s, routed);
   if (!signal.aborted) return true;
   await runOn(s, before);
   return false;
-}
-
-// The router's pick, less what the user chose for this conversation.
-function changes(agent: Agent, routed: Route | null): Route {
-  if (!routed) return {};
-  return {
-    ...(!agent.chosen?.model && { model: routed.model }),
-    ...(!agent.chosen?.effort && { effort: routed.effort }),
-  };
-}
-
-async function runOn(
-  s: Session,
-  { model, effort }: { model?: Session["model"]; effort?: string },
-) {
-  if (model) await s.setModel(model, { persist: false });
-  if (effort) s.setThinkingLevel(effort as Effort, { persist: false });
 }
 
 /** What the conversation runs on now, for the line that says what the router chose. */
@@ -119,16 +117,20 @@ export async function routeMessage(
   images?: ImageContent[],
 ): Promise<boolean> {
   if (agent.routing) throw new Error("The last message is still being read.");
-  if (!(await routes(ctx, agent, s).catch(() => false))) return true;
   const routing = new AbortController();
   const message = userMessage(text, images);
+  // Taken before any await, so a second message sent meanwhile waits.
   agent.routing = { text, images, message, controller: routing };
+  if (!(await routes(ctx, agent, s).catch(() => false))) {
+    agent.routing = undefined;
+    return !routing.signal.aborted;
+  }
   tell(ctx, agent, { type: "routing_start", message });
   // The sidebar names it and shows it working now, not once pi has it.
   const named = !agent.title;
   if (named) agent.title = titleOf(message);
   pushProjects(ctx);
-  const chose = await pick(agent, s, text, routing.signal).catch(() => false);
+  const chose = await pick(s, text, routing.signal).catch(() => false);
   agent.routing = undefined;
   const sent = !routing.signal.aborted;
   tell(ctx, agent, {

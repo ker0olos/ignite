@@ -85,7 +85,7 @@ export function useAgentSession(
     };
   }, [opened, shown, statuses, setState]);
 
-  const answer = useSessionEvents(opened, shownRef, update, setError);
+  const answer = useSessionEvents(opened, shownRef, update, setError, setState);
   const skipWait = useCallback(
     async (toolCallId: string) =>
       !!opened &&

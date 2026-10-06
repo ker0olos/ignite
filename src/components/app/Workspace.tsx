@@ -99,6 +99,7 @@ export function Workspace({
         folder={folder}
         host={host}
         agents={projectList.rows(folder)}
+        modelRouter={modelRouter}
         onOpenConversation={(s) => {
           projectList.conversations.show(folder, s);
           setView("conversation");

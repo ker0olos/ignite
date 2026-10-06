@@ -51,6 +51,11 @@ describe("routerInput", () => {
     expect(text).toContain("Efforts, lowest first: off, minimal");
     expect(text.endsWith("The user's message:\nAdd dark mode")).toBe(true);
   });
+
+  it("sends only the start of a long message", () => {
+    const text = routerInput(`Fix this:${"x".repeat(10_000)}`, []);
+    expect(text.length).toBeLessThan(4_200);
+  });
 });
 
 describe("parseRoute", () => {

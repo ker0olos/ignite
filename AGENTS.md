@@ -542,8 +542,9 @@ conversation (`lib/tasks.ts`): working, waiting on the user, finished (to
 review) once idle or closed, done once its pull request opens or the user
 marks it.
 
-With Model Router on (`[conversation] model_router`), before a composer
-conversation's first message (not a Tasks-view task's) `sidecar/hostRoute.ts`
+With Model Router on (`[conversation] model_router`), before a conversation's
+first message (a composer conversation's, or a Tasks-view task's as it starts)
+`sidecar/hostRoute.ts`
 asks the provider's cheapest model (`sidecar/router.ts`, `completeSimple` with
 `cacheRetention: "none"`, so claude-bridge runs it in a separate Claude Code
 process) for the model and effort the conversation runs on. They're set
@@ -554,9 +555,14 @@ the middle-ground model at high effort (on Claude, Sonnet), as the router's
 prompt asks; a router that fails or times out keeps the user's default model
 and effort, and with no priced model to call the cheapest, it doesn't run.
 When it ends, a line above the first message says what it picked or kept.
-A model or effort the user picks for that conversation before sending is
-theirs: the router leaves it (`userChose`), and the setting stays on for the
-next one; choosing Router in the menu takes a picked model back.
+Picking a model for that conversation before sending turns the router off
+for it (`userPickedModel`): it picks nothing, effort included, and the
+setting stays on for the next one; choosing Router in the menu takes the
+picked model back. The new-task sheet works the same way: Router is the
+default, so a task saves a model and effort only when the user picks a model,
+and otherwise the router picks both when it starts (also when its saved
+model is no longer available). Only the message's first 4,000 characters go
+to the router.
 Closing the conversation while it reads drops the message; showing it again
 meanwhile shows the message being routed.
 While it reads the message, the message already shows in the conversation

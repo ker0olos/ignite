@@ -177,8 +177,8 @@ export type Agent = {
   opening: Promise<Session>;
   /** Between agent_start and agent_settled. */
   running: boolean;
-  /** What the user picked for this conversation themselves, which the router leaves alone. */
-  chosen?: { model?: boolean; effort?: boolean };
+  /** The user picked its model, so Model Router is off for it. */
+  pickedModel?: boolean;
   /** The new message the router is reading; Stop drops it and hands it back. */
   routing?: {
     text: string;

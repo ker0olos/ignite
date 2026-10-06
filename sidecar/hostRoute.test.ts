@@ -38,6 +38,7 @@ function setup(tasks: Task[] = [], shown = true) {
   };
   const s = {
     messages: [] as unknown[],
+    modelRuntime: { getAvailable: async () => [BIG, OWN] },
     model: OWN as unknown,
     thinkingLevel: "high",
     setModel: vi.fn(async (m: unknown) => {
@@ -121,12 +122,30 @@ describe("routeMessage", () => {
     expect(ctx.send).not.toHaveBeenCalled();
   });
 
-  it("does nothing with Model Router off, or for a Tasks-view task", async () => {
+  it("does nothing with Model Router off, a picked model, or a task's own model", async () => {
     vi.mocked(router.route).mockClear();
     vi.mocked(router.modelRouterOn).mockResolvedValueOnce(false);
     expect(await setup().run()).toBe(true);
-    expect(await setup([task({ session: "s1" })]).run()).toBe(true);
+    const picked = setup();
+    picked.agent.pickedModel = true;
+    expect(await picked.run()).toBe(true);
+    const own = task({ session: "s1", model: { provider: "p", id: "own" } });
+    const withModel = setup([own]);
+    expect(await withModel.run()).toBe(true);
     expect(router.route).not.toHaveBeenCalled();
+    expect(withModel.agent.routing).toBeUndefined();
+  });
+
+  it("routes a task with no model, or one no longer available, picking both", async () => {
+    vi.mocked(router.route).mockResolvedValue(routed);
+    const effortOnly = setup([task({ session: "s1", effort: "max" })]);
+    await effortOnly.run();
+    expect(effortOnly.s.thinkingLevel).toBe("low");
+    const gone = task({ session: "s1", model: { provider: "p", id: "gone" } });
+    const { s, run } = setup([gone]);
+    await run();
+    expect(s.setModel).toHaveBeenCalledWith(BIG, { persist: false });
+    vi.mocked(router.route).mockReset();
   });
 
   it("routes a composer conversation that already joined the task list", async () => {
@@ -163,6 +182,18 @@ describe("routeMessage", () => {
       sent: false,
     });
     expect(pushProjects).toHaveBeenCalled();
+  });
+
+  it("holds a second message even while it checks whether to route", async () => {
+    let settled!: (on: boolean) => void;
+    vi.mocked(router.modelRouterOn).mockImplementationOnce(
+      () => new Promise((resolve) => (settled = resolve)),
+    );
+    const { run } = setup();
+    const first = run();
+    await expect(run()).rejects.toThrow("still being read");
+    settled(false);
+    expect(await first).toBe(true);
   });
 
   it("sends the message as it is when the router or the model change fails", async () => {

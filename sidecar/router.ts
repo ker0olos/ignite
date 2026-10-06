@@ -39,7 +39,10 @@ export async function modelRouterOn(
   }
 }
 
-/** The router's user message: the models with prices, the efforts and the message. */
+// Enough to judge the work; a pasted log would only slow the call down.
+const MESSAGE_CHARS = 4_000;
+
+/** The router's user message: the models with prices, the efforts and the message's start. */
 export function routerInput(
   text: string,
   models: { id: string; price?: number }[],
@@ -50,7 +53,7 @@ export function routerInput(
   return [
     `Models:\n${list.join("\n")}`,
     `Efforts, lowest first: ${EFFORTS.join(", ")}`,
-    `The user's message:\n${text}`,
+    `The user's message:\n${text.slice(0, MESSAGE_CHARS)}`,
   ].join("\n\n");
 }
 

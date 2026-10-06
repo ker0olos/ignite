@@ -1,3 +1,4 @@
+import type { ModelRouter } from "@/components/agent/Composer";
 import { NewTaskForm } from "@/components/tasks/NewTaskForm";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { HostClient } from "@/lib/piHost";
@@ -9,6 +10,7 @@ export function NewTaskDialog({
   host,
   open,
   images,
+  modelRouter,
   onOpenChange,
   onCreate,
 }: {
@@ -16,6 +18,7 @@ export function NewTaskDialog({
   open: boolean;
   /** Images the sheet opens with. */
   images?: TaskImage[];
+  modelRouter?: ModelRouter;
   onOpenChange: (open: boolean) => void;
   onCreate: (draft: TaskDraft, now: boolean) => void;
 }) {
@@ -26,7 +29,12 @@ export function NewTaskDialog({
         className="gap-0 overflow-hidden bg-background p-0 sm:max-w-[560px]"
       >
         <DialogTitle className="sr-only">New task</DialogTitle>
-        <NewTaskForm host={host} images={images} onCreate={onCreate} />
+        <NewTaskForm
+          host={host}
+          images={images}
+          modelRouter={modelRouter}
+          onCreate={onCreate}
+        />
       </DialogContent>
     </Dialog>
   );

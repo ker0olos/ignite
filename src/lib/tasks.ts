@@ -89,11 +89,12 @@ export type TaskDraft = Pick<
   subtasks: string[];
 };
 
-/** The model and effort the sheet shows, as a task keeps them. */
+/** The model and effort the sheet shows, as a task keeps them; none while Model Router picks them (`routed`), when the task starts. */
 export function choicesOf(
   state: SessionState | null,
+  routed = false,
 ): Pick<TaskDraft, "model" | "effort"> {
-  if (!state?.model) return {};
+  if (routed || !state?.model) return {};
   const { provider, id } = state.model;
   return { model: { provider, id }, effort: state.thinkingLevel };
 }

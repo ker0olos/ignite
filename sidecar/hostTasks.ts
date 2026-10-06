@@ -1,6 +1,7 @@
 import { applyUpdate, autonomous, type Task } from "../shared/tasks.ts";
-import { current, type HostContext, type Session } from "./hostTypes.ts";
+import { current, type HostContext } from "./hostTypes.ts";
 import { close, launch, prompt } from "./hostSession.ts";
+import { runOn } from "./hostRoute.ts";
 import { describeError } from "./wire.ts";
 import type { TaskAsk } from "./taskExtension.ts";
 import { createTaskStore, type TaskStore } from "./taskStore.ts";
@@ -18,18 +19,6 @@ export function taskPrompt(task: Task): string {
     parts.push(`Attached images: ${task.images.map((i) => i.name).join(", ")}`);
   }
   return parts.join("\n\n");
-}
-
-// Not persisted: a task's pick never becomes the default for new conversations.
-// A model that's no longer available leaves the default.
-async function runOn(s: Session, { model, effort }: Task) {
-  const found =
-    model &&
-    (await s.modelRuntime.getAvailable()).find(
-      (m) => m.provider === model.provider && m.id === model.id,
-    );
-  if (found) await s.setModel(found, { persist: false });
-  if (effort) s.setThinkingLevel(effort, { persist: false });
 }
 
 /**
