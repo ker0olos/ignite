@@ -42,7 +42,7 @@ export function Conversation({
     lastMessage.content.at(-1)?.type === "text";
 
   const waiting = firstWaiting(transcript.items, transcript.tools);
-  const working = workingLine(transcript, folder);
+  const working = workingLine(transcript, folder, showThinking);
 
   return (
     <FirstApprovalContext.Provider value={waiting}>
@@ -50,26 +50,25 @@ export function Conversation({
         ref={contentRef}
         className="always-bounce mx-auto select-text max-w-3xl space-y-4 px-4 py-6 text-[13px]"
       >
-        {toRows(transcript.items, showThinking, transcript.tools).map(
-          (row, i) => (
-            <RowBoundary key={i} resetOn={row}>
-              <RowView
-                row={row}
-                tools={transcript.tools}
-                folder={folder}
-                editor={editor}
-                codeThemes={codeThemes}
-                stickyUserMessages={stickyUserMessages}
-                onApprove={onApprove}
-              />
-            </RowBoundary>
-          ),
-        )}
+        {toRows(transcript.items, transcript.tools).map((row, i) => (
+          <RowBoundary key={i} resetOn={row}>
+            <RowView
+              row={row}
+              tools={transcript.tools}
+              folder={folder}
+              editor={editor}
+              codeThemes={codeThemes}
+              stickyUserMessages={stickyUserMessages}
+              onApprove={onApprove}
+            />
+          </RowBoundary>
+        ))}
         {working && !lastIsStreamingText && (
           <RunIndicator
             state={waiting === null ? "working" : "waiting"}
             step={working.step}
             since={working.since}
+            thought={working.thought}
           />
         )}
       </div>

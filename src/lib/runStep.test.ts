@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { AgentMessage, AssistantMessage } from "../../shared/agentTypes";
-import { currentStep, elapsed, runStart } from "./runStep";
+import type { Transcript } from "./transcript";
+import {
+  currentStep,
+  elapsed,
+  runStart,
+  latestThought,
+  workingLine,
+} from "./runStep";
 
 const assistant = (content: AssistantMessage["content"]): AgentMessage => ({
   role: "assistant",
@@ -55,6 +62,11 @@ describe("currentStep", () => {
     expect(currentStep(m, { a: { status: "done" } }, "/w")).toBe("Thinking");
   });
 
+  it("ignores the reply before the last user message", () => {
+    const m = [assistant([{ type: "thinking", thinking: "old" }]), user];
+    expect(currentStep(m, {}, "/w")).toBe("Working");
+  });
+
   it("says Working otherwise", () => {
     const m = [assistant([{ type: "text", text: "hi" }])];
     expect(currentStep(m, {}, "/w")).toBe("Working");
@@ -81,5 +93,78 @@ describe("elapsed", () => {
     [-5, "0s"],
   ])("%i → %s", (ms, text) => {
     expect(elapsed(ms)).toBe(text);
+  });
+});
+
+describe("workingLine thought", () => {
+  const line = (content: AssistantMessage["content"]) => {
+    const t: Transcript = {
+      items: [{ kind: "message", message: assistant(content) }],
+      tools: {},
+      running: true,
+    };
+    return workingLine(t, "/w", true)?.thought;
+  };
+
+  it("is the newest sentence of a trailing thinking block", () => {
+    expect(
+      line([{ type: "thinking", thinking: "First one. Then the second" }]),
+    ).toBe("Then the second");
+  });
+
+  it("is the last finished sentence when one just ended", () => {
+    expect(line([{ type: "thinking", thinking: "Done here. " }])).toBe(
+      "Done here.",
+    );
+  });
+
+  it("splits on line breaks too", () => {
+    expect(line([{ type: "thinking", thinking: "**Plan**\n\nRead it" }])).toBe(
+      "Read it",
+    );
+  });
+
+  it("is left out unless asked for", () => {
+    const t: Transcript = {
+      items: [
+        {
+          kind: "message",
+          message: assistant([{ type: "thinking", thinking: "why" }]),
+        },
+      ],
+      tools: {},
+      running: true,
+    };
+    expect(workingLine(t, "/w", false)?.thought).toBeUndefined();
+  });
+
+  it("is undefined for empty thinking", () => {
+    expect(line([{ type: "thinking", thinking: "" }])).toBeUndefined();
+  });
+
+  it("is undefined when the last block isn't thinking", () => {
+    expect(
+      line([
+        { type: "thinking", thinking: "why" },
+        { type: "text", text: "hi" },
+      ]),
+    ).toBeUndefined();
+  });
+});
+
+describe("latestThought", () => {
+  const thinking = (text: string, redacted?: boolean) =>
+    assistant([{ type: "thinking", thinking: text, redacted }]);
+
+  it("reads only the end of long reasoning", () => {
+    expect(latestThought([thinking("a".repeat(1000))])).toHaveLength(600);
+  });
+
+  it("skips redacted thinking", () => {
+    expect(latestThought([thinking("opaque", true)])).toBeUndefined();
+  });
+
+  it("skips a previous run's thinking", () => {
+    expect(latestThought([thinking("old"), user])).toBeUndefined();
   });
 });
