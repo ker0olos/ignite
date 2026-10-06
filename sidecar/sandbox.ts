@@ -108,12 +108,14 @@ const CACHES = [
  * The sandbox for commands run in `cwd`, with what the user always allows.
  * In an agent's worktree, git also writes its private git dir and objects in
  * the user's repository, but never the files that say which repository that
- * is (see gitAccess).
+ * is (see gitAccess). `inFolder` is where it may write in `cwd`: all of it,
+ * or only what git ignores while the work isn't planned.
  */
 export function sandboxConfig(
   cwd: string,
   home: string,
   allowed: Allowed = NOTHING_ALLOWED,
+  inFolder: string[] = [cwd],
 ): SandboxRuntimeConfig {
   const temp = [...new Set([tmpdir(), "/tmp", "/private/tmp"])];
   const git = gitAccess(cwd);
@@ -127,7 +129,7 @@ export function sandboxConfig(
       denyRead: CREDENTIALS.map((p) => join(home, p)),
       allowRead: allowed.read,
       allowWrite: [
-        cwd,
+        ...inFolder,
         ...git.allow,
         ...temp,
         ...CACHES.map((p) => join(home, p)),
@@ -183,6 +185,12 @@ export function blockedAction(summary: string, home: string): string | null {
   return `${verb} ${shortHome(target, home)}`;
 }
 
+/** Why a command the sandbox blocked waits for the user. */
+export function blockedReason(what: string, home = homedir()) {
+  const action = blockedAction(what, home);
+  return action ? `Tried to ${action}` : `Blocked by the sandbox: ${what}`;
+}
+
 /** `path` with `home` shown as ~. */
 export function shortHome(path: string, home: string): string {
   return path.startsWith(home + "/") ? "~" + path.slice(home.length) : path;
@@ -196,7 +204,7 @@ export function shortHome(path: string, home: string): string {
 export function refusedLine(output: string): string | null {
   const line = output
     .split("\n")
-    .find((l) => /operation not permitted/i.test(l));
+    .find((l) => /operation not permitted|read-only file system/i.test(l));
   return line ? line.trim() : null;
 }
 
@@ -205,7 +213,9 @@ export function refusedLine(output: string): string | null {
  * (`docker ps 2>&1 | head`) hides the failure but not the refusal.
  */
 export function mayBeBlocked(output: string): boolean {
-  return /operation not permitted|permission denied/i.test(output);
+  return /operation not permitted|permission denied|read-only file system/i.test(
+    output,
+  );
 }
 
 /**
@@ -225,8 +235,13 @@ export async function explainWhenReported(
 }
 
 export type Sandbox = {
-  /** `command` rewritten to run in the sandbox for `cwd`; `id` names this run. */
-  wrap(command: string, cwd: string, id: string): Promise<string>;
+  /** `command` rewritten to run in the sandbox for `cwd`, writing there only in `inFolder` if given; `id` names this run. */
+  wrap(
+    command: string,
+    cwd: string,
+    id: string,
+    inFolder?: string[],
+  ): Promise<string>;
   /** A failed run's `output` with what the sandbox blocked appended, if anything. */
   explain(id: string, output: string): Promise<string>;
 };
@@ -253,13 +268,13 @@ export async function createSandbox(
     // pipefail: agents pipe through head/tail, which would hide a block.
     // Hosts and sockets are the proxy's and profile's global config, so the
     // allowlist goes there too; it's cheap to swap.
-    wrap: async (command, cwd, id) => {
+    wrap: async (command, cwd, id, inFolder) => {
       const allowed = await loadAllowed(allowedFile(home));
       SandboxManager.updateConfig(sandboxConfig(tmpdir(), home, allowed));
       return SandboxManager.wrapWithSandbox(
         `set -o pipefail; ${command}`,
         undefined,
-        { filesystem: sandboxConfig(cwd, home, allowed).filesystem },
+        { filesystem: sandboxConfig(cwd, home, allowed, inFolder).filesystem },
         undefined,
         { commandId: id },
       );

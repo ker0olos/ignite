@@ -26,7 +26,7 @@ import { ASKING, AUTONOMOUS } from "./askExtension.ts";
 import { COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE } from "./bashExtension.ts";
 import { registerTaskAdd } from "./taskAddTool.ts";
 import { stepOf } from "../shared/steps.ts";
-import { CHANGES_FILES } from "./taskSteps.ts";
+import { answerPlanned, planFirst } from "./taskSteps.ts";
 
 /** pi event bus channel carrying a TaskAsk to the host. */
 export const TASK_EVENT = "app/task";
@@ -87,8 +87,6 @@ The user follows the plan as you go, so keep it true:
 /** The plan so far, added to an interactive conversation's prompt each run so it picks up where it left off. */
 export const planReminder = (task: Task): string =>
   `### The plan so far\n${progressText(task)}`;
-
-export const PLAN_FIRST = `Plan first: call ${TASK_TOOL} to lay out the subtasks, or to confirm the ones given, before changing files.`;
 
 export const WRAP_UP = `Wrap up the task: set every finished subtask to "done" with ${TASK_TOOL}, then commit on a branch, push, and open a pull request. If the folder can't take one, leave the changes uncommitted and say why.`;
 
@@ -153,6 +151,10 @@ export default function tasks(pi: ExtensionAPI) {
   let nudged = false;
 
   registerTaskAdd(pi);
+  answerPlanned(
+    pi,
+    async () => (await (known ??= askTask(pi, "get").then(knownOf))).planned,
+  );
   pi.registerTool({
     name: TASK_TOOL,
     label: "Update the task",
@@ -230,8 +232,8 @@ export default function tasks(pi: ExtensionAPI) {
   pi.on("tool_call", async (event, ctx) => {
     known ??= askTask(pi, "get").then(knownOf);
     const { has, planned } = await known;
-    if (CHANGES_FILES.has(event.toolName) && !planned)
-      return { block: true, reason: PLAN_FIRST };
+    const reason = !planned && planFirst(event.toolName, event.input);
+    if (reason) return { block: true, reason };
     if (!has) return;
     const step = stepOf(event.toolName, event.input, ctx.cwd);
     if (step) void askTask(pi, "update", { step });
