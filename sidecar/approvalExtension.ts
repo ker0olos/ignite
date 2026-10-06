@@ -30,8 +30,8 @@ import {
 import { isMcpDirect } from "../src/lib/mcpToolCall.ts";
 import { loadBashParser } from "./bashParser.ts";
 import {
-  blockedAction,
   blockedProgram,
+  blockedReason,
   blockedSummary,
   canAllow,
   createSandbox,
@@ -50,6 +50,7 @@ import {
   type AllowRule,
 } from "./sandboxAllow.ts";
 import { runOutside } from "./runOutside.ts";
+import { unplannedWrite, writableUntilPlanned } from "./taskSteps.ts";
 
 // Without these, commands are still checked: as raw text, and for paths
 // outside the folder instead of in the sandbox.
@@ -136,12 +137,6 @@ function commandOf(event: ToolCallEvent): string | undefined {
     : undefined;
 }
 
-/** Why a command the sandbox blocked waits for the user. */
-function blockedReason(what: string) {
-  const action = blockedAction(what, homedir());
-  return action ? `Tried to ${action}` : `Blocked by the sandbox: ${what}`;
-}
-
 /**
  * What to offer to always allow for a blocked command: what it hit, or, when
  * that was a credential (a CLI's token in the keychain), the program and
@@ -184,8 +179,9 @@ function notRerun(details: unknown) {
 }
 
 export default function approval(pi: ExtensionAPI) {
-  // Sandboxed runs in progress: tool call id → the command as written.
-  const sandboxed = new Map<string, string>();
+  // Sandboxed runs in progress: tool call id → the command as written, and
+  // whether the folder was read-only for it (the work not yet planned).
+  const sandboxed = new Map<string, { command: string; locked: boolean }>();
 
   const ask = (request: ApprovalRequest, ctx: ExtensionContext) =>
     new Promise<{ approved: boolean; always?: boolean }>((resolve) => {
@@ -201,10 +197,13 @@ export default function approval(pi: ExtensionAPI) {
   async function askOutside(
     event: ToolResultEvent,
     ctx: ExtensionContext,
-    command: string,
+    { command, locked }: { command: string; locked: boolean },
     explained: string,
     what: string,
   ) {
+    const folders = [ctx.cwd, await realPath(ctx.cwd)];
+    const unplanned = locked && unplannedWrite(explained, folders);
+    if (unplanned) return unplanned;
     const rule = await ruleFor(explained, command);
     const { approved, always } = await ask(
       {
@@ -243,9 +242,8 @@ export default function approval(pi: ExtensionAPI) {
     box: Sandbox | undefined,
   ) {
     const { input, place } = await judged(event.input, ctx.cwd);
-    const parse = await bashParser;
     return approvalFor(mode, event.toolName, input, place, {
-      parse,
+      parse: await bashParser,
       sandboxed: !!box,
       mcpDirect: isMcpDirect(event.toolName, pi.getAllTools()),
     });
@@ -267,16 +265,17 @@ export default function approval(pi: ExtensionAPI) {
       return;
     }
     if (!box || command === undefined || (await runsOutside(command))) return;
-    sandboxed.set(event.toolCallId, command);
+    const inside = await writableUntilPlanned(pi, ctx.cwd);
+    sandboxed.set(event.toolCallId, { command, locked: !!inside });
     const input = event.input as { command: string };
-    input.command = await box.wrap(command, ctx.cwd, event.toolCallId);
+    input.command = await box.wrap(command, ctx.cwd, event.toolCallId, inside);
   });
 
   // Asked before the call ends, so its row shows the question, not a retry.
   pi.on("tool_result", async (event, ctx) => {
-    const command = sandboxed.get(event.toolCallId);
+    const run = sandboxed.get(event.toolCallId);
     const box = await sandbox;
-    if (command === undefined || !box) return;
+    if (!run || !box) return;
     sandboxed.delete(event.toolCallId);
     const text = event.content
       .flatMap((c) => (c.type === "text" ? [c.text] : []))
@@ -288,6 +287,6 @@ export default function approval(pi: ExtensionAPI) {
     const explained = await box.explain(event.toolCallId, text);
     const what = blockedSummary(explained) ?? refusedLine(text);
     if (!what) return;
-    return askOutside(event, ctx, command, explained, what);
+    return askOutside(event, ctx, run, explained, what);
   });
 }

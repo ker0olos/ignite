@@ -24,6 +24,7 @@ import approval, {
 } from "./approvalExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { allowAlways, loadAllowed } from "./sandboxAllow.ts";
+import { answerPlanned, READ_ONLY_UNTIL_PLANNED } from "./taskSteps.ts";
 import { WINDOWS_SHELL } from "../src/lib/approvalPolicy.ts";
 
 // A fake sandbox: wrapping marks the command, and `violation` is what it
@@ -32,7 +33,12 @@ const fake = vi.hoisted(() => ({ violation: "", program: "sh" }));
 vi.mock("./sandbox.ts", async (actual) => ({
   ...(await actual<typeof import("./sandbox.ts")>()),
   createSandbox: async () => ({
-    wrap: async (command: string) => `sandboxed ${command}`,
+    wrap: async (
+      command: string,
+      _cwd: string,
+      _id: string,
+      inFolder?: string[],
+    ) => `${inFolder ? "read-only " : ""}sandboxed ${command}`,
     explain: async (_id: string, output: string) =>
       fake.violation
         ? `${output}\n<sandbox_violations>\n${fake.program}(1) deny(1) ${fake.violation}\n</sandbox_violations>`
@@ -151,7 +157,7 @@ function load(tools: { name: string; path: string }[] = []) {
       },
       { cwd },
     );
-  return { asks, call, result, input: () => input };
+  return { asks, call, result, input: () => input, events };
 }
 
 describe("tool_call", () => {
@@ -320,6 +326,36 @@ describe("the sandbox in Auto", () => {
     // The next run is sandboxed again.
     await call("bash", { command: "echo outside" });
     expect(input().command).toBe("sandboxed echo outside");
+  });
+
+  it("keeps the folder read-only until the work is planned, without offering to run outside", async () => {
+    const { asks, call, result, input, events } = load();
+    let planned = false;
+    answerPlanned({ events }, async () => planned);
+    await call("bash", { command: "python3 edit.py" });
+    expect(input().command).toBe("read-only sandboxed python3 edit.py");
+    fake.violation = `file-write-create ${cwd}/a.ts`;
+    const blocked = (await result("Operation not permitted", true)) as Outcome;
+    expect(blocked.content[0].text).toContain(READ_ONLY_UNTIL_PLANNED);
+    expect(asks).toEqual([]);
+    // With no report yet, the lock is the likely cause.
+    await call("bash", { command: "python3 edit.py" });
+    fake.violation = "";
+    const late = (await result("Operation not permitted", true)) as Outcome;
+    expect(late.content[0].text).toContain(READ_ONLY_UNTIL_PLANNED);
+    expect(asks).toEqual([]);
+    // A blocked host, or a write outside the folder, still asks.
+    await call("bash", { command: "curl example.com" });
+    fake.violation = "network-outbound example.com:443";
+    void result("Operation not permitted", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    await call("bash", { command: "touch ~/.config/x" });
+    fake.violation = `file-write-create ${home}/.config/x`;
+    void result("Operation not permitted", true);
+    await vi.waitFor(() => expect(asks).toHaveLength(2));
+    planned = true;
+    await call("bash", { command: "python3 edit.py" });
+    expect(input().command).toBe("sandboxed python3 edit.py");
   });
 
   it("runs a blocked background command outside, still in the background", async () => {

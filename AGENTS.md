@@ -213,7 +213,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   taskExtension.ts       task_update for every conversation (plan before edits, joins the task list);
                          a Tasks-view task's autonomy and wrap-up phase
   taskAddTool.ts         task_add: any other conversation proposes tasks, added unstarted once approved
-  taskSteps.ts           Which tools change files (CHANGES_FILES), held until a task is planned
+  taskSteps.ts           What waits for the plan (edits, writes, new subagents but explore ones),
+                         whether it's planned (isPlanned), where bash may write until then
   subagentExtension.ts   subagent tool: hands tasks to its model or a cheaper one from the same provider and talks with it
   subagentQueue.ts       Runs at most `max` subagents at once; the rest wait their turn
   subagentSession.ts     A subagent's session: talking to it and ending it (the 8 last used stay open)
@@ -517,7 +518,10 @@ only that conversation autonomy: it drops `ask_user`, points its
 `chrome_*` tools at the app's own Chrome, and adds a wrap-up phase: a run
 that ends with subtasks open or no pull request gets one wrap-up message.
 In every conversation, edits and writes are blocked until it has laid out
-or confirmed the subtasks (`planned`), and each tool call becomes its task's
+or confirmed the subtasks (`planned`), and only explore subagents start;
+until then Auto's sandbox keeps the folder read-only for bash, but for what
+git ignores that exists (caches, builds), and a bash call that ran outside it
+and changed files tells the agent to plan first (its changes stand). Each tool call becomes its task's
 step. Any conversation not started from the Tasks view can fill the list with `task_add`
 (`sidecar/taskAddTool.ts`): its row shows the proposed tasks as cards, and
 approving adds them unstarted. In a task, a commit and a plain push of its own branch run without

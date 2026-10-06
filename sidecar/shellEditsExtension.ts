@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
 import type { ShellEdit } from "../shared/shellEdits.ts";
+import { CHANGED_UNPLANNED, isPlanned } from "./taskSteps.ts";
 import { git, workingTree } from "./worktreeGit.ts";
 
 // Kept on the session file with the result, so a mass rewrite can't bloat it.
@@ -146,7 +147,10 @@ export default function shellEdits(pi: ExtensionAPI) {
     );
     const edits = capped(changed.flat());
     if (!edits.length) return;
-    return { details: { ...(event.details as object), edits } };
+    const details = { ...(event.details as object), edits };
+    if (await isPlanned(pi)) return { details };
+    const flag = { type: "text" as const, text: CHANGED_UNPLANNED };
+    return { details, content: [...event.content, flag] };
   });
 
   pi.on("session_shutdown", async () => {
