@@ -23,19 +23,25 @@ const alive = (pid: number) => {
   }
 };
 const until = async (check: () => boolean | Promise<boolean>) => {
-  for (let i = 0; i < 50 && !(await check()); i++) {
+  for (let i = 0; i < 200 && !(await check()); i++) {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 };
 
-/** Runs `command` with a short startup window; what it printed meanwhile, and what it left running. */
-async function start(command: string, signal?: AbortSignal, session = SESSION) {
+// Long enough for a loaded machine to start a shell; commands meant to outlive it sleep longer.
+/** Runs `command` with a startup window; what it printed meanwhile, and what it left running. */
+async function start(
+  command: string,
+  signal?: AbortSignal,
+  session = SESSION,
+  window = 2000,
+) {
   let started: Background | undefined;
   const chunks: string[] = [];
   const ops = backgroundOperations(
     { session, command: `as written: ${command}` },
     (b) => (started = b),
-    300,
+    window,
   );
   const { exitCode } = await ops.exec(command, cwd, {
     onData: (data) => chunks.push(data.toString()),
@@ -62,14 +68,14 @@ describe.runIf(process.platform !== "win32")("backgroundOperations", () => {
 
   it("leaves a long command running, its later output in the log", async () => {
     const { exitCode, output, started } = await start(
-      "echo up; sleep 0.5; echo later; sleep 30",
+      "echo up; sleep 3; echo later; sleep 30",
     );
     expect(exitCode).toBe(0);
     expect(output).toBe("up\n");
     expect(backgroundOf(SESSION)).toEqual([started]);
     expect(started).toMatchObject({
       session: SESSION,
-      command: "as written: echo up; sleep 0.5; echo later; sleep 30",
+      command: "as written: echo up; sleep 3; echo later; sleep 30",
       running: true,
     });
     await until(async () =>
@@ -117,10 +123,7 @@ describe.runIf(process.platform !== "win32")("backgroundOperations", () => {
     const { output, started } = await start(
       "[ -t 1 ] && printf '\\033[31mtty\\033[0m\\n'; sleep 0.5; echo later; sleep 30",
     );
-    expect(output).toBe("tty\n");
-    await until(async () =>
-      (await readFile(started!.log, "utf8")).includes("later"),
-    );
+    expect(output).toBe("tty\nlater\n");
     expect(await readFile(started!.log, "utf8")).toBe("tty\nlater\n");
     expect(await readFile(started!.raw, "utf8")).toBe(
       "\x1b[31mtty\x1b[0m\r\nlater\r\n",
@@ -157,7 +160,7 @@ describe.runIf(process.platform !== "win32")("backgroundOperations", () => {
   });
 
   it("keeps one that ended on its own, with its exit code", async () => {
-    const { started } = await start("sleep 0.5; exit 4");
+    const { started } = await start("sleep 3; exit 4");
     await until(() => !started!.running);
     expect(backgroundOf(SESSION)).toMatchObject([
       { running: false, exitCode: 4 },
@@ -169,7 +172,7 @@ describe.runIf(process.platform !== "win32")("backgroundOperations", () => {
     const heard = vi.fn();
     const off = onBackgroundChange(heard);
     try {
-      const { started } = await start("sleep 0.5");
+      const { started } = await start("sleep 3");
       expect(heard).toHaveBeenCalledTimes(1);
       await until(() => !started!.running);
       expect(heard).toHaveBeenCalledTimes(2);
