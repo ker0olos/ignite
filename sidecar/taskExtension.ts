@@ -67,7 +67,7 @@ export const askTask = (
 export const TASK_GUIDANCE = `## Working on a task
 This conversation carries out a task from the user's task list; the user follows it there, not in the conversation. Work in three phases, keeping the subtasks current with the ${TASK_TOOL} tool:
 1. Plan: read what you need, then call ${TASK_TOOL} to add the subtasks the work needs, or to confirm the ones given (you can't change files until you have).
-2. Work: before starting a subtask, set it to "working"; when it's finished, set it to "done". Work through them in order.
+2. Work: before starting a subtask, set it to "working"; when it's finished, set it to "done". Work through them in order, and set the finished one and the next one in a single call.
 3. Deliver: when every subtask is done, create a branch named for the task, commit, push, and open a pull request; the user reviews it before it opens. If the folder can't take one (not a git repository, no remote, or gh not signed in), leave the changes uncommitted and say why.
 When the work has something to look at (a page, a screen, a chart), show an image of it with ${IMAGE_TOOL}; it's added to the task for the user to see.
 Only stop for the user when you can't go on without them. End with a short summary of what you did.`;
@@ -79,7 +79,8 @@ export const CHROME_GUIDANCE = `The chrome_* tools drive a separate Chrome that'
 export const PLAN_GUIDANCE = `## Planning the work
 Before changing any files, call ${TASK_TOOL} to lay out the work as subtasks (this adds the conversation to the user's task list). Answering questions or reading code needs no plan.
 The user follows the plan as you go, so keep it true:
-- Work through the subtasks in order. Before starting one, set it to "working"; the moment it's finished, set it to "done", before moving on.
+- Work through the subtasks in order. Before starting one, set it to "working"; the moment it's finished, set it to "done", before moving on. Set the finished one and the next one in a single call.
+- A subtask is "done" only once all its work is; don't mark a later one done early.
 - When the user asks for more, or the work turns out to need a step the plan lacks, add it as a subtask before doing it.
 - Before you end a reply, every subtask you finished is "done".`;
 
@@ -91,21 +92,34 @@ export const PLAN_FIRST = `Plan first: call ${TASK_TOOL} to lay out the subtasks
 
 export const WRAP_UP = `Wrap up the task: set every finished subtask to "done" with ${TASK_TOOL}, then commit on a branch, push, and open a pull request. If the folder can't take one, leave the changes uncommitted and say why.`;
 
-const Params = Type.Object({
-  subtask: Type.Optional(
-    Type.Integer({ minimum: 1, description: "The subtask's number, from 1." }),
-  ),
-  status: Type.Optional(
-    Type.Union([
-      Type.Literal("todo"),
-      Type.Literal("working"),
-      Type.Literal("done"),
-    ]),
-  ),
-  add: Type.Optional(
-    Type.Array(Type.String(), { description: "Subtasks to append." }),
-  ),
-});
+const Params = Type.Object(
+  {
+    set: Type.Optional(
+      Type.Array(
+        Type.Object({
+          subtask: Type.Integer({
+            minimum: 1,
+            description: "The subtask's number, from 1.",
+          }),
+          status: Type.Union([
+            Type.Literal("todo"),
+            Type.Literal("working"),
+            Type.Literal("done"),
+          ]),
+        }),
+        {
+          description:
+            "Statuses to set, all in one call: finishing one subtask and starting the next is one call.",
+        },
+      ),
+    ),
+    add: Type.Optional(
+      Type.Array(Type.String(), { description: "Subtasks to append." }),
+    ),
+  },
+  // A call in the old `{ subtask, status }` shape fails instead of changing nothing.
+  { additionalProperties: false },
+);
 
 /** The task's subtasks as the model reads them back. */
 export function progressText(task: Task): string {
@@ -143,7 +157,7 @@ export default function tasks(pi: ExtensionAPI) {
     name: TASK_TOOL,
     label: "Update the task",
     description:
-      "Lay out this conversation's work as subtasks (it joins the user's task list), confirm them (call with no changes), or set a subtask's status.",
+      "Lay out this conversation's work as subtasks (it joins the user's task list), confirm them (call with no changes), or set subtasks' statuses.",
     parameters: Params,
     // pi checks a parallel batch's calls before running any, so an edit beside the plan would be blocked.
     executionMode: "sequential",
@@ -163,8 +177,7 @@ export default function tasks(pi: ExtensionAPI) {
         await joining;
       }
       const task = await askTask(pi, "update", {
-        subtask: params.subtask,
-        status: params.status,
+        set: params.set,
         add: params.add,
         planned: true,
       });

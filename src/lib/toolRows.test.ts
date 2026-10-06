@@ -72,6 +72,28 @@ describe("toRows", () => {
     expect(rows.map((r) => r.kind)).toEqual(["group", "tool", "group"]);
   });
 
+  it("shows only the latest of plan updates in a row, once it has a plan", () => {
+    const plan = (status: "done" | "error", subtasks = [{}]) => ({
+      status,
+      result: { content: [], details: { subtasks } },
+    });
+    const rows = toRows(
+      [
+        assistant([call("task_update", "a"), call("task_update", "b")]),
+        assistant([call("task_update", "c"), call("task_update", "d")]),
+        assistant([call("task_update", "e"), call("read")]),
+      ],
+      false,
+      { a: plan("done"), b: plan("done"), c: plan("done"), e: plan("done") },
+    );
+    expect(rows).toEqual([
+      { kind: "tool", call: call("task_update", "c") },
+      { kind: "tool", call: call("task_update", "d") },
+      { kind: "tool", call: call("task_update", "e") },
+      { kind: "tool", call: call("read") },
+    ]);
+  });
+
   it("takes a failed call out of its group, so the group holds only calls that worked", () => {
     const rows = toRows(
       [

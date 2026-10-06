@@ -49,20 +49,27 @@ describe("applyUpdate", () => {
     expect(t.shown?.map((s) => s.name)).toEqual(["b"]);
   });
 
-  it("sets one subtask's status and stamps the time", () => {
-    const next = applyUpdate(task, { subtask: 2, status: "done" }, 9);
-    expect(next.subtasks.map((s) => s.status)).toEqual(["todo", "done"]);
+  it("sets subtasks' statuses and stamps the time", () => {
+    const next = applyUpdate(
+      task,
+      {
+        set: [
+          { subtask: 1, status: "working" },
+          { subtask: 2, status: "done" },
+          { subtask: 1, status: "done" },
+        ],
+      },
+      9,
+    );
+    expect(next.subtasks.map((s) => s.status)).toEqual(["done", "done"]);
     expect(next).toMatchObject({ updated: 9, created: 1, step: "old" });
     expect(task.subtasks[1].status).toBe("todo");
   });
 
-  it("ignores out-of-range subtasks and a subtask without a status", () => {
+  it("ignores out-of-range subtasks", () => {
     expect(
-      applyUpdate(task, { subtask: 3, status: "done" }, 2).subtasks,
+      applyUpdate(task, { set: [{ subtask: 3, status: "done" }] }, 2).subtasks,
     ).toEqual(task.subtasks);
-    expect(applyUpdate(task, { subtask: 1 }, 2).subtasks).toEqual(
-      task.subtasks,
-    );
   });
 
   it("appends trimmed subtasks and skips blank ones", () => {
