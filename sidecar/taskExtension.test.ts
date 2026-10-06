@@ -11,7 +11,6 @@ import { ASKING, AUTONOMOUS } from "./askExtension.ts";
 import { COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE } from "./bashExtension.ts";
 import tasks, {
   TASK_EVENT,
-  PLAN_FIRST,
   PLAN_GUIDANCE,
   TASK_GUIDANCE,
   CHROME_GUIDANCE,
@@ -21,6 +20,7 @@ import tasks, {
   progressText,
   type TaskAsk,
 } from "./taskExtension.ts";
+import { PLAN_FIRST, SUBAGENT_PLAN_FIRST } from "./taskSteps.ts";
 
 const task: Task = {
   id: "t",
@@ -170,6 +170,22 @@ describe("tool_call", () => {
         }),
       ),
     );
+  });
+
+  it("starts only explore subagents until the work is planned", async () => {
+    const { call, run } = load(null);
+    expect(await call("subagent", { task: "fix it" })).toEqual({
+      block: true,
+      reason: SUBAGENT_PLAN_FIRST,
+    });
+    expect(
+      await call("subagent", { task: "find it", explore: true }),
+    ).toBeUndefined();
+    expect(
+      await call("subagent", { id: "agent-1", task: "more" }),
+    ).toBeUndefined();
+    await run({ add: ["x"] });
+    expect(await call("subagent", { task: "fix it" })).toBeUndefined();
   });
 
   it("lets a task planned before a reload change files", async () => {

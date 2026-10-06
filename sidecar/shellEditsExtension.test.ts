@@ -2,11 +2,13 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createEventBus } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import shellEdits, {
   changedFiles,
   namesFolder,
 } from "./shellEditsExtension.ts";
+import { answerPlanned, CHANGED_UNPLANNED } from "./taskSteps.ts";
 import { workingTree } from "./worktreeGit.ts";
 
 let repo: string;
@@ -70,15 +72,21 @@ it("finds nothing when the command changed no file", async () => {
 
 type Handler = (event: object, ctx: object) => Promise<unknown>;
 
-function hooks() {
+function hooks(planned = true) {
   const on: Record<string, Handler> = {};
-  shellEdits({ on: (name: string, h: Handler) => (on[name] = h) } as never);
+  const events = createEventBus();
+  answerPlanned({ events }, async () => planned);
+  shellEdits({
+    on: (name: string, h: Handler) => (on[name] = h),
+    events,
+  } as never);
   return async (input: object, change: () => void, cwd = repo) => {
     const ctx = { cwd };
     const call = { toolName: "bash", toolCallId: "c", input };
     await on.tool_call(call, ctx);
     change();
-    return on.tool_result({ ...call, details: { exit: 0 } }, ctx);
+    const content = [{ type: "text", text: "ok" }];
+    return on.tool_result({ ...call, content, details: { exit: 0 } }, ctx);
   };
 }
 
@@ -92,6 +100,15 @@ it("adds the files each command changed to its result's details", async () => {
   const second = await run({ command: "x" }, write("two\n"));
   expect(second).toMatchObject({ details: { edits: [{ path: "new.ts" }] } });
   expect(JSON.stringify(second)).toContain("-one\\n+two");
+});
+
+it("tells the model it changed files before the work was planned", async () => {
+  const run = hooks(false);
+  const edit = () => writeFileSync(join(repo, "a.ts"), "unplanned\n");
+  expect(await run({ command: "x" }, edit)).toMatchObject({
+    details: { edits: [{ path: "a.ts" }] },
+    content: [{ text: "ok" }, { text: CHANGED_UNPLANNED }],
+  });
 });
 
 it("leaves a result alone when nothing changed, outside git, or in the background", async () => {

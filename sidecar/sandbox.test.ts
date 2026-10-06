@@ -42,6 +42,15 @@ describe("sandboxConfig", () => {
     expect(writable).not.toContain("/Users/me");
   });
 
+  it("writes in the folder only where it's told, until the work is planned", () => {
+    const writable = sandboxConfig("/Users/me/app", "/Users/me", undefined, [
+      "/Users/me/app/node_modules",
+    ]).filesystem.allowWrite;
+    expect(writable).not.toContain("/Users/me/app");
+    expect(writable).toContain("/Users/me/app/node_modules");
+    expect(writable).toContain(tmpdir());
+  });
+
   it("hides credentials", () => {
     expect(config.filesystem.denyRead).toEqual(
       expect.arrayContaining([
@@ -197,6 +206,10 @@ describe("refusedLine", () => {
 
   it("is null for other failures", () => {
     expect(refusedLine("npm ERR! code E404")).toBeNull();
+    // bubblewrap's read-only bind, on Linux.
+    expect(refusedLine("OSError: [Errno 30] Read-only file system: 'a'")).toBe(
+      "OSError: [Errno 30] Read-only file system: 'a'",
+    );
   });
 });
 
@@ -206,6 +219,7 @@ describe("mayBeBlocked", () => {
       true,
     );
     expect(mayBeBlocked("touch: x: Operation not permitted")).toBe(true);
+    expect(mayBeBlocked("cp: a: Read-only file system")).toBe(true);
     expect(mayBeBlocked("200 OK")).toBe(false);
   });
 });
