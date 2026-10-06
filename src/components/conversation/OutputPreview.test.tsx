@@ -13,3 +13,11 @@ it("shows a short error as is", () => {
   render(<OutputPreview text="Not run: the app reloaded." error />);
   expect(screen.getByText("Not run: the app reloaded.")).toBeTruthy();
 });
+
+it("says output is still coming while its command runs", () => {
+  render(<OutputPreview text={"one\ntwo\nthree"} running />);
+  fireEvent.click(
+    screen.getByRole("button", { name: /Running… 3 lines of output so far/ }),
+  );
+  expect(screen.getByText(/two/)).toBeTruthy();
+});

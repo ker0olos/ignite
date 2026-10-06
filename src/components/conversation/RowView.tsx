@@ -19,8 +19,11 @@ export function RowView({
   codeThemes,
   stickyUserMessages,
   onApprove,
+  last,
 }: {
   row: Row;
+  /** The conversation's newest row. */
+  last: boolean;
   tools: Record<string, ToolRun>;
   folder: string;
   editor: Editor;
@@ -79,6 +82,6 @@ export function RowView({
         />
       );
     case "end":
-      return <EndRow message={row.message} />;
+      return <EndRow message={row.message} last={last} />;
   }
 }

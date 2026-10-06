@@ -4,7 +4,10 @@ import { ConversationSkeleton } from "@/components/agent/ConversationSkeleton";
 import { EmptyConversation } from "@/components/agent/EmptyConversation";
 import { TrustPrompt } from "@/components/agent/TrustPrompt";
 import { Conversation } from "@/components/conversation/Conversation";
-import { SkipWaitContext } from "@/components/conversation/shared";
+import {
+  ContinueContext,
+  SkipWaitContext,
+} from "@/components/conversation/shared";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { HostClient } from "@/lib/piHost";
@@ -51,16 +54,20 @@ export function AgentPanel({
         {/* A reopened conversation reads while its session still starts. */}
         {transcript && transcript.items.length > 0 ? (
           <SkipWaitContext.Provider value={session.skipWait}>
-            <Conversation
-              transcript={transcript}
-              folder={folder}
-              editor={editor}
-              codeThemes={codeThemes}
-              showThinking={showThinking}
-              stickyUserMessages={stickyUserMessages}
-              scrollRef={mainRef}
-              onApprove={session.answer}
-            />
+            <ContinueContext.Provider
+              value={running ? null : () => void session.send("Continue")}
+            >
+              <Conversation
+                transcript={transcript}
+                folder={folder}
+                editor={editor}
+                codeThemes={codeThemes}
+                showThinking={showThinking}
+                stickyUserMessages={stickyUserMessages}
+                scrollRef={mainRef}
+                onApprove={session.answer}
+              />
+            </ContinueContext.Provider>
           </SkipWaitContext.Provider>
         ) : loading ? (
           <ConversationSkeleton />

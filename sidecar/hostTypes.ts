@@ -86,7 +86,7 @@ export type Session = {
   };
   sendCustomMessage(
     message: { customType: string; content: string; display: boolean },
-    options: { triggerTurn: boolean },
+    options: { deliverAs: "nextTurn" },
   ): Promise<void>;
   readonly isStreaming: boolean;
   subscribe(listener: (event: SessionEvent) => void): () => void;

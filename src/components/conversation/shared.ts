@@ -29,6 +29,9 @@ export const SkipWaitContext = createContext<
   ((toolCallId: string) => Promise<boolean>) | null
 >(null);
 
+/** Sends "Continue" after a failed run; null while one runs, or where nothing can send. */
+export const ContinueContext = createContext<(() => void) | null>(null);
+
 // Lines shown before "… +N lines"; clicking it shows the rest.
 export const PREVIEW_LINES = 5;
 // Also caps one long wrapped line, like an MCP server's JSON.

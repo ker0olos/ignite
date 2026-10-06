@@ -66,7 +66,7 @@ export function ToolBody({
   return (
     <>
       {text ? (
-        <OutputPreview text={text} />
+        <OutputPreview text={text} running={running} />
       ) : running ? (
         <RunningLine />
       ) : (

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { LinkedText } from "@/components/conversation/LinkedText";
 import { MoreLines } from "@/components/conversation/MoreLines";
+import { RunningLine } from "@/components/conversation/RunningLine";
 import { PREVIEW_CHARS, PREVIEW_LINES } from "@/components/conversation/shared";
 import { isShortOutput, outputPreview } from "@/lib/toolRows";
 import { cn } from "@/lib/utils";
@@ -13,9 +14,11 @@ import { cn } from "@/lib/utils";
 export function OutputPreview({
   text,
   error,
+  running,
 }: {
   text: string;
   error?: boolean;
+  running?: boolean;
 }) {
   const [opened, setOpen] = useState(false);
   // Decided on each render: streaming output starts short and grows.
@@ -23,6 +26,7 @@ export function OutputPreview({
   const [all, setAll] = useState(false);
   const trimmed = text.replace(/\n+$/, "");
   const lines = trimmed.split("\n").length;
+  const count = `${lines} ${lines === 1 ? "line" : "lines"} of output`;
   if (!open) {
     return (
       <button
@@ -30,8 +34,14 @@ export function OutputPreview({
         onClick={() => setOpen(true)}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
-        <ChevronRight className="size-3" />
-        {lines} {lines === 1 ? "line" : "lines"} of output
+        {running ? (
+          <RunningLine> {count} so far</RunningLine>
+        ) : (
+          <>
+            <ChevronRight className="size-3" />
+            {count}
+          </>
+        )}
       </button>
     );
   }
