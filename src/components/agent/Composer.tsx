@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import type { ImageContent } from "../../../shared/agentTypes";
 import type { QueuedMessage } from "../../../shared/queue";
 import type { ApprovalMode } from "../../../shared/hostProtocol";
 import { AttachImagesButton } from "@/components/agent/AttachImagesButton";
@@ -11,11 +10,11 @@ import { MentionMenu } from "@/components/agent/MentionMenu";
 import { QueuedMessages } from "@/components/agent/QueuedMessages";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import { useGitStatus } from "@/hooks/useGitStatus";
-import { useProvideImageTarget } from "@/hooks/useImageTarget";
+import { useComposerImages } from "@/hooks/useComposerImages";
 import { useMentions } from "@/hooks/useMentions";
 import { compactCommand, skillPrompt } from "@/lib/mentions";
 import type { HostClient } from "@/lib/piHost";
-import { composerKey, takenText } from "@/lib/queue";
+import { canSend, composerKey, takenText } from "@/lib/queue";
 
 type Session = ReturnType<typeof useAgentSession>;
 
@@ -25,6 +24,9 @@ export type Approval = {
   onChange: (mode: ApprovalMode) => void;
 };
 
+/** The Model Router setting: a quick model picks a new conversation's model and effort. */
+export type ModelRouter = { on: boolean; onChange: (on: boolean) => void };
+
 /** Task composer: prompt textarea, toolbar, and send/stop button. */
 export function Composer({
   host,
@@ -33,6 +35,7 @@ export function Composer({
   loading,
   running,
   approval,
+  modelRouter,
   gitStatus,
 }: {
   host: HostClient | null;
@@ -41,12 +44,13 @@ export function Composer({
   loading: boolean;
   running: boolean;
   approval: Approval;
+  modelRouter: ModelRouter;
   gitStatus: boolean;
 }) {
   const { state } = session;
   const [text, setText] = useState("");
-  const [images, setImages] = useState<ImageContent[]>([]);
   const input = useRef<HTMLTextAreaElement>(null);
+  const { images, setImages, attach } = useComposerImages(input);
   const repos = useGitStatus(host, gitStatus ? session.session : null);
   const mentions = useMentions({
     host,
@@ -64,11 +68,14 @@ export function Composer({
   }, [session.fresh]);
 
   const queued = session.transcript?.queued ?? [];
-  const canSend =
-    (!!state || session.none) && (!!text.trim() || images.length > 0);
+  const sendable = canSend(
+    !!state || session.none,
+    { text, images: images.length },
+    session.transcript?.routing ?? false,
+  );
   // While the agent works, a message waits for the run's end.
   const handleSend = () => {
-    if (!canSend) return;
+    if (!sendable) return;
     setText("");
     // `/compact` sends no images; they wait for the next message.
     if (compactCommand(text) === null) setImages([]);
@@ -84,12 +91,6 @@ export function Composer({
     input.current?.focus();
   };
   const stop = () => void session.stop().then(restore);
-  const attach = (added: ImageContent[]) =>
-    setImages((current) => [...current, ...added]);
-  useProvideImageTarget("Add to conversation", (image) => {
-    attach([image]);
-    input.current?.focus();
-  });
 
   return (
     <form
@@ -127,7 +128,7 @@ export function Composer({
             if (mentions.onKeyDown(e)) return;
             const act = composerKey(
               { ...e, isComposing: e.nativeEvent.isComposing },
-              { running, empty: !canSend, queued: queued.length > 0 },
+              { running, empty: !sendable, queued: queued.length > 0 },
             );
             if (!act) return;
             e.preventDefault();
@@ -142,8 +143,9 @@ export function Composer({
             session={session}
             loading={loading}
             running={running}
-            canSend={canSend}
+            canSend={sendable}
             approval={approval}
+            modelRouter={modelRouter}
             git={<GitStatusLinks host={host} repos={repos} />}
             onStop={stop}
           />

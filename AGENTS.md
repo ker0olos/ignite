@@ -84,6 +84,7 @@ src/                     React frontend (almost all logic lives here)
                          useMarkupKeys.ts its shortcuts, useMarkupImage.ts loading and fitting the image,
                          useMarkupView.ts zooming and panning it
     useSpinnerFrame.ts   The working line's braille spinner frame (still under reduced motion); useNow.ts ticks its elapsed time
+    useComposerImages.ts The composer's attached images, and marked-up ones added to it
     useImageTarget.ts    The showing input (conversation, task sheet) marked-up images are added to
   lib/
     app.ts               APP_NAME, the single source of the app's name
@@ -107,6 +108,7 @@ src/                     React frontend (almost all logic lives here)
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     gitStatus.ts         Which of a conversation's repositories the composer shows, and their pull requests' state
     transcript.ts        Rebuilds the conversation from pi's session events
+    routedMessage.ts     The first message while the router reads it, shown until pi adds it
     compaction.ts        Compaction in the conversation: running, then its summary; saved summaries
     toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands, parses edit diffs
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
@@ -216,6 +218,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   taskAddTool.ts         task_add: any other conversation proposes tasks, added unstarted once approved
   taskSteps.ts           What waits for the plan (edits, writes, new subagents but explore ones),
                          whether it's planned (isPlanned), where bash may write until then
+  router.ts              The router: a cheap model picks a new conversation's model and effort
+  hostRoute.ts           Runs the router before a conversation's first message (Model Router)
   subagentExtension.ts   subagent tool: hands tasks to its model or a cheaper one from the same provider and talks with it
   subagentQueue.ts       Runs at most `max` subagents at once; the rest wait their turn
   subagentSession.ts     A subagent's session: talking to it and ending it (the 8 last used stay open)
@@ -307,6 +311,8 @@ Two places hold persisted data:
   line while it thinks; nothing of it stays. `ask_questions` (on by default)
   has the agent bring open decisions to the user with `ask_user`; off, the
   tool is dropped and the agent is told to decide alone. Read before each run.
+  `model_router` (on by default) lets a quick model pick a new conversation's
+  model and effort; the model menu's Router item sets it.
   `text_size` (px, default 14, 10–24) sizes user and assistant messages only;
   ⌘/Ctrl +, - and 0 change it (`hooks/useTextSize.ts`).
 - **Sidebar settings** (`[sidebar]`): `conversation_order` (`oldest_first` by
@@ -535,6 +541,28 @@ conversation (`task_resume`). A task's status comes from its
 conversation (`lib/tasks.ts`): working, waiting on the user, finished (to
 review) once idle or closed, done once its pull request opens or the user
 marks it.
+
+With Model Router on (`[conversation] model_router`), before a composer
+conversation's first message (not a Tasks-view task's) `sidecar/hostRoute.ts`
+asks the provider's cheapest model (`sidecar/router.ts`, `completeSimple` with
+`cacheRetention: "none"`, so claude-bridge runs it in a separate Claude Code
+process) for the model and effort the conversation runs on. They're set
+without saving them as defaults (the app reads them again when routing ends),
+and later messages never change them, since a switch would throw away the
+prompt cache. A message too vague to judge (a bare link, "take a look") gets
+the middle-ground model at high effort (on Claude, Sonnet), as the router's
+prompt asks; a router that fails or times out keeps the user's default model
+and effort, and with no priced model to call the cheapest, it doesn't run.
+When it ends, a line above the first message says what it picked or kept.
+A model or effort the user picks for that conversation before sending is
+theirs: the router leaves it (`userChose`), and the setting stays on for the
+next one; choosing Router in the menu takes a picked model back.
+Closing the conversation while it reads drops the message; showing it again
+meanwhile shows the message being routed.
+While it reads the message, the message already shows in the conversation
+(`routing_start` carries it; `lib/routedMessage.ts`) and names it in the
+sidebar, the working line shows Routing…, sending waits, and Stop hands the
+message back.
 
 The `chrome_*` tools (`sidecar/chromeExtension.ts`) drive Chrome over the
 DevTools protocol from the sidecar. By default they start a headless Chrome

@@ -108,6 +108,15 @@ export function modelLabel(model: ModelInfo): string {
   );
 }
 
+/** The model menu button's text: "Router" while Model Router picks, else the model. */
+export function modelTriggerLabel(
+  model?: ModelInfo,
+  modelRouter = false,
+): string {
+  if (modelRouter) return "Router";
+  return model ? modelLabel(model) : "Choose a model";
+}
+
 const rank = (m: ModelInfo) =>
   PROVIDER_GROUPS.find((g) =>
     g.modelProviders.includes(m.provider),

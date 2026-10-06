@@ -14,6 +14,7 @@ import {
   settleApproval,
   type Transcript,
 } from "./transcript";
+import { shownItems } from "./routedMessage";
 
 const user: AgentMessage = { role: "user", content: "Fix it", timestamp: 1 };
 const assistant = (
@@ -56,6 +57,39 @@ describe("applyEvent", () => {
       run([{ type: "agent_end", willRetry: false }], started).running,
     ).toBe(true);
     expect(run([{ type: "agent_settled" }], started).running).toBe(false);
+  });
+
+  it("shows the routed message at once, until pi adds its own copy", () => {
+    const routing = run([{ type: "routing_start", message: user }]);
+    expect(routing).toMatchObject({ running: true, routing: true });
+    expect(routing.items).toEqual([]);
+    expect(shownItems(routing)).toEqual([{ kind: "message", message: user }]);
+    const sent = run([{ type: "routing_end", sent: true }], routing);
+    expect(sent).toMatchObject({ running: true, routing: false });
+    expect(shownItems(sent)).toHaveLength(1);
+    const added = run(
+      [{ type: "agent_start" }, { type: "message_start", message: user }],
+      sent,
+    );
+    expect(added.pending).toBeUndefined();
+    expect(added.routedAt).toBe(user.timestamp);
+    expect(run([{ type: "agent_settled" }], added).routedAt).toBeUndefined();
+    expect(shownItems(added)).toEqual([{ kind: "message", message: user }]);
+  });
+
+  it("drops the routed message when Stop caught it, or the run failed", () => {
+    const routing = run([{ type: "routing_start", message: user }]);
+    const stopped = run([{ type: "routing_end", sent: false }], routing);
+    expect(stopped).toMatchObject({ running: false, routing: false });
+    expect(shownItems(stopped)).toEqual([]);
+    expect(run([{ type: "agent_settled" }], routing).pending).toBeUndefined();
+    expect(applyError(routing, "down").pending).toBeUndefined();
+  });
+
+  it("keeps the routed message past an assistant message", () => {
+    const routing = run([{ type: "routing_start", message: user }]);
+    const t = run([{ type: "message_start", message: assistant() }], routing);
+    expect(t.pending).toBe(user);
   });
 
   it("adds messages as they start and replaces them when they end", () => {

@@ -134,6 +134,7 @@ export function useAgentSession(
     unqueue: actions.unqueue,
     /** The shown conversation's id; the folder may have others open. */
     session: shown,
+    ...choices(actions),
     /**
      * Shows one of the conversations of `cwd` (the shown folder by default),
      * open or saved; another folder shows it once selected.
@@ -160,7 +161,16 @@ export function useAgentSession(
     /** Ends a running bash call, the agent carrying on with its output so far; false when none ran. */
     skipWait,
     setTrust,
-    setModel: actions.setModel,
-    setThinkingLevel: actions.setThinkingLevel,
+  };
+}
+
+/** The model and effort menus' actions; `pickedModel`: the user chose the model of the conversation about to start, which Model Router then leaves. */
+function choices(actions: ReturnType<typeof useComposerActions>) {
+  const { setModel, unpickModel, setThinkingLevel, pending } = actions;
+  return {
+    setModel,
+    unpickModel,
+    setThinkingLevel,
+    pickedModel: !!pending.model,
   };
 }

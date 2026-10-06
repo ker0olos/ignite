@@ -15,7 +15,11 @@ import type { TaggedAgentStatus } from "@/lib/conversations";
 import { needingSignIn } from "@/lib/mcpServers";
 import { basename } from "@/lib/paths";
 import type { HostClient } from "@/lib/piHost";
-import { approvalSetting, type Settings } from "@/lib/settings";
+import {
+  approvalSetting,
+  modelRouterSetting,
+  type Settings,
+} from "@/lib/settings";
 
 /** The open folder's workspace, wired to the app: settings, folders, MCP sign-ins, remote devices. */
 export function AppWorkspace({
@@ -80,6 +84,7 @@ export function AppWorkspace({
       gitStatus={settings.composer.git_status}
       resizableProjectSplit={settings.sidebar.resizable_split}
       approval={approvalSetting(settings, setSettings)}
+      modelRouter={modelRouterSetting(settings, setSettings)}
       actions={settingsButton}
       projectList={{
         folders,

@@ -75,6 +75,9 @@ function fakeSession() {
   const session = {
     modelRuntime: {
       getAvailable: async (): Promise<ModelInfo[]> => MODELS,
+      // No catalog, so the router never routes these sessions; router.test.ts covers it.
+      getModels: () => [],
+      completeSimple: vi.fn(),
       getAuth: vi.fn(
         async (): Promise<
           { auth: { apiKey?: string; headers?: unknown } } | undefined
@@ -1237,6 +1240,66 @@ describe("sessions", () => {
       ok: false,
       error: "That conversation isn't open.",
     });
+  });
+
+  it("hands back a message Stop caught while it was routed, never sending it", async () => {
+    const session = fakeSession();
+    const completeSimple = vi.fn(
+      (_m: unknown, _c: unknown, o: { signal: AbortSignal }) =>
+        new Promise((resolve) =>
+          o.signal.addEventListener("abort", () =>
+            resolve({ stopReason: "aborted", content: [] }),
+          ),
+        ),
+    );
+    Object.assign(session.modelRuntime, {
+      getModels: () => MODELS.map((m) => ({ ...m, cost: { output: 1 } })),
+      completeSimple,
+    });
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({ id: 1, type: "new_session", cwd: "/work" });
+    const sent = request({ id: 2, type: "prompt", text: "Add it" });
+    await vi.waitFor(() => expect(completeSimple).toHaveBeenCalled());
+    await request({ id: 3, type: "abort" });
+    await sent;
+    expect(session.prompt).not.toHaveBeenCalled();
+    expect(responses().find((r) => r.id === 3)).toMatchObject({
+      data: [{ text: "Add it" }],
+    });
+  });
+
+  it("reopens a conversation mid-routing with its message, and closing it drops the message", async () => {
+    const session = fakeSession();
+    const completeSimple = vi.fn(
+      (_m: unknown, _c: unknown, o: { signal: AbortSignal }) =>
+        new Promise((resolve) =>
+          o.signal.addEventListener("abort", () =>
+            resolve({ stopReason: "aborted", content: [] }),
+          ),
+        ),
+    );
+    Object.assign(session.modelRuntime, {
+      getModels: () => MODELS.map((m) => ({ ...m, cost: { output: 1 } })),
+      completeSimple,
+    });
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({ id: 1, type: "new_session", cwd: "/work" });
+    const sent = request({ id: 2, type: "prompt", text: "Add it" });
+    await vi.waitFor(() => expect(completeSimple).toHaveBeenCalled());
+    const id = (responses()[0] as { data: { session: string } }).data.session;
+    await request({ id: 3, type: "open_session", cwd: "/work", session: id });
+    expect(responses().find((r) => r.id === 3)).toMatchObject({
+      data: { running: true, routing: { role: "user", content: "Add it" } },
+    });
+    await request({ id: 4, type: "close_session", cwd: "/work", session: id });
+    await sent;
+    expect(session.prompt).not.toHaveBeenCalled();
   });
 
   it("tells what a saved conversation did, with what's known beyond its file", async () => {

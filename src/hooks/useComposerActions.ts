@@ -158,5 +158,7 @@ export function useComposerActions({
       ),
     setThinkingLevel: (level: ThinkingLevel) =>
       change({ type: "set_thinking_level", level }, { level }),
+    /** Drops the model picked for the conversation about to start, so Model Router picks it. */
+    unpickModel: () => setPending(({ level }) => ({ ...(level && { level }) })),
   };
 }

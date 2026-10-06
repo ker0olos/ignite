@@ -67,9 +67,11 @@ export function workingLine(
   const messages = t.items.flatMap((i) =>
     i.kind === "message" ? [i.message] : [],
   );
+  const since = t.routedAt ?? runStart(messages);
+  if (t.routing) return { step: "Routing…", since };
   return {
     step: currentStep(messages, t.tools, folder),
-    since: runStart(messages),
+    since,
     thought: withThought ? latestThought(messages) : undefined,
   };
 }

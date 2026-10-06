@@ -703,6 +703,24 @@ describe("several conversations in a folder", () => {
     expect(result.current.state?.model).toEqual(mini);
   });
 
+  it("drops a model picked before the first message when Router is chosen instead", async () => {
+    const host = fakeHost(async (req) => {
+      if (req.type === "open_session") return null;
+      if (req.type === "new_session") return { ...STATE, session: "s2" };
+      return undefined;
+    });
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.none).toBe(true));
+    await act(() => result.current.setModel(mini));
+    await act(() => result.current.setThinkingLevel("high"));
+    expect(result.current.pickedModel).toBe(true);
+    act(() => result.current.unpickModel());
+    expect(result.current.pickedModel).toBe(false);
+    await act(() => result.current.send("Build it"));
+    expect(types(host)).not.toContain("set_model");
+    expect(types(host)).toContain("set_thinking_level");
+  });
+
   it("applies the new conversation's first events at once", async () => {
     const host = fakeHost(async (req) => {
       if (req.type === "open_session") return null;

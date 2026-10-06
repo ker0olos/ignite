@@ -23,6 +23,7 @@ import {
   closeAll,
   prompt,
 } from "./hostSession.ts";
+import { userChose } from "./hostRoute.ts";
 import { mcpServers, changeMcp, reloadSessions } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
@@ -110,8 +111,12 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
       .sessionSkills({ skills: [] })
       .skills.map(({ name, description }) => ({ name, description })),
   }),
-  set_model: (ctx, r) => setModel(ctx, r.provider, r.modelId, r.session),
+  set_model: (ctx, r) => {
+    userChose(ctx, r.session, "model");
+    return setModel(ctx, r.provider, r.modelId, r.session);
+  },
   set_thinking_level: async (ctx, r) => {
+    userChose(ctx, r.session, "effort");
     const s = await current(ctx, r.session);
     s.setThinkingLevel(r.level, { persist: true });
     return sessionState(ctx, s);

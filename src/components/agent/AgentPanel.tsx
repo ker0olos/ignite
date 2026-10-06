@@ -10,9 +10,10 @@ import {
 } from "@/components/conversation/shared";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { CodeThemes } from "@/lib/codeThemes";
+import { shownItems } from "@/lib/routedMessage";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
-import type { Approval } from "@/components/agent/Composer";
+import type { Approval, ModelRouter } from "@/components/agent/Composer";
 
 type Session = ReturnType<typeof useAgentSession>;
 
@@ -27,6 +28,7 @@ export function AgentPanel({
   stickyUserMessages,
   gitStatus,
   approval,
+  modelRouter,
 }: {
   host: HostClient | null;
   folder: string;
@@ -38,6 +40,7 @@ export function AgentPanel({
   /** The composer lists the conversation's repositories with unfinished git work. */
   gitStatus: boolean;
   approval: Approval;
+  modelRouter: ModelRouter;
 }) {
   const { state, transcript } = session;
   const mainRef = useRef<HTMLElement>(null);
@@ -52,7 +55,7 @@ export function AgentPanel({
         className="min-h-0 flex-1 overscroll-contain overflow-y-auto"
       >
         {/* A reopened conversation reads while its session still starts. */}
-        {transcript && transcript.items.length > 0 ? (
+        {transcript && shownItems(transcript).length > 0 ? (
           <SkipWaitContext.Provider value={session.skipWait}>
             <ContinueContext.Provider
               value={running ? null : () => void session.send("Continue")}
@@ -85,6 +88,7 @@ export function AgentPanel({
         loading={loading}
         running={running}
         approval={approval}
+        modelRouter={modelRouter}
         gitStatus={gitStatus}
       />
     </>

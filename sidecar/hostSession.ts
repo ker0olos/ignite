@@ -24,6 +24,7 @@ import { firstTitle, titleOf } from "../shared/conversations.ts";
 import { pushProjects, trackRun } from "./hostProjects.ts";
 import { resume } from "./hostResume.ts";
 import { delivered, rememberImages } from "./queuedImages.ts";
+import { routeMessage } from "./hostRoute.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -116,7 +117,8 @@ export async function open(
     workdir: agent.workdir,
     trust: ctx.trust.get(cwd),
     messages: s.messages,
-    running: s.isStreaming,
+    running: s.isStreaming || !!agent.routing,
+    ...(agent.routing && { routing: agent.routing.message }),
     ...(s.modelWarning && { modelWarning: s.modelWarning }),
     approvals: [...agent.approvals.values()].map((ask) => ask.request),
     queue: {
@@ -237,6 +239,7 @@ export async function close(ctx: HostContext, cwd: string, id?: string) {
 async function end(ctx: HostContext, agent: Agent) {
   ctx.agents.delete(agent.id);
   denyAll(ctx, agent);
+  agent.routing?.controller.abort();
   pushProjects(ctx);
   const s = await agent.opening.catch(() => null);
   if (!s) return;
@@ -270,6 +273,8 @@ export async function prompt(
   // Writing instead of answering declines what waits; the message says what to do instead.
   denyAll(ctx, agent!);
   if (s.isStreaming) rememberImages(agent!, text, images);
+  // A message sent mid-run steers the run; a conversation's first one may be routed.
+  else if (!(await routeMessage(ctx, agent!, s, text, images))) return;
   const options = {
     ...(s.isStreaming && { streamingBehavior: queue }),
     ...(images?.length ? { images } : {}),
