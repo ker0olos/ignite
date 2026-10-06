@@ -1,3 +1,4 @@
+import { Value } from "typebox/value";
 // @vitest-environment node
 import {
   createEventBus,
@@ -109,24 +110,26 @@ describe("askTask", () => {
 });
 
 describe("task_update", () => {
-  it("passes on only the subtask, status and add it defines", async () => {
+  it("passes on only the statuses and add it defines", async () => {
     const { asks, run } = load(task);
     await run({
-      subtask: 2,
-      status: "done",
+      set: [{ subtask: 2, status: "done" }],
       add: ["c"],
       pr: "https://evil/pull/1",
       step: "x",
     });
     expect(asks.at(-1)).toMatchObject({
       kind: "update",
-      update: { subtask: 2, status: "done", add: ["c"], planned: true },
+      update: {
+        set: [{ subtask: 2, status: "done" }],
+        add: ["c"],
+        planned: true,
+      },
     });
     expect(Object.keys(asks.at(-1)!.update!).sort()).toEqual([
       "add",
       "planned",
-      "status",
-      "subtask",
+      "set",
     ]);
   });
 });
@@ -258,14 +261,27 @@ describe("task tool", () => {
     expect(tool!.executionMode).toBe("sequential");
   });
 
+  it("rejects a call in the old subtask and status shape", () => {
+    let tool: ToolDefinition | undefined;
+    tasks({
+      on: () => {},
+      registerTool: (t: ToolDefinition) => (tool = t),
+      events: createEventBus(),
+    } as unknown as ExtensionAPI);
+    const ok = { set: [{ subtask: 2, status: "done" }] };
+    expect(Value.Check(tool!.parameters, ok)).toBe(true);
+    const old = { subtask: 2, status: "done" };
+    expect(Value.Check(tool!.parameters, old)).toBe(false);
+  });
+
   it("emits the update and returns the progress", async () => {
     const { asks, run } = load(task);
-    const result = await run({ subtask: 2, status: "done" });
+    const result = await run({ set: [{ subtask: 2, status: "done" }] });
     expect(asks).toMatchObject([
       { kind: "get" },
       {
         kind: "update",
-        update: { subtask: 2, status: "done", planned: true },
+        update: { set: [{ subtask: 2, status: "done" }], planned: true },
       },
     ]);
     expect(result.content).toEqual([
@@ -277,7 +293,7 @@ describe("task tool", () => {
   it("adds a conversation without a task to the list, once", async () => {
     const { asks, run, start } = load(null);
     await start();
-    await Promise.all([run({ add: ["x"] }), run({ subtask: 1 })]);
+    await Promise.all([run({ add: ["x"] }), run({})]);
     expect(asks.filter((a) => a.kind === "add")).toHaveLength(1);
     expect(asks.find((a) => a.kind === "add")!.tasks![0]).toMatchObject({
       title: "Fix login",

@@ -4,6 +4,7 @@ import type {
   UserMessage,
 } from "../../shared/agentTypes";
 import { readShellEdits } from "../../shared/shellEdits";
+import { readPlan, TASK_TOOL } from "../../shared/tasks";
 import { compactionOf, type CompactionItem } from "./compaction";
 import type { Item, ToolRun } from "./transcript";
 
@@ -23,12 +24,27 @@ const QUIET = new Set(["read", "grep", "find", "ls", "bash"]);
 
 type Block = AssistantMessage["content"][number];
 
+const hasPlan = (call: ToolCall, tools: Record<string, ToolRun>) =>
+  call.name === TASK_TOOL && !!readPlan(tools[call.id]?.result);
+
+// Plan updates in a row show only the latest plan; a failed one stays.
+const isPlanAfterPlan = (
+  call: ToolCall,
+  last: Row | undefined,
+  tools: Record<string, ToolRun>,
+) => last?.kind === "tool" && hasPlan(last.call, tools) && hasPlan(call, tools);
+
 /**
  * Folds a quiet call into the group before it. A failed call stands alone, so
  * a red row always means that call, and so does a command that changed files.
  */
 function pushCall(rows: Row[], call: ToolCall, tools: Record<string, ToolRun>) {
   const run = tools[call.id];
+  const last = rows.at(-1);
+  if (isPlanAfterPlan(call, last, tools)) {
+    rows[rows.length - 1] = { kind: "tool", call };
+    return;
+  }
   if (
     !QUIET.has(call.name) ||
     run?.status === "error" ||
@@ -37,7 +53,6 @@ function pushCall(rows: Row[], call: ToolCall, tools: Record<string, ToolRun>) {
     rows.push({ kind: "tool", call });
     return;
   }
-  const last = rows.at(-1);
   if (last?.kind === "group") last.calls.push(call);
   else rows.push({ kind: "group", calls: [call] });
 }

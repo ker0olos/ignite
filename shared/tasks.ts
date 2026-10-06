@@ -130,9 +130,8 @@ export type TaskResponses = Record<TaskRequest["type"], Task[]>;
 
 /** What a task's agent may change with the task tool (see TASK_TOOL). */
 export type TaskUpdate = {
-  /** 1-based index of the subtask to set. */
-  subtask?: number;
-  status?: SubtaskStatus;
+  /** Statuses to set, by the subtask's 1-based index. */
+  set?: { subtask: number; status: SubtaskStatus }[];
   /** Subtasks to append. */
   add?: string[];
   step?: string;
@@ -163,11 +162,10 @@ function addShown(shown: TaskImage[], image: TaskImage): TaskImage[] {
 
 /** Applies an agent's update; out-of-range subtasks are ignored. */
 export function applyUpdate(task: Task, update: TaskUpdate, now: number): Task {
-  const subtasks = task.subtasks.map((s, i) =>
-    update.status && update.subtask === i + 1
-      ? { ...s, status: update.status }
-      : s,
-  );
+  const subtasks = task.subtasks.map((s, i) => {
+    const set = update.set?.findLast((u) => u.subtask === i + 1);
+    return set ? { ...s, status: set.status } : s;
+  });
   for (const title of update.add ?? []) {
     if (title.trim()) subtasks.push({ title: title.trim(), status: "todo" });
   }
