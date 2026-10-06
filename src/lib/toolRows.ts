@@ -4,8 +4,10 @@ import type {
   UserMessage,
 } from "../../shared/agentTypes";
 import { readShellEdits } from "../../shared/shellEdits";
+import { SUBAGENT_TOOL } from "../../shared/subagents";
 import { readPlan, TASK_TOOL } from "../../shared/tasks";
 import { compactionOf, type CompactionItem } from "./compaction";
+import { shownReview } from "./diffTabs";
 import type { Item, ToolRun } from "./transcript";
 
 /** One row of the conversation as drawn, with quiet tool calls folded together. */
@@ -190,6 +192,20 @@ export function canSkipWait(call: ToolCall, run: ToolRun): boolean {
     run.status === "running" &&
     !run.approval
   );
+}
+
+/** Whether a running call has nothing to show under it yet; the working line already says it runs. */
+export function showsNothingYet(
+  call: ToolCall,
+  run: ToolRun,
+  text: string,
+  skippable: boolean,
+): boolean {
+  if (run.status !== "running" || text || run.approval || skippable) {
+    return false;
+  }
+  if (call.name === "write" || call.name === SUBAGENT_TOOL) return false;
+  return !shownReview(run);
 }
 
 /** Every call waiting for the user, in transcript order. */
