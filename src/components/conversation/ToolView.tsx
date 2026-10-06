@@ -10,15 +10,20 @@ import { GH_TOOL, GIT_TOOL } from "../../../shared/git";
 import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL } from "../../../shared/subagents";
 import { TASK_ADD_TOOL, TASK_TOOL, readProposed } from "../../../shared/tasks";
+import { useContext } from "react";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
 import { ShellEdits } from "@/components/conversation/ShellEdits";
-import type { ToolProps } from "@/components/conversation/shared";
+import {
+  SkipWaitContext,
+  type ToolProps,
+} from "@/components/conversation/shared";
 import { ToolHead } from "@/components/conversation/ToolHead";
 import { ToolHtml } from "@/components/conversation/ToolHtml";
 import { ToolOutcome } from "@/components/conversation/ToolOutcome";
 import { ToolRunOutcome } from "@/components/conversation/ToolRunOutcome";
 import { mcpCall } from "@/lib/mcpToolCall";
 import { readQuestions } from "@/lib/questions";
+import { canSkipWait, showsNothingYet } from "@/lib/toolRows";
 
 /** Path relative to the open folder when it's inside it, else as given. */
 function relativePath(path: string, folder: string) {
@@ -114,6 +119,7 @@ export function ToolView({
 }: ToolProps) {
   const mcp = mcpCall(call.name, call.arguments);
   const text = resultText(run?.result);
+  const skip = useContext(SkipWaitContext);
   return (
     <div className="space-y-1">
       <ToolHead
@@ -127,25 +133,26 @@ export function ToolView({
         }
         arg={mcp ? "" : toolArg(call, folder)}
       />
-      {run && (
-        <ToolOutcome>
-          {call.name === HTML_TOOL && run.status === "done" ? (
-            <ToolHtml args={call.arguments} />
-          ) : (
-            <ToolRunOutcome
-              call={call}
-              run={run}
-              text={text}
-              editor={editor}
-              codeThemes={codeThemes}
-              folder={folder}
-              tools={tools}
-              onApprove={onApprove}
-            />
-          )}
-          <ShellEdits run={run} editor={editor} codeThemes={codeThemes} />
-        </ToolOutcome>
-      )}
+      {run &&
+        !showsNothingYet(call, run, text, !!skip && canSkipWait(call, run)) && (
+          <ToolOutcome>
+            {call.name === HTML_TOOL && run.status === "done" ? (
+              <ToolHtml args={call.arguments} />
+            ) : (
+              <ToolRunOutcome
+                call={call}
+                run={run}
+                text={text}
+                editor={editor}
+                codeThemes={codeThemes}
+                folder={folder}
+                tools={tools}
+                onApprove={onApprove}
+              />
+            )}
+            <ShellEdits run={run} editor={editor} codeThemes={codeThemes} />
+          </ToolOutcome>
+        )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   isShortOutput,
   outputPreview,
   parseDiff,
+  showsNothingYet,
   toRows,
 } from "./toolRows";
 import type { Item } from "./transcript";
@@ -295,6 +296,34 @@ describe("canSkipWait", () => {
     const background = { ...call("bash"), arguments: { background: true } };
     expect(canSkipWait(background, running)).toBe(false);
     expect(canSkipWait(call("bash"), { ...running, approval: {} })).toBe(false);
+  });
+});
+
+describe("showsNothingYet", () => {
+  const running = { status: "running" } as const;
+
+  it("is true for a running call with no output yet", () => {
+    expect(showsNothingYet(call("read"), running, "", false)).toBe(true);
+    expect(showsNothingYet(call("bash"), running, "", false)).toBe(true);
+  });
+
+  it("is false once there is something to show", () => {
+    expect(showsNothingYet(call("read"), { status: "done" }, "", false)).toBe(
+      false,
+    );
+    expect(showsNothingYet(call("bash"), running, "out", false)).toBe(false);
+    expect(showsNothingYet(call("bash"), running, "", true)).toBe(false);
+    const asking = { ...running, approval: {} };
+    expect(showsNothingYet(call("bash"), asking, "", false)).toBe(false);
+  });
+
+  it("is false for calls that draw while they run", () => {
+    expect(showsNothingYet(call("write"), running, "", false)).toBe(false);
+    expect(showsNothingYet(call("subagent"), running, "", false)).toBe(false);
+    const review = { files: [], commits: [] } as never;
+    expect(
+      showsNothingYet(call("git"), { ...running, review }, "", false),
+    ).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useSpinnerFrame } from "@/hooks/useSpinnerFrame";
 
-/** Shown under a tool call that runs with nothing (or only `children`) to show yet. */
+/** A running call's collapsed output: a spinner, "Running…", then `children` (its line count). */
 export function RunningLine({ children }: { children?: ReactNode }) {
   const frame = useSpinnerFrame();
   return (
