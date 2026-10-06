@@ -55,9 +55,11 @@ function fakeSession(messages: AgentMessage[], isStreaming = false) {
     agent: { state: { messages } },
     sessionManager: { appendMessage: vi.fn(() => "entry") },
     sendCustomMessage: vi.fn(async () => {}),
+    prompt: vi.fn(async () => {}),
   } as unknown as Session & {
     sessionManager: { appendMessage: ReturnType<typeof vi.fn> };
     sendCustomMessage: ReturnType<typeof vi.fn>;
+    prompt: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -75,8 +77,9 @@ describe("resume", () => {
     expect(s.agent.state.messages.at(-1)).toEqual(notRun);
     expect(s.sendCustomMessage).toHaveBeenCalledWith(
       expect.objectContaining({ display: false }),
-      { triggerTurn: true },
+      { deliverAs: "nextTurn" },
     );
+    expect(s.prompt).toHaveBeenCalledWith("Continue", {});
   });
 
   it("does nothing for a finished conversation or a running one", async () => {
@@ -86,5 +89,6 @@ describe("resume", () => {
     await resume(running);
     expect(done.sendCustomMessage).not.toHaveBeenCalled();
     expect(running.sendCustomMessage).not.toHaveBeenCalled();
+    expect(done.prompt).not.toHaveBeenCalled();
   });
 });

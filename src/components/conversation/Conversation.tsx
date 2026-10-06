@@ -45,6 +45,7 @@ export function Conversation({
     waitingCalls(transcript.items, transcript.tools),
   );
   const working = workingLine(transcript, folder, showThinking);
+  const rows = toRows(transcript.items, transcript.tools);
 
   return (
     <WaitingCallsContext.Provider value={waiting}>
@@ -52,7 +53,7 @@ export function Conversation({
         ref={contentRef}
         className="always-bounce mx-auto select-text max-w-3xl space-y-4 px-4 py-6 text-[13px]"
       >
-        {toRows(transcript.items, transcript.tools).map((row, i) => (
+        {rows.map((row, i) => (
           <RowBoundary key={i} resetOn={row}>
             <RowView
               row={row}
@@ -62,6 +63,7 @@ export function Conversation({
               codeThemes={codeThemes}
               stickyUserMessages={stickyUserMessages}
               onApprove={onApprove}
+              last={i === rows.length - 1}
             />
           </RowBoundary>
         ))}

@@ -38,8 +38,11 @@ export async function resume(s: Session) {
   }));
   for (const result of results) s.sessionManager.appendMessage(result);
   s.agent.state.messages = [...s.agent.state.messages, ...results];
+  // A prompt, not triggerTurn: that skips before_agent_start (pi#5581), so
+  // claude-bridge can't match the system prompt and fails the turn.
   await s.sendCustomMessage(
     { customType: "ignite-resume", content: RESUME, display: false },
-    { triggerTurn: true },
+    { deliverAs: "nextTurn" },
   );
+  await s.prompt("Continue", {});
 }

@@ -35,6 +35,7 @@ export function SubagentBody({
             codeThemes={codeThemes}
             stickyUserMessages={false}
             onApprove={onApprove}
+            last={false}
           />
         </RowBoundary>
       ))}
