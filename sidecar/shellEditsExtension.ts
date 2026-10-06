@@ -64,24 +64,25 @@ const toImage = (bytes: Buffer | null, mimeType: string) =>
     ? { type: "image" as const, data: bytes.toString("base64"), mimeType }
     : undefined;
 
-// A modified image keeps both versions or neither, so one never stands in for the other.
+const size = (bytes: Buffer | null) => bytes?.length ?? 0;
+
+// A side is missing only when the file is new or deleted, so one never stands in for the other.
+const whole = (was: Buffer | null, now: Buffer | null, diff: string) =>
+  (!!was || /^new file mode/m.test(diff)) &&
+  (!!now || /^deleted file mode/m.test(diff)) &&
+  (!!was || !!now);
+
 async function imagePair(
   repo: string,
   trees: [string, string],
   edit: ShellEdit,
   budget: ImageBudget,
 ) {
-  const added = /^new file mode/m.test(edit.diff);
-  const deleted = /^deleted file mode/m.test(edit.diff);
-  const was = added
-    ? null
-    : await gitBlob(repo, `${trees[0]}:${edit.path}`, budget.bytes);
-  const room = budget.bytes - (was?.length ?? 0);
-  const now = deleted
-    ? null
-    : await gitBlob(repo, `${trees[1]}:${edit.path}`, room);
-  if ((!added && !was) || (!deleted && !now) || (!was && !now)) return null;
-  budget.bytes = room - (now?.length ?? 0);
+  const was = await gitBlob(repo, `${trees[0]}:${edit.path}`, budget.bytes);
+  const room = budget.bytes - size(was);
+  const now = await gitBlob(repo, `${trees[1]}:${edit.path}`, room);
+  if (!whole(was, now, edit.diff)) return null;
+  budget.bytes = room - size(now);
   return [was, now] as const;
 }
 
