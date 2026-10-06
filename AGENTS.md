@@ -305,8 +305,12 @@ Two places hold persisted data:
 - **Sidebar settings** (`[sidebar]`): `conversation_order` (`oldest_first` by
   default, or `newest_first`) orders each folder's conversations;
   `max_conversations_enabled` (off) collapses a folder after
-  `max_conversations` (default 5, 1–20); `resizable_split` (off) lets the
+  `max_conversations` (default 5, 1–20); `resizable_split` (on) lets the
   divider between conversations and files be dragged.
+- **Files settings** (`[files]`, shown under Appearance): `hide_gitignored`
+  (on by default) leaves .gitignore matches out of the file tree; `show_tree`
+  (on by default) shows the file tree under the folders in the sidebar; off,
+  the folders fill the column.
 - **Composer settings** (`[composer]`, shown under Appearance): `git_status`
   (on by default) lists, after the approval menu, the conversation's
   repositories with uncommitted files, unpushed commits or an open pull

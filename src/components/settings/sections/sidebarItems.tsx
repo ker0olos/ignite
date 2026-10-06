@@ -110,17 +110,5 @@ export function sidebarItems({
         </Select>
       ),
     },
-    {
-      section: "Appearance",
-      title: "Resizable sidebar split",
-      description: "Drag the divider between conversations and files.",
-      keywords: "height divider conversations files file explorer sidebar",
-      control: (
-        <Switch
-          checked={sidebar.resizable_split}
-          onCheckedChange={(resizable_split) => change({ resizable_split })}
-        />
-      ),
-    },
   ];
 }

@@ -74,6 +74,7 @@ export function AppWorkspace({
       codeThemes={codeThemesFor(settings.theme)}
       editor={settings.editor}
       hideGitIgnored={settings.files.hide_gitignored}
+      showFileTree={settings.files.show_tree}
       showThinking={settings.conversation.show_thinking}
       stickyUserMessages={settings.conversation.sticky_user_messages}
       gitStatus={settings.composer.git_status}

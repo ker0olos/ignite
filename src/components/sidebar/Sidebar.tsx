@@ -17,6 +17,7 @@ export function Sidebar({
   projectList,
   footer,
   resizableProjectSplit,
+  showTree,
   ...treeProps
 }: Omit<ComponentProps<typeof FileTree>, "root"> & {
   folder: string;
@@ -30,6 +31,8 @@ export function Sidebar({
   footer?: ReactNode;
   /** Lets the user drag the conversations/files divider. */
   resizableProjectSplit: boolean;
+  /** Off, the folders take the whole column. */
+  showTree: boolean;
 }) {
   return (
     <aside className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -66,9 +69,11 @@ export function Sidebar({
         resizable={resizableProjectSplit}
         conversations={<FolderList folder={folder} {...projectList} />}
         files={
-          <div className="always-bounce px-2 pb-2">
-            <FileTree root={folder} {...treeProps} />
-          </div>
+          showTree ? (
+            <div className="always-bounce px-2 pb-2">
+              <FileTree root={folder} {...treeProps} />
+            </div>
+          ) : null
         }
       />
       {footer}
