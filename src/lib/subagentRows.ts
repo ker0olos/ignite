@@ -11,7 +11,7 @@ import {
   type Transcript,
 } from "./transcript";
 import { currentStep } from "./runStep";
-import { firstWaiting, toRows, type Row } from "./toolRows";
+import { toRows, waitingCalls, type Row } from "./toolRows";
 
 /** Rows for a subagent's own conversation, its tool runs merged over the parent's; `waiting` while one of its calls waits for the user. */
 export function subagentRows(
@@ -23,7 +23,7 @@ export function subagentRows(
   return {
     rows: toRows(t.items, false, runs),
     tools: runs,
-    waiting: firstWaiting(t.items, runs) !== null,
+    waiting: waitingCalls(t.items, runs).length > 0,
   };
 }
 

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { AssistantMessage, ToolCall } from "../../shared/agentTypes";
 import {
+  inArrivalOrder,
+  waitingCalls,
   diffSummary,
   groupSummary,
-  firstWaiting,
   isShortOutput,
   outputPreview,
   parseDiff,
@@ -298,7 +299,7 @@ describe("isShortOutput", () => {
   });
 });
 
-describe("firstWaiting", () => {
+describe("waitingCalls", () => {
   const call = (id: string): ToolCall => ({
     type: "toolCall",
     id,
@@ -317,14 +318,24 @@ describe("firstWaiting", () => {
     },
   });
 
-  it("finds the earliest call waiting for approval", () => {
+  it("lists the calls waiting for approval in order", () => {
     const items = [turn(call("a"), call("b")), turn(call("c"))];
     const tools = {
       a: { status: "done" as const },
       b: { status: "running" as const, approval: {} },
       c: { status: "running" as const, approval: {} },
     };
-    expect(firstWaiting(items, tools)).toBe("b");
-    expect(firstWaiting(items, {})).toBeNull();
+    expect(waitingCalls(items, tools)).toEqual(["b", "c"]);
+    expect(waitingCalls(items, {})).toEqual([]);
+  });
+});
+
+describe("inArrivalOrder", () => {
+  it("keeps calls already waiting first and adds new ones after", () => {
+    expect(inArrivalOrder(["c"], ["a", "c"])).toEqual(["c", "a"]);
+  });
+
+  it("drops answered calls", () => {
+    expect(inArrivalOrder(["a", "b"], ["b"])).toEqual(["b"]);
   });
 });

@@ -32,3 +32,8 @@ it("titles the agent's reason with the app's", () => {
     "Removes the test user",
   ]);
 });
+
+it("says how many more calls wait behind it", () => {
+  render(<ApprovalPrompt queued={2} onAnswer={vi.fn()} />);
+  expect(screen.getByText("2 more waiting")).toBeTruthy();
+});

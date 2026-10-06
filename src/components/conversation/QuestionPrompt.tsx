@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { Question, QuestionAnswer } from "../../../shared/questions";
 import { QuestionActions } from "@/components/conversation/QuestionActions";
 import { QuestionCard } from "@/components/conversation/QuestionCard";
+import { DeckPeek } from "@/components/conversation/DeckPeek";
 import { useQuestionKeys } from "@/hooks/useQuestionKeys";
 import { type Draft, EMPTY_DRAFT, toAnswers } from "@/lib/questions";
 
@@ -9,9 +10,12 @@ import { type Draft, EMPTY_DRAFT, toAnswers } from "@/lib/questions";
 export function QuestionPrompt({
   questions,
   shortcuts = false,
+  queued = 0,
   onAnswer,
 }: {
   questions: Question[];
+  /** Other calls waiting behind this one, peeking out with its own questions. */
+  queued?: number;
   /** Takes the keyboard (⌘↩ on, ⌘⌫ skip), and shows it: only the first waiting call does. */
   shortcuts?: boolean;
   onAnswer: (approved: boolean, answers?: QuestionAnswer[]) => void;
@@ -21,7 +25,7 @@ export function QuestionPrompt({
   );
   const [step, setStep] = useState(0);
   const last = step >= questions.length - 1;
-  const behind = Math.min(questions.length - 1 - step, 2);
+  const behind = questions.length - 1 - step + queued;
   const change = (draft: Draft) =>
     setDrafts((all) => all.map((d, i) => (i === step ? draft : d)));
   const next = () =>
@@ -51,18 +55,7 @@ export function QuestionPrompt({
           onSkip={skip}
         />
       </QuestionCard>
-      {behind > 0 && (
-        <div
-          aria-hidden
-          className="mx-2 h-1.5 rounded-b-lg border border-t-0 bg-card"
-        />
-      )}
-      {behind > 1 && (
-        <div
-          aria-hidden
-          className="mx-4 h-1.5 rounded-b-lg border border-t-0 bg-card/60"
-        />
-      )}
+      <DeckPeek behind={behind} />
     </div>
   );
 }
