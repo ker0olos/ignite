@@ -18,6 +18,13 @@ export type ToolCall = {
   arguments: Record<string, unknown>;
 };
 
+/** What the conversation runs on after routing; `kept` when the router left the user's default (it had no answer, or nothing to change). */
+export type RouterPick = {
+  model?: { provider: string; id: string; name: string };
+  effort: string;
+  kept: boolean;
+};
+
 export type UserMessage = {
   role: "user";
   content: string | (TextContent | ImageContent)[];
@@ -122,6 +129,10 @@ type AssistantMessageEvent =
  */
 export type SessionEvent =
   | { type: "agent_start" | "agent_settled" | "turn_start" }
+  /** The app's, not pi's: the router reads `message` before it's sent to pi. */
+  | { type: "routing_start"; message: UserMessage }
+  /** `sent`: the message went on to pi; false when Stop dropped it. */
+  | { type: "routing_end"; sent: boolean; picked?: RouterPick }
   | { type: "agent_end"; willRetry: boolean }
   | { type: "turn_end" }
   | { type: "message_start" | "message_end"; message: AgentMessage }

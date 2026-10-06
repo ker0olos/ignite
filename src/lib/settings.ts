@@ -23,12 +23,14 @@ export type Settings = {
   files: { hide_gitignored: boolean; show_tree: boolean };
   /**
    * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
+   * `model_router`: before a conversation's first message a quick model picks the model and effort it runs on (on by default).
    * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
    * `sticky_user_messages`: user messages pin to the top while their replies scroll.
    */
   conversation: {
     show_thinking: boolean;
     ask_questions: boolean;
+    model_router: boolean;
     text_size: number;
     sticky_user_messages: boolean;
   };
@@ -78,6 +80,7 @@ export const DEFAULT_SETTINGS: Settings = {
   conversation: {
     show_thinking: false,
     ask_questions: true,
+    model_router: true,
     text_size: 14,
     sticky_user_messages: false,
   },
@@ -125,6 +128,7 @@ const readConversation = (
   const merged = { ...DEFAULT_SETTINGS.conversation, ...conversation };
   return {
     ...merged,
+    model_router: merged.model_router !== false,
     text_size: Number.isFinite(merged.text_size)
       ? clampTextSize(merged.text_size)
       : DEFAULT_SETTINGS.conversation.text_size,
@@ -278,6 +282,21 @@ export function approvalSetting(
     mode: settings.approval.mode,
     onChange: (mode: ApprovalMode) =>
       void save({ ...settings, approval: { ...settings.approval, mode } }),
+  };
+}
+
+/** The Model Router setting, and a change that saves it. */
+export function modelRouterSetting(
+  settings: Settings,
+  save: (settings: Settings) => Promise<void>,
+) {
+  return {
+    on: settings.conversation.model_router,
+    onChange: (model_router: boolean) =>
+      void save({
+        ...settings,
+        conversation: { ...settings.conversation, model_router },
+      }),
   };
 }
 

@@ -18,7 +18,7 @@ import type { useTabs } from "@/hooks/useTabs";
 import type { HostClient } from "@/lib/piHost";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { Settings } from "@/lib/settings";
-import type { Approval } from "@/components/agent/Composer";
+import type { Approval, ModelRouter } from "@/components/agent/Composer";
 
 type WorkspaceProps = {
   folder: string;
@@ -32,6 +32,7 @@ type WorkspaceProps = {
   gitStatus: boolean;
   resizableProjectSplit: boolean;
   approval: Approval;
+  modelRouter: ModelRouter;
   actions: ReactNode;
   projectList: ProjectListProps;
   banner?: ReactNode;
@@ -59,6 +60,7 @@ export function Workspace({
   gitStatus,
   resizableProjectSplit,
   approval,
+  modelRouter,
   actions,
   projectList,
   banner,
@@ -66,26 +68,16 @@ export function Workspace({
   session,
   host,
 }: WorkspaceProps) {
-  const { active } = tabs;
-  const openFile = tabs.open;
+  const { active, open: openFile } = tabs;
   const narrow = useNarrow();
   const [view, setView] = useState<WorkspaceView>("conversation");
-
-  const runInTerminal = useTerminalShortcut(
-    host,
-    folder,
-    session.session,
-    view,
-    tabs,
-  );
-
+  const runIn = useTerminalShortcut(host, folder, session.session, view, tabs);
   // Pane sizes persist, saved separately for with and without the editor.
   const layout = useDefaultLayout({
     id: "workspace",
     panelIds: active ? ["sidebar", "agent", "editor"] : ["sidebar", "agent"],
     storage: localStorage,
   });
-
   const sidebar = (
     <Sidebar
       folder={folder}
@@ -107,6 +99,7 @@ export function Workspace({
         folder={folder}
         host={host}
         agents={projectList.rows(folder)}
+        modelRouter={modelRouter}
         onOpenConversation={(s) => {
           projectList.conversations.show(folder, s);
           setView("conversation");
@@ -123,23 +116,22 @@ export function Workspace({
         stickyUserMessages={stickyUserMessages}
         gitStatus={gitStatus}
         approval={approval}
+        modelRouter={modelRouter}
       />
     );
-
   const pane = { folder, tabs, codeThemes, editor, session, host };
   if (narrow) {
     return (
       <OpenTabContext.Provider value={openFile}>
-        <RunInTerminalContext.Provider value={runInTerminal}>
+        <RunInTerminalContext.Provider value={runIn}>
           <MobileWorkspace {...pane} sidebar={sidebar} agent={agent} />
         </RunInTerminalContext.Provider>
       </OpenTabContext.Provider>
     );
   }
-
   return (
     <OpenTabContext.Provider value={openFile}>
-      <RunInTerminalContext.Provider value={runInTerminal}>
+      <RunInTerminalContext.Provider value={runIn}>
         <ResizablePanelGroup
           orientation="horizontal"
           className="flex-1"

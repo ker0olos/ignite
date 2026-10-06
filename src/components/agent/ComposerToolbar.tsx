@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import { ApprovalMenu } from "@/components/agent/ApprovalMenu";
-import type { Approval } from "@/components/agent/Composer";
-import { EffortMenu } from "@/components/agent/EffortMenu";
+import type { Approval, ModelRouter } from "@/components/agent/Composer";
+import { ComposerModelMenus } from "@/components/agent/ComposerModelMenus";
 import { Kbd } from "@/components/agent/Kbd";
-import { ModelMenu } from "@/components/agent/ModelMenu";
 import { ACTION } from "@/components/agent/styles";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { useAgentSession } from "@/hooks/useAgentSession";
@@ -21,6 +20,7 @@ export function ComposerToolbar({
   running,
   canSend,
   approval,
+  modelRouter,
   git,
   onStop,
 }: {
@@ -29,11 +29,11 @@ export function ComposerToolbar({
   running: boolean;
   canSend: boolean;
   approval: Approval;
+  modelRouter: ModelRouter;
   /** The conversation's repositories, after the approval menu. */
   git: ReactNode;
   onStop: () => void;
 }) {
-  const { state } = session;
   return (
     <>
       {loading && (
@@ -42,16 +42,7 @@ export function ComposerToolbar({
           <Skeleton className="h-3 w-8" />
         </>
       )}
-      {state && state.models.length > 0 && (
-        <ModelMenu state={state} onSelect={session.setModel} />
-      )}
-      {/* pi offers only "off" for models that can't reason. */}
-      {state && state.thinkingLevels.length > 1 && (
-        <EffortMenu
-          state={state}
-          onChange={(level) => void session.setThinkingLevel(level)}
-        />
-      )}
+      <ComposerModelMenus session={session} modelRouter={modelRouter} />
       <ApprovalMenu mode={approval.mode} onChange={approval.onChange} />
       {git}
       {session.error && (

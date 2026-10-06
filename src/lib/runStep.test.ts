@@ -152,6 +152,48 @@ describe("workingLine thought", () => {
   });
 });
 
+describe("workingLine routing", () => {
+  const routing: Transcript = {
+    items: [
+      {
+        kind: "message",
+        message: assistant([{ type: "thinking", thinking: "old" }]),
+      },
+    ],
+    tools: {},
+    running: true,
+    routing: true,
+    routedAt: 500,
+  };
+
+  it("shows Routing… with no thought, timed from when the message was sent", () => {
+    expect(workingLine(routing, "/w", true)).toEqual({
+      step: "Routing…",
+      since: 500,
+    });
+  });
+
+  it("keeps timing from the send once pi has the message", () => {
+    const sent = {
+      ...routing,
+      routing: false,
+      items: [
+        { kind: "message" as const, message: { ...user, timestamp: 900 } },
+      ],
+    };
+    expect(workingLine(sent, "/w", false)?.since).toBe(500);
+    expect(
+      workingLine({ ...sent, routedAt: undefined }, "/w", false)?.since,
+    ).toBe(900);
+  });
+
+  it("goes back to the run's step once routed", () => {
+    expect(workingLine({ ...routing, routing: false }, "/w", false)?.step).toBe(
+      "Thinking",
+    );
+  });
+});
+
 describe("latestThought", () => {
   const thinking = (text: string, redacted?: boolean) =>
     assistant([{ type: "thinking", thinking: text, redacted }]);

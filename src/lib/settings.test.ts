@@ -4,6 +4,7 @@ import { fakeFs } from "@/test/fakeFs";
 import {
   DEFAULT_SETTINGS,
   approvalSetting,
+  modelRouterSetting,
   SETTINGS_DIR,
   SETTINGS_FILE,
   loadSettings,
@@ -76,9 +77,14 @@ describe("loadSettings", () => {
     expect((await loadSettings()).conversation).toEqual({
       show_thinking: true,
       ask_questions: true,
+      model_router: true,
       text_size: 14,
       sticky_user_messages: false,
     });
+    fakeFs({ [FILE]: "[conversation]\nmodel_router = false\n" });
+    expect((await loadSettings()).conversation.model_router).toBe(false);
+    fakeFs({ [FILE]: '[conversation]\nmodel_router = "yes"\n' });
+    expect((await loadSettings()).conversation.model_router).toBe(true);
     fakeFs({ [FILE]: "[conversation]\nask_questions = false\n" });
     expect((await loadSettings()).conversation.ask_questions).toBe(false);
     fakeFs({ [FILE]: "[conversation]\nsticky_user_messages = true\n" });
@@ -267,6 +273,19 @@ describe("approvalSetting", () => {
   });
 });
 
+describe("modelRouterSetting", () => {
+  it("offers Model Router and saves a change", () => {
+    const save = vi.fn(async () => {});
+    const router = modelRouterSetting(DEFAULT_SETTINGS, save);
+    expect(router.on).toBe(true);
+    router.onChange(false);
+    expect(save).toHaveBeenCalledWith({
+      ...DEFAULT_SETTINGS,
+      conversation: { ...DEFAULT_SETTINGS.conversation, model_router: false },
+    });
+  });
+});
+
 describe("saveSettings", () => {
   const next: Settings = {
     theme: "github-dark",
@@ -275,6 +294,7 @@ describe("saveSettings", () => {
     conversation: {
       show_thinking: true,
       ask_questions: false,
+      model_router: true,
       text_size: 15,
       sticky_user_messages: true,
     },

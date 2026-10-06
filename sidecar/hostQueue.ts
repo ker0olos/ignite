@@ -26,7 +26,7 @@ function take(s: Session, agent: Agent): Queued[] {
   ];
 }
 
-const message = ({ text, images }: Queued): QueuedMessage => ({
+const message = ({ text, images }: QueuedMessage): QueuedMessage => ({
   text,
   ...(images && { images }),
 });
@@ -36,9 +36,12 @@ export async function stop(ctx: HostContext, session?: string) {
   const agent = target(ctx, session);
   const s = await current(ctx, session);
   if (agent) denyAll(ctx, agent);
+  const routing = agent?.routing;
+  routing?.controller.abort();
   const queued = agent ? take(s, agent) : [];
   await s.abort();
-  return queued.map(message);
+  // The message being routed was never sent, so it comes back with the queue.
+  return [...(routing ? [routing] : []), ...queued].map(message);
 }
 
 async function hasCredentials(s: Session) {

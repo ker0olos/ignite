@@ -52,3 +52,12 @@ export function applyQueue<T extends { queued?: Queued[] }>(
     ],
   };
 }
+
+/** Whether the composer may send: a conversation to send to, something typed, and the router not reading a message. */
+export function canSend(
+  ready: boolean,
+  typed: { text: string; images: number },
+  routing: boolean,
+) {
+  return ready && !routing && (!!typed.text.trim() || typed.images > 0);
+}

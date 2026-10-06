@@ -134,8 +134,10 @@ export type OpenedSession = SessionState & {
   trust: ProjectTrust;
   /** The conversation so far, when an earlier session is continued. */
   messages: AgentMessage[];
-  /** Whether pi is still working on it. */
+  /** Whether pi is still working on it, or the router on its first message. */
   running: boolean;
+  /** The first message the router is still reading, not yet in `messages`. */
+  routing?: Extract<SessionEvent, { type: "routing_start" }>["message"];
   /** Why the session isn't on the model the user last chose. */
   modelWarning?: string;
   /** Tool calls asked while the folder wasn't shown, still waiting. */

@@ -5,9 +5,11 @@ import type {
   AssistantMessage,
   SessionEvent,
   ToolResult,
+  UserMessage,
 } from "../../shared/agentTypes";
 import type { GitReview } from "../../shared/git";
 import { applyCompactionEvent, type CompactionItem } from "@/lib/compaction";
+import { applyRouting, ended } from "@/lib/routedMessage";
 
 export type Item =
   | { kind: "message"; message: AgentMessage }
@@ -32,6 +34,12 @@ export type Transcript = {
   items: Item[];
   tools: Record<string, ToolRun>;
   running: boolean;
+  /** The router is reading the message the run starts from. */
+  routing?: boolean;
+  /** The message being routed, shown until pi adds its own copy. */
+  pending?: UserMessage;
+  /** When a routed run began (its message was sent), so its time counts routing too. */
+  routedAt?: number;
   /** Messages sent mid-run, in delivery order; unset while nothing ever queued. */
   queued?: Queued[];
 };
@@ -131,9 +139,15 @@ export function applyEvent(t: Transcript, event: SessionEvent): Transcript {
     case "agent_start":
       return { ...t, running: true };
     case "agent_settled":
-      return { ...t, running: false };
+      return ended(t);
+    case "routing_start":
+    case "routing_end":
+      return applyRouting(t, event);
     case "message_start":
-      return addMessage(t, event.message);
+      return addMessage(
+        event.message.role === "user" ? { ...t, pending: undefined } : t,
+        event.message,
+      );
     case "message_end":
       return finishMessage(t, event.message);
     case "message_update":
@@ -166,7 +180,7 @@ function applyBackgroundEvent(t: Transcript, event: SessionEvent): Transcript {
 /** Shows a run pi accepted but couldn't carry out, and ends it. */
 export function applyError(t: Transcript, error: string): Transcript {
   // pi's errors end with CLI help (/login, doc paths) that doesn't apply here.
-  return { ...notice(t, error.split("\n\n")[0], true), running: false };
+  return ended(notice(t, error.split("\n\n")[0], true));
 }
 
 function notice(t: Transcript, text: string, error?: boolean): Transcript {

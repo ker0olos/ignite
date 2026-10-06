@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ModelInfo } from "../../shared/hostProtocol";
-import { modelLabel, modelMenu } from "./modelMenu";
+import { modelLabel, modelMenu, modelTriggerLabel } from "./modelMenu";
 
 const m = (provider: string, id: string, name: string): ModelInfo => ({
   provider,
@@ -116,5 +116,17 @@ describe("the Claude Code bridge", () => {
     expect(modelMenu([gemini, gemini]).more).toEqual([
       { name: "google", models: [{ ...gemini, label: "Gemini" }] },
     ]);
+  });
+});
+
+describe("modelTriggerLabel", () => {
+  it("names the model, or asks for one", () => {
+    expect(modelTriggerLabel(opus55)).toBe("Opus 5.5");
+    expect(modelTriggerLabel()).toBe("Choose a model");
+  });
+
+  it("reads Router while Model Router picks", () => {
+    expect(modelTriggerLabel(opus55, true)).toBe("Router");
+    expect(modelTriggerLabel(undefined, true)).toBe("Router");
   });
 });

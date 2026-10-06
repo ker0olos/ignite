@@ -7,7 +7,8 @@ export type Model = NonNullable<ExtensionContext["model"]>;
 
 // Subscription providers (claude-bridge) list no prices; the same model's
 // API listing (anthropic) has them.
-function price(model: Model, all: Model[]): number | undefined {
+/** `model`'s price per million output tokens, from it or its API listing in `all`. */
+export function price(model: Model, all: Model[]): number | undefined {
   const priced = (m: Model) => (m.cost?.output > 0 ? m.cost.output : undefined);
   return (
     priced(model) ??

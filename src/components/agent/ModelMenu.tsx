@@ -9,28 +9,40 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { ModelInfo, SessionState } from "../../../shared/hostProtocol";
 import { ModelGroups } from "@/components/agent/ModelGroups";
+import { ModelRouterItem } from "@/components/agent/ModelRouterItem";
 import { MENU_TRIGGER } from "@/components/agent/styles";
-import { modelLabel, modelMenu } from "@/lib/modelMenu";
+import { modelMenu, modelTriggerLabel } from "@/lib/modelMenu";
 
 /** Model picker (composer, new-task sheet): featured models, with the rest under "More models". */
 export function ModelMenu({
   state,
   onSelect,
+  modelRouter = false,
+  onModelRouter,
 }: {
   state: SessionState;
   onSelect: (model: ModelInfo) => void;
+  /** Whether Model Router chooses the model and effort; the menu offers it only with `onModelRouter`. */
+  modelRouter?: boolean;
+  onModelRouter?: (on: boolean) => void;
 }) {
   const { featured, more } = modelMenu(state.models);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className={MENU_TRIGGER}>
-        {state.model ? modelLabel(state.model) : "Choose a model"}
+        {modelTriggerLabel(state.model, modelRouter && !!onModelRouter)}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top" className="w-72">
+        {onModelRouter && (
+          <ModelRouterItem
+            modelRouter={modelRouter}
+            onModelRouter={onModelRouter}
+          />
+        )}
         <ModelGroups
           groups={featured}
-          current={state.model}
+          current={modelRouter ? undefined : state.model}
           onSelect={onSelect}
         />
         {more.length > 0 && (
@@ -41,7 +53,7 @@ export function ModelMenu({
               <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
                 <ModelGroups
                   groups={more}
-                  current={state.model}
+                  current={modelRouter ? undefined : state.model}
                   onSelect={onSelect}
                 />
               </DropdownMenuSubContent>

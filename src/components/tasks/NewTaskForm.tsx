@@ -4,6 +4,7 @@ import { NewTaskDrop } from "@/components/tasks/NewTaskDrop";
 import { NewTaskSubtasks } from "@/components/tasks/NewTaskSubtasks";
 import { NewTaskChoices } from "@/components/tasks/NewTaskChoices";
 import { Button } from "@/components/ui/button";
+import type { ModelRouter } from "@/components/agent/Composer";
 import type { Pending } from "@/hooks/useComposerActions";
 import { useProvideImageTarget } from "@/hooks/useImageTarget";
 import { useDraftState } from "@/hooks/useDraftState";
@@ -16,10 +17,12 @@ import { choicesOf, taskImages, type TaskDraft } from "@/lib/tasks";
 export function NewTaskForm({
   host,
   images = [],
+  modelRouter,
   onCreate,
 }: {
   host: HostClient | null;
   images?: TaskImage[];
+  modelRouter?: ModelRouter;
   onCreate: (draft: TaskDraft, now: boolean) => void;
 }) {
   const [draft, setDraft] = useState<TaskDraft>({
@@ -37,8 +40,16 @@ export function NewTaskForm({
   const state = useDraftState(host, true, pending, null);
   const patch = (p: Partial<TaskDraft>) => setDraft({ ...draft, ...p });
   const ready = draft.title.trim() !== "";
+  // Router is the default; picking a model makes the sheet's choices the task's.
+  const routed = !!modelRouter?.on && !pending.model;
+  const pickRouter =
+    modelRouter &&
+    (() => {
+      setPending(({ level }) => ({ ...(level && { level }) }));
+      modelRouter.onChange(true);
+    });
   const submit = (now: boolean) =>
-    ready && onCreate({ ...draft, ...choicesOf(state) }, now);
+    ready && onCreate({ ...draft, ...choicesOf(state, routed) }, now);
 
   return (
     <div
@@ -78,6 +89,8 @@ export function NewTaskForm({
       <div className="flex items-center gap-1.5 border-t px-3.5 py-2.5">
         <NewTaskChoices
           state={state}
+          routed={routed}
+          onRouter={pickRouter}
           onModel={(model) => setPending((p) => ({ ...p, model }))}
           onEffort={(level) => setPending((p) => ({ ...p, level }))}
         />

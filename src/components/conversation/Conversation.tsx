@@ -7,6 +7,7 @@ import { RunIndicator } from "@/components/conversation/RunIndicator";
 import { WaitingCallsContext, useWaitingOrder } from "@/hooks/useWaitingPlace";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { workingLine } from "@/lib/runStep";
+import { shownItems } from "@/lib/routedMessage";
 import type { Transcript } from "@/lib/transcript";
 import { toRows, waitingCalls } from "@/lib/toolRows";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -32,7 +33,8 @@ export function Conversation({
   onApprove: ToolProps["onApprove"];
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const last = transcript.items.at(-1);
+  const items = shownItems(transcript);
+  const last = items.at(-1);
   useStickToBottom(scrollRef, contentRef, last);
   const lastMessage =
     last?.kind === "message" ? (last.message as AssistantMessage) : null;
@@ -45,7 +47,7 @@ export function Conversation({
     waitingCalls(transcript.items, transcript.tools),
   );
   const working = workingLine(transcript, folder, showThinking);
-  const rows = toRows(transcript.items, transcript.tools);
+  const rows = toRows(items, transcript.tools);
 
   return (
     <WaitingCallsContext.Provider value={waiting}>

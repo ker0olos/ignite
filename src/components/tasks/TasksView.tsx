@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AgentStatus } from "../../../shared/hostProtocol";
 import type { TaskImage } from "../../../shared/tasks";
+import type { ModelRouter } from "@/components/agent/Composer";
 import { NewTaskDialog } from "@/components/tasks/NewTaskDialog";
 import { NewTaskRow } from "@/components/tasks/NewTaskRow";
 import { TaskGroup } from "@/components/tasks/TaskGroup";
@@ -16,11 +17,13 @@ export function TasksView({
   folder,
   host,
   agents,
+  modelRouter,
   onOpenConversation,
 }: {
   folder: string;
   host: HostClient | null;
   agents: AgentStatus[];
+  modelRouter?: ModelRouter;
   onOpenConversation: (session: string) => void;
 }) {
   const { tasks, error, create, ...rest } = useTasks(host, folder, agents);
@@ -69,6 +72,7 @@ export function TasksView({
         host={host}
         open={sheet}
         images={seed}
+        modelRouter={modelRouter}
         onOpenChange={sheetChange}
         onCreate={add}
       />

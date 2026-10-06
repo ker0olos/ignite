@@ -12,7 +12,8 @@ export function pushProjects(ctx: HostContext) {
       cwd: a.cwd,
       session: a.id,
       title: a.title,
-      running: a.running,
+      // Routing its first message counts as working, before pi's run starts.
+      running: a.running || !!a.routing,
       ...(a.failed && { failed: true }),
       waiting: a.approvals.size > 0,
       ...(review && { review }),

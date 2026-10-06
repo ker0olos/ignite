@@ -149,6 +149,11 @@ describe("choicesOf", () => {
     });
   });
 
+  it("keeps none while Model Router picks them", () => {
+    const model = { provider: "p", id: "m", name: "M" };
+    expect(choicesOf({ ...state, model }, true)).toEqual({});
+  });
+
   it("keeps nothing without a model", () => {
     expect(choicesOf(state)).toEqual({});
     expect(choicesOf(null)).toEqual({});

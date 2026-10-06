@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composerKey, takenText } from "./queue";
+import { canSend, composerKey, takenText } from "./queue";
 
 describe("takenText", () => {
   it("puts taken-back messages above what's typed, skipping blanks", () => {
@@ -41,5 +41,23 @@ describe("composerKey", () => {
     expect(composerKey(key("Enter", { shiftKey: true }), at)).toBeNull();
     expect(composerKey(key("Enter", { isComposing: true }), at)).toBeNull();
     expect(composerKey(key("a"), at)).toBeNull();
+  });
+});
+
+describe("canSend", () => {
+  const typed = { text: "hi", images: 0 };
+
+  it("sends typed text to a ready conversation", () => {
+    expect(canSend(true, typed, false)).toBe(true);
+  });
+
+  it("sends images alone", () => {
+    expect(canSend(true, { text: " ", images: 1 }, false)).toBe(true);
+  });
+
+  it("waits for a conversation, something to send and the router", () => {
+    expect(canSend(false, typed, false)).toBe(false);
+    expect(canSend(true, { text: " ", images: 0 }, false)).toBe(false);
+    expect(canSend(true, typed, true)).toBe(false);
   });
 });

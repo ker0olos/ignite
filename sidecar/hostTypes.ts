@@ -1,3 +1,4 @@
+import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import type { StreamFn } from "./compactProgress.ts";
 import type {
   ModelInfo,
@@ -14,6 +15,7 @@ import type {
   ImageContent,
   SessionEvent,
   ToolResultMessage,
+  UserMessage,
 } from "../shared/agentTypes.ts";
 import type { ApprovalAsk } from "./approvalExtension.ts";
 import type { ClaudeCode } from "./claudeCode.ts";
@@ -66,7 +68,7 @@ export type Session = {
     getAuth(
       model: ModelInfo,
     ): Promise<{ auth: { apiKey?: string; headers?: unknown } } | undefined>;
-  };
+  } & Pick<AgentSession["modelRuntime"], "getModels" | "completeSimple">;
   readonly model: ModelInfo | undefined;
   readonly thinkingLevel: ThinkingLevel;
   getAvailableThinkingLevels(): ThinkingLevel[];
@@ -175,6 +177,16 @@ export type Agent = {
   opening: Promise<Session>;
   /** Between agent_start and agent_settled. */
   running: boolean;
+  /** The user picked its model, so Model Router is off for it. */
+  pickedModel?: boolean;
+  /** The new message the router is reading; Stop drops it and hands it back. */
+  routing?: {
+    text: string;
+    images?: ImageContent[];
+    /** As the app shows it, for a view opened while it's routed. */
+    message: UserMessage;
+    controller: AbortController;
+  };
   /** Its last run ended in an error. */
   failed?: boolean;
   /** Unsubscribe from the session's events. */
