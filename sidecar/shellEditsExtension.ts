@@ -4,9 +4,9 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { rm } from "node:fs/promises";
+import { access, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
 import type { ShellEdit } from "../shared/shellEdits.ts";
 import { git, workingTree } from "./worktreeGit.ts";
@@ -42,50 +42,116 @@ export async function changedFiles(
     git(dir, ["diff", "-U3", ...DIFF, before, after]),
   ]);
   const diffs = blocksByFile(text);
-  let budget = MAX_DIFF_CHARS;
   return names
     .split("\0")
     .filter(Boolean)
-    .map((path, i) => {
-      const diff = diffs[i] ?? "";
-      budget -= diff.length;
-      return { path, diff: budget >= 0 ? diff : "" };
-    });
+    .map((path, i) => ({ path, diff: diffs[i] ?? "" }));
+}
+
+function capped(edits: ShellEdit[]): ShellEdit[] {
+  let budget = MAX_DIFF_CHARS;
+  return edits.map((e) => {
+    budget -= e.diff.length;
+    return budget >= 0 ? e : { ...e, diff: "" };
+  });
+}
+
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// What may sit either side of a path segment: separators (`/`, Windows' `\`), quotes, shell syntax.
+const BEFORE = String.raw`(?:^|[\s'"${"`"}=:/\\({,<>;|&@\[!*])`;
+const AFTER = String.raw`(?:$|[\s'"${"`"}/\\)},<>;|&:=*\]$])`;
+
+/** Whether `command` names the folder `name` as a path segment anywhere, heredocs and quoted script text included. */
+export function namesFolder(
+  command: string,
+  name: string,
+  // As the file system does: macOS and Windows ignore case, Linux doesn't.
+  ignoreCase = process.platform !== "linux",
+): boolean {
+  // A space may be written escaped (`my\ app`).
+  const spelled = escape(name).replaceAll(" ", String.raw`(?: |\\ )`);
+  const flags = ignoreCase ? "i" : "";
+  return new RegExp(`${BEFORE}${spelled}${AFTER}`, flags).test(command);
+}
+
+// ponytail: outside git, only repositories one level down that the command names are compared; a script that edits one unnamed is missed.
+/** The repositories one level down `cwd` (a folder outside git holding several) whose folder `command` names; symlinked ones too. */
+async function namedRepos(cwd: string, command: string): Promise<string[]> {
+  const names = await readdir(cwd).catch(() => []);
+  const found = await Promise.all(
+    names
+      .filter((name) => namesFolder(command, name))
+      .map((name) => join(cwd, name))
+      .map((dir) =>
+        access(join(dir, ".git")).then(
+          () => dir,
+          () => null,
+        ),
+      ),
+  );
+  return found.filter((dir): dir is string => !!dir);
 }
 
 // ponytail: the whole working tree is compared, so another call running at the same time (a parallel bash, a background watcher) has its changes shown here too.
 export default function shellEdits(pi: ExtensionAPI) {
-  // One index for the conversation: its stat cache spares rehashing unchanged files, untracked ones too.
-  const indexFile = join(tmpdir(), `${APP_NAME}-shell-index-${randomUUID()}`);
-  // Taken one at a time, since they share the index (and its lock).
-  let queue: Promise<unknown> = Promise.resolve();
-  const tree = (cwd: string) => {
-    const next = queue.then(() => workingTree(cwd, indexFile));
-    queue = next.catch(() => {});
+  // One index per repository: its stat cache spares rehashing unchanged files, untracked ones too.
+  const indexes = new Map<string, { file: string; queue: Promise<unknown> }>();
+  const tree = (repo: string) => {
+    let index = indexes.get(repo);
+    if (!index) {
+      const file = join(tmpdir(), `${APP_NAME}-shell-index-${randomUUID()}`);
+      indexes.set(repo, (index = { file, queue: Promise.resolve() }));
+    }
+    // Taken one at a time, since they share the index (and its lock).
+    const next = index.queue.then(() => workingTree(repo, index.file));
+    index.queue = next.catch(() => {});
     return next.catch(() => null);
   };
-  // Tool call id → the working tree's state when it started; null outside git.
-  const before = new Map<string, Promise<string | null>>();
+  const trees = async (cwd: string, command: string) => {
+    const own = await tree(cwd);
+    if (own) return [{ repo: cwd, at: own as string | null }];
+    const repos = await namedRepos(cwd, command);
+    return Promise.all(
+      repos.map(async (repo) => ({ repo, at: await tree(repo) })),
+    );
+  };
+  // Tool call id → each repository's working tree when it started; null where it couldn't be read.
+  const before = new Map<string, ReturnType<typeof trees>>();
 
   pi.on("tool_call", async (event, ctx) => {
-    const { background } = event.input as { background?: unknown };
+    const { command, background } = event.input as {
+      command?: unknown;
+      background?: unknown;
+    };
     if (event.toolName !== "bash" || background) return;
-    const start = tree(ctx.cwd);
+    const start = trees(ctx.cwd, String(command ?? ""));
     before.set(event.toolCallId, start);
     await start;
   });
 
   pi.on("tool_result", async (event, ctx) => {
-    const start = await before.get(event.toolCallId);
+    const starts = (await before.get(event.toolCallId)) ?? [];
     before.delete(event.toolCallId);
-    if (!start) return;
-    const end = await tree(ctx.cwd);
-    const edits = end
-      ? await changedFiles(ctx.cwd, start, end).catch(() => [])
-      : [];
+    const changed = await Promise.all(
+      starts.map(async ({ repo, at }) => {
+        const end = at && (await tree(repo));
+        if (!at || !end) return [];
+        const prefix = relative(ctx.cwd, repo).replaceAll("\\", "/");
+        const edits = await changedFiles(repo, at, end).catch(() => []);
+        return edits.map((e) =>
+          prefix ? { ...e, path: `${prefix}/${e.path}` } : e,
+        );
+      }),
+    );
+    const edits = capped(changed.flat());
     if (!edits.length) return;
     return { details: { ...(event.details as object), edits } };
   });
 
-  pi.on("session_shutdown", () => rm(indexFile, { force: true }));
+  pi.on("session_shutdown", async () => {
+    await Promise.all(
+      [...indexes.values()].map((i) => rm(i.file, { force: true })),
+    );
+  });
 }
