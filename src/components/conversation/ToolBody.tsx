@@ -54,13 +54,13 @@ export function ToolBody({
     );
   }
 
-  if (call.name === "read") {
-    return <ReadToolBody running={running} text={text} />;
-  }
-
   const images = resultImages(run.result);
   if (images.length) {
     return <ToolImages images={images} text={text} tool={call.name} />;
+  }
+
+  if (call.name === "read") {
+    return <ReadToolBody running={running} text={text} />;
   }
 
   return (

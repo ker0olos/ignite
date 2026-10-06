@@ -4,18 +4,13 @@ import { homedir } from "node:os";
 import { basename, extname, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { IMAGE_TOOL, type ImageContent } from "../shared/agentTypes.ts";
+import {
+  IMAGE_TOOL,
+  IMAGE_TYPES,
+  type ImageContent,
+} from "../shared/agentTypes.ts";
 import type { Task } from "../shared/tasks.ts";
 import { askTask } from "./taskExtension.ts";
-
-const TYPES: Record<string, string> = {
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-};
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
@@ -27,9 +22,9 @@ export async function loadImage(
   // As pi's own tools read paths: `@` dropped, `~` expanded.
   const bare = path.replace(/^@/, "").replace(/^~(?=[/\\]|$)/, homedir());
   const file = resolve(cwd, bare);
-  const mimeType = TYPES[extname(file).toLowerCase()];
+  const mimeType = IMAGE_TYPES[extname(file).toLowerCase()];
   if (!mimeType) {
-    return `Not an image: ${file}. Supported: ${Object.keys(TYPES).join(" ")}`;
+    return `Not an image: ${file}. Supported: ${Object.keys(IMAGE_TYPES).join(" ")}`;
   }
   const size = await stat(file).then(
     (s) => s.size,

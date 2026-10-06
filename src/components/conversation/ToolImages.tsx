@@ -13,8 +13,10 @@ export function ToolImages({
   text: string;
   tool: string;
 }) {
-  // show_image's text is only the model's acknowledgement.
-  const caption = tool === IMAGE_TOOL ? "" : text;
+  // show_image's and read's text only acknowledge the image.
+  const caption = tool === IMAGE_TOOL || tool === "read" ? "" : text;
+  // An image the agent read is a thumbnail; a click opens it whole.
+  const small = tool === "read";
   return (
     <>
       {caption && <OutputPreview text={caption} />}
@@ -24,9 +26,11 @@ export function ToolImages({
             key={i}
             image={image}
             className={cn(
-              "max-h-96 max-w-full rounded-lg border object-contain",
+              "max-w-full rounded-lg border object-contain",
+              small ? "max-h-32" : "max-h-96",
               // An SVG has no size of its own, so it gets a height.
-              image.mimeType === "image/svg+xml" && "h-80 w-auto",
+              image.mimeType === "image/svg+xml" &&
+                (small ? "h-32 w-auto" : "h-80 w-auto"),
             )}
           />
         ))}

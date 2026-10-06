@@ -46,6 +46,16 @@ export type ToolResult = {
   details?: unknown;
 };
 
+/** Image files the conversation can show, by extension. */
+export const IMAGE_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+};
+
 /** The tool the agent shows the user an image file with; the image is in `details.image`. */
 export const IMAGE_TOOL = "show_image";
 

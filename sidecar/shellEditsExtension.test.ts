@@ -6,7 +6,9 @@ import { createEventBus } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import shellEdits, {
   changedFiles,
+  imageBudget,
   namesFolder,
+  withImages,
 } from "./shellEditsExtension.ts";
 import { answerPlanned, CHANGED_UNPLANNED } from "./taskSteps.ts";
 import { workingTree } from "./worktreeGit.ts";
@@ -63,6 +65,79 @@ it("keeps each file's diff with it when one changed type", async () => {
   expect(edits.map((e) => e.path)).toEqual(["link", "zz.ts"]);
   expect(edits[0].diff).toContain("+plain");
   expect(edits[1].diff).toContain("+last");
+});
+
+it("adds a changed image's versions, one when it's new or deleted", async () => {
+  writeFileSync(join(repo, "old.png"), "v1");
+  writeFileSync(join(repo, "gone.png"), "g");
+  const before = await tree();
+  writeFileSync(join(repo, "old.png"), "v2");
+  writeFileSync(join(repo, "new.svg"), "<svg/>");
+  rmSync(join(repo, "gone.png"));
+  const after = await tree();
+  const edits = await withImages(
+    repo,
+    [before, after],
+    await changedFiles(repo, before, after),
+    imageBudget(),
+  );
+
+  expect(edits).toMatchObject([
+    { path: "gone.png", before: image("g"), after: undefined },
+    {
+      path: "new.svg",
+      before: undefined,
+      after: image("<svg/>", "image/svg+xml"),
+    },
+    { path: "old.png", before: image("v1"), after: image("v2") },
+  ]);
+});
+
+const image = (text: string, mimeType = "image/png") => ({
+  type: "image",
+  data: Buffer.from(text).toString("base64"),
+  mimeType,
+});
+
+async function imagesWith(budget: { bytes: number }, change: () => void) {
+  const before = await tree();
+  change();
+  const after = await tree();
+  const found = await changedFiles(repo, before, after);
+  return withImages(repo, [before, after], found, budget);
+}
+
+it("leaves out what doesn't fit, still adding later images that do", async () => {
+  const budget = { bytes: 6 };
+  const edits = await imagesWith(budget, () => {
+    writeFileSync(join(repo, "a.png"), "too big");
+    writeFileSync(join(repo, "b.png"), "fits");
+    writeFileSync(join(repo, "c.png"), "over");
+  });
+
+  expect(edits.map((e) => e.after)).toEqual([
+    undefined,
+    image("fits"),
+    undefined,
+  ]);
+  expect(budget.bytes).toBe(2);
+});
+
+it("keeps neither version of a modified image when one can't be read", async () => {
+  writeFileSync(join(repo, "a.png"), "v1");
+  const edits = await imagesWith({ bytes: 6 }, () =>
+    writeFileSync(join(repo, "a.png"), "longer v2"),
+  );
+
+  expect(edits[0]).toEqual({ path: "a.png", diff: expect.any(String) });
+});
+
+it("shows no image for an empty file", async () => {
+  const edits = await imagesWith(imageBudget(), () =>
+    writeFileSync(join(repo, "empty.png"), ""),
+  );
+
+  expect(edits[0].after).toBeUndefined();
 });
 
 it("finds nothing when the command changed no file", async () => {

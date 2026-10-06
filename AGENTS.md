@@ -178,7 +178,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   backgroundBash.ts      Background commands per conversation: their logs, stopping them with what they started
   skipWait.ts            Skip wait: the user ends a running bash call and the agent carries on with its output so far
   runOutside.ts          Runs a bash call outside the sandbox once the user approved it
-  shellEditsExtension.ts The files a bash command changed (working tree before and after), shown as edits
+  shellEditsExtension.ts The files a bash command changed (working tree before and after), shown as edits;
+                         an image as its two versions, compared with a dragged line
   ptyShell.ts            Shells in a PTY (node-pty): spawning, killing its tree, its output as screen text
   ptyBash.ts             Background commands' shell in a PTY: stdin from /dev/null, pagers off
   terminal.ts            The user's terminals: a login shell in a PTY (node-pty), mirrored in a headless xterm
