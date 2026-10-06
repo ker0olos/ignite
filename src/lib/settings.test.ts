@@ -34,8 +34,15 @@ describe("loadSettings", () => {
     expect(await loadSettings()).toEqual({
       ...DEFAULT_SETTINGS,
       theme: "dracula",
-      files: { hide_gitignored: false },
+      files: { hide_gitignored: false, show_tree: true },
     });
+  });
+
+  it("reads show_tree and ignores a non-boolean", async () => {
+    fakeFs({ [FILE]: "[files]\nshow_tree = false\n" });
+    expect((await loadSettings()).files.show_tree).toBe(false);
+    fakeFs({ [FILE]: '[files]\nshow_tree = "no"\nhide_gitignored = 1\n' });
+    expect((await loadSettings()).files).toEqual(DEFAULT_SETTINGS.files);
   });
 
   it("reads editor settings", async () => {
@@ -89,10 +96,10 @@ describe("loadSettings", () => {
   });
 
   it("reads whether the sidebar split is resizable", async () => {
-    fakeFs({ [FILE]: "[sidebar]\nresizable_split = true\n" });
-    expect((await loadSettings()).sidebar.resizable_split).toBe(true);
-    fakeFs({ [FILE]: '[sidebar]\nresizable_split = "yes"\n' });
+    fakeFs({ [FILE]: "[sidebar]\nresizable_split = false\n" });
     expect((await loadSettings()).sidebar.resizable_split).toBe(false);
+    fakeFs({ [FILE]: '[sidebar]\nresizable_split = "no"\n' });
+    expect((await loadSettings()).sidebar.resizable_split).toBe(true);
   });
 
   it("reads conversation order settings", async () => {
@@ -131,7 +138,7 @@ describe("loadSettings", () => {
       conversation_order: "oldest_first",
       max_conversations_enabled: false,
       max_conversations: 5,
-      resizable_split: false,
+      resizable_split: true,
     });
   });
 
@@ -242,7 +249,7 @@ describe("loadSettings", () => {
     fakeFs({ [FILE]: `${toml}\n[files]\nhide_gitignored = false\n` });
     expect(await loadSettings()).toEqual({
       ...DEFAULT_SETTINGS,
-      files: { hide_gitignored: false },
+      files: { hide_gitignored: false, show_tree: true },
     });
   });
 });
@@ -264,7 +271,7 @@ describe("saveSettings", () => {
   const next: Settings = {
     theme: "github-dark",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
-    files: { hide_gitignored: false },
+    files: { hide_gitignored: false, show_tree: false },
     conversation: {
       show_thinking: true,
       ask_questions: false,

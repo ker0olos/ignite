@@ -43,7 +43,7 @@ describe("useSettings", () => {
       expect(result.current[0]).toEqual({
         ...DEFAULT_SETTINGS,
         theme: "nord",
-        files: { hide_gitignored: false },
+        files: { hide_gitignored: false, show_tree: true },
       }),
     );
   });
@@ -161,7 +161,7 @@ describe("useSettings", () => {
     const next: Settings = {
       theme: "github-dark",
       editor: { font_family: "Monaco", word_wrap: true },
-      files: { hide_gitignored: true },
+      files: { hide_gitignored: true, show_tree: true },
       conversation: DEFAULT_SETTINGS.conversation,
       sidebar: DEFAULT_SETTINGS.sidebar,
       composer: DEFAULT_SETTINGS.composer,
@@ -186,7 +186,7 @@ describe("useSettings", () => {
     const next: Settings = {
       ...DEFAULT_SETTINGS,
       theme: "dracula",
-      files: { hide_gitignored: false },
+      files: { hide_gitignored: false, show_tree: true },
     };
     await act(() => saveSettings(next));
     expect(result.current[0]).toEqual(next);
