@@ -61,6 +61,7 @@ export function AgentPanel({
               value={running ? null : () => void session.send("Continue")}
             >
               <Conversation
+                key={`${folder}\n${session.session ?? ""}`}
                 transcript={transcript}
                 folder={folder}
                 editor={editor}
