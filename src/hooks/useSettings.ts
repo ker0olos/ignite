@@ -3,6 +3,7 @@ import { codeThemesFor, type ThemeKind } from "@/lib/codeThemes";
 import { DEMO_FOLDER } from "@/lib/demo";
 import { importTheme, themeKind } from "@/lib/codeThemeLoad";
 import { applyPalettes, loadPalettes } from "@/lib/themePalette";
+import { setGlass, setGlassTheme } from "@/lib/window";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -13,16 +14,19 @@ import {
 
 /**
  * User settings from ~/.<APP_NAME>/settings.toml, synced across windows.
- * Also applies the theme as the `dark` class on <html>, and its accent colors. Demo mode starts from
+ * Also applies the theme as the `dark` class on <html>, its accent colors,
+ * and Liquid Glass. Demo mode starts from
  * the defaults and never reads or saves the user's.
  */
 export function useSettings(demo = !!DEMO_FOLDER) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [loaded, setLoaded] = useState(demo);
 
   useEffect(() => {
     if (demo) return;
     loadSettings().then(async (loaded) => {
       setSettings(loaded);
+      setLoaded(true);
       // A theme picked straight from an editor (before themes were copied in)
       // is copied now, so uninstalling that editor can't break it later.
       const theme = await importTheme(loaded.theme);
@@ -50,6 +54,7 @@ export function useSettings(demo = !!DEMO_FOLDER) {
       if (cancelled) return;
       kind = k;
       apply();
+      setGlassTheme(k).catch(() => {});
     });
     loadPalettes(codeThemesFor(theme)).then((palettes) => {
       if (!cancelled) applyPalettes(palettes);
@@ -60,6 +65,13 @@ export function useSettings(demo = !!DEMO_FOLDER) {
       media.removeEventListener("change", apply);
     };
   }, [theme]);
+
+  // Waits for the user's settings, so glass they turned off never flashes on.
+  // In a browser (remote access) there is no window to glaze; the page stays opaque.
+  const glass = settings.mac.liquid_glass;
+  useEffect(() => {
+    if (loaded) setGlass(glass).catch(() => {});
+  }, [loaded, glass]);
 
   /** Shows the change now; resolves once it's saved. */
   function updateSettings(next: Settings) {

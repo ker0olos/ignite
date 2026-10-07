@@ -1,3 +1,5 @@
+import { isMac } from "./window";
+
 /** ⌘↩ approves and ⌘⌫ denies the first waiting call (Ctrl off macOS). */
 export function approvalKey(e: {
   key: string;
@@ -12,16 +14,13 @@ export function approvalKey(e: {
 }
 
 /** A ⌘ shortcut as the platform writes it: ⌘V on macOS, Ctrl+V elsewhere. */
-export function shortcut(
-  key: string,
-  isMac = navigator.userAgent.includes("Mac"),
-) {
-  return `${isMac ? "⌘" : "Ctrl+"}${key}`;
+export function shortcut(key: string, mac = isMac()) {
+  return `${mac ? "⌘" : "Ctrl+"}${key}`;
 }
 
 /** The shortcut hints, with the platform's modifier. */
-export function approvalHints(isMac = navigator.userAgent.includes("Mac")) {
-  return { approve: shortcut("↩", isMac), deny: shortcut("⌫", isMac) };
+export function approvalHints(mac = isMac()) {
+  return { approve: shortcut("↩", mac), deny: shortcut("⌫", mac) };
 }
 
 /** Whether `el` holds typed text, where the shortcuts must keep their usual meaning; an empty box doesn't. */

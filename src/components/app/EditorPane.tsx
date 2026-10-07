@@ -32,7 +32,7 @@ export function EditorPane({
   const diffTab = readDiffTab(active);
   const childTab = readChildTab(active);
   return (
-    <div className="flex h-full min-w-0 flex-col">
+    <div className="flex h-full min-w-0 flex-col glass:bg-background">
       <FileTabs
         files={tabs.files}
         active={active}

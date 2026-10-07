@@ -135,6 +135,7 @@ export function Workspace({
         <ResizablePanelGroup
           orientation="horizontal"
           className="flex-1"
+          data-glass
           defaultLayout={layout.defaultLayout}
           onLayoutChanged={layout.onLayoutChanged}
         >
@@ -151,6 +152,7 @@ export function Workspace({
           <PaneHandle />
           <ResizablePanel
             id="agent"
+            className="glass:bg-background"
             minSize={view === "tasks" ? "640px" : "320px"}
           >
             <div className="relative flex h-full flex-col">{agent}</div>

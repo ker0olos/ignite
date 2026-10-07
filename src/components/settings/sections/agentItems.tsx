@@ -89,15 +89,13 @@ function notificationSoundItem(
   };
 }
 
-/** Settings rows for how the agent works: questions, subagents, full access, keeping the Mac awake. */
+/** Settings rows for how the agent works: questions, subagents, full access, notifications. */
 export function agentItems({
   settings,
   onChange,
-  isMac = navigator.userAgent.includes("Mac"),
 }: {
   settings: Settings;
   onChange: (settings: Settings) => void;
-  isMac?: boolean;
 }): Item[] {
   return [
     fullAccessItem(settings, onChange),
@@ -171,52 +169,5 @@ export function agentItems({
     },
     notificationsItem(settings, onChange),
     notificationSoundItem(settings, onChange),
-    ...(isMac ? awakeItems(settings, onChange) : []),
-  ];
-}
-
-/** The macOS rows that keep the Mac, and optionally its screen, awake. */
-function awakeItems(
-  settings: Settings,
-  onChange: (settings: Settings) => void,
-): Item[] {
-  return [
-    {
-      section: "Agent",
-      title: "Keep Mac awake",
-      description:
-        "Your Mac doesn't sleep while the agent works. It can once the agent finishes or waits for you.",
-      keywords: "sleep caffeinate awake power battery",
-      control: (
-        <Switch
-          checked={settings.power.keep_awake}
-          onCheckedChange={(keep_awake) =>
-            onChange({
-              ...settings,
-              power: { ...settings.power, keep_awake },
-            })
-          }
-        />
-      ),
-    },
-    {
-      section: "Agent",
-      title: "Keep screen awake",
-      description:
-        "The display stays on too while the agent works, so you can watch it.",
-      keywords: "sleep caffeinate awake power battery display screen",
-      control: (
-        <Switch
-          checked={settings.power.keep_screen_awake}
-          disabled={!settings.power.keep_awake}
-          onCheckedChange={(keep_screen_awake) =>
-            onChange({
-              ...settings,
-              power: { ...settings.power, keep_screen_awake },
-            })
-          }
-        />
-      ),
-    },
   ];
 }

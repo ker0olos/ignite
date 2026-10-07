@@ -9,6 +9,7 @@ import type { HostClient } from "@/lib/piHost";
 import { isRemote } from "@/lib/remote";
 import { chime, notices } from "@/lib/notifications";
 import type { Settings } from "@/lib/settings";
+import { isMac } from "@/lib/window";
 
 /**
  * Notifies when a conversation finishes or waits on the user, while the
@@ -17,7 +18,7 @@ import type { Settings } from "@/lib/settings";
 export function useNotifications(
   host: HostClient | null,
   settings: Settings["notifications"],
-  isMac = navigator.userAgent.includes("Mac"),
+  mac = isMac(),
 ) {
   const granted = useRef<Promise<boolean> | null>(null);
   const on = useRef(settings);
@@ -41,7 +42,7 @@ export function useNotifications(
         if (!ok) return;
         for (const { title, body } of found) {
           try {
-            const sound = on.current.sound ? { sound: chime(isMac) } : {};
+            const sound = on.current.sound ? { sound: chime(mac) } : {};
             sendNotification({ title, body, ...sound });
           } catch {
             // a failed notification is not worth surfacing
@@ -49,5 +50,5 @@ export function useNotifications(
         }
       });
     });
-  }, [host, isMac]);
+  }, [host, mac]);
 }
