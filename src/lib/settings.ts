@@ -61,6 +61,8 @@ export type Settings = {
    * `keep_screen_awake`: nor does the display.
    */
   power: { keep_awake: boolean; keep_screen_awake: boolean };
+  /** `liquid_glass`: the sidebar shows Liquid Glass (macOS only). */
+  mac: { liquid_glass: boolean };
   notifications: { enabled: boolean; sound: boolean };
   /** `disabled_tools`: Chrome tools (shared/chrome.ts) the agent doesn't get. */
   chrome: { enabled: boolean; disabled_tools: string[] };
@@ -95,6 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   approval: { mode: "auto", full_access: false },
   subagents: { enabled: true, max: 2 },
   power: { keep_awake: true, keep_screen_awake: false },
+  mac: { liquid_glass: true },
   notifications: { enabled: true, sound: true },
   chrome: { enabled: true, disabled_tools: [] },
   remote: { enabled: false, port: 4280 },
@@ -257,6 +260,7 @@ export async function loadSettings(): Promise<Settings> {
     approval: readApproval(raw.approval),
     subagents: readSubagents(raw.subagents),
     power: { ...DEFAULT_SETTINGS.power, ...raw.power },
+    mac: { ...DEFAULT_SETTINGS.mac, ...raw.mac },
     notifications: {
       ...DEFAULT_SETTINGS.notifications,
       ...raw.notifications,

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { isMac } from "@/lib/window";
 import {
   Bot,
   Brain,
@@ -6,6 +7,7 @@ import {
   Globe,
   Info,
   Keyboard,
+  Laptop,
   MessageSquare,
   Palette,
   Plug,
@@ -52,6 +54,11 @@ export const SECTIONS = {
     brief: "Use it from other devices",
     blurb: "Open the app from your phone or another computer.",
   },
+  Mac: {
+    icon: Laptop,
+    brief: "Glass, sleep",
+    blurb: "How the app looks and behaves on macOS.",
+  },
   Conversation: {
     icon: MessageSquare,
     brief: "What replies show",
@@ -80,7 +87,9 @@ export const SECTIONS = {
 } satisfies Record<string, { icon: LucideIcon; brief: string; blurb: string }>;
 
 export type Section = keyof typeof SECTIONS;
-export const SECTION_NAMES = Object.keys(SECTIONS) as Section[];
+export const SECTION_NAMES = (Object.keys(SECTIONS) as Section[]).filter(
+  (s) => s !== "Mac" || isMac(),
+);
 
 export interface Item {
   section: Section;

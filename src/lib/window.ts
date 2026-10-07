@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import {
   currentMonitor,
   getCurrentWindow,
@@ -9,6 +10,36 @@ import { APP_TITLE } from "./app";
 
 /** True in the Windows build, where the title and menu bars are native. */
 export const isWindows = () => navigator.userAgent.includes("Windows");
+
+/** True on macOS. */
+export const isMac = () => navigator.userAgent.includes("Mac");
+
+// tauri-plugin-liquid-glass's GlassMaterialVariant.Sidebar
+const SIDEBAR_GLASS = 16;
+
+let glassWanted = false;
+
+/**
+ * Puts Liquid Glass (vibrancy before macOS 26) behind the window, or takes it
+ * away. <html> has `glass`, which turns the page transparent where it should
+ * show, only while the glass is there.
+ */
+export async function setGlass(on: boolean) {
+  if (!isMac()) return;
+  glassWanted = on;
+  if (!on) document.documentElement.classList.remove("glass");
+  await invoke("plugin:liquid-glass|set_liquid_glass_effect", {
+    window: getCurrentWindow().label,
+    config: { enabled: on, variant: SIDEBAR_GLASS },
+  });
+  // A later call may have turned it off while this one waited.
+  if (glassWanted) document.documentElement.classList.add("glass");
+}
+
+/** Gives the glass the page's light or dark (null follows macOS); it takes it from the window. */
+export async function setGlassTheme(theme: "light" | "dark" | null) {
+  if (isMac()) await getCurrentWindow().setTheme(theme);
+}
 
 // ponytail: 160pt gutter for Stage Manager's strip, macOS exposes no API for its width
 const STAGE_MANAGER_STRIP = 160;
@@ -49,6 +80,7 @@ export const NEW_WINDOW_OPTIONS = {
   visible: false,
   titleBarStyle: "overlay",
   hiddenTitle: true,
+  transparent: isMac(),
   trafficLightPosition: new LogicalPosition(20, 28),
 } as const;
 

@@ -65,14 +65,9 @@ describe("agentItems", () => {
     });
   });
 
-  it("toggles notifications, on by default, before the awake rows", () => {
+  it("toggles notifications, on by default", () => {
     const onChange = vi.fn();
-    const items = agentItems({
-      settings: DEFAULT_SETTINGS,
-      onChange,
-      isMac: false,
-    });
-    const notify = items.at(-2)!;
+    const notify = agentItems({ settings: DEFAULT_SETTINGS, onChange }).at(-2)!;
     expect(notify.title).toBe("Notifications");
     const { checked, onCheckedChange } = props<SwitchProps>(notify);
     expect(checked).toBe(true);
@@ -86,7 +81,7 @@ describe("agentItems", () => {
   it("toggles the chime, on by default, and only while notifications are on", () => {
     const onChange = vi.fn();
     const sound = (settings: typeof DEFAULT_SETTINGS) =>
-      agentItems({ settings, onChange, isMac: false }).at(-1)!;
+      agentItems({ settings, onChange }).at(-1)!;
     expect(sound(DEFAULT_SETTINGS).title).toBe("Notification sound");
     const { checked, disabled, onCheckedChange } = props<SwitchProps>(
       sound(DEFAULT_SETTINGS),
@@ -102,58 +97,5 @@ describe("agentItems", () => {
       notifications: { enabled: false, sound: true },
     };
     expect(props<SwitchProps>(sound(off)).disabled).toBe(true);
-  });
-
-  it("toggles keeping the Mac awake, and shows it only on macOS", () => {
-    const onChange = vi.fn();
-    const items = agentItems({
-      settings: DEFAULT_SETTINGS,
-      onChange,
-      isMac: true,
-    });
-    const awake = items.at(-2)!;
-    expect(awake.title).toBe("Keep Mac awake");
-    const { checked, onCheckedChange } = props<SwitchProps>(awake);
-    expect(checked).toBe(true);
-    onCheckedChange(false);
-    expect(onChange).toHaveBeenCalledWith({
-      ...DEFAULT_SETTINGS,
-      power: { ...DEFAULT_SETTINGS.power, keep_awake: false },
-    });
-    const other = agentItems({
-      settings: DEFAULT_SETTINGS,
-      onChange,
-      isMac: false,
-    });
-    expect(other).toHaveLength(items.length - 2);
-  });
-
-  it("toggles keeping the screen awake, disabled while the Mac may sleep", () => {
-    const onChange = vi.fn();
-    const screen = agentItems({
-      settings: DEFAULT_SETTINGS,
-      onChange,
-      isMac: true,
-    }).at(-1)!;
-    expect(screen.title).toBe("Keep screen awake");
-    const { checked, disabled, onCheckedChange } = props<
-      SwitchProps & { disabled: boolean }
-    >(screen);
-    expect(checked).toBe(false);
-    expect(disabled).toBe(false);
-    onCheckedChange(true);
-    expect(onChange).toHaveBeenCalledWith({
-      ...DEFAULT_SETTINGS,
-      power: { keep_awake: true, keep_screen_awake: true },
-    });
-    const asleep = agentItems({
-      settings: {
-        ...DEFAULT_SETTINGS,
-        power: { ...DEFAULT_SETTINGS.power, keep_awake: false },
-      },
-      onChange,
-      isMac: true,
-    }).at(-1)!;
-    expect(props<{ disabled: boolean }>(asleep).disabled).toBe(true);
   });
 });

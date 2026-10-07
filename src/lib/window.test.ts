@@ -1,10 +1,13 @@
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import conf from "../../src-tauri/tauri.conf.json";
+import macConf from "../../src-tauri/tauri.macos.conf.json";
 import {
   NEW_WINDOW_OPTIONS,
   fitToScreenAndShow,
   openNewWindow,
+  setGlass,
+  setGlassTheme,
 } from "./window";
 
 type Call = { cmd: string; args: Record<string, unknown> };
@@ -90,6 +93,83 @@ describe("fitToScreenAndShow", () => {
   });
 });
 
+describe("setGlass", () => {
+  const mac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)";
+  const as = (ua: string) =>
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ua);
+  const glazed = () => document.documentElement.classList.contains("glass");
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.documentElement.classList.remove("glass");
+  });
+
+  it("glazes the window on macOS, then marks the page", async () => {
+    as(mac);
+    const calls = fakeWindow(null);
+    await setGlass(true);
+    expect(commands(calls)).toContain(
+      "plugin:liquid-glass|set_liquid_glass_effect",
+    );
+    expect(glazed()).toBe(true);
+  });
+
+  it("leaves the page opaque when the window can't be glazed", async () => {
+    as(mac);
+    mockWindows("main");
+    mockIPC(() => {
+      throw new Error("not allowed");
+    });
+    await expect(setGlass(true)).rejects.toThrow();
+    expect(glazed()).toBe(false);
+  });
+
+  it("takes the glass away, and the page is opaque even if that fails", async () => {
+    as(mac);
+    document.documentElement.classList.add("glass");
+    const calls = fakeWindow(null);
+    await setGlass(false);
+    expect(calls[0].args).toMatchObject({ config: { enabled: false } });
+    expect(glazed()).toBe(false);
+  });
+
+  it("stays opaque when glass is turned off before turning on finished", async () => {
+    as(mac);
+    fakeWindow(null);
+    const on = setGlass(true);
+    await setGlass(false);
+    await on;
+    expect(glazed()).toBe(false);
+  });
+
+  it("does nothing on other platforms", async () => {
+    as("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    const calls = fakeWindow(null);
+    await setGlass(true);
+    expect(calls).toEqual([]);
+    expect(glazed()).toBe(false);
+  });
+});
+
+describe("setGlassTheme", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("sets the window's appearance on macOS", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Macintosh");
+    const calls = fakeWindow(null);
+    await setGlassTheme("dark");
+    expect(calls).toMatchObject([
+      { cmd: "plugin:window|set_theme", args: { value: "dark" } },
+    ]);
+  });
+
+  it("leaves other platforms' windows alone", async () => {
+    const calls = fakeWindow(null);
+    await setGlassTheme("dark");
+    expect(calls).toEqual([]);
+  });
+});
+
 describe("openNewWindow", () => {
   it("creates a window with a new, non-main label and the shared options", async () => {
     const calls = fakeWindow(null);
@@ -123,6 +203,16 @@ describe("NEW_WINDOW_OPTIONS", () => {
     expect(NEW_WINDOW_OPTIONS.trafficLightPosition).toMatchObject(
       main.trafficLightPosition,
     );
+  });
+
+  it("is transparent only on macOS, where the glass shows through", () => {
+    expect(NEW_WINDOW_OPTIONS.transparent).toBe(false);
+    expect(macConf.app.windows[0].transparent).toBe(true);
+  });
+
+  it("matches the main window in the macOS config but for transparency", () => {
+    // Platform configs merge-patch, which replaces the whole windows array.
+    expect(macConf.app.windows).toEqual([{ ...main, transparent: true }]);
   });
 
   it("starts hidden, because fitToScreenAndShow shows it", () => {

@@ -335,8 +335,9 @@ Two places hold persisted data:
   the agent the `subagent` tool; `max` (default 2) caps how many of a
   conversation's run at once; it may start any number, and the rest queue
   (`sidecar/subagentQueue.ts`). Read before each run.
-- **Power settings** (`[power]`): `keep_awake` (on by default, macOS only)
-  runs `caffeinate -i` while any folder's agent works, and ends it when
+- **Mac settings** (shown under Mac, macOS only): `[mac] liquid_glass` (on
+  by default) shows Liquid Glass in the sidebar. `[power]`: `keep_awake` (on
+  by default) runs `caffeinate -i` while any folder's agent works, and ends it when
   every agent finishes or waits on the user (`sidecar/keepAwake.ts`).
   `keep_screen_awake` (off by default) adds `-d`, keeping the display on too.
 - **Notification settings** (`[notifications]`): `enabled` (on by default)
@@ -831,3 +832,13 @@ start empty; the settings folder moves with the name.
   tab is open. Quitting from the Dock still skips confirmation.
 - New windows are created from `NEW_WINDOW_OPTIONS` in `lib/window.ts`, which
   must mirror the main window in `tauri.conf.json` (tested in `window.test.ts`).
+- The sidebar shows Liquid Glass (`tauri-plugin-liquid-glass`, vibrancy before
+  macOS 26) through a transparent window, following `[mac] liquid_glass`.
+  `setGlass` marks `<html>` with `glass` only while it's there, and only then
+  does the page go transparent (`glass:` variant); panes that must stay
+  opaque say `glass:bg-background`.
+  The glass takes light or dark from the window, so the theme sets it too.
+  Only the desktop workspace (`data-glass`) lets it through; other screens
+  stay opaque. Only macOS windows are transparent: `tauri.macos.conf.json`
+  repeats the whole main window, since platform configs merge-patch and
+  replace the `windows` array (`window.test.ts` keeps the copies equal).

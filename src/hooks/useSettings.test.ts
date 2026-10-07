@@ -169,6 +169,7 @@ describe("useSettings", () => {
       approval: { mode: "auto", full_access: false },
       subagents: { enabled: true, max: 2 },
       power: { keep_awake: true, keep_screen_awake: false },
+      mac: { liquid_glass: true },
       notifications: { enabled: true, sound: true },
       chrome: { enabled: true, disabled_tools: [] },
       remote: { enabled: false, port: 4280 },

@@ -9,6 +9,7 @@ import {
 } from "@/components/settings/sections";
 import { aboutItems } from "@/components/settings/sections/aboutItems";
 import { agentItems } from "@/components/settings/sections/agentItems";
+import { macItems } from "@/components/settings/sections/macItems";
 import { chromeItems } from "@/components/settings/sections/chromeItems";
 import { appearanceItems } from "@/components/settings/sections/appearanceItems";
 import { sidebarItems } from "@/components/settings/sections/sidebarItems";
@@ -94,6 +95,7 @@ export function SettingsDialog({
     ...chromeItems({ settings, onChange }),
     ...memoryItems({ memory, folderOpen: !!folder, settings, onChange }),
     ...remoteItems({ settings, onChange, status: remote }),
+    ...macItems(settings, onChange),
     ...appearanceItems({
       themes,
       settings,

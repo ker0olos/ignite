@@ -35,7 +35,7 @@ export function Sidebar({
   showTree: boolean;
 }) {
   return (
-    <aside className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
+    <aside className="flex h-full flex-col bg-sidebar text-sidebar-foreground glass:bg-sidebar/40">
       {/* The name sits beside the traffic lights and wraps below them when it doesn't fit. */}
       <div className="relative shrink-0">
         <div

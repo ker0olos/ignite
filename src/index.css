@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant glass (&:is(.glass [data-glass] *));
 
 @theme inline {
   --font-heading: var(--font-sans);
@@ -140,6 +141,10 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Only the desktop workspace lets the window's glass through; every other screen stays opaque. */
+  .glass body:has([data-glass]) {
+    @apply bg-transparent;
   }
   /* Windows draws wide, light scrollbars; macOS's overlay ones are left alone. */
   .windows,
