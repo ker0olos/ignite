@@ -72,6 +72,18 @@ describe("applyUpdate", () => {
     ).toEqual(task.subtasks);
   });
 
+  it("removes subtasks by their number before the update, then appends", () => {
+    const next = applyUpdate(
+      task,
+      { remove: [1, 5], set: [{ subtask: 2, status: "working" }], add: ["c"] },
+      2,
+    );
+    expect(next.subtasks).toEqual([
+      { ...task.subtasks[1], status: "working" },
+      { title: "c", status: "todo" },
+    ]);
+  });
+
   it("appends trimmed subtasks and skips blank ones", () => {
     const next = applyUpdate(task, { add: [" c ", "  ", ""] }, 2);
     expect(next.subtasks.at(-1)).toEqual({ title: "c", status: "todo" });

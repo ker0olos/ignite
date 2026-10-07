@@ -110,10 +110,11 @@ describe("askTask", () => {
 });
 
 describe("task_update", () => {
-  it("passes on only the statuses and add it defines", async () => {
-    const { asks, run } = load(task);
+  it("passes on only the statuses, remove and add it defines", async () => {
+    const { asks, run } = load({ ...task, interactive: true });
     await run({
       set: [{ subtask: 2, status: "done" }],
+      remove: [1],
       add: ["c"],
       pr: "https://evil/pull/1",
       step: "x",
@@ -122,6 +123,7 @@ describe("task_update", () => {
       kind: "update",
       update: {
         set: [{ subtask: 2, status: "done" }],
+        remove: [1],
         add: ["c"],
         planned: true,
       },
@@ -129,8 +131,15 @@ describe("task_update", () => {
     expect(Object.keys(asks.at(-1)!.update!).sort()).toEqual([
       "add",
       "planned",
+      "remove",
       "set",
     ]);
+  });
+
+  it("never removes subtasks in a task running alone", async () => {
+    const { asks, run } = load(task);
+    await run({ remove: [1] });
+    expect(asks.at(-1)!.update!.remove).toBeUndefined();
   });
 });
 

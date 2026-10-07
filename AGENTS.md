@@ -514,7 +514,7 @@ prompt says what they name.
 
 Tasks and conversations are one thing shown two ways. Every conversation
 plans before it changes files: `task_update` lays out its subtasks and keeps
-them current, and a conversation from the composer joins the Tasks view
+them current (only a conversation the user follows may remove them), and a conversation from the composer joins the Tasks view
 then, as an `interactive` task (titled by its first message) that keeps
 `ask_user`, the user's Chrome and git review as usual. Tasks started from
 the Tasks view hand work to an agent that runs on its own.

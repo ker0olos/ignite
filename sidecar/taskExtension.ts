@@ -82,6 +82,7 @@ The user follows the plan as you go, so keep it true:
 - Work through the subtasks in order. Before starting one, set it to "working"; the moment it's finished, set it to "done", before moving on. Set the finished one and the next one in a single call.
 - A subtask is "done" only once all its work is; don't mark a later one done early.
 - When the user asks for more, or the work turns out to need a step the plan lacks, add it as a subtask before doing it.
+- When the user changes the plan, remove the subtasks it made obsolete instead of leaving them open.
 - Before you end a reply, every subtask you finished is "done".`;
 
 /** The plan so far, added to an interactive conversation's prompt each run so it picks up where it left off. */
@@ -110,6 +111,12 @@ const Params = Type.Object(
             "Statuses to set, all in one call: finishing one subtask and starting the next is one call.",
         },
       ),
+    ),
+    remove: Type.Optional(
+      Type.Array(Type.Integer({ minimum: 1 }), {
+        description:
+          "Numbers of subtasks to drop because the plan changed (numbered as before this call).",
+      }),
     ),
     add: Type.Optional(
       Type.Array(Type.String(), { description: "Subtasks to append." }),
@@ -159,7 +166,7 @@ export default function tasks(pi: ExtensionAPI) {
     name: TASK_TOOL,
     label: "Update the task",
     description:
-      "Lay out this conversation's work as subtasks (it joins the user's task list), confirm them (call with no changes), or set subtasks' statuses.",
+      "Lay out this conversation's work as subtasks (it joins the user's task list), confirm them (call with no changes), set subtasks' statuses, or remove obsolete ones.",
     parameters: Params,
     // pi checks a parallel batch's calls before running any, so an edit beside the plan would be blocked.
     executionMode: "sequential",
@@ -178,8 +185,11 @@ export default function tasks(pi: ExtensionAPI) {
         });
         await joining;
       }
+      // Only the user changes the plan, so a task running alone can't drop their subtasks.
+      const { autonomous: alone } = await known;
       const task = await askTask(pi, "update", {
         set: params.set,
+        remove: alone ? undefined : params.remove,
         add: params.add,
         planned: true,
       });
