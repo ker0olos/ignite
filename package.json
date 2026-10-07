@@ -22,7 +22,7 @@
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "^0.0.77",
     "@base-ui/react": "^1.8.0",
-    "@earendil-works/pi-coding-agent": "^1.0.0",
+    "@earendil-works/pi-coding-agent": "^1.0.2",
     "@react-spring/web": "^10.1.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.3",
