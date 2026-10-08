@@ -237,6 +237,16 @@ describe("mayBeBlocked", () => {
     expect(mayBeBlocked("cp: a: Read-only file system")).toBe(true);
     expect(mayBeBlocked("200 OK")).toBe(false);
   });
+
+  it("leaves a failed CLI's keychain line to refusedLine, not a successful run's", () => {
+    const doppler =
+      "Token not found in system keyring\nDoppler Error: secret not found in keyring";
+    expect(refusedLine(doppler)).toBe("Token not found in system keyring");
+    expect(refusedLine("security: User interaction is not allowed.")).toBe(
+      "security: User interaction is not allowed.",
+    );
+    expect(mayBeBlocked(doppler)).toBe(false);
+  });
 });
 
 describe("explainWhenReported", () => {

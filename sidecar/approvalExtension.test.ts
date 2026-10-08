@@ -24,6 +24,7 @@ import approval, {
 } from "./approvalExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { allowAlways, loadAllowed } from "./sandboxAllow.ts";
+import { stopBackground } from "./backgroundBash.ts";
 import { answerPlanned, READ_ONLY_UNTIL_PLANNED } from "./taskSteps.ts";
 import { WINDOWS_SHELL } from "../src/lib/approvalPolicy.ts";
 
@@ -47,9 +48,14 @@ vi.mock("./sandbox.ts", async (actual) => ({
   }),
 }));
 beforeEach(() => {
+  vi.mocked(stopBackground).mockClear();
   fake.violation = "";
   fake.program = "sh";
 });
+vi.mock("./backgroundBash.ts", async (actual) => ({
+  ...(await actual<typeof import("./backgroundBash.ts")>()),
+  stopBackground: vi.fn(() => true),
+}));
 // Running in the background is bashExtension.test.ts's to check.
 vi.mock("./bashExtension.ts", () => ({
   runBackground: async (_id: string, input: { command: string }) => ({
@@ -156,9 +162,9 @@ function load(tools: { name: string; path: string }[] = []) {
         details,
         isError,
       },
-      { cwd },
+      { cwd, sessionManager: { getSessionId: () => "s1" } },
     );
-  return { asks, call, result, input: () => input, events };
+  return { asks, call, result, input: () => input, events, handlers };
 }
 
 describe("tool_call", () => {
@@ -370,12 +376,49 @@ describe("the sandbox in Auto", () => {
     );
   });
 
-  it("never asks to start a second copy of one left running", async () => {
+  it("ends a blocked background command's sandboxed copy before running it outside", async () => {
     const { asks, call, result } = load();
-    await call("bash", { command: "npm run dev", background: true });
-    const running = { background: { pid: 1 } };
-    expect(await result("permission denied", false, running)).toBeUndefined();
+    await call("bash", {
+      command: "doppler run -- x || npm run dev",
+      background: true,
+    });
+    const running = { background: { pid: 7, running: true } };
+    const outcome = result("Token not found in system keyring", true, running);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.reason).toBe(
+      "Blocked by the sandbox: Token not found in system keyring",
+    );
+    expect(stopBackground).not.toHaveBeenCalled();
+    asks[0].answer(true);
+    await outcome;
+    expect(stopBackground).toHaveBeenCalledWith(7, "s1");
+  });
+
+  it("doesn't take a successful run's keychain line for a block", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "grep -rn keyring src" });
+    expect(
+      await result("src/a.ts: Token not found in system keyring", false),
+    ).toBeUndefined();
     expect(asks).toEqual([]);
+  });
+
+  it("tells the agent how to write the commands allowed outside the sandbox, once per conversation", async () => {
+    const { handlers } = load();
+    const start = (session: string) =>
+      handlers.get("before_agent_start")!(
+        { systemPrompt: "base" },
+        { sessionManager: { getSessionId: () => session } },
+      ) as Promise<{ systemPrompt: string } | undefined>;
+    expect(await start("a")).toBeUndefined();
+    await allowAlways({ kind: "commands", target: "doppler run" });
+    // Kept as it was, so the conversation's prompt cache holds.
+    expect(await start("a")).toBeUndefined();
+    const { systemPrompt } = (await start("b"))!;
+    expect(systemPrompt).toMatch(/^base\n\n## Commands outside the sandbox/);
+    expect(systemPrompt).toContain("`doppler run`");
+    await settings("[approval]\nmode = 'manual'\n");
+    expect(await start("c")).toBeUndefined();
   });
 
   it("reports a command that fails outside the sandbox too", async () => {

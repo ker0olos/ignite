@@ -204,15 +204,24 @@ export function shortHome(path: string, home: string): string {
   return path.startsWith(home + "/") ? "~" + path.slice(home.length) : path;
 }
 
+// The keychain is reached through securityd, which the sandbox's report leaves
+// out, so a failed CLI's stored login (doppler) only shows in its own words.
+const KEYCHAIN =
+  /not found in (?:the )?(?:system )?keyring|user interaction is not allowed/i;
+
 /**
  * The line where a failed command says the OS refused it. The sandbox's own
  * report can arrive too late (macOS logs it after the command ends), but a
- * refused file operation always says so in the command's output.
+ * refused file operation or keychain read always says so in the command's output.
  */
 export function refusedLine(output: string): string | null {
   const line = output
     .split("\n")
-    .find((l) => /operation not permitted|read-only file system/i.test(l));
+    .find(
+      (l) =>
+        /operation not permitted|read-only file system/i.test(l) ||
+        KEYCHAIN.test(l),
+    );
   return line ? line.trim() : null;
 }
 

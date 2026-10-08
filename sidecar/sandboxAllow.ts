@@ -168,3 +168,9 @@ export function commandToAllow(
   const own = commands.filter((c) => c?.split(" ")[0] === blocked);
   return single(new Set(own)) ?? single(new Set(commands));
 }
+
+/** Tells the agent how to write the commands the user lets run outside the sandbox, so their logins work. */
+export const outsideGuidance = (
+  commands: string[],
+) => `## Commands outside the sandbox
+The user lets these run outside the sandbox, with their own logins (which the sandbox can't read, keychain included): ${commands.map((c) => `\`${c}\``).join(", ")}. A bash call runs outside only when each command on its line (joined by &&, ;, || or run by \`$(…)\`), besides cd, starts with one of them, as in \`cd server && ${commands[0]} …\`; what they pipe into runs outside with them. Any other command on the line, \`export X=$(…)\` or a loop or subshell around them included, runs the whole line in the sandbox, where those logins fail. Keep them on lines of their own, and don't copy their tokens into variables.`;

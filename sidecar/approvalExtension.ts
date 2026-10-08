@@ -36,7 +36,6 @@ import {
   canAllow,
   createSandbox,
   isCredential,
-  mayBeBlocked,
   refusedLine,
   shortHome,
   type Sandbox,
@@ -46,10 +45,12 @@ import {
   allowRuleFor,
   loadAllowed,
   commandToAllow,
+  outsideGuidance,
   runsOnly,
   type AllowRule,
 } from "./sandboxAllow.ts";
 import { runOutside } from "./runOutside.ts";
+import { mayHaveBeenBlocked, stopSandboxed } from "./blockedRun.ts";
 import { unplannedWrite, writableUntilPlanned } from "./taskSteps.ts";
 
 // Without these, commands are still checked: as raw text, and for paths
@@ -171,13 +172,6 @@ async function runsOutside(command: string): Promise<boolean> {
   return !!pipelines && runsOnly(pipelines, commands);
 }
 
-/** Left running or skipped by the user: asking to run it outside would start it again. */
-function notRerun(details: unknown) {
-  const ran = details as
-    { background?: unknown; skipped?: unknown } | undefined;
-  return !!(ran?.background || ran?.skipped);
-}
-
 export default function approval(pi: ExtensionAPI) {
   // Sandboxed runs in progress: tool call id → the command as written, and
   // whether the folder was read-only for it (the work not yet planned).
@@ -231,6 +225,7 @@ export default function approval(pi: ExtensionAPI) {
         );
       });
     }
+    stopSandboxed(event.details, ctx.sessionManager.getSessionId());
     return runOutside(event.toolCallId, { ...event.input, command }, ctx);
   }
 
@@ -271,6 +266,20 @@ export default function approval(pi: ExtensionAPI) {
     input.command = await box.wrap(command, ctx.cwd, event.toolCallId, inside);
   });
 
+  // Read once per conversation: a system prompt that changes loses its prompt cache.
+  const guidance = new Map<string, Promise<string>>();
+  const guidanceFor = async () => {
+    if ((await approvalMode()) !== "auto" || !(await sandbox)) return "";
+    const { commands } = await loadAllowed();
+    return commands.length ? `\n\n${outsideGuidance(commands)}` : "";
+  };
+  pi.on("before_agent_start", async (event, ctx) => {
+    const session = ctx.sessionManager.getSessionId();
+    if (!guidance.has(session)) guidance.set(session, guidanceFor());
+    const extra = await guidance.get(session)!;
+    return extra ? { systemPrompt: event.systemPrompt + extra } : undefined;
+  });
+
   // Asked before the call ends, so its row shows the question, not a retry.
   pi.on("tool_result", async (event, ctx) => {
     const run = sandboxed.get(event.toolCallId);
@@ -280,12 +289,7 @@ export default function approval(pi: ExtensionAPI) {
     const text = event.content
       .flatMap((c) => (c.type === "text" ? [c.text] : []))
       .join("\n");
-    // A command that succeeded wasn't stopped, whatever else macOS logged,
-    // unless its output says something was refused or the proxy refused a send.
-    const failed =
-      event.isError || mayBeBlocked(text) || box.sendRefused(event.toolCallId);
-    if (!failed) return;
-    if (notRerun(event.details)) return;
+    if (!mayHaveBeenBlocked(event, box, text)) return;
     const explained = await box.explain(event.toolCallId, text);
     const what = blockedSummary(explained) ?? refusedLine(text);
     if (!what) return;
