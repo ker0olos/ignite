@@ -44,7 +44,7 @@ export function AgentPanel({
 }) {
   const { state, transcript } = session;
   const mainRef = useRef<HTMLElement>(null);
-  const running = transcript?.running ?? false;
+  const running = !!transcript?.running;
   // A folder with no conversation looks like a new one; sending starts it.
   const loading = !state && !session.error && !session.none;
 
