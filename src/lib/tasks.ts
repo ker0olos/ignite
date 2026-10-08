@@ -39,13 +39,23 @@ export function withStatus(tasks: Task[], agents: AgentStatus[]): ShownTask[] {
   });
 }
 
-/** The Tasks view's groups, in the order they show. */
-export const TASK_GROUPS: { label: string; statuses: TaskStatus[] }[] = [
+/** The Tasks view's groups, in the order they show; a `paged` one starts hidden and shows `TASK_PAGE` more, newest first, per click. */
+export const TASK_GROUPS: {
+  label: string;
+  statuses: TaskStatus[];
+  paged?: true;
+}[] = [
   { label: "Needs you", statuses: ["waiting", "declined"] },
   { label: "In progress", statuses: ["working"] },
   { label: "Up next", statuses: ["review", "todo"] },
-  { label: "Done", statuses: ["done"] },
+  { label: "Done", statuses: ["done"], paged: true },
 ];
+
+export const TASK_PAGE = 10;
+
+/** A paged group's first `shown` tasks, most recently updated first. */
+export const pageOf = (tasks: ShownTask[], shown: number) =>
+  tasks.toSorted((a, b) => b.updated - a.updated).slice(0, shown);
 
 /** A pull request's URL as its number ("#41"), or "Pull request" if it has none. */
 export function prLabel(url: string) {

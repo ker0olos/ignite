@@ -57,10 +57,11 @@ export function TasksView({
           <p className="-mt-4 mb-4 text-[13px] text-destructive">{error}</p>
         )}
         <NewTaskRow onClick={() => setSheet(true)} />
-        {TASK_GROUPS.map(({ label, statuses }) => (
+        {TASK_GROUPS.map(({ label, statuses, paged }) => (
           <TaskGroup
             key={label}
             label={label}
+            paged={paged}
             tasks={tasks.filter((t) => statuses.includes(t.status))}
             openId={openId}
             onToggle={(id) => setOpenId(openId === id ? null : id)}

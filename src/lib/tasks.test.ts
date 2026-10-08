@@ -5,6 +5,7 @@ import {
   ago,
   allImages,
   choicesOf,
+  pageOf,
   prLabel,
   taskFromDraft,
   taskImages,
@@ -24,6 +25,21 @@ const task: Task = {
   created: 1,
   updated: 1,
 };
+describe("pageOf", () => {
+  it("takes the first `shown` tasks, most recently updated first", () => {
+    const done = (id: string, updated: number): ShownTask => ({
+      ...task,
+      id,
+      updated,
+      status: "done",
+    });
+    const tasks = [done("a", 1), done("b", 3), done("c", 2)];
+    expect(pageOf(tasks, 0)).toEqual([]);
+    expect(pageOf(tasks, 2).map((t) => t.id)).toEqual(["b", "c"]);
+    expect(pageOf(tasks, 10)).toHaveLength(3);
+  });
+});
+
 describe("allImages", () => {
   it("lists the user's images, then the agent's", () => {
     const image = (name: string) => ({
