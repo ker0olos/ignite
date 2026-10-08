@@ -29,12 +29,17 @@ import type {
 import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
 import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
 import { memoryStatus } from "./cmem.ts";
+import { conversationGitStatus } from "./gitStatus.ts";
 import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
 import type { Task } from "../shared/tasks.ts";
 
 const MEMORY = { state: "stopped", observations: [] } as const;
 vi.mock("./cmem.ts", () => ({ memoryStatus: vi.fn(async () => MEMORY) }));
+vi.mock("./gitStatus.ts", async (original) => ({
+  ...(await original<typeof import("./gitStatus.ts")>()),
+  conversationGitStatus: vi.fn(async () => []),
+}));
 
 type Interaction = Parameters<Runtime["login"]>[2];
 
@@ -3220,6 +3225,42 @@ describe("task_edit and task_save", () => {
       session: "s1",
     });
     expect(await tasks.list("/work")).toEqual([saved]);
+  });
+
+  it("marks a task done when the user closes its conversation, not its folder", async () => {
+    const { tasks, request } = setup(fakeRuntime().runtime);
+    await tasks.save("/work", task({ session: "s1" }));
+    await tasks.save("/work", task({ id: "t2", session: "s2" }));
+    await request({ id: 1, type: "close_session", cwd: "/work" });
+    expect((await tasks.list("/work")).some((t) => t.done)).toBe(false);
+    await request({
+      id: 2,
+      type: "close_session",
+      cwd: "/work",
+      session: "s1",
+    });
+    const [first, second] = await tasks.list("/work");
+    expect(first.done).toBe(true);
+    expect(second.done).toBeUndefined();
+  });
+
+  it("marks a task done once its conversation's pull request is merged", async () => {
+    const { tasks, request, responses } = setup(fakeRuntime().runtime);
+    await request({ id: 1, type: "new_session", cwd: "/work" });
+    const id = (responses()[0] as { data: { session: string } }).data.session;
+    await tasks.save("/work", task({ session: id }));
+    const pr = { number: 1, url: "u", isDraft: false };
+    const repo = { repo: "/r", name: "r", changed: 0, unpushed: 0 };
+    vi.mocked(conversationGitStatus).mockResolvedValueOnce([
+      { ...repo, pr: { ...pr, state: "OPEN" } },
+    ]);
+    await request({ id: 2, type: "git_status", session: id });
+    expect((await tasks.list("/work"))[0].done).toBeUndefined();
+    vi.mocked(conversationGitStatus).mockResolvedValueOnce([
+      { ...repo, pr: { ...pr, state: "MERGED" } },
+    ]);
+    await request({ id: 3, type: "git_status", session: id });
+    expect((await tasks.list("/work"))[0].done).toBe(true);
   });
 
   it("refuses to save over an existing task", async () => {
