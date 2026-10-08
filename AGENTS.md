@@ -549,8 +549,8 @@ task is done. Declined, the task is marked `declined`, the agent is told to
 stop and isn't nudged, and the card takes what to change and resumes the
 conversation (`task_resume`). A task's status comes from its
 conversation (`lib/tasks.ts`): working, waiting on the user, finished (to
-review) once idle or closed, done once its pull request opens or the user
-marks it.
+review) once idle, done once its pull request opens or merges (seen by the
+composer's git status), the user closes its conversation, or marks it.
 
 With Model Router on (`[conversation] model_router`), before a conversation's
 first message (a composer conversation's, or a Tasks-view task's as it starts)

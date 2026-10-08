@@ -107,6 +107,16 @@ export async function deleteTask(ctx: HostContext, cwd: string, id: string) {
   return ctx.tasks.remove(cwd, id);
 }
 
+/** Marks conversation `session`'s task done, if it has one that isn't. */
+export async function finishTask(
+  ctx: HostContext,
+  cwd: string,
+  session: string,
+) {
+  const task = (await ctx.tasks.list(cwd)).find((t) => t.session === session);
+  if (task && !task.done) await ctx.tasks.edit(cwd, task.id, { done: true });
+}
+
 /** The tasks under `dir`, every change pushed to the app. */
 export const taskStoreIn = (dir: string, send: (m: HostMessage) => void) =>
   createTaskStore(dir, (cwd, tasks) => send({ type: "tasks", cwd, tasks }));

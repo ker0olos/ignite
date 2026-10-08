@@ -47,7 +47,7 @@ import { listFiles } from "./fileIndex.ts";
 import { createSearch } from "./search.ts";
 import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
-import { deleteTask, resumeTask, startTask } from "./hostTasks.ts";
+import { deleteTask, finishTask, resumeTask, startTask } from "./hostTasks.ts";
 import type { TaskStore } from "./taskStore.ts";
 import {
   closeTerminal,
@@ -92,7 +92,11 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   },
   open_session: (ctx, r) => open(ctx, r.cwd, r.session),
   new_session: (ctx, r) => open(ctx, r.cwd, ctx.sessions.create()),
-  close_session: (ctx, r) => close(ctx, r.cwd, r.session),
+  // The user dismissing a conversation is done with its task.
+  close_session: async (ctx, r) => {
+    await close(ctx, r.cwd, r.session);
+    if (r.session) await finishTask(ctx, r.cwd, r.session);
+  },
   read_session: (ctx, r) => messagesOf(ctx, r.cwd, r.session),
   command_search: (ctx, r) => ctx.search(r),
   session_details: async (ctx, r) => ({
@@ -159,7 +163,13 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   },
   set_trust: (ctx, r) => setTrust(ctx, r.cwd, r.trusted),
   git_diff: (_ctx, r) => fileDiff(r.repo, r.range, r.path),
-  git_status: (ctx, r) => conversationGitStatus(ctx, r.session),
+  git_status: async (ctx, r) => {
+    const repos = await conversationGitStatus(ctx, r.session);
+    const cwd = ctx.agents.get(r.session)?.cwd;
+    if (cwd && repos.some((g) => g.pr?.state === "MERGED"))
+      await finishTask(ctx, cwd, r.session);
+    return repos;
+  },
   git_repo_details: (_ctx, r) => repoDetails(r.repo),
   background_output: (_ctx, r) => backgroundOutput(r.pid, r.session),
   background_stop: (_ctx, r) => stopBackground(r.pid, r.session),
