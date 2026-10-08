@@ -40,8 +40,7 @@ once. Made for macOS; and others.
 - Claude and ChatGPT through your Claude Code and Codex sign-ins, so you use
   the plans you already pay for. API keys work too.
 - Commands run in a sandbox: they write only inside the project, can't read
-  your credentials and reach only package registries and git hosts. Anything
-  risky asks first, or turn on full access and nothing asks.
+  your credentials, and may only read from websites. risky asks first, or turn on full access and nothing asks.
 - ⌘K searches every conversation, file and project, and ⌘P jumps straight
   to a file.
 - Skills and MCP servers import from Claude Code, Codex, Cursor and Claude

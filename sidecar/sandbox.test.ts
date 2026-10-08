@@ -62,8 +62,11 @@ describe("sandboxConfig", () => {
     );
   });
 
-  it("reaches only package registries and git hosts", () => {
+  it("sends anything to package registries and git hosts, untouched", () => {
     expect(config.network.allowedDomains).toEqual(ALLOWED_DOMAINS);
+    expect(config.network.tlsTerminate?.excludeDomains).toEqual(
+      ALLOWED_DOMAINS,
+    );
     expect(ALLOWED_DOMAINS).toContain("registry.npmjs.org");
     expect(ALLOWED_DOMAINS).toContain("github.com");
   });
@@ -77,6 +80,9 @@ describe("sandboxConfig", () => {
       commands: [],
     });
     expect(allowed.network.allowedDomains).toContain("example.com");
+    expect(allowed.network.tlsTerminate?.excludeDomains).toContain(
+      "example.com",
+    );
     expect(allowed.network.allowUnixSockets).toEqual([
       "/Users/me/.docker/run/docker.sock",
     ]);
@@ -162,6 +168,11 @@ describe("blockedSummary", () => {
         "<sandbox_violations>\ndeny network-outbound example.com:443 (host is not on the allow list)\n</sandbox_violations>",
       ),
     ).toBe("network-outbound example.com:443 (host is not on the allow list)");
+    expect(
+      blockedSummary(
+        "<sandbox_violations>\ndeny http-request POST https://a.com/x (Permission denied)\n</sandbox_violations>",
+      ),
+    ).toBe("http-request POST https://a.com/x (Permission denied)");
   });
 
   it("is null without a report", () => {
@@ -179,6 +190,10 @@ describe("blockedAction", () => {
     ["file-write-unlink /Users/me/x", "delete ~/x"],
     ["file-write-data /Users/me/x", "write to ~/x"],
     ["network-outbound example.com:443", "connect to example.com:443"],
+    [
+      "http-request POST https://api.venice.ai/v1/x (Permission denied)",
+      "send a POST to api.venice.ai",
+    ],
   ])("says %s in plain words", (summary, plain) => {
     expect(blockedAction(summary, "/Users/me")).toBe(plain);
   });
@@ -367,13 +382,33 @@ describe.runIf(process.platform === "darwin")("createSandbox on macOS", () => {
     expect(out).not.toContain("secret");
   });
 
-  it("blocks hosts that aren't allowed", async () => {
+  it("blocks sending to hosts that aren't allowed", async () => {
     const { ok, out } = await run(
-      "curl -sS --max-time 10 https://example.com",
+      "curl -sS --fail --max-time 10 -X POST -d x=1 https://example.com",
       "net",
     );
     expect(ok).toBe(false);
-    expect(blockedSummary(out)).toContain("example.com");
+    expect(blockedSummary(out)).toBe(
+      "http-request POST https://example.com/ (Permission denied: only reads (GET, HEAD, OPTIONS) reach hosts off the sandbox's allow list)",
+    );
+    expect(sandbox.sendRefused("net")).toBe(true);
+  }, 20_000);
+
+  it("keeps local services out of reach through the proxy too", async () => {
+    const local = createServer((c) =>
+      c.end("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"),
+    );
+    await new Promise<void>((resolve) => local.listen(0, "127.0.0.1", resolve));
+    try {
+      const { port } = local.address() as { port: number };
+      for (const host of ["127.0.0.1", "localhost", "lvh.me", "[::1]"]) {
+        const curl = `curl -sS --fail --max-time 5 -x "$HTTP_PROXY" --noproxy '' http://${host}:${port}/`;
+        const r = await run(curl, `proxy-${host}`);
+        expect([host, r.ok]).toEqual([host, false]);
+      }
+    } finally {
+      local.close();
+    }
   }, 20_000);
 
   it("runs a background command's terminal as it would outside", async () => {

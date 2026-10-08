@@ -1,8 +1,8 @@
 /**
  * Runs Auto mode's shell commands inside an OS sandbox (Seatbelt on macOS,
  * bubblewrap on Linux) through Anthropic's sandbox-runtime: writes only in the
- * project, temp folders and package caches, no reading credentials, network
- * only to package registries and git hosts.
+ * project, temp folders and package caches, no reading credentials, any
+ * request to package registries and git hosts, and only reads elsewhere.
  */
 import {
   SandboxManager,
@@ -13,16 +13,18 @@ import { join } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
 import {
   allowedFile,
+  hostOf,
   loadAllowed,
   NOTHING_ALLOWED,
   type Allowed,
   type AllowRule,
 } from "./sandboxAllow.ts";
+import { hostReachable, readsOnly } from "./sandboxNetwork.ts";
 import { gitAccess } from "./worktreeGit.ts";
 
 // ponytail: fixed lists; make them settings once someone needs another host
 // or cache.
-/** Hosts sandboxed commands may reach: package registries and git hosts. */
+/** Hosts sandboxed commands may send anything to: package registries and git hosts. */
 export const ALLOWED_DOMAINS = [
   "registry.npmjs.org",
   "registry.yarnpkg.com",
@@ -119,11 +121,15 @@ export function sandboxConfig(
 ): SandboxRuntimeConfig {
   const temp = [...new Set([tmpdir(), "/tmp", "/private/tmp"])];
   const git = gitAccess(cwd);
+  const listed = [...ALLOWED_DOMAINS, ...allowed.hosts];
   return {
+    // Other hosts pass the proxy's host check (hostReachable) and are
+    // TLS-terminated so readsOnly (see createSandbox) sees each method.
     network: {
-      allowedDomains: [...ALLOWED_DOMAINS, ...allowed.hosts],
+      allowedDomains: listed,
       deniedDomains: [],
       allowUnixSockets: allowed.sockets,
+      tlsTerminate: { excludeDomains: listed },
     },
     filesystem: {
       denyRead: CREDENTIALS.map((p) => join(home, p)),
@@ -151,7 +157,7 @@ function blockedLine(output: string): string | undefined {
   // macOS also logs lookups (system-info, mach-lookup) that commands failing
   // for their own reasons made, e.g. a grep with no match; only a file or
   // network denial is worth asking to run outside the sandbox.
-  return lines.find((l) => /file-|network/.test(l));
+  return lines.find((l) => /file-|network|http-request/.test(l));
 }
 
 /** The program the sandbox blocked ("doppler(123) deny(1) …" → doppler); null if unnamed. */
@@ -179,6 +185,8 @@ const BLOCKED_VERBS: [RegExp, string][] = [
 
 /** A `blockedSummary` in plain words ("read ~/.ssh/config"); null if it isn't one. */
 export function blockedAction(summary: string, home: string): string | null {
+  const request = /^http-request (\S+) (\S+)/.exec(summary);
+  if (request) return `send a ${request[1]} to ${hostOf(request[2])}`;
   const [, op, target] = /^(\S+) (.+)$/.exec(summary) ?? [];
   const verb = op && BLOCKED_VERBS.find(([re]) => re.test(op))?.[1];
   if (!verb) return null;
@@ -244,6 +252,8 @@ export type Sandbox = {
   ): Promise<string>;
   /** A failed run's `output` with what the sandbox blocked appended, if anything. */
   explain(id: string, output: string): Promise<string>;
+  /** Whether the run sent a request the proxy refused; clients often exit 0 on its 403. */
+  sendRefused(id: string): boolean;
 };
 
 /**
@@ -258,10 +268,19 @@ export async function createSandbox(
   if (!SandboxManager.isSupportedPlatform()) return undefined;
   const { errors } = SandboxManager.checkDependencies();
   if (errors.length) throw new Error(errors.join("; "));
+  // The proxy keeps the filter it started with, so it reads the hosts live.
+  let listed = ALLOWED_DOMAINS;
+  const filterRequest = readsOnly(() => listed);
+  const withFilter = (config: SandboxRuntimeConfig) => ({
+    ...config,
+    network: { ...config.network, filterRequest },
+  });
   // Each command gets its folder's rules in wrap(); until then, only temp.
+  // ponytail: off-list hosts pass the host check, so raw TCP (SOCKS, non-TLS
+  // CONNECT) reaches them unfiltered; readsOnly only guards HTTP(S).
   await SandboxManager.initialize(
-    sandboxConfig(tmpdir(), home),
-    undefined,
+    withFilter(sandboxConfig(tmpdir(), home)),
+    hostReachable,
     true,
   );
   return {
@@ -270,7 +289,9 @@ export async function createSandbox(
     // allowlist goes there too; it's cheap to swap.
     wrap: async (command, cwd, id, inFolder) => {
       const allowed = await loadAllowed(allowedFile(home));
-      SandboxManager.updateConfig(sandboxConfig(tmpdir(), home, allowed));
+      const config = sandboxConfig(tmpdir(), home, allowed);
+      listed = config.network.allowedDomains;
+      SandboxManager.updateConfig(withFilter(config));
       return SandboxManager.wrapWithSandbox(
         `set -o pipefail; ${command}`,
         undefined,
@@ -283,6 +304,11 @@ export async function createSandbox(
       explainWhenReported(
         (text) => SandboxManager.annotateStderrWithSandboxFailures(id, text),
         output,
+      ),
+    // The proxy records its denials as they happen, so there's no wait.
+    sendRefused: (id) =>
+      /deny http-request/.test(
+        SandboxManager.annotateStderrWithSandboxFailures(id, ""),
       ),
   };
 }

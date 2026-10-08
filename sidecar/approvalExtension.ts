@@ -281,8 +281,10 @@ export default function approval(pi: ExtensionAPI) {
       .flatMap((c) => (c.type === "text" ? [c.text] : []))
       .join("\n");
     // A command that succeeded wasn't stopped, whatever else macOS logged,
-    // unless its output says something was refused.
-    if (!event.isError && !mayBeBlocked(text)) return;
+    // unless its output says something was refused or the proxy refused a send.
+    const failed =
+      event.isError || mayBeBlocked(text) || box.sendRefused(event.toolCallId);
+    if (!failed) return;
     if (notRerun(event.details)) return;
     const explained = await box.explain(event.toolCallId, text);
     const what = blockedSummary(explained) ?? refusedLine(text);
