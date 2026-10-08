@@ -3,7 +3,7 @@ import type {
   ApprovalRequest,
   SessionState,
 } from "../../shared/hostProtocol";
-import type { Task, TaskImage } from "../../shared/tasks";
+import type { Task, TaskImage, TodoItem } from "../../shared/tasks";
 import { toImage } from "@/lib/images";
 
 /** Where a task stands: not started, the agent on it, waiting on the user, its pull request declined, its work to review, or done. */
@@ -124,6 +124,21 @@ export function taskFromDraft(draft: TaskDraft, now = Date.now()): Task {
     updated: now,
     ...(draft.model && { model: draft.model }),
     ...(draft.effort && { effort: draft.effort }),
+  };
+}
+
+/** The .todo items not already in the task list (by title). */
+export const openTodos = (items: TodoItem[], tasks: Task[]) =>
+  items.filter((i) => !tasks.some((t) => t.title === i.title));
+
+/** A .todo item as a new task, its notes naming the folder it came from. */
+export function todoDraft(item: TodoItem): TaskDraft {
+  const from = item.folder && `From ${item.folder}/.todo`;
+  return {
+    title: item.title,
+    notes: [item.notes, from].filter(Boolean).join("\n\n"),
+    images: [],
+    subtasks: [],
   };
 }
 

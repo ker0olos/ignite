@@ -5,11 +5,13 @@ import {
   ago,
   allImages,
   choicesOf,
+  openTodos,
   pageOf,
   prLabel,
   taskFromDraft,
   taskImages,
   tasksLead,
+  todoDraft,
   taskStatus,
   withStatus,
   workingLine,
@@ -25,6 +27,23 @@ const task: Task = {
   created: 1,
   updated: 1,
 };
+describe(".todo items", () => {
+  const item = { folder: "server", title: "Fix it", notes: "Soon." };
+  it("leaves out items already in the task list", () => {
+    const other = { ...item, title: "Other" };
+    expect(openTodos([item, other], [task])).toEqual([other]);
+  });
+  it("adds one as a task naming the folder it came from", () => {
+    expect(todoDraft(item)).toEqual({
+      title: "Fix it",
+      notes: "Soon.\n\nFrom server/.todo",
+      images: [],
+      subtasks: [],
+    });
+    expect(todoDraft({ ...item, folder: "", notes: "" }).notes).toBe("");
+  });
+});
+
 describe("pageOf", () => {
   it("takes the first `shown` tasks, most recently updated first", () => {
     const done = (id: string, updated: number): ShownTask => ({

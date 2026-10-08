@@ -185,6 +185,8 @@ export function tasksAnswers(byFolder: Record<string, Task[]>) {
   const put = (cwd: string, tasks: Task[]) => (byFolder[cwd] = tasks);
   return {
     tasks_list: (r: { cwd: string }) => list(r.cwd),
+    todo_list: () => [],
+    todo_delete: () => [],
     task_save: ({ cwd, task }: { cwd: string; task: Task }) =>
       put(
         cwd,

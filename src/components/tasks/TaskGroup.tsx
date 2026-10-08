@@ -1,6 +1,6 @@
-import { ChevronDown } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { ShowMoreButton } from "@/components/tasks/ShowMoreButton";
+import { TaskGroupHeading } from "@/components/tasks/TaskGroupHeading";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import type { TaskActions } from "@/hooks/useTasks";
 import { pageOf, TASK_PAGE, type ShownTask } from "@/lib/tasks";
@@ -27,10 +27,7 @@ export function TaskGroup({
   const more = Math.min(TASK_PAGE, tasks.length - rows.length);
   return (
     <section>
-      <h2 className="mb-1 flex gap-2 border-b px-2.5 pt-6 pb-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-        {label}
-        <span className="font-normal">{tasks.length}</span>
-      </h2>
+      <TaskGroupHeading label={label} count={tasks.length} />
       {rows.map((task) => (
         <TaskRow
           key={task.id}
@@ -41,17 +38,11 @@ export function TaskGroup({
         />
       ))}
       {more > 0 && (
-        <div className="mt-3 flex justify-center">
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-full px-4 text-[13px] text-muted-foreground"
-            onClick={() => setShown(rows.length + TASK_PAGE)}
-          >
-            {rows.length ? `Show ${more} more` : `Show ${more}`}
-            <ChevronDown />
-          </Button>
-        </div>
+        <ShowMoreButton
+          count={more}
+          more={rows.length > 0}
+          onClick={() => setShown(rows.length + TASK_PAGE)}
+        />
       )}
     </section>
   );

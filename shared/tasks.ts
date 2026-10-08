@@ -114,8 +114,14 @@ export type TaskRequest =
   /** Changes the task's user fields only, keeping the agent's progress. */
   | ({ id: number; type: "task_edit"; cwd: string } & TaskPatch)
   | { id: number; type: "task_delete"; cwd: string; taskId: string }
-  /** Starts the task in a new background conversation and sends it the task. */
-  | { id: number; type: "task_start"; cwd: string; taskId: string }
+  /** Starts the task in a new conversation and sends it the task; `interactive`, one the user follows. */
+  | {
+      id: number;
+      type: "task_start";
+      cwd: string;
+      taskId: string;
+      interactive?: boolean;
+    }
   /** Sends a started task's conversation `text`, reopening it if it closed. */
   | {
       id: number;
@@ -123,10 +129,25 @@ export type TaskRequest =
       cwd: string;
       taskId: string;
       text: string;
-    };
+    }
+  /** The open items of the .todo files in the folder and the folders directly in it. */
+  | { id: number; type: "todo_list"; cwd: string }
+  /** Removes a .todo item from its file. */
+  | { id: number; type: "todo_delete"; cwd: string; item: TodoItem };
 
-/** Each task request resolves to the folder's tasks. */
-export type TaskResponses = Record<TaskRequest["type"], Task[]>;
+/** Each task request resolves to the folder's tasks; todo_list to its .todo items. */
+export type TaskResponses = Record<
+  Exclude<TaskRequest["type"], "todo_list" | "todo_delete">,
+  Task[]
+> & { todo_list: TodoItem[]; todo_delete: TodoItem[] };
+
+/** An open item of a .todo file in the folder (`folder` ""), or in a folder directly in it. */
+export type TodoItem = {
+  folder: string;
+  section?: string;
+  title: string;
+  notes: string;
+};
 
 /** What a task's agent may change with the task tool (see TASK_TOOL). */
 export type TaskUpdate = {
