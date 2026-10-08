@@ -192,7 +192,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   readTools.ts           pi's read showing 400 lines unless told otherwise; `outline`
   outline.ts             A code file's definitions by line (tree-sitter tags queries: TS, JS, Python, Rust, Go)
   hostChildren.ts        Each conversation's subagents and background commands, for the sidebar
-  sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths
+  sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths;
+                         how the agent must write commands allowed outside
+  blockedRun.ts          Whether a sandboxed bash result may have been blocked; ending its background copy
   sandboxNetwork.ts      The sandbox's network policy off its allowlist: public hosts only, reads only
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
   hostMcpCatalog.ts      MCP presets and imports (toServerName, target, mcpCatalog, addPreset, importServers)
@@ -441,7 +443,13 @@ command runs by name (`doppler run`), whichever process read it (doppler
 reads through `security`): from then on, a command line whose every pipeline
 (`$(…)` and `bash -c` included) starts with that command or a cd runs
 outside the sandbox. Shells, interpreters, package runners and file tools
-(`node`, `npm`, `xargs`, `cat`, `curl`, `security`…) are never offered. File tools may also use temp folders without asking, as
+(`node`, `npm`, `xargs`, `cat`, `curl`, `security`…) are never offered.
+The keychain goes through securityd, which the sandbox's report leaves out,
+so a failed command whose CLI says it couldn't find its login in the keyring
+also counts as blocked. While any commands are allowed this way, the system
+prompt (read once per conversation, for its cache) lists them and says how to
+write them. A blocked background command asks like any other; approved, its
+sandboxed copy is ended before it runs outside. File tools may also use temp folders without asking, as
 sandboxed bash can, and each conversation is told of its own scratchpad
 (`$TMPDIR/ignite-scratchpad/<session id>`). Approving a denylisted command also runs it outside. Where the
 sandbox can't start, Auto instead asks for bash commands naming absolute, `~`
