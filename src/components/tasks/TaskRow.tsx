@@ -29,14 +29,14 @@ export function TaskRow({
       <button
         aria-expanded={open}
         onClick={onToggle}
-        className="flex h-[38px] w-full items-center gap-3 rounded-[10px] px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        className="flex min-h-[38px] w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
       >
         <TaskStatusIcon status={task.status} />
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-[13px]",
+            "min-w-0 flex-1 text-[13px]",
             task.status === "done" && "text-muted-foreground",
-            open && "text-[14px] font-semibold",
+            open ? "text-[14px] font-semibold" : "truncate",
           )}
         >
           {task.title}

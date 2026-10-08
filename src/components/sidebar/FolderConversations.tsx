@@ -60,7 +60,6 @@ export function FolderConversations({
             agent={agent}
             activeTab={childActions.activeTab}
             onOpenTab={(tab) => childActions.onOpenTab(cwd, agent.session, tab)}
-            cleared={childActions.cleared}
             onClear={childActions.onClear}
             onStopBackground={(pid) =>
               childActions.onStopBackground(agent.session, pid)

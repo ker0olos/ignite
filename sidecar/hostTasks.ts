@@ -22,20 +22,30 @@ export function taskPrompt(task: Task): string {
 }
 
 /**
- * Starts task `id` in a new conversation that runs in the background (the
- * Tasks view follows it, the conversation isn't switched), and sends it the task.
+ * Starts task `id` in a new conversation and sends it the task: on its own in
+ * the background, or `interactive`, one the user follows, answering once it's open.
  */
-export async function startTask(ctx: HostContext, cwd: string, id: string) {
+export async function startTask(
+  ctx: HostContext,
+  cwd: string,
+  id: string,
+  interactive = false,
+) {
   if (ctx.starting.has(id)) throw new Error("That task is already starting.");
   ctx.starting.add(id);
   try {
-    return await begin(ctx, cwd, id);
+    return await begin(ctx, cwd, id, interactive);
   } finally {
     ctx.starting.delete(id);
   }
 }
 
-async function begin(ctx: HostContext, cwd: string, id: string) {
+async function begin(
+  ctx: HostContext,
+  cwd: string,
+  id: string,
+  interactive: boolean,
+) {
   const task = (await ctx.tasks.list(cwd)).find((t) => t.id === id);
   if (!task) throw new Error("That task no longer exists.");
   if (task.session) throw new Error("That task was already started.");
@@ -53,6 +63,7 @@ async function begin(ctx: HostContext, cwd: string, id: string) {
     error: undefined,
     subtasks: task.subtasks.map((s) => ({ ...s, status: "todo" })),
     updated: Date.now(),
+    ...(interactive && { interactive: true }),
   };
   const tasks = await ctx.tasks.change(cwd, (all) =>
     all.map((t) => (t.id === id ? started : t)),
@@ -70,19 +81,32 @@ async function begin(ctx: HostContext, cwd: string, id: string) {
           : t,
       ),
     );
-  try {
-    await launch(ctx, cwd, session);
-    await runOn(await current(ctx, session), task);
-    const images = task.images.map(({ type, data, mimeType }) => ({
-      type,
-      data,
-      mimeType,
-    }));
-    await prompt(ctx, taskPrompt(task), images, session, fail);
-  } catch (error) {
+  const failed = async (error: unknown) => {
     await close(ctx, cwd, session).catch(() => {});
     return fail(error);
+  };
+  try {
+    await launch(ctx, cwd, session);
+  } catch (error) {
+    return failed(error);
   }
+  const send = async () => {
+    try {
+      await runOn(await current(ctx, session), task);
+      const images = task.images.map(({ type, data, mimeType }) => ({
+        type,
+        data,
+        mimeType,
+      }));
+      await prompt(ctx, taskPrompt(task), images, session, fail);
+    } catch (error) {
+      return failed(error);
+    }
+    return tasks;
+  };
+  // The user follows an interactive one in the conversation, routing and all.
+  if (!interactive) return send();
+  void send();
   return tasks;
 }
 

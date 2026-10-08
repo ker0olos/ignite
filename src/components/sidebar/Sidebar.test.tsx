@@ -51,7 +51,6 @@ const sidebar = (
           activeTab: null,
           onOpenTab: vi.fn(),
           onStopBackground: vi.fn(),
-          cleared: [],
           onClear: vi.fn(),
         },
         onOpenFolder: vi.fn(),

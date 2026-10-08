@@ -68,7 +68,6 @@ src/                     React frontend (almost all logic lives here)
     useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request), read every 5s
     useGitRepoDetails.ts A repository's uncommitted files and unpushed commits, while its composer popover is open
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
-    useClearedChildren.ts  Finished subagents and background commands cleared from the sidebar
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useQuestionKeys.ts   The agent's questions from the keyboard: ↑/↓ between answers, ⌘N own answer, ⌘↩ on, ⌘⌫ skip
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
@@ -79,6 +78,7 @@ src/                     React frontend (almost all logic lives here)
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
     useRemoteAccess.ts   Main window: starts the remote access server, runs browsers' allowed Tauri calls
     useTasks.ts          The folder's tasks, pushed by the sidecar, with status from their conversations
+    useTodos.ts          The open items of the folder's .todo files, read when the Tasks view shows
     useNewTaskSheet.ts   ⌘N / Ctrl+N opens the new-task sheet while the Tasks view shows
     useMarkup.ts         An image's marks being drawn: tools, ink, selection, text, undo/redo;
                          useMarkupKeys.ts its shortcuts, useMarkupImage.ts loading and fitting the image,
@@ -213,6 +213,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
   taskStore.ts           Each folder's tasks in ~/.ignite/tasks, written one at a time, pushed on change
+  todoFile.ts            .todo files' open items (the folder's and its folders'), for the Tasks view; deleting one
   hostTasks.ts           Starts a task in a background conversation; answers the task extension
   taskExtension.ts       task_update for every conversation (plan before edits, joins the task list);
                          a Tasks-view task's autonomy and wrap-up phase
@@ -478,8 +479,8 @@ The sidebar lists each conversation's subagents and background commands
 under it (`AgentStatus` in `shared/agentStatus.ts`, pushed on change).
 Each opens as a tab beside the files (`lib/childTabs.ts`): a subagent's
 whole conversation, rebuilt from its calls in the shown conversation, or a
-command's output, read again each second while it runs. Finished rows can
-be cleared; which were is kept in the window's localStorage.
+command's output, read again each second while it runs. A finished row
+leaves the sidebar, staying only while its tab is the active one.
 
 The `git` and `gh` tools (`sidecar/gitExtension.ts`) run git and the GitHub
 CLI outside the sandbox with the user's credentials, from an argument list
@@ -526,7 +527,14 @@ plans before it changes files: `task_update` lays out its subtasks and keeps
 them current (only a conversation the user follows may remove them), and a conversation from the composer joins the Tasks view
 then, as an `interactive` task (titled by its first message) that keeps
 `ask_user`, the user's Chrome and git review as usual. Tasks started from
-the Tasks view hand work to an agent that runs on its own.
+the Tasks view hand work to an agent that runs on its own. Start in
+conversation (on an unstarted task or a `.todo` item) starts it as an
+`interactive` one instead, sending the task as its first message and showing
+the conversation. The Tasks view also
+lists the open items of the `.todo` files in the folder and the folders
+directly in it (`sidecar/todoFile.ts`: top-level list items under their `##`
+section, struck-through, CLOSED, FIXED or DONE ones left out); Delete removes
+its lines from the file; Add to tasks makes one an unstarted task, and it leaves the list once a task has its title.
 Each folder's tasks live in `~/.ignite/tasks/` (`sidecar/taskStore.ts`,
 one JSON file per folder, images inline). Starting one opens a conversation
 in the background on the task's model and effort (never saved as defaults)

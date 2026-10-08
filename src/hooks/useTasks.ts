@@ -73,11 +73,33 @@ export function useTasks(
     /** Changes a task's fields, e.g. `{ done: true }` or its notes. */
     edit: (taskId: string, patch: TaskEdit) =>
       run(host?.request({ type: "task_edit", cwd, taskId, patch })),
-    /** Saves a new task from the sheet, and starts it when `now`. */
+    /** Saves a new task from the sheet, and starts it when `now`; returns its id. */
     create: async (draft: TaskDraft, now: boolean) => {
       const task = taskFromDraft(draft);
       await save(task);
       if (now) await start(task.id);
+      return task.id;
+    },
+    /** Starts a task in a conversation the user follows, and shows it with `open` once it's open. */
+    startInConversation: async (
+      taskId: string,
+      open: (session: string) => void,
+    ) => {
+      setError(null);
+      try {
+        const tasks = await host?.request({
+          type: "task_start",
+          cwd,
+          taskId,
+          interactive: true,
+        });
+        if (!tasks) return;
+        setLoaded({ cwd, tasks });
+        const session = tasks.find((t) => t.id === taskId)?.session;
+        if (session) open(session);
+      } catch (e) {
+        setError((e as Error).message);
+      }
     },
     /** Stops a started task's agent mid-run. */
     stop: async (taskId: string) => {
@@ -103,7 +125,13 @@ type Tasks = ReturnType<typeof useTasks>;
 /** What a task's row can do: the task actions, and opening its conversation. */
 export type TaskActions = Pick<
   Tasks,
-  "start" | "stop" | "edit" | "remove" | "answer" | "resume"
+  | "start"
+  | "startInConversation"
+  | "stop"
+  | "edit"
+  | "remove"
+  | "answer"
+  | "resume"
 > & {
   onOpenConversation: (session: string) => void;
 };

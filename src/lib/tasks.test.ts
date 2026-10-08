@@ -5,10 +5,13 @@ import {
   ago,
   allImages,
   choicesOf,
+  openTodos,
+  pageOf,
   prLabel,
   taskFromDraft,
   taskImages,
   tasksLead,
+  todoDraft,
   taskStatus,
   withStatus,
   workingLine,
@@ -24,6 +27,38 @@ const task: Task = {
   created: 1,
   updated: 1,
 };
+describe(".todo items", () => {
+  const item = { folder: "server", title: "Fix it", notes: "Soon." };
+  it("leaves out items already in the task list", () => {
+    const other = { ...item, title: "Other" };
+    expect(openTodos([item, other], [task])).toEqual([other]);
+  });
+  it("adds one as a task naming the folder it came from", () => {
+    expect(todoDraft(item)).toEqual({
+      title: "Fix it",
+      notes: "Soon.\n\nFrom server/.todo",
+      images: [],
+      subtasks: [],
+    });
+    expect(todoDraft({ ...item, folder: "", notes: "" }).notes).toBe("");
+  });
+});
+
+describe("pageOf", () => {
+  it("takes the first `shown` tasks, most recently updated first", () => {
+    const done = (id: string, updated: number): ShownTask => ({
+      ...task,
+      id,
+      updated,
+      status: "done",
+    });
+    const tasks = [done("a", 1), done("b", 3), done("c", 2)];
+    expect(pageOf(tasks, 0)).toEqual([]);
+    expect(pageOf(tasks, 2).map((t) => t.id)).toEqual(["b", "c"]);
+    expect(pageOf(tasks, 10)).toHaveLength(3);
+  });
+});
+
 describe("allImages", () => {
   it("lists the user's images, then the agent's", () => {
     const image = (name: string) => ({

@@ -35,7 +35,6 @@ const AGENT_TAB = childTabId({
 function setup(
   shown: string | null = "a",
   activeTab: string | null = null,
-  cleared: string[] = [],
   conversationLimit = { enabled: false, max: 5 },
   rowMap = ROWS,
 ) {
@@ -51,7 +50,6 @@ function setup(
     activeTab,
     onOpenTab: vi.fn(),
     onStopBackground: vi.fn(),
-    cleared,
     onClear: vi.fn(),
   };
   render(
@@ -139,13 +137,9 @@ it("takes a folder off the sidebar from its × button", () => {
 it("lists a conversation's subagents and background commands under it, opening each", () => {
   const { childActions } = setup();
   const text = document.body.textContent ?? "";
-  const at = [
-    "Other work",
-    "agent-1",
-    "npm run dev",
-    "npm run watch",
-    "proj",
-  ].map((s) => text.indexOf(s));
+  const at = ["Other work", "agent-1", "npm run dev", "proj"].map((s) =>
+    text.indexOf(s),
+  );
   expect([...at].sort((x, y) => x - y)).toEqual(at);
   fireEvent.click(screen.getByText("agent-1"));
   expect(childActions.onOpenTab).toHaveBeenCalledWith("/other", "c", AGENT_TAB);
@@ -174,7 +168,7 @@ const WATCH_TAB = childTabId({
 });
 
 it("clears a finished row, not a running one", () => {
-  const { childActions } = setup();
+  const { childActions } = setup("a", WATCH_TAB);
   fireEvent.click(screen.getByRole("button", { name: "Clear npm run watch" }));
   expect(childActions.onClear).toHaveBeenCalledWith(WATCH_TAB);
   expect(
@@ -183,10 +177,9 @@ it("clears a finished row, not a running one", () => {
   expect(screen.queryByRole("button", { name: "Clear agent-1" })).toBeNull();
 });
 
-it("hides cleared rows once they've finished", () => {
-  setup("a", null, [WATCH_TAB, AGENT_TAB]);
+it("hides finished rows unless their tab is active", () => {
+  setup();
   expect(screen.queryByText("npm run watch")).toBeNull();
-  // Running again (given more work), it shows despite being cleared.
   expect(screen.getByText("agent-1")).toBeTruthy();
 });
 
@@ -198,7 +191,7 @@ it("collapses conversations past the configured maximum and expands them", () =>
       row("/proj", "c", "Three"),
     ],
   };
-  setup("a", null, [], { enabled: true, max: 2 }, manyRows);
+  setup("a", null, { enabled: true, max: 2 }, manyRows);
   expect(screen.getByText("One")).toBeTruthy();
   expect(screen.getByText("Two")).toBeTruthy();
   expect(screen.queryByText("Three")).toBeNull();
@@ -220,7 +213,7 @@ it("keeps the selected conversation visible when it is past the collapsed maximu
       row("/proj", "c", "Three"),
     ],
   };
-  setup("c", null, [], { enabled: true, max: 1 }, manyRows);
+  setup("c", null, { enabled: true, max: 1 }, manyRows);
   expect(screen.getByText("One")).toBeTruthy();
   expect(screen.queryByText("Two")).toBeNull();
   expect(screen.getByText("Three")).toBeTruthy();

@@ -24,6 +24,9 @@ export function TaskAgentCard({
         <TaskStart
           error={task.error}
           onStart={() => actions.start(task.id)}
+          onStartInConversation={() =>
+            actions.startInConversation(task.id, actions.onOpenConversation)
+          }
           onDelete={() => actions.remove(task.id)}
         />
       );

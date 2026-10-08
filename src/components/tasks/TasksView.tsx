@@ -1,16 +1,24 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { AgentStatus } from "../../../shared/hostProtocol";
 import type { TaskImage } from "../../../shared/tasks";
 import type { ModelRouter } from "@/components/agent/Composer";
 import { NewTaskDialog } from "@/components/tasks/NewTaskDialog";
 import { NewTaskRow } from "@/components/tasks/NewTaskRow";
 import { TaskGroup } from "@/components/tasks/TaskGroup";
+import { TodoGroup } from "@/components/tasks/TodoGroup";
 import { useProvideImageTarget } from "@/hooks/useImageTarget";
 import { useNewTaskSheet } from "@/hooks/useNewTaskSheet";
 import { useTasks } from "@/hooks/useTasks";
+import { useTodos } from "@/hooks/useTodos";
 import { DEMO_OPEN_TASK } from "@/lib/demo";
 import type { HostClient } from "@/lib/piHost";
-import { TASK_GROUPS, tasksLead, type TaskDraft } from "@/lib/tasks";
+import {
+  openTodos,
+  TASK_GROUPS,
+  tasksLead,
+  todoDraft,
+  type TaskDraft,
+} from "@/lib/tasks";
 
 /** The folder's tasks as one checklist: rows open in place. */
 export function TasksView({
@@ -27,6 +35,7 @@ export function TasksView({
   onOpenConversation: (session: string) => void;
 }) {
   const { tasks, error, create, ...rest } = useTasks(host, folder, agents);
+  const todos = useTodos(host, folder);
   const [openId, setOpenId] = useState<string | null>(DEMO_OPEN_TASK);
   const [sheet, setSheet] = useNewTaskSheet();
   const [seed, setSeed] = useState<TaskImage[]>([]);
@@ -57,15 +66,29 @@ export function TasksView({
           <p className="-mt-4 mb-4 text-[13px] text-destructive">{error}</p>
         )}
         <NewTaskRow onClick={() => setSheet(true)} />
-        {TASK_GROUPS.map(({ label, statuses }) => (
-          <TaskGroup
-            key={label}
-            label={label}
-            tasks={tasks.filter((t) => statuses.includes(t.status))}
-            openId={openId}
-            onToggle={(id) => setOpenId(openId === id ? null : id)}
-            actions={{ ...rest, onOpenConversation }}
-          />
+        {TASK_GROUPS.map(({ label, statuses, paged }) => (
+          <Fragment key={label}>
+            {paged && (
+              <TodoGroup
+                items={openTodos(todos.items, tasks)}
+                onAdd={(item) => void create(todoDraft(item), false)}
+                onDelete={(item) => void todos.remove(item)}
+                onStartInConversation={(item) =>
+                  void create(todoDraft(item), false).then((id) =>
+                    rest.startInConversation(id, onOpenConversation),
+                  )
+                }
+              />
+            )}
+            <TaskGroup
+              label={label}
+              paged={paged}
+              tasks={tasks.filter((t) => statuses.includes(t.status))}
+              openId={openId}
+              onToggle={(id) => setOpenId(openId === id ? null : id)}
+              actions={{ ...rest, onOpenConversation }}
+            />
+          </Fragment>
         ))}
       </div>
       <NewTaskDialog

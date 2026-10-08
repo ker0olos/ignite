@@ -234,6 +234,27 @@ describe("startTask", () => {
     expect(t.session).toBeUndefined();
     expect(t.error).toContain("no key");
   });
+
+  it("answers an interactive start once its conversation opens, then sends the task", async () => {
+    const { ctx: c, tasks } = setUp();
+    await tasks.save("/a", task());
+    let sent = () => {};
+    vi.mocked(prompt).mockImplementationOnce(
+      () => new Promise<void>((resolve) => (sent = resolve)),
+    );
+    const [t] = await startTask(c, "/a", "t1", true);
+    expect(t).toMatchObject({ session: "s1", interactive: true });
+    await vi.waitFor(() =>
+      expect(prompt).toHaveBeenCalledWith(
+        c,
+        "Fix it",
+        [],
+        "s1",
+        expect.any(Function),
+      ),
+    );
+    sent();
+  });
 });
 
 describe("resumeTask", () => {

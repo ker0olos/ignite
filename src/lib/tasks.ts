@@ -3,7 +3,7 @@ import type {
   ApprovalRequest,
   SessionState,
 } from "../../shared/hostProtocol";
-import type { Task, TaskImage } from "../../shared/tasks";
+import type { Task, TaskImage, TodoItem } from "../../shared/tasks";
 import { toImage } from "@/lib/images";
 
 /** Where a task stands: not started, the agent on it, waiting on the user, its pull request declined, its work to review, or done. */
@@ -39,13 +39,23 @@ export function withStatus(tasks: Task[], agents: AgentStatus[]): ShownTask[] {
   });
 }
 
-/** The Tasks view's groups, in the order they show. */
-export const TASK_GROUPS: { label: string; statuses: TaskStatus[] }[] = [
+/** The Tasks view's groups, in the order they show; a `paged` one starts hidden and shows `TASK_PAGE` more, newest first, per click. */
+export const TASK_GROUPS: {
+  label: string;
+  statuses: TaskStatus[];
+  paged?: true;
+}[] = [
   { label: "Needs you", statuses: ["waiting", "declined"] },
   { label: "In progress", statuses: ["working"] },
   { label: "Up next", statuses: ["review", "todo"] },
-  { label: "Done", statuses: ["done"] },
+  { label: "Done", statuses: ["done"], paged: true },
 ];
+
+export const TASK_PAGE = 10;
+
+/** A paged group's first `shown` tasks, most recently updated first. */
+export const pageOf = (tasks: ShownTask[], shown: number) =>
+  tasks.toSorted((a, b) => b.updated - a.updated).slice(0, shown);
 
 /** A pull request's URL as its number ("#41"), or "Pull request" if it has none. */
 export function prLabel(url: string) {
@@ -114,6 +124,21 @@ export function taskFromDraft(draft: TaskDraft, now = Date.now()): Task {
     updated: now,
     ...(draft.model && { model: draft.model }),
     ...(draft.effort && { effort: draft.effort }),
+  };
+}
+
+/** The .todo items not already in the task list (by title). */
+export const openTodos = (items: TodoItem[], tasks: Task[]) =>
+  items.filter((i) => !tasks.some((t) => t.title === i.title));
+
+/** A .todo item as a new task, its notes naming the folder it came from. */
+export function todoDraft(item: TodoItem): TaskDraft {
+  const from = item.folder && `From ${item.folder}/.todo`;
+  return {
+    title: item.title,
+    notes: [item.notes, from].filter(Boolean).join("\n\n"),
+    images: [],
+    subtasks: [],
   };
 }
 

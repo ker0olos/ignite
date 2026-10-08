@@ -80,6 +80,23 @@ describe("useTasks", () => {
     ]);
   });
 
+  it("starts a task in a conversation and shows it, or shows the failure", async () => {
+    const host = fakeHost(async (r) => {
+      if (r.type === "tasks_list") return [task];
+      if ((r as { taskId?: string }).taskId === "bad") throw new Error("no");
+      return [{ ...task, session: "s1", interactive: true }];
+    });
+    const { result } = renderHook(() => useTasks(host, "/p", []));
+    await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+    const open = vi.fn();
+    await act(() => result.current.startInConversation("t1", open));
+    expect(requests(host).at(-1)).toMatchObject({ interactive: true });
+    expect(open).toHaveBeenCalledWith("s1");
+    await act(() => result.current.startInConversation("bad", open));
+    expect(result.current.error).toBe("no");
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
   it("edits by sending only the patch", async () => {
     const host = fakeHost(async () => [task]);
     const { result } = renderHook(() => useTasks(host, "/p", []));

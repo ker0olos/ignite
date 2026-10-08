@@ -49,6 +49,7 @@ import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
 import { deleteTask, finishTask, resumeTask, startTask } from "./hostTasks.ts";
 import type { TaskStore } from "./taskStore.ts";
+import { deleteTodo, readTodos } from "./todoFile.ts";
 import {
   closeTerminal,
   openTerminal,
@@ -175,10 +176,12 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   background_stop: (_ctx, r) => stopBackground(r.pid, r.session),
   skip_wait: (_ctx, r) => skipWait(r.toolCallId),
   tasks_list: (ctx, r) => ctx.tasks.list(r.cwd),
+  todo_list: (_ctx, r) => readTodos(r.cwd),
+  todo_delete: (_ctx, r) => deleteTodo(r.cwd, r.item),
   task_save: (ctx, r) => ctx.tasks.save(r.cwd, r.task),
   task_edit: (ctx, r) => ctx.tasks.edit(r.cwd, r.taskId, r.patch),
   task_delete: (ctx, r) => deleteTask(ctx, r.cwd, r.taskId),
-  task_start: (ctx, r) => startTask(ctx, r.cwd, r.taskId),
+  task_start: (ctx, r) => startTask(ctx, r.cwd, r.taskId, r.interactive),
   task_resume: (ctx, r) => resumeTask(ctx, r.cwd, r.taskId, r.text),
   terminal_open: (ctx, r) => openTerminal(r.cwd, r.cols, r.rows, ctx.send),
   terminal_input: (_ctx, r) => writeTerminal(r.terminal, r.data),

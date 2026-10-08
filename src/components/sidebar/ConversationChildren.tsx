@@ -2,11 +2,10 @@ import type { AgentStatus } from "../../../shared/hostProtocol";
 import { ChildRow } from "@/components/sidebar/ChildRow";
 import { childTabs } from "@/lib/childTabs";
 
-/** A conversation's subagents and background commands under its row, less the finished ones the user cleared. */
+/** A conversation's subagents and background commands under its row, while they run; a finished one only while its tab is active. */
 export function ConversationChildren({
   agent,
   activeTab,
-  cleared,
   onOpenTab,
   onStopBackground,
   onClear,
@@ -14,14 +13,12 @@ export function ConversationChildren({
   agent: AgentStatus;
   /** The shown folder's active tab, to select its row. */
   activeTab: string | null;
-  /** Tab ids of finished rows the user cleared. */
-  cleared: string[];
   onOpenTab: (tab: string) => void;
   onStopBackground: (pid: number) => void;
   onClear: (tab: string) => void;
 }) {
   return childTabs(agent)
-    .filter(({ id, running }) => running || !cleared.includes(id))
+    .filter(({ id, running }) => running || id === activeTab)
     .map(({ id, tab, label, running }) => (
       <ChildRow
         key={id}
