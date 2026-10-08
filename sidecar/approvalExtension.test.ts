@@ -43,6 +43,7 @@ vi.mock("./sandbox.ts", async (actual) => ({
       fake.violation
         ? `${output}\n<sandbox_violations>\n${fake.program}(1) deny(1) ${fake.violation}\n</sandbox_violations>`
         : output,
+    sendRefused: () => fake.violation.startsWith("http-request"),
   }),
 }));
 beforeEach(() => {
@@ -428,6 +429,20 @@ describe("the sandbox in Auto", () => {
     expect(asks[0].request.reason).toBe(
       "Tried to connect to /Users/me/.docker/run/docker.sock",
     );
+    asks[0].answer(false);
+    await outcome;
+  });
+
+  it("asks when the proxy refused a send its client took as a 403", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "curl -X POST https://api.example.com" });
+    fake.violation = "http-request POST https://api.example.com/ (denied)";
+    const outcome = result("403", false);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].request.reason).toBe(
+      "Tried to send a POST to api.example.com",
+    );
+    expect(asks[0].request.allow).toBe("api.example.com");
     asks[0].answer(false);
     await outcome;
   });

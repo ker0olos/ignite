@@ -193,6 +193,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   outline.ts             A code file's definitions by line (tree-sitter tags queries: TS, JS, Python, Rust, Go)
   hostChildren.ts        Each conversation's subagents and background commands, for the sidebar
   sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths
+  sandboxNetwork.ts      The sandbox's network policy off its allowlist: public hosts only, reads only
   hostMcp.ts             MCP server lifecycle (rememberSignIns, servers, pushMcpServers, changeMcp)
   hostMcpCatalog.ts      MCP presets and imports (toServerName, target, mcpCatalog, addPreset, importServers)
   hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, copySignIn), run in the MCP session
@@ -416,8 +417,16 @@ other bash command runs without asking inside an OS sandbox
 (`sidecar/sandbox.ts`, Anthropic's `@anthropic-ai/sandbox-runtime`: Seatbelt
 on macOS, bubblewrap on Linux). It may write only in the folder, temp
 folders and package caches, can't read credentials (`~/.ssh`, `~/.aws`,
-keychains, auth files) and reaches only package registries and git hosts
-through the runtime's proxy, which runs in the sidecar. Commands run with
+keychains, auth files) and goes online through the runtime's proxy, which
+runs in the sidecar: package registries and git hosts take any request,
+other hosts only reads (GET, HEAD, OPTIONS; not a WebSocket's opening GET),
+and only if their name resolves to public addresses, never an IP literal
+or `localhost` (`sidecar/sandboxNetwork.ts`). The proxy decrypts those
+hosts' HTTPS with its own CA to see the method (`readsOnly`, which reads
+the allowlist live); a POST or upload gets a 403, and the run asks like any
+block even when the client exited 0 (`sendRefused`). It guards against
+mistakes, not exfiltration: a GET's URL carries data, and raw TCP (SOCKS)
+reaches those hosts unfiltered. Commands run with
 `pipefail`. When a command was blocked (it failed, or its output says so),
 the same call asks the user before it ends; approved, the
 extension runs it outside the sandbox and that output is the result, declined,

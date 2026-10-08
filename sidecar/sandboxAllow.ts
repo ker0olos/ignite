@@ -83,21 +83,34 @@ async function save(rule: AllowRule, file: string) {
   await writeFile(file, JSON.stringify(next, null, 2) + "\n");
 }
 
+/** The host of a URL, or the text itself when it isn't one. */
+export function hostOf(url = ""): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
 /**
  * The rule that lets a `blockedSummary` through next time
  * ("network-outbound /x.sock", "network-outbound host:443 (…)",
- * "file-read-data /path"); null for anything else.
+ * "http-request POST https://host/path (…)", "file-read-data /path");
+ * null for anything else.
  */
 export function allowRuleFor(summary: string): AllowRule | null {
   const [, op, target] = /^(\S+) (.+)$/.exec(summary) ?? [];
   if (!op) return null;
   if (op.startsWith("file-read")) return { kind: "read", target };
   if (op.startsWith("file-write")) return { kind: "write", target };
+  if (op === "http-request") return hostRule(hostOf(target.split(" ")[1]));
   if (op !== "network-outbound") return null;
   if (target.startsWith("/")) return { kind: "sockets", target };
-  const host = target.split(" ")[0].replace(/:\d+$/, "");
-  return host ? { kind: "hosts", target: host } : null;
+  return hostRule(target.split(" ")[0].replace(/:\d+$/, ""));
 }
+
+const hostRule = (host: string): AllowRule | null =>
+  host ? { kind: "hosts", target: host } : null;
 
 const isCd = (pipeline: Pipeline) =>
   pipeline.length === 1 && pipeline[0].words[0] === "cd";

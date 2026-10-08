@@ -91,6 +91,11 @@ describe("allowRuleFor", () => {
       "/Users/me/My Files/a.txt",
     ],
     ["file-write-create /Users/me/x", "write", "/Users/me/x"],
+    [
+      "http-request POST https://api.example.com/v1/x (Permission denied: …)",
+      "hosts",
+      "api.example.com",
+    ],
   ])("%s", (summary, kind, target) => {
     expect(allowRuleFor(summary)).toEqual({ kind, target });
   });
