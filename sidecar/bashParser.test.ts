@@ -45,6 +45,19 @@ describe("loadBashParser", () => {
     ]);
   });
 
+  it("gives a redirect after && to the last command, not the whole list", () => {
+    expect(parse("cd /x && doppler run -- a 2>&1 | tail -5")).toEqual([
+      [
+        {
+          words: ["doppler", "run", "--", "a"],
+          redirects: [{ operator: "2>&", target: "1" }],
+        },
+        { words: ["tail", "-5"], redirects: [] },
+      ],
+      [{ words: ["cd", "/x"], redirects: [] }],
+    ]);
+  });
+
   it("finds commands inside substitutions, functions and subshells", () => {
     expect(words("echo $(whoami) <(date) && (cd x; pwd)")).toEqual([
       [["echo", "$(whoami)", "<(date)"]],

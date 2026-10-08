@@ -53,11 +53,28 @@ function simple(node: Node): SimpleCommand {
   return { words, redirects: [] };
 }
 
+// tree-sitter reads `a && b 2>&1 | c` as `(a && b) 2>&1 | c`; bash gives the redirect and the pipe to `b`.
+const bodyOf = (node: Node) => lastOfList(node.childForFieldName("body"));
+const lastOfList = (node: Node | null): Node | null =>
+  node?.type === "list" ? lastOfList(node.lastNamedChild) : node;
+
+/** Whether `node` is the command a redirected statement's body ends with. */
+function endsRedirected(node: Node) {
+  let at = node;
+  while (at.parent?.type === "list" && at.parent.lastNamedChild?.equals(at)) {
+    at = at.parent;
+  }
+  const owner = at.parent;
+  return (
+    owner?.type === "redirected_statement" && !!bodyOf(owner)?.equals(node)
+  );
+}
+
 /** The command a stage runs and its file redirects, or null for other syntax. */
 function stage(node: Node): SimpleCommand | null {
   if (node.type === "command") return simple(node);
   if (node.type !== "redirected_statement") return null;
-  const body = node.childForFieldName("body");
+  const body = bodyOf(node);
   const command =
     body?.type === "command" ? simple(body) : { words: [], redirects: [] };
   for (const redirect of node.childrenForFieldName("redirect")) {
@@ -83,10 +100,7 @@ const commandStart = (words: string[]) =>
 
 /** Code a command runs from a string: `bash -c "…"`, `eval …`, or a heredoc fed to a shell. */
 function nestedCode(node: Node): string[] {
-  const command =
-    node.type === "redirected_statement"
-      ? node.childForFieldName("body")
-      : node;
+  const command = node.type === "redirected_statement" ? bodyOf(node) : node;
   if (command?.type !== "command") return [];
   const nodes = [
     command.childForFieldName("name"),
@@ -111,7 +125,7 @@ function nestedCode(node: Node): string[] {
 
 const inPipeline = (node: Node) =>
   node.parent?.type === "pipeline" ||
-  (node.type === "command" && node.parent?.type === "redirected_statement");
+  (node.type === "command" && endsRedirected(node));
 
 /** The pipeline this node starts, if it is a pipeline or a command of its own. */
 function pipelineAt(node: Node): Pipeline | null {
@@ -125,7 +139,7 @@ function pipelineAt(node: Node): Pipeline | null {
 /** A command with its redirects, counted once (not again as its bare body). */
 const isStatement = (node: Node) =>
   node.type === "redirected_statement" ||
-  (node.type === "command" && node.parent?.type !== "redirected_statement");
+  (node.type === "command" && !endsRedirected(node));
 
 function visit(
   node: Node,
