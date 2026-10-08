@@ -10,7 +10,7 @@ import { assistant, call, result, T } from "./demoTranscript";
 
 const DEV_PID = 48213;
 const LOG = `/tmp/ignite-background/${DEV_PID}.log`;
-const HELPER = { model: "claude-haiku-4-5", effort: "low" };
+const HELPER = { model: "claude-haiku-5-5", effort: "low" };
 
 const serve = call("p1", "bash", { command: "npm run dev", background: true });
 const searchAgent = call("p2", SUBAGENT_TOOL, {
