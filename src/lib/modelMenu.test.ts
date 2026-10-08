@@ -8,11 +8,11 @@ const m = (provider: string, id: string, name: string): ModelInfo => ({
   name,
 });
 const opus55 = m("anthropic", "claude-opus-5-5", "Claude Opus 5.5");
-const haiku = m("anthropic", "claude-haiku-4-5", "Claude Haiku 4.5 (latest)");
+const haiku = m("anthropic", "claude-haiku-5-5", "Claude Haiku 5.5 (latest)");
 const haikuDated = m(
   "anthropic",
-  "claude-haiku-4-5-20251001",
-  "Claude Haiku 4.5",
+  "claude-haiku-5-5-20261001",
+  "Claude Haiku 5.5",
 );
 const opus45 = m("anthropic", "claude-opus-4-5", "Claude Opus 4.5 (latest)");
 const opus45Dated = m(
@@ -37,7 +37,7 @@ describe("modelMenu", () => {
           },
           {
             ...haiku,
-            label: "Haiku 4.5",
+            label: "Haiku 5.5",
             description: "Fastest for quick answers",
           },
         ],

@@ -46,7 +46,7 @@ export const DEMO_STATE: SessionState = {
     claude("claude-fable-5-1", "Claude Fable 5.1"),
     OPUS,
     claude("claude-sonnet-5-5", "Claude Sonnet 5.5"),
-    claude("claude-haiku-4-5", "Claude Haiku 4.5"),
+    claude("claude-haiku-5-5", "Claude Haiku 5.5"),
   ],
   model: OPUS,
   thinkingLevel: "high",

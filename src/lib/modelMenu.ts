@@ -32,8 +32,8 @@ const FEATURED: Featured[] = [
   },
   {
     providers: ["claude-bridge", "anthropic"],
-    id: "claude-haiku-4-5",
-    label: "Haiku 4.5",
+    id: "claude-haiku-5-5",
+    label: "Haiku 5.5",
     description: "Fastest for quick answers",
   },
   {
