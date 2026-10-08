@@ -270,14 +270,15 @@ export async function prompt(
   const agent = target(ctx, session);
   const s = await current(ctx, session);
   await agent!.ready;
-  // Writing instead of answering declines what waits; the message says what to do instead.
-  denyAll(ctx, agent!);
   if (s.isStreaming) rememberImages(agent!, text, images);
   // A message sent mid-run steers the run; a conversation's first one may be routed.
   else if (!(await routeMessage(ctx, agent!, s, text, images))) return;
   const options = {
     ...(s.isStreaming && { streamingBehavior: queue }),
     ...(images?.length ? { images } : {}),
+    // Writing instead of answering declines what waits, once pi holds the
+    // message: declined earlier, the run's next turn starts without it.
+    preflightResult: () => denyAll(ctx, agent!),
   };
   s.prompt(text, options).catch(onError ?? reportTo(ctx, agent!));
 }

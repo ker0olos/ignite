@@ -123,12 +123,17 @@ function fakeSession() {
     prompt: vi.fn(
       async (
         text: string,
-        o: { streamingBehavior?: "steer" | "followUp" } = {},
+        o: {
+          streamingBehavior?: "steer" | "followUp";
+          preflightResult?: () => void;
+        } = {},
       ) => {
-        if (!session.isStreaming) return;
-        const kind =
-          o.streamingBehavior === "followUp" ? "followUp" : "steering";
-        session.queue[kind].push(text);
+        if (session.isStreaming) {
+          const kind =
+            o.streamingBehavior === "followUp" ? "followUp" : "steering";
+          session.queue[kind].push(text);
+        }
+        o.preflightResult?.();
       },
     ),
     steer: vi.fn(async (text: string) => {
@@ -1599,7 +1604,7 @@ describe("sessions", () => {
       session: "/work:saved",
     });
     await request({ id: 2, type: "prompt", text: "Fix it" });
-    expect(session.prompt).toHaveBeenCalledWith("Fix it", {});
+    expect(session.prompt).toHaveBeenCalledWith("Fix it", expect.anything());
     expect(responses()[1]).toEqual({ type: "response", id: 2, ok: true });
   });
 
@@ -1614,9 +1619,10 @@ describe("sessions", () => {
       session: "/work:saved",
     });
     await request({ id: 2, type: "prompt", text: "Stop that" });
-    expect(session.prompt).toHaveBeenCalledWith("Stop that", {
-      streamingBehavior: "steer",
-    });
+    expect(session.prompt).toHaveBeenCalledWith(
+      "Stop that",
+      expect.objectContaining({ streamingBehavior: "steer" }),
+    );
   });
 
   it("sends attached images with a prompt", async () => {
@@ -1632,7 +1638,10 @@ describe("sessions", () => {
       session: "/work:saved",
     });
     await request({ id: 2, type: "prompt", text: "What's this?", images });
-    expect(session.prompt).toHaveBeenCalledWith("What's this?", { images });
+    expect(session.prompt).toHaveBeenCalledWith(
+      "What's this?",
+      expect.objectContaining({ images }),
+    );
   });
 
   it("reports a run pi couldn't carry out", async () => {
@@ -1790,10 +1799,13 @@ describe("sessions", () => {
 
     it("waits for the run's end when asked to", async () => {
       const { session } = await working();
-      expect(session.prompt).toHaveBeenCalledWith("b", {
-        streamingBehavior: "followUp",
-        images: [image],
-      });
+      expect(session.prompt).toHaveBeenCalledWith(
+        "b",
+        expect.objectContaining({
+          streamingBehavior: "followUp",
+          images: [image],
+        }),
+      );
       expect(session.queue).toEqual({ steering: ["a"], followUp: ["b", "c"] });
     });
 
@@ -1850,7 +1862,10 @@ describe("sessions", () => {
         action: "now",
       });
       expect(session.abort).toHaveBeenCalled();
-      expect(session.prompt).toHaveBeenLastCalledWith("a", {});
+      expect(session.prompt).toHaveBeenLastCalledWith(
+        "a",
+        expect.not.objectContaining({ streamingBehavior: expect.anything() }),
+      );
       expect(session.queue).toEqual({ steering: [], followUp: ["b", "c"] });
     });
 
@@ -2234,17 +2249,25 @@ describe("tool approval", () => {
     expect(session.abort).toHaveBeenCalled();
   });
 
-  it("denies waiting calls when the user writes instead, then sends the message", async () => {
+  it("denies waiting calls once the message the user wrote instead is queued", async () => {
     const { ask, request, session } = await opened();
+    session.isStreaming = true;
     const first = ask("t1");
     const second = ask("t2");
+    first.mockImplementation(() =>
+      expect(session.queue.steering).toEqual(["Do it another way"]),
+    );
     await request({ id: 2, type: "prompt", text: "Do it another way" });
     expect(first).toHaveBeenCalledWith(false);
     expect(second).toHaveBeenCalledWith(false);
-    expect(session.prompt).toHaveBeenCalledWith(
-      "Do it another way",
-      expect.anything(),
-    );
+  });
+
+  it("keeps waiting calls when pi refuses the message", async () => {
+    const { ask, request, session } = await opened();
+    const answer = ask("t1");
+    session.prompt.mockRejectedValueOnce(new Error("compacting"));
+    await request({ id: 2, type: "prompt", text: "Do it another way" });
+    expect(answer).not.toHaveBeenCalled();
   });
 
   it("keeps a hidden folder's question until it's shown again", async () => {
@@ -3158,7 +3181,7 @@ describe("tasks", () => {
     expect(data(responses()[0])).toEqual([started]);
     expect(session.prompt).toHaveBeenCalledWith(
       "Fix it\n\nSoon\n\nAttached images: a.png",
-      { images: [image] },
+      expect.objectContaining({ images: [image] }),
     );
   });
 
