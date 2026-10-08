@@ -5,7 +5,6 @@ import { RemoteDevices } from "@/components/remote/RemoteDevices";
 import type { Section } from "@/components/settings/sections";
 import { SignInBanner } from "@/components/sidebar/SignInBanner";
 import type { useAgentSession } from "@/hooks/useAgentSession";
-import { useClearedChildren } from "@/hooks/useClearedChildren";
 import type { useCommandCenter } from "@/hooks/useCommandCenter";
 import type { Conversations } from "@/hooks/useConversations";
 import type { useMcpServers } from "@/hooks/useMcpServers";
@@ -70,7 +69,6 @@ export function AppWorkspace({
   /** Opens a tab in any folder, selecting it first. */
   openIn: (folder: string, tab: string) => void;
 }) {
-  const cleared = useClearedChildren();
   return (
     <Workspace
       folder={folder}
@@ -110,11 +108,7 @@ export function AppWorkspace({
             conversations.show(cwd, shown);
             openIn(cwd, tab);
           },
-          cleared: cleared.cleared,
-          onClear: (tab) => {
-            cleared.clear(tab);
-            tabs.close(tab);
-          },
+          onClear: (tab) => tabs.close(tab),
           onStopBackground: (shown, pid) =>
             void host
               ?.request({ type: "background_stop", session: shown, pid })

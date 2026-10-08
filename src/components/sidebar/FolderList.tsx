@@ -13,9 +13,7 @@ export type ChildActions = {
   /** Shows conversation `session` of `cwd` and opens `tab` beside it. */
   onOpenTab: (cwd: string, session: string, tab: string) => void;
   onStopBackground: (session: string, pid: number) => void;
-  /** Tab ids of finished rows the user cleared. */
-  cleared: string[];
-  /** Takes a finished row off the sidebar, closing its tab. */
+  /** Closes a finished row's tab, taking it off the sidebar. */
   onClear: (tab: string) => void;
 };
 

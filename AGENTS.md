@@ -68,7 +68,6 @@ src/                     React frontend (almost all logic lives here)
     useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request), read every 5s
     useGitRepoDetails.ts A repository's uncommitted files and unpushed commits, while its composer popover is open
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
-    useClearedChildren.ts  Finished subagents and background commands cleared from the sidebar
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useQuestionKeys.ts   The agent's questions from the keyboard: ↑/↓ between answers, ⌘N own answer, ⌘↩ on, ⌘⌫ skip
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
@@ -478,8 +477,8 @@ The sidebar lists each conversation's subagents and background commands
 under it (`AgentStatus` in `shared/agentStatus.ts`, pushed on change).
 Each opens as a tab beside the files (`lib/childTabs.ts`): a subagent's
 whole conversation, rebuilt from its calls in the shown conversation, or a
-command's output, read again each second while it runs. Finished rows can
-be cleared; which were is kept in the window's localStorage.
+command's output, read again each second while it runs. A finished row
+leaves the sidebar, staying only while its tab is the active one.
 
 The `git` and `gh` tools (`sidecar/gitExtension.ts`) run git and the GitHub
 CLI outside the sandbox with the user's credentials, from an argument list
