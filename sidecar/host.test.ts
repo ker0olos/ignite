@@ -866,6 +866,7 @@ describe("sessions", () => {
         skills: [{ name: "review", description: "R" }],
         session: "/work:saved",
         workdir: "/work",
+        toolRuns: [],
         trust: "untrusted",
         messages: [],
         running: false,

@@ -142,6 +142,8 @@ export type OpenedSession = SessionState & {
   modelWarning?: string;
   /** Tool calls asked while the folder wasn't shown, still waiting. */
   approvals: ApprovalRequest[];
+  /** Running tool calls' latest progress events, not yet in `messages`. */
+  toolRuns?: SessionEvent[];
   /** Messages sent mid-run, not yet delivered. */
   queue: { steering: string[]; followUp: string[] };
 };

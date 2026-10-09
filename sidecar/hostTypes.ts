@@ -204,6 +204,8 @@ export type Agent = {
   queuedImages: Map<string, ImageContent[][]>;
   /** Subagents it started, by id, as its tool calls report them. */
   subagents: Map<string, SubagentStatus>;
+  /** Running tool calls' latest progress, by tool call id, until pi saves their results. */
+  toolRuns: Map<string, SessionEvent>;
 };
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };
@@ -263,6 +265,13 @@ export function shown(ctx: HostContext): Agent | undefined {
 /** Whether the app shows this conversation. */
 export function isShown(ctx: HostContext, agent: Agent): boolean {
   return shown(ctx) === agent;
+}
+
+/** The folder's conversation to show: the last one shown, else another one open; a folder may have none. */
+export function reopened(ctx: HostContext, cwd: string): string | undefined {
+  const last = ctx.lastShown.get(cwd);
+  if (last && ctx.agents.has(last)) return last;
+  return [...ctx.agents.values()].find((a) => a.cwd === cwd)?.id;
 }
 
 /** The open conversation `id` names, else the one the app shows. */

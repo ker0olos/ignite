@@ -28,3 +28,24 @@ it("shows a first message the router is still reading, timed from its send", () 
   expect(shownItems(entry.transcript)).toEqual([{ kind: "message", message }]);
   expect(entry.state).not.toHaveProperty("routing");
 });
+
+it("catches up on tool calls that moved while the conversation was hidden", () => {
+  const result = { content: [{ type: "text", text: "ok" }], details: {} };
+  const opened = {
+    session: "s1",
+    messages: [],
+    running: true,
+    approvals: [],
+    toolRuns: [
+      { type: "tool_execution_end", toolCallId: "a", isError: false, result },
+      { type: "tool_execution_update", toolCallId: "b", partialResult: result },
+    ],
+    queue: { steering: [], followUp: [] },
+  } as unknown as OpenedSession;
+  const entry = toEntry({} as HostClient, "/f", opened);
+  if (!("transcript" in entry) || !entry.transcript) throw new Error("none");
+  expect(entry.transcript.tools).toEqual({
+    a: { status: "done", result, approval: undefined },
+    b: { status: "running", result },
+  });
+});
