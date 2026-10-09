@@ -8,6 +8,7 @@ import type { QueueKind } from "../shared/queue.ts";
 import {
   current,
   isShown,
+  reopened,
   target,
   type Agent,
   type HostContext,
@@ -25,6 +26,7 @@ import { pushProjects, trackRun } from "./hostProjects.ts";
 import { resume } from "./hostResume.ts";
 import { delivered, rememberImages } from "./queuedImages.ts";
 import { routeMessage } from "./hostRoute.ts";
+import { trackToolRun } from "./toolRuns.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -74,13 +76,6 @@ export async function setModel(
   return sessionState(ctx, s);
 }
 
-// The last one shown, else another one open; a folder may have none.
-function reopened(ctx: HostContext, cwd: string): string | undefined {
-  const last = ctx.lastShown.get(cwd);
-  if (last && ctx.agents.has(last)) return last;
-  return [...ctx.agents.values()].find((a) => a.cwd === cwd)?.id;
-}
-
 /**
  * Shows one of a folder's conversations, starting its session unless it's
  * already open, and returns its state. Without `id`, the one `reopened`
@@ -121,6 +116,7 @@ export async function open(
     ...(agent.routing && { routing: agent.routing.message }),
     ...(s.modelWarning && { modelWarning: s.modelWarning }),
     approvals: [...agent.approvals.values()].map((ask) => ask.request),
+    toolRuns: [...agent.toolRuns.values()],
     queue: {
       steering: [...s.getSteeringMessages()],
       followUp: [...s.getFollowUpMessages()],
@@ -148,6 +144,7 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
     approvals: new Map(),
     queuedImages: new Map(),
     subagents: new Map(),
+    toolRuns: new Map(),
   } as Omit<Agent, "opening"> as Agent;
   const live = () => ctx.agents.get(id) === agent;
   // Status can arrive while the session is still opening; it's kept, and
@@ -209,6 +206,7 @@ function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
       event: toWireEvent(event),
     });
   }
+  trackToolRun(agent, event);
   const subagentsChanged = followSubagents(agent, event);
   if (trackRun(agent, event) || subagentsChanged) pushProjects(ctx);
   if (event.type === "message_start") delivered(agent, event.message);

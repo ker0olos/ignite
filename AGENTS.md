@@ -158,6 +158,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostSession.ts         Open conversations, several per folder, kept running while hidden (sessionState, setModel, open, close, prompt)
   hostProjects.ts        Tells the app which open conversations are working or waiting (pushProjects)
   hostResume.ts          Resumes a run a reload or quit cut off: pending calls marked not run, agent continues
+  toolRuns.ts            Running tool calls' latest progress, so a conversation shown again catches up on them
   sessionStore.ts        pi's saved conversations per folder: the latest, new ids, the list
   search.ts              command_search: each folder's conversations and files, cached, ranked by shared/commandSearch.ts
   fileIndex.ts           A folder's files for search (git ls-files, else a capped walk)

@@ -10,6 +10,7 @@ import { applyQueue } from "@/lib/queue";
 import { applyRouting } from "@/lib/routedMessage";
 import {
   applyError,
+  applyEvent,
   fromHistory,
   requestApproval,
   type Transcript,
@@ -64,12 +65,13 @@ const toOpened = (
     trust,
     modelWarning,
     approvals,
+    toolRuns = [],
     queue,
     routing,
     ...state
   }: OpenedSession,
 ): Opened => {
-  const history = fromHistory(messages, running);
+  const history = toolRuns.reduce(applyEvent, fromHistory(messages, running));
   // Shown again while the router reads its first message: that message shows, timed from its send.
   const routed = routing
     ? applyRouting(history, { type: "routing_start", message: routing })
