@@ -766,7 +766,8 @@ to the system prompt. The Memory settings section turns it on or off
 While it's on, `mcpExtension.ts` also adds cmem's own MCP server (`cmem`,
 `mcp-server.cjs` beside the running worker's script, so any agent's install
 works) to the adapter's config: eager, with `search`, `timeline` and
-`get_observations` as direct tools. It isn't in mcp.json, so the MCP page
+`get_observations` as direct tools. Its work-state tools, and the work-state
+section of its recalled context, are left out: plans and to-dos live in tasks. It isn't in mcp.json, so the MCP page
 doesn't list it; toggling the setting sends `memory_changed`, which reloads
 the session like an MCP change.
 
