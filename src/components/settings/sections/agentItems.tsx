@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { Settings } from "@/lib/settings";
+import { isWindows } from "@/lib/window";
 
 const MAX_SUBAGENTS = [1, 2, 3, 4, 5, 6].map((n) => ({
   value: String(n),
@@ -32,6 +33,31 @@ function fullAccessItem(
           onChange({
             ...settings,
             approval: { ...settings.approval, full_access },
+          })
+        }
+      />
+    ),
+  };
+}
+
+/** The row that sandboxes Auto's shell commands on Windows instead of asking for each. */
+function windowsSandboxItem(
+  settings: Settings,
+  onChange: (settings: Settings) => void,
+): Item {
+  return {
+    section: "Agent",
+    title: "Sandbox on Windows (alpha)",
+    description:
+      "Auto runs shell commands in a sandbox instead of asking for each: as a separate Windows user that writes only in folders commands run in, online only through the app. The first command asks for administrator rights once, to set it up.",
+    keywords: "sandbox windows approval auto permissions srt",
+    control: (
+      <Switch
+        checked={settings.approval.windows_sandbox}
+        onCheckedChange={(windows_sandbox) =>
+          onChange({
+            ...settings,
+            approval: { ...settings.approval, windows_sandbox },
           })
         }
       />
@@ -99,6 +125,7 @@ export function agentItems({
 }): Item[] {
   return [
     fullAccessItem(settings, onChange),
+    ...(isWindows() ? [windowsSandboxItem(settings, onChange)] : []),
     {
       section: "Agent",
       title: "Ask before deciding",

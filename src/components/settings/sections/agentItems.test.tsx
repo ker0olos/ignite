@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { agentItems } from "./agentItems";
 
+const windows = vi.hoisted(() => ({ on: false }));
+vi.mock("@/lib/window", () => ({ isWindows: () => windows.on }));
+
 type SwitchProps = {
   checked: boolean;
   disabled?: boolean;
@@ -27,7 +30,25 @@ describe("agentItems", () => {
     onCheckedChange(true);
     expect(onChange).toHaveBeenCalledWith({
       ...DEFAULT_SETTINGS,
-      approval: { mode: "auto", full_access: true },
+      approval: { mode: "auto", full_access: true, windows_sandbox: false },
+    });
+  });
+
+  it("offers the Windows sandbox only on Windows, off by default", () => {
+    const onChange = vi.fn();
+    const titles = () =>
+      agentItems({ settings: DEFAULT_SETTINGS, onChange }).map((i) => i.title);
+    expect(titles()).not.toContain("Sandbox on Windows (alpha)");
+    windows.on = true;
+    const [, sandbox] = agentItems({ settings: DEFAULT_SETTINGS, onChange });
+    windows.on = false;
+    expect(sandbox.title).toBe("Sandbox on Windows (alpha)");
+    const { checked, onCheckedChange } = props<SwitchProps>(sandbox);
+    expect(checked).toBe(false);
+    onCheckedChange(true);
+    expect(onChange).toHaveBeenCalledWith({
+      ...DEFAULT_SETTINGS,
+      approval: { ...DEFAULT_SETTINGS.approval, windows_sandbox: true },
     });
   });
 

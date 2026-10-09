@@ -18,10 +18,10 @@ import approval, {
   APPROVAL_EVENT,
   DECLINED_OUTSIDE,
   DENIED,
-  approvalMode,
   realPath,
   type ApprovalAsk,
 } from "./approvalExtension.ts";
+import { approvalMode } from "./approvalSettings.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { allowAlways, loadAllowed } from "./sandboxAllow.ts";
 import { stopBackground } from "./backgroundBash.ts";
@@ -34,6 +34,7 @@ const fake = vi.hoisted(() => ({ violation: "", program: "sh" }));
 vi.mock("./sandbox.ts", async (actual) => ({
   ...(await actual<typeof import("./sandbox.ts")>()),
   createSandbox: async () => ({
+    locks: true,
     wrap: async (
       command: string,
       _cwd: string,
@@ -645,6 +646,20 @@ describe("the sandbox in Auto", () => {
       void call("bash", { command: "npm test" });
       await vi.waitFor(() => expect(asks).toHaveLength(1));
       expect(asks[0].request.reason).toBe(WINDOWS_SHELL);
+    } finally {
+      Object.defineProperty(process, "platform", platform);
+    }
+  });
+
+  it("sandboxes shell commands on Windows once windows_sandbox is on", async () => {
+    const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    Object.defineProperty(process, "platform", { value: "win32" });
+    try {
+      await settings("[approval]\nwindows_sandbox = true\n");
+      const { asks, call, input } = load();
+      expect(await call("bash", { command: "npm test" })).toBeUndefined();
+      expect(input().command).toBe("sandboxed npm test");
+      expect(asks).toEqual([]);
     } finally {
       Object.defineProperty(process, "platform", platform);
     }

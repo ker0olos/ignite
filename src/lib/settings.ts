@@ -52,8 +52,13 @@ export type Settings = {
   /**
    * `mode`: "auto" asks only before risky tool calls, "manual" before all.
    * `full_access`: Auto runs every tool call without asking or the sandbox.
+   * `windows_sandbox`: Auto sandboxes bash on Windows instead of asking (alpha).
    */
-  approval: { mode: ApprovalMode; full_access: boolean };
+  approval: {
+    mode: ApprovalMode;
+    full_access: boolean;
+    windows_sandbox: boolean;
+  };
   /** `max`: how many of a conversation's subagents run at once; the rest queue. */
   subagents: { enabled: boolean; max: number };
   /**
@@ -94,7 +99,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   composer: { git_status: true },
   memory: { cmem: true },
-  approval: { mode: "auto", full_access: false },
+  approval: { mode: "auto", full_access: false, windows_sandbox: false },
   subagents: { enabled: true, max: 2 },
   power: { keep_awake: true, keep_screen_awake: false },
   mac: { liquid_glass: true },
@@ -179,6 +184,7 @@ const readApproval = (
 ): Settings["approval"] => ({
   mode: approval.mode === "manual" ? "manual" : "auto",
   full_access: approval.full_access === true,
+  windows_sandbox: approval.windows_sandbox === true,
 });
 
 const readSubagents = (
@@ -275,33 +281,6 @@ export async function saveSettings(settings: Settings) {
   await mkdir(SETTINGS_DIR, { ...HOME, recursive: true });
   await writeTextFile(SETTINGS_FILE, stringify(settings) + "\n", HOME);
   await emit(CHANGED, settings);
-}
-
-/** The approval mode setting, and a change that saves it. */
-export function approvalSetting(
-  settings: Settings,
-  save: (settings: Settings) => Promise<void>,
-) {
-  return {
-    mode: settings.approval.mode,
-    onChange: (mode: ApprovalMode) =>
-      void save({ ...settings, approval: { ...settings.approval, mode } }),
-  };
-}
-
-/** The Model Router setting, and a change that saves it. */
-export function modelRouterSetting(
-  settings: Settings,
-  save: (settings: Settings) => Promise<void>,
-) {
-  return {
-    on: settings.conversation.model_router,
-    onChange: (model_router: boolean) =>
-      void save({
-        ...settings,
-        conversation: { ...settings.conversation, model_router },
-      }),
-  };
 }
 
 // ponytail: hand edits to settings.toml apply on next window load; fs watch if that matters

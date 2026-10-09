@@ -70,8 +70,9 @@ and goes back to the last working version if an update fails to start.
 On Linux and Windows, install Node.js, Rust and
 [Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/), then run
 it with `npm install` and `npm run tauri dev`. Linux sandboxes commands with
-[bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`); Windows has
-no sandbox, so Auto asks before every shell command. Worktrees clone
+[bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`). On Windows
+Auto asks before every shell command, unless Settings → Agent → Sandbox on
+Windows (alpha) is on. Worktrees clone
 copy-on-write on Btrfs and XFS; elsewhere agents install and build their own
 dependencies.
 

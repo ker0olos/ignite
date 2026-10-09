@@ -226,6 +226,16 @@ describe("refusedLine", () => {
       "OSError: [Errno 30] Read-only file system: 'a'",
     );
   });
+
+  it("on Windows, takes plain permission errors, which ACL denies read as", () => {
+    const git = "touch: cannot touch 'x': Permission denied";
+    expect(refusedLine(git, false)).toBeNull();
+    expect(refusedLine(git, true)).toBe(git);
+    expect(refusedLine("Access is denied.", true)).toBe("Access is denied.");
+    expect(refusedLine("EPERM: operation not permitted, open 'x'", true)).toBe(
+      "EPERM: operation not permitted, open 'x'",
+    );
+  });
 });
 
 describe("mayBeBlocked", () => {
@@ -235,6 +245,7 @@ describe("mayBeBlocked", () => {
     );
     expect(mayBeBlocked("touch: x: Operation not permitted")).toBe(true);
     expect(mayBeBlocked("cp: a: Read-only file system")).toBe(true);
+    expect(mayBeBlocked("Access is denied.")).toBe(true);
     expect(mayBeBlocked("200 OK")).toBe(false);
   });
 

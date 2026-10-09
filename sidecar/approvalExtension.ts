@@ -7,7 +7,7 @@
  * (sandbox.ts); when it blocks one, the same call asks to run it outside.
  * Auto with full access asks for nothing and doesn't sandbox.
  */
-import { readFile, realpath } from "node:fs/promises";
+import { realpath } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import {
@@ -16,17 +16,20 @@ import {
   type ToolCallEvent,
   type ToolResultEvent,
 } from "@earendil-works/pi-coding-agent";
-import { parse as parseToml } from "smol-toml";
 import type { ApprovalRequest } from "../shared/hostProtocol.ts";
 import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
 import { ASK_TOOL, type QuestionAnswer } from "../shared/questions.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
-import { APP_NAME } from "../src/lib/app.ts";
 import {
   approvalFor,
   resolvePath,
   type ApprovalGate,
 } from "../src/lib/approvalPolicy.ts";
+import {
+  approvalMode,
+  currentSandbox,
+  sandboxing,
+} from "./approvalSettings.ts";
 import { isMcpDirect } from "../src/lib/mcpToolCall.ts";
 import { loadBashParser } from "./bashParser.ts";
 import {
@@ -34,7 +37,6 @@ import {
   blockedReason,
   blockedSummary,
   canAllow,
-  createSandbox,
   isCredential,
   refusedLine,
   shortHome,
@@ -59,11 +61,6 @@ const bashParser = loadBashParser().catch((error: unknown) => {
   process.stderr.write(`pi-host: bash parser unavailable: ${error}\n`);
   return undefined;
 });
-const sandbox = createSandbox().catch((error: unknown) => {
-  process.stderr.write(`pi-host: sandbox unavailable: ${error}\n`);
-  return undefined;
-});
-
 /** pi event bus channel carrying an ApprovalAsk to the host. */
 export const APPROVAL_EVENT = "app/approval";
 
@@ -80,24 +77,6 @@ export const DENIED = "The user denied this tool call.";
 export const DECLINED_OUTSIDE =
   "The sandbox blocked this command, and the user declined to run it outside the sandbox.";
 const SELF_ASKING = new Set([ASK_TOOL, TASK_ADD_TOOL, GIT_TOOL, GH_TOOL]);
-
-/**
- * How tool calls are gated (`[approval]`): "manual" when set, "full" for Auto
- * with `full_access`, else "auto".
- */
-export async function approvalMode(
-  settingsFile = join(homedir(), `.${APP_NAME}`, "settings.toml"),
-): Promise<ApprovalGate> {
-  try {
-    const settings = parseToml(await readFile(settingsFile, "utf8"));
-    const approval = settings.approval as
-      { mode?: unknown; full_access?: unknown } | undefined;
-    if (approval?.mode === "manual") return "manual";
-    return approval?.full_access === true ? "full" : "auto";
-  } catch {
-    return "auto";
-  }
-}
 
 /** `path` with symlinks resolved, as far as it exists. */
 export async function realPath(path: string): Promise<string> {
@@ -173,9 +152,10 @@ async function runsOutside(command: string): Promise<boolean> {
 }
 
 export default function approval(pi: ExtensionAPI) {
-  // Sandboxed runs in progress: tool call id → the command as written, and
-  // whether the folder was read-only for it (the work not yet planned).
-  const sandboxed = new Map<string, { command: string; locked: boolean }>();
+  // Sandboxed runs in progress: tool call id → the command as written, the
+  // sandbox it ran in, and whether the folder was read-only (work unplanned).
+  type Run = { command: string; box: Sandbox; locked: boolean };
+  const sandboxed = new Map<string, Run>();
 
   const ask = (request: ApprovalRequest, ctx: ExtensionContext) =>
     new Promise<{ approved: boolean; always?: boolean }>((resolve) => {
@@ -191,7 +171,7 @@ export default function approval(pi: ExtensionAPI) {
   async function askOutside(
     event: ToolResultEvent,
     ctx: ExtensionContext,
-    { command, locked }: { command: string; locked: boolean },
+    { command, locked }: Run,
     explained: string,
     what: string,
   ) {
@@ -248,7 +228,7 @@ export default function approval(pi: ExtensionAPI) {
     // Its question already waits for the user; git and gh ask for themselves.
     if (SELF_ASKING.has(event.toolName)) return;
     const mode = await approvalMode();
-    const box = mode === "auto" ? await sandbox : undefined;
+    const box = mode === "auto" ? await currentSandbox() : undefined;
     const command = commandOf(event);
     const wait = await needed(event, ctx, mode, box);
     if (wait) {
@@ -260,8 +240,10 @@ export default function approval(pi: ExtensionAPI) {
       return;
     }
     if (!box || command === undefined || (await runsOutside(command))) return;
-    const inside = await writableUntilPlanned(pi, ctx.cwd);
-    sandboxed.set(event.toolCallId, { command, locked: !!inside });
+    const inside = box.locks
+      ? await writableUntilPlanned(pi, ctx.cwd)
+      : undefined;
+    sandboxed.set(event.toolCallId, { command, box, locked: !!inside });
     const input = event.input as { command: string };
     input.command = await box.wrap(command, ctx.cwd, event.toolCallId, inside);
   });
@@ -269,7 +251,7 @@ export default function approval(pi: ExtensionAPI) {
   // Read once per conversation: a system prompt that changes loses its prompt cache.
   const guidance = new Map<string, Promise<string>>();
   const guidanceFor = async () => {
-    if ((await approvalMode()) !== "auto" || !(await sandbox)) return "";
+    if ((await approvalMode()) !== "auto" || !(await sandboxing())) return "";
     const { commands } = await loadAllowed();
     return commands.length ? `\n\n${outsideGuidance(commands)}` : "";
   };
@@ -283,9 +265,9 @@ export default function approval(pi: ExtensionAPI) {
   // Asked before the call ends, so its row shows the question, not a retry.
   pi.on("tool_result", async (event, ctx) => {
     const run = sandboxed.get(event.toolCallId);
-    const box = await sandbox;
-    if (!run || !box) return;
+    if (!run) return;
     sandboxed.delete(event.toolCallId);
+    const { box } = run;
     const text = event.content
       .flatMap((c) => (c.type === "text" ? [c.text] : []))
       .join("\n");

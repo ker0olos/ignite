@@ -90,6 +90,7 @@ src/                     React frontend (almost all logic lives here)
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
+    composerSettings.ts  The composer's approval mode and Model Router settings, saved on change
     store.ts             App state (tauri-plugin-store) + cross-window sync
     files.ts             Directory listing and reading files for the viewer
     gitignore.ts         .gitignore matching for the file tree
@@ -179,6 +180,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   toolReason.ts          `reason` on bash and MCP tools: the agent's why, shown on the approval prompt
   bashParser.ts          Parses bash (tree-sitter) into pipelines for the approval rules
   sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts
+  windowsSandbox.ts      The same on Windows (srt-win, alpha): per-folder grants, srt-win's argv as a Git Bash line
+  approvalSettings.ts    `[approval]` read per tool call; which sandbox applies (Windows' only when turned on)
   bashExtension.ts       pi's bash with `background: true` (dev servers, watchers), and bash_stop to end them
   backgroundBash.ts      Background commands per conversation: their logs, stopping them with what they started
   skipWait.ts            Skip wait: the user ends a running bash call and the agent carries on with its output so far
@@ -363,7 +366,9 @@ Two places hold persisted data:
 - **Approval settings** (`[approval]`): `mode`, `"auto"` (default) or
   `"manual"`, set from the composer. `full_access` (off by default, Settings →
   Agent) makes Auto ask for nothing and drops the sandbox: every tool call,
-  git and gh included, runs as is. The sidecar reads both on every tool call.
+  git and gh included, runs as is. `windows_sandbox` (off, Windows only)
+  sandboxes bash there instead of asking for each command. The sidecar reads
+  them on every tool call (`sidecar/approvalSettings.ts`).
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **pi's own files** in `~/.ignite/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
@@ -457,8 +462,21 @@ sandboxed copy is ended before it runs outside. File tools may also use temp fol
 sandboxed bash can, and each conversation is told of its own scratchpad
 (`$TMPDIR/ignite-scratchpad/<session id>`). Approving a denylisted command also runs it outside. Where the
 sandbox can't start, Auto instead asks for bash commands naming absolute, `~`
-or `..` paths outside the folder. On Windows (no sandbox, and a denylist
-written for Unix) Auto asks for every bash and PowerShell command; file
+or `..` paths outside the folder. On Windows (a denylist written for Unix)
+Auto asks for every bash and PowerShell command, unless `[approval]
+windows_sandbox` is on (off by default, Settings → Agent, Windows only):
+then bash runs in sandbox-runtime's Windows sandbox (alpha,
+`sidecar/windowsSandbox.ts`), set up with one UAC prompt by the first command
+after it's turned on (turning it off and on again retries a declined one). Commands run as its `srt-sandbox` user, which can open
+only what's granted: each folder a command ran in (write, from then until the
+sidecar ends, so any later command may write there too), its worktree's git
+files, the scratchpads, PATH folders under home and what's always allowed
+(paths from the next start). A firewall rule lets it online only through the
+same proxy. Blocked files show only as a permission error in the output
+("Permission denied", "Access is denied", Node's EPERM), so the prompt to run
+outside offers no "Always allow" for paths. Bash isn't kept read-only until
+the work is planned (a deny there would block the folder's other running
+commands too); edits and writes still wait for the plan. File
 tools compare Windows paths (drive letters, backslashes, any case). Bash commands are parsed first
 (`sidecar/bashParser.ts`, tree-sitter's bash grammar): the rules check each
 pipeline's real words and redirects, including code run by `bash -c`,
