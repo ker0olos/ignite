@@ -209,6 +209,10 @@ export function shortHome(path: string, home: string): string {
 const KEYCHAIN =
   /not found in (?:the )?(?:system )?keyring|user interaction is not allowed/i;
 
+/** A keychain refusal, not a search hit quoting one ("src/a.ts:3: Token not found…"). */
+const keychainLine = (line: string) =>
+  KEYCHAIN.test(line) && !/^[\w.-]*[./][\w./-]*:/.test(line);
+
 /**
  * The line where a failed command says the OS refused it. The sandbox's own
  * report can arrive too late (macOS logs it after the command ends), but a
@@ -220,18 +224,20 @@ export function refusedLine(output: string): string | null {
     .find(
       (l) =>
         /operation not permitted|read-only file system/i.test(l) ||
-        KEYCHAIN.test(l),
+        keychainLine(l),
     );
   return line ? line.trim() : null;
 }
 
 /**
  * Whether a command that exited 0 may still have been blocked: a pipe
- * (`docker ps 2>&1 | head`) hides the failure but not the refusal.
+ * (`docker ps 2>&1 | head`, `doppler run … ; ls`) hides the failure but not the refusal.
  */
 export function mayBeBlocked(output: string): boolean {
-  return /operation not permitted|permission denied|read-only file system/i.test(
-    output,
+  return (
+    /operation not permitted|permission denied|read-only file system/i.test(
+      output,
+    ) || output.split("\n").some(keychainLine)
   );
 }
 
