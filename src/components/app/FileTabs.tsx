@@ -21,7 +21,7 @@ export function FileTabs({
   return (
     <div
       data-tauri-drag-region
-      className="no-scrollbar flex h-13 shrink-0 items-end gap-0.5 overscroll-contain overflow-x-auto border-b px-2"
+      className="flex shrink-0 flex-wrap items-end gap-0.5 border-b px-2 pt-4"
     >
       {files.map((path) => {
         const label = tabLabel(path, folder);
@@ -30,20 +30,20 @@ export function FileTabs({
             key={path}
             title={label.title}
             className={cn(
-              "group flex h-9 shrink-0 items-center gap-1.5 rounded-t-md pr-1.5 pl-3 text-[13px]",
+              "group flex h-9 max-w-full min-w-0 items-center gap-1.5 rounded-t-md border border-b-0 pr-1.5 pl-3 text-[13px]",
               path === active
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:text-foreground",
+                ? "border-transparent bg-accent text-foreground"
+                : "border-border/60 text-muted-foreground hover:bg-accent/40 hover:text-foreground",
             )}
           >
             <button
               onClick={() => onSelect(path)}
-              className="flex items-center gap-1.5"
+              className="flex min-w-0 items-center gap-1.5 whitespace-nowrap"
             >
               {createElement(label.icon ?? fileIcon(label.iconPath), {
-                className: "size-3.5",
+                className: "size-3.5 shrink-0",
               })}
-              {label.name}
+              <span className="truncate">{label.name}</span>
               {label.detail && (
                 <span className="text-xs text-muted-foreground italic">
                   ({label.detail})
@@ -59,7 +59,7 @@ export function FileTabs({
               onClick={() => onClose(path)}
               aria-label={`Close ${label.name}`}
               className={cn(
-                "rounded p-0.5 hover:bg-foreground/10",
+                "shrink-0 rounded p-0.5 hover:bg-foreground/10",
                 path !== active &&
                   "invisible group-hover:visible pointer-coarse:visible",
               )}
