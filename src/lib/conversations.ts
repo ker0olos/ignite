@@ -3,14 +3,31 @@ import type { SavedSession, SessionDetails } from "../../shared/conversations";
 import { normalizedTags, type ConversationTags } from "./conversationTags";
 import type { ConversationOrder } from "./settings";
 
-/** One conversation listed under its folder, running or not. */
-type ListedConversation = { session: string; title: string };
+/** One conversation listed under its folder, running or not; a fork under its original. */
+type ListedConversation = { session: string; title: string; forkOf?: string };
 
-/** A sidebar conversation row, including app-local tags. */
-export type TaggedAgentStatus = AgentStatus & { tags?: string[] };
+/** A sidebar conversation row, including app-local tags and its forks. */
+export type TaggedAgentStatus = AgentStatus & {
+  tags?: string[];
+  forks?: AgentStatus[];
+};
 
 /** Each folder's listed conversations, in the order they were opened. */
 export type Listed = Record<string, ListedConversation[]>;
+
+// A known title is kept over none; null when `row` already says it all.
+function asListed(
+  { session, title, forkOf }: AgentStatus,
+  row?: ListedConversation,
+): ListedConversation | null {
+  const same = row?.forkOf === forkOf;
+  if (row && same && (row.title === title || !title)) return null;
+  return {
+    session,
+    title: title || row?.title || "",
+    ...(forkOf && { forkOf }),
+  };
+}
 
 /**
  * Adds the running conversations the list doesn't have yet (the user just
@@ -19,14 +36,15 @@ export type Listed = Record<string, ListedConversation[]>;
  */
 export function withRunning(listed: Listed, agents: AgentStatus[]): Listed {
   let next = listed;
-  for (const { cwd, session, title } of agents) {
-    const rows = next[cwd] ?? [];
-    const row = rows.find((r) => r.session === session);
-    if (row && (row.title === title || !title)) continue;
+  for (const agent of agents) {
+    const rows = next[agent.cwd] ?? [];
+    const row = rows.find((r) => r.session === agent.session);
+    const listedRow = asListed(agent, row);
+    if (!listedRow) continue;
     const updated = row
-      ? rows.map((r) => (r.session === session ? { ...r, title } : r))
-      : [...rows, { session, title }];
-    next = { ...next, [cwd]: updated };
+      ? rows.map((r) => (r === row ? listedRow : r))
+      : [...rows, listedRow];
+    next = { ...next, [agent.cwd]: updated };
   }
   return next;
 }
@@ -49,17 +67,29 @@ export function rowsOf(
   tagFilter: readonly string[] = [],
 ): TaggedAgentStatus[] {
   const selected = new Set(tagFilter);
-  return (listed[cwd] ?? [])
+  const listedHere = listed[cwd] ?? [];
+  const row = ({ session, title }: ListedConversation): AgentStatus => {
+    const running = agents.find((a) => a.session === session);
+    return running
+      ? { ...running, title: running.title || title }
+      : { cwd, session, title, running: false, waiting: false };
+  };
+  // A fork whose original was closed is listed on its own.
+  const nested = (forkOf?: string) =>
+    !!forkOf && listedHere.some((r) => r.session === forkOf);
+  return listedHere
     .filter(
-      ({ session }) =>
-        !selected.size || tags[session]?.some((tag) => selected.has(tag)),
+      ({ session, forkOf }) =>
+        !nested(forkOf) &&
+        (!selected.size || tags[session]?.some((tag) => selected.has(tag))),
     )
-    .map(({ session, title }) => {
-      const own = tags[session];
-      const running = agents.find((a) => a.session === session);
-      return running
-        ? { ...running, title: running.title || title, tags: own }
-        : { cwd, session, title, running: false, waiting: false, tags: own };
+    .map((listed) => {
+      const forks = listedHere.filter((f) => f.forkOf === listed.session);
+      return {
+        ...row(listed),
+        tags: tags[listed.session],
+        ...(forks.length && { forks: forks.map(row) }),
+      };
     });
 }
 

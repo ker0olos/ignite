@@ -1,6 +1,5 @@
+import type { AuthPromptData, AuthEventData } from "../shared/auth.ts";
 import type {
-  AuthPromptData,
-  AuthEventData,
   AuthMethod,
   ProviderStatus,
   ProviderId,

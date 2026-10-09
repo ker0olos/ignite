@@ -194,6 +194,17 @@ describe("workingLine routing", () => {
   });
 });
 
+describe("workingLine fork", () => {
+  const idle: Transcript = { items: [], tools: {}, running: false };
+
+  it("says it waits for its fork while it isn't running", () => {
+    expect(workingLine(idle, "/w", false, true)).toEqual({
+      step: "Waiting for fork",
+    });
+    expect(workingLine(idle, "/w", false)).toBeNull();
+  });
+});
+
 describe("latestThought", () => {
   const thinking = (text: string, redacted?: boolean) =>
     assistant([{ type: "thinking", thinking: text, redacted }]);

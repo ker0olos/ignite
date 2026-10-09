@@ -161,6 +161,32 @@ describe("workspaces", () => {
     expect(read(again.dir, "made.ts")).toBe("made\n");
   });
 
+  it("starts a fork's worktree as a copy of its original's files, on no branch", async () => {
+    const workspaces = createWorkspaces(root);
+    const ws = await workspaces.open(repo, "a");
+    git(ws.dir, "switch", "-q", "-c", "feat/x");
+    write(join(ws.dir, "app.ts"), "agent\n");
+    write(join(ws.dir, "made.ts"), "made\n");
+    await workspaces.fork(repo, "a", "b");
+    const fork = await workspaces.open(repo, "b");
+    expect(read(fork.dir, "app.ts")).toBe("agent\n");
+    expect(read(fork.dir, "made.ts")).toBe("made\n");
+    expect(git(fork.dir, "branch", "--show-current")).toBe("");
+    expect(read(ws.dir, "app.ts")).toBe("agent\n");
+    await workspaces.close(repo, "a");
+    await workspaces.fork(repo, "a", "d");
+    const saved = await workspaces.open(repo, "d");
+    expect(read(saved.dir, "made.ts")).toBe("made\n");
+    expect(git(saved.dir, "branch", "--show-current")).toBe("");
+    expect(
+      git((await workspaces.open(repo, "a")).dir, "branch", "--show-current"),
+    ).toBe("feat/x");
+    await workspaces.fork(repo, "missing", "c");
+    expect(read((await workspaces.open(repo, "c")).dir, "app.ts")).toBe(
+      "one\n",
+    );
+  });
+
   it("sweeps worktrees whose app is gone, keeping their work", async () => {
     const workspaces = createWorkspaces(root);
     const ws = await workspaces.open(repo, "a");

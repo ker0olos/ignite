@@ -142,6 +142,22 @@ export async function snapshot(
   }
 }
 
+/** A copy of saved `state` without the branch it names, so restoring it leaves that branch alone. */
+export async function unbranched(repo: string, state: string) {
+  return git(
+    repo,
+    [
+      "commit-tree",
+      `${state}^{tree}`,
+      "-p",
+      `${state}^`,
+      "-m",
+      `${APP_NAME} snapshot`,
+    ],
+    APP_IDENTITY,
+  );
+}
+
 /** Makes `dir`'s files match `state` while its index stays at HEAD, as uncommitted changes. */
 export async function restore(dir: string, state: string) {
   await git(dir, ["read-tree", "-u", "--reset", state]);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { QueuedMessage } from "../../../shared/queue";
 import type { ApprovalMode } from "../../../shared/hostProtocol";
-import { AttachImagesButton } from "@/components/agent/AttachImagesButton";
+import { ComposerAddMenu } from "@/components/agent/ComposerAddMenu";
 import { ComposerInput } from "@/components/agent/ComposerInput";
 import { ComposerToolbar } from "@/components/agent/ComposerToolbar";
 import { GitStatusLinks } from "@/components/agent/GitStatusLinks";
@@ -12,7 +12,7 @@ import type { useAgentSession } from "@/hooks/useAgentSession";
 import { useGitStatus } from "@/hooks/useGitStatus";
 import { useComposerImages } from "@/hooks/useComposerImages";
 import { useMentions } from "@/hooks/useMentions";
-import { compactCommand, skillPrompt } from "@/lib/mentions";
+import { appCommand, skillPrompt } from "@/lib/mentions";
 import type { HostClient } from "@/lib/piHost";
 import { canSend, composerKey, takenText } from "@/lib/queue";
 
@@ -50,7 +50,8 @@ export function Composer({
   const { state } = session;
   const [text, setText] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
-  const { images, setImages, attach } = useComposerImages(input);
+  const { images, setImages, attach, remove, replace } =
+    useComposerImages(input);
   const repos = useGitStatus(host, gitStatus ? session.session : null);
   const mentions = useMentions({
     host,
@@ -72,13 +73,14 @@ export function Composer({
     !!state || session.none,
     { text, images: images.length },
     session.transcript?.routing ?? false,
+    session.waitingOnFork,
   );
   // While the agent works, a message waits for the run's end.
   const handleSend = () => {
     if (!sendable) return;
     setText("");
     // `/compact` sends no images; they wait for the next message.
-    if (compactCommand(text) === null) setImages([]);
+    if (appCommand("compact", text) === null) setImages([]);
     void session.send(
       skillPrompt(text, state?.skills ?? []),
       images,
@@ -101,23 +103,17 @@ export function Composer({
       }}
     >
       <MentionMenu {...mentions.menu} />
-      <div className="group border-t transition-colors focus-within:border-foreground/35">
+      {/* While a fork is open, every control here is off (a disabled fieldset). */}
+      <fieldset
+        disabled={session.waitingOnFork}
+        className="group min-w-0 border-t transition-colors focus-within:border-foreground/35 disabled:opacity-50"
+      >
         <QueuedMessages
           queued={queued}
           unqueue={session.unqueue}
           onEdit={(m) => restore([m])}
         />
-        <ImageAttachments
-          images={images}
-          onRemove={(i) =>
-            setImages((current) => current.filter((_, j) => j !== i))
-          }
-          onEdit={(i, marked) =>
-            setImages((current) =>
-              current.map((x, j) => (j === i ? marked : x)),
-            )
-          }
-        />
+        <ImageAttachments images={images} onRemove={remove} onEdit={replace} />
         <ComposerInput
           ref={input}
           value={text}
@@ -138,7 +134,11 @@ export function Composer({
           }}
         />
         <div className="flex h-6 items-center gap-3.5 px-0.5 max-sm:h-10">
-          <AttachImagesButton onAttach={attach} />
+          <ComposerAddMenu
+            onAttach={attach}
+            canFork={!session.none && !running}
+            onFork={() => void session.fork()}
+          />
           <ComposerToolbar
             session={session}
             loading={loading}
@@ -150,7 +150,7 @@ export function Composer({
             onStop={stop}
           />
         </div>
-      </div>
+      </fieldset>
     </form>
   );
 }

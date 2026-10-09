@@ -1,4 +1,5 @@
 import { FolderOpen } from "lucide-react";
+import { Kbd } from "@/components/agent/Kbd";
 import { RecentRow } from "@/components/app/RecentRow";
 import { APP_TITLE } from "@/lib/app";
 
@@ -39,9 +40,7 @@ export function Welcome({
         >
           <FolderOpen className="size-4 text-muted-foreground" />
           Open Folder
-          <kbd className="ml-auto font-sans text-xs text-muted-foreground">
-            ⌘O
-          </kbd>
+          <Kbd className="ml-auto">⌘O</Kbd>
         </button>
         {folders.length > 0 && (
           <>

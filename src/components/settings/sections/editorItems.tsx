@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Kbd } from "@/components/ui/kbd";
+import { Kbd } from "@/components/agent/Kbd";
 import { Switch } from "@/components/ui/switch";
 import {
   DEFAULT_SETTINGS,
@@ -77,7 +77,7 @@ export function editorItems({
       description: "Your messages and the agent's replies.",
       hint: (
         <>
-          <Kbd className="h-4">{MOD} +</Kbd> <Kbd className="h-4">{MOD} −</Kbd>
+          <Kbd>{MOD} +</Kbd> <Kbd>{MOD} −</Kbd>
         </>
       ),
       keywords: "font zoom bigger smaller conversation chat",

@@ -59,5 +59,6 @@ describe("canSend", () => {
     expect(canSend(false, typed, false)).toBe(false);
     expect(canSend(true, { text: " ", images: 0 }, false)).toBe(false);
     expect(canSend(true, typed, true)).toBe(false);
+    expect(canSend(true, typed, false, true)).toBe(false);
   });
 });

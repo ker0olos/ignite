@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   insertMention,
   mentionAt,
-  compactCommand,
+  appCommand,
   mentionOptions,
   skillPrompt,
 } from "./mentions";
@@ -59,6 +59,7 @@ describe("mentionOptions", () => {
     });
     expect(options.map((o) => [o.kind, o.insert])).toEqual([
       ["command", "/compact"],
+      ["command", "/fork"],
       ["skill", "/code-review"],
       ["skill", "/release-notes"],
     ]);
@@ -128,7 +129,7 @@ describe("skillPrompt", () => {
   });
 });
 
-describe("compactCommand", () => {
+describe("appCommand", () => {
   it.each([
     ["/compact", ""],
     ["  /compact  ", ""],
@@ -137,6 +138,13 @@ describe("compactCommand", () => {
     ["/compaction", null],
     ["please /compact", null],
   ])("reads %j", (text, instructions) => {
-    expect(compactCommand(text)).toBe(instructions);
+    expect(appCommand("compact", text)).toBe(instructions);
+  });
+
+  it("reads /fork and its first message", () => {
+    expect(appCommand("fork", "/fork run the benchmarks")).toBe(
+      "run the benchmarks",
+    );
+    expect(appCommand("fork", "/compact x")).toBeNull();
   });
 });

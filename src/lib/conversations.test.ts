@@ -37,6 +37,14 @@ describe("withRunning", () => {
     expect(withRunning(listed, [agent("/a", "1", "")])).toBe(listed);
   });
 
+  it("remembers which conversation a fork came from", () => {
+    const listed: Listed = { "/a": [{ session: "2", title: "Bench" }] };
+    const fork = { ...agent("/a", "2", ""), forkOf: "1" };
+    expect(withRunning(listed, [fork])["/a"]).toEqual([
+      { session: "2", title: "Bench", forkOf: "1" },
+    ]);
+  });
+
   it("returns the same list when nothing changed", () => {
     const listed: Listed = { "/a": [{ session: "1", title: "T" }] };
     expect(withRunning(listed, [agent("/a", "1", "T")])).toBe(listed);
@@ -83,6 +91,20 @@ describe("rowsOf", () => {
     ],
   };
   const tags = { "1": ["bug"], "2": ["design", "later"], "9": ["closed"] };
+
+  it("lists a fork under its original, not on its own", () => {
+    const withFork: Listed = {
+      "/a": [
+        { session: "1", title: "Plan" },
+        { session: "2", title: "Bench", forkOf: "1" },
+      ],
+    };
+    const rows = rowsOf(withFork, [agent("/a", "2", "Bench")], "/a");
+    expect(rows.map((r) => r.session)).toEqual(["1"]);
+    expect(rows[0].forks).toEqual([agent("/a", "2", "Bench")]);
+    const orphan: Listed = { "/a": [withFork["/a"][1]] };
+    expect(rowsOf(orphan, [], "/a").map((r) => r.session)).toEqual(["2"]);
+  });
 
   it("attaches tags and filters conversations to any selected tag", () => {
     expect(rowsOf(listed, [], "/a", tags)[0].tags).toEqual(["bug"]);

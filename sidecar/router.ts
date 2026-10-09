@@ -74,12 +74,8 @@ export function parseRoute(text: string, models: Model[]): Route | null {
   };
 }
 
-/** Asks the cheapest model of `s`'s provider to pick for `text`; null when it can't tell, or no model lists a price to call the cheapest. */
-export async function route(
-  s: Pick<Session, "model" | "modelRuntime">,
-  text: string,
-  signal?: AbortSignal,
-): Promise<Route | null> {
+/** The cheapest priced model of `s`'s provider, with the provider's models and pi's catalog; null when none lists a price. */
+export async function cheapest(s: Pick<Session, "model" | "modelRuntime">) {
   const { model: current, modelRuntime: runtime } = s;
   if (!current) return null;
   const all = runtime.getModels() as Model[];
@@ -89,10 +85,21 @@ export async function route(
   const own = models.find((m) => same(m, current));
   if (!own) return null;
   const cost = (m: Model) => price(m, all) ?? Infinity;
-  const router = models.reduce((a, b) => (cost(b) < cost(a) ? b : a), own);
-  // Unpriced, the router would run on the conversation's own model, maybe the dearest.
-  if (cost(router) === Infinity) return null;
-  const answer = await runtime.completeSimple(
+  const model = models.reduce((a, b) => (cost(b) < cost(a) ? b : a), own);
+  // Unpriced, it would run on the conversation's own model, maybe the dearest.
+  return cost(model) === Infinity ? null : { model, models, all };
+}
+
+/** Asks the cheapest model of `s`'s provider to pick for `text`; null when it can't tell, or no model lists a price to call the cheapest. */
+export async function route(
+  s: Pick<Session, "model" | "modelRuntime">,
+  text: string,
+  signal?: AbortSignal,
+): Promise<Route | null> {
+  const found = await cheapest(s);
+  if (!found) return null;
+  const { model: router, models, all } = found;
+  const answer = await s.modelRuntime.completeSimple(
     router,
     {
       systemPrompt: ROUTER_PROMPT,

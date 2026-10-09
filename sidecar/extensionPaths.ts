@@ -29,6 +29,7 @@ export const SESSION_EXTENSIONS = [
   sibling("./htmlExtension.ts"),
   sibling("./bashExtension.ts"),
   sibling("./terminalExtension.ts"),
+  sibling("./forkExtension.ts"),
   exploring,
   lessons,
   sibling("./taskExtension.ts"),

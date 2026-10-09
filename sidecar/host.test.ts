@@ -113,7 +113,12 @@ function fakeSession() {
       },
       streamFunction: (() => undefined) as StreamFn,
     },
-    sessionManager: { appendMessage: vi.fn(() => "entry") },
+    sessionManager: {
+      appendMessage: vi.fn(() => "entry"),
+      getBranch: (): unknown[] => [],
+      appendCustomEntry: vi.fn(() => "entry"),
+      getSessionName: (): string | undefined => undefined,
+    },
     sendCustomMessage: vi.fn(async () => {}),
     isStreaming: false,
     listeners: new Set<(e: SessionEvent) => void>(),
@@ -268,6 +273,7 @@ function fakeWorkspaces() {
       ready: Promise.resolve(),
     })),
     close: vi.fn(async () => {}),
+    fork: vi.fn(async () => {}),
   };
 }
 

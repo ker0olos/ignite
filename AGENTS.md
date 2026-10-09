@@ -49,6 +49,8 @@ src/                     React frontend (almost all logic lives here)
     useSessionCache.ts   Each folder's last known conversation, or none; which one events apply to
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
     useCompact.ts        `/compact`: compacts the shown conversation
+    useFork.ts           `/fork`: forks the shown conversation, shows the fork, sends it the text after `/fork`
+    useForkWait.ts       Whether the shown conversation waits for a fork, so its composer takes no messages
     useMentions.ts       The composer's completions: `/skill` at the start, `@image1`, `@t1` and `@path` anywhere
     useDraftState.ts     A folder with no conversation: the models and effort it would start with
     useConversationList.ts Each folder's listed conversations, remembered across launches
@@ -176,6 +178,11 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   compactProgress.ts     `/compact`'s progress: the summary's tokens, read off pi's stream as it's written
   queuedImages.ts        Queued messages' images (pi's queue lists only text), forgotten once delivered
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
+  hostFork.ts            Forks a conversation (new_session's `fork`): its file, its worktree's files, a note to the original;
+                         closing a fork sends its report to the original, which carries on
+  hostFollow.ts          Follows a conversation's session events: to the app if shown, run state, settling
+  forks.ts               Forks' files, their reports (summaries since the last one) and the notes waiting for the original
+  forkExtension.ts       Adds the notes waiting for a conversation (its forks' reports) to its next run
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
   toolReason.ts          `reason` on bash and MCP tools: the agent's why, shown on the approval prompt
@@ -265,6 +272,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
 demo/tempo/, demo/pantry/ Sample projects `npm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
+shared/auth.ts           A provider sign-in's prompts and events as they cross the wire
 shared/validation.ts     Checks on typed API keys and MCP servers (used by both)
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
 shared/conversations.ts  Saved conversations, their details, command search hits, titles (used by both)
@@ -549,10 +557,30 @@ The composer completes `/` at the start of a message with the app's
 `/compact` (pi's `compact()`: older messages become a summary, shown as a
 divider that opens to it; text after it steers the summary; while it runs, a
 bar fills as the summary streams) and the session's
-skills (sent as pi's `/skill:name`, shown again as `/name`), and `@`
+skills (sent as pi's `/skill:name`, shown again as `/name`), `/fork` (below), and `@`
 anywhere with the message's images (`@image1`), the folder's terminals
 (`@t1`) and files (`@src/app.ts`). Mentions stay plain text; the system
 prompt says what they name.
+
+`/fork` (or Fork in the composer's + menu, beside Whiteboard and Files) copies the conversation into a
+new one (`new_session` with `fork`, `sidecar/hostFork.ts`): pi's `forkFrom` copies its
+file, named after the text after `/fork` (its first message) or "Fork of …",
+and a hidden message tells the copy it's a fork. Its worktree starts as a
+snapshot of the original's files (its saved state when its worktree is gone),
+detached at its commit; ignored files come from the folder as usual. A
+conversation running, being routed or with messages queued can't be forked,
+and a fork that fails to start deletes its copy. The fork is listed under
+its original like a subagent (`forkOf`, kept in the sidebar's list), and
+while it's open the original takes no messages (`waitingOnFork`: its
+composer's controls are off and its working line says "Waiting for fork"). Closing the fork has the
+cheapest priced model of the original's provider (the router's) summarize
+what it did since its last report (`sidecar/forks.ts`), else its last reply
+is used; the report is sent to the original as a message, so it carries on.
+When the original isn't open (or another fork of it is), the report waits in
+memory, like the note that the fork was made, and joins its next run as a
+hidden message (`sidecar/forkExtension.ts`), so a sidecar restart drops
+undelivered ones. Notes live on `globalThis`, since pi loads each extension
+with its own copy of the modules it imports.
 
 Tasks and conversations are one thing shown two ways. Every conversation
 plans before it changes files: `task_update` lays out its subtasks and keeps

@@ -11,6 +11,7 @@ export function ChildRow({
   onOpen,
   onStop,
   onClear,
+  clearLabel = `Clear ${name}`,
 }: {
   icon: LucideIcon;
   name: string;
@@ -22,10 +23,11 @@ export function ChildRow({
   onStop?: () => void;
   /** Offered once it's finished: takes it off the sidebar. */
   onClear: () => void;
+  clearLabel?: string;
 }) {
   const action = running
     ? onStop && { label: `Stop ${name}`, icon: Square, run: onStop }
-    : { label: `Clear ${name}`, icon: X, run: onClear };
+    : { label: clearLabel, icon: X, run: onClear };
   return (
     <div
       className={cn(

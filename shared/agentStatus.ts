@@ -14,6 +14,10 @@ export type AgentStatus = {
   waiting: boolean;
   /** The pull request waiting for the user's review, if one is. */
   review?: ApprovalRequest;
+  /** The conversation it was forked from; it's listed under that one. */
+  forkOf?: string;
+  /** A fork of it is open, or its report is being written; it takes no messages. */
+  waitingOnFork?: boolean;
 } & ChildRuns;
 
 /** A conversation's subagent, as the sidebar lists it. */

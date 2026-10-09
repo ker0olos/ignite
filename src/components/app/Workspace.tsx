@@ -4,7 +4,6 @@ import { EditorPane } from "@/components/app/EditorPane";
 import { MobileWorkspace } from "@/components/app/MobileWorkspace";
 import { PaneHandle } from "@/components/app/PaneHandle";
 import { ViewSwitch, type WorkspaceView } from "@/components/app/ViewSwitch";
-import { Whiteboard } from "@/components/app/Whiteboard";
 import { AgentPanel } from "@/components/agent/AgentPanel";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { TasksView } from "@/components/tasks/TasksView";
@@ -160,7 +159,6 @@ export function Workspace({
             )}
           </ResizablePanelGroup>
         )}
-        <Whiteboard enabled={view === "conversation"} />
       </RunInTerminalContext.Provider>
     </OpenTabContext.Provider>
   );

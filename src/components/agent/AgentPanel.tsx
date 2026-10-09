@@ -70,6 +70,7 @@ export function AgentPanel({
                 stickyUserMessages={stickyUserMessages}
                 scrollRef={mainRef}
                 onApprove={session.answer}
+                waitingOnFork={session.waitingOnFork}
               />
             </ContinueContext.Provider>
           </SkipWaitContext.Provider>

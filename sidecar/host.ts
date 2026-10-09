@@ -19,12 +19,12 @@ import {
   sessionState,
   setModel,
   open,
-  close,
   closeAll,
   prompt,
 } from "./hostSession.ts";
 import { userPickedModel } from "./hostRoute.ts";
-import { mcpServers, changeMcp, reloadSessions } from "./hostMcp.ts";
+import { closeConversation, fork } from "./hostFork.ts";
+import { mcpServers, changeMcp, changeSkills } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
 import { describeError } from "./wire.ts";
@@ -61,13 +61,6 @@ import {
 
 type IdRequest = Extract<HostRequest, { id: number }>;
 
-// Sessions read skills on (re)load.
-const changeSkills = async (ctx: HostContext, edit: () => Promise<void>) => {
-  await edit();
-  await reloadSessions(ctx);
-  return ctx.skills.list();
-};
-
 // A running conversation's own messages are newer than its file's.
 const messagesOf = async (ctx: HostContext, cwd: string, session: string) =>
   ctx.agents.get(session)?.session?.messages ?? ctx.sessions.read(cwd, session);
@@ -92,10 +85,13 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     return status(ctx, r.provider);
   },
   open_session: (ctx, r) => open(ctx, r.cwd, r.session),
-  new_session: (ctx, r) => open(ctx, r.cwd, ctx.sessions.create()),
+  new_session: async (ctx, r) =>
+    r.fork
+      ? fork(ctx, r.cwd, r.fork.session, r.fork.task)
+      : open(ctx, r.cwd, ctx.sessions.create()),
   // The user dismissing a conversation is done with its task.
   close_session: async (ctx, r) => {
-    await close(ctx, r.cwd, r.session);
+    await closeConversation(ctx, r.cwd, r.session);
     if (r.session) await finishTask(ctx, r.cwd, r.session);
   },
   read_session: (ctx, r) => messagesOf(ctx, r.cwd, r.session),

@@ -40,6 +40,13 @@ export type ConversationHit = SavedSession & {
 /** A file the command center found: `path` is relative to `folder`. */
 export type FileHit = { folder: string; path: string };
 
+/**
+ * A new conversation copied, files included, from the folder's `session`,
+ * which gets a summary of the fork's work after each of its runs. `task`,
+ * the fork's first message, is only for the original's note.
+ */
+export type ForkSession = { session: string; task?: string };
+
 /** The command center's search: the best matches in `folders`, of `kinds`. */
 export type CommandSearch = {
   text: string;

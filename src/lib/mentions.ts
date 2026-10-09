@@ -26,6 +26,11 @@ const COMMANDS = [
     description:
       "Summarize earlier messages to free up context; text after it steers the summary",
   },
+  {
+    name: "fork",
+    description:
+      "Copy this conversation and its files into a new one that reports back here; text after it is its first message",
+  },
 ];
 
 /** The token at the caret if it's a mention, else null. */
@@ -112,8 +117,11 @@ export function skillPrompt(text: string, skills: SkillInfo[]) {
   return skill ? `/skill:${text.slice(1)}` : text;
 }
 
-/** The instructions after `/compact` ("" for none), or null when `text` isn't that command. */
-export function compactCommand(text: string): string | null {
-  const m = /^\/compact(?:\s+([\s\S]*))?$/.exec(text.trim());
+/** The text after the app's `/name` command ("" for none), or null when `text` isn't that command. */
+export function appCommand(
+  name: "compact" | "fork",
+  text: string,
+): string | null {
+  const m = new RegExp(`^/${name}(?:\\s+([\\s\\S]*))?$`).exec(text.trim());
   return m ? (m[1] ?? "").trim() : null;
 }

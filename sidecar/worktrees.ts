@@ -19,6 +19,7 @@ import {
   restore,
   snapshot,
   stateRef,
+  unbranched,
   WORKTREES,
   worktreePath,
 } from "./worktreeGit.ts";
@@ -191,6 +192,20 @@ export function createWorkspaces(root = WORKTREES) {
       }
       // ponytail: a failed clone leaves the agent without some ignored files.
       return { dir, ready: cloneIgnored(found.repo, path).catch(() => {}) };
+    },
+
+    /** Starts conversation `to`'s worktree as a copy of `from`'s files (open or saved), detached at its commit. */
+    async fork(folder: string, from: string, to: string) {
+      const found = await repoFor(folder);
+      if (!found) return;
+      const path = worktreePath(found.repo, from, root);
+      const saved = existsSync(path)
+        ? null
+        : await verified(found.repo, stateRef(from));
+      const state = saved
+        ? await unbranched(found.repo, saved)
+        : existsSync(path) && (await snapshot(path));
+      if (state) await git(found.repo, ["update-ref", stateRef(to), state]);
     },
 
     /** Saves and deletes conversation `id`'s worktree, unless another window still uses it. */
