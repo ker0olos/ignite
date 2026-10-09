@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { PathCrumbs } from "@/components/files/PathCrumbs";
 import { readForView, type FileContent } from "@/lib/files";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { Settings } from "@/lib/settings";
@@ -33,19 +33,10 @@ export function FileView({
     };
   }, [path, light, dark, lines]);
 
-  const crumbs = path.slice(root.length + 1).split("/");
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <nav className="flex h-7 shrink-0 items-center gap-1 px-4 text-xs text-muted-foreground">
-        {crumbs.map((crumb, i) => (
-          <span key={i} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight className="size-3" />}
-            <span className={i === crumbs.length - 1 ? "text-foreground" : ""}>
-              {crumb}
-            </span>
-          </span>
-        ))}
+        <PathCrumbs path={path.slice(root.length + 1)} />
       </nav>
       {loaded && "message" in loaded ? (
         <p className="flex flex-1 items-center justify-center text-[13px] text-muted-foreground">

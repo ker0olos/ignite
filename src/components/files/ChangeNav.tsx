@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 /** Previous and next change buttons for a diff, as in VS Code. */
 export function ChangeNav({ onStep }: { onStep: (step: 1 | -1) => void }) {
   return (
-    <div className="ml-auto flex items-center gap-0.5">
+    <div className="ml-auto flex shrink-0 items-center gap-0.5">
       <Button
         size="icon-xs"
         variant="ghost"
