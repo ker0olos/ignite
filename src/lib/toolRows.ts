@@ -35,22 +35,22 @@ const isPlanAfterPlan = (
   tools: Record<string, ToolRun>,
 ) => last?.kind === "tool" && hasPlan(last.call, tools) && hasPlan(call, tools);
 
-/**
- * Folds a quiet call into the group before it. A failed call stands alone, so
- * a red row always means that call, and so does a command that changed files.
- */
+// A failed call stands alone, so a red row always means that call, and so do
+// a command that changed files and a background command.
+const standsAlone = (call: ToolCall, run: ToolRun | undefined) =>
+  !QUIET.has(call.name) ||
+  run?.status === "error" ||
+  !!call.arguments.background ||
+  readShellEdits(run?.result?.details).length > 0;
+
+/** Folds a quiet call into the group before it, unless it stands alone. */
 function pushCall(rows: Row[], call: ToolCall, tools: Record<string, ToolRun>) {
-  const run = tools[call.id];
   const last = rows.at(-1);
   if (isPlanAfterPlan(call, last, tools)) {
     rows[rows.length - 1] = { kind: "tool", call };
     return;
   }
-  if (
-    !QUIET.has(call.name) ||
-    run?.status === "error" ||
-    readShellEdits(run?.result?.details).length
-  ) {
+  if (standsAlone(call, tools[call.id])) {
     rows.push({ kind: "tool", call });
     return;
   }

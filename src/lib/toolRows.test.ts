@@ -127,6 +127,18 @@ describe("toRows", () => {
     ]);
   });
 
+  it("takes a background command out of its group, so it's always in sight", () => {
+    const bg = { ...call("bash", "b"), arguments: { background: true } };
+    const rows = toRows([
+      assistant([call("grep", "a"), bg, call("read", "c")]),
+    ]);
+    expect(rows).toEqual([
+      { kind: "tool", call: call("grep", "a") },
+      { kind: "tool", call: bg },
+      { kind: "tool", call: call("read", "c") },
+    ]);
+  });
+
   it("text breaks a group", () => {
     const rows = toRows([
       assistant([
