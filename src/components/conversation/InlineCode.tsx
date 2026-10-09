@@ -20,7 +20,7 @@ export function InlineCode({
   if (!useFileExists(path)) {
     return (
       <code
-        className="rounded bg-code/12 px-1 font-mono text-[0.92em] text-code [box-decoration-break:clone]"
+        className="rounded bg-code/12 px-1 font-mono text-[0.92em] text-code box-decoration-clone"
         onClick={(e) => selectAllOf(e.currentTarget)}
       >
         {children}
