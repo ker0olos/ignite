@@ -39,7 +39,8 @@ export function CodeBlock({
     // w-max keeps the right padding inside the scrolled width.
     <div
       className={cn(
-        "code-view my-2 overflow-x-auto rounded-lg border [&_pre]:w-max [&_pre]:min-w-full [&_pre]:pr-4",
+        "code-view my-2 overflow-x-auto rounded-lg border [&_pre]:pr-4",
+        editor.word_wrap ? "wrap" : "[&_pre]:w-max [&_pre]:min-w-full",
         className,
       )}
       style={{ fontFamily: editor.font_family, fontSize: "0.92em" }}
