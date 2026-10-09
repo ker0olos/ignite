@@ -12,6 +12,7 @@ import type {
   ThinkingLevel,
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
+import { WROTE_INSTEAD } from "./hostApproval.ts";
 import { createHost } from "./host.ts";
 import { skippable } from "./skipWait.ts";
 import { createTaskStore } from "./taskStore.ts";
@@ -106,7 +107,10 @@ function fakeSession() {
     }),
     messages: [] as AgentMessage[],
     agent: {
-      state: { messages: [] as AgentMessage[] },
+      state: {
+        messages: [] as AgentMessage[],
+        streamingMessage: undefined as AgentMessage | undefined,
+      },
       streamFunction: (() => undefined) as StreamFn,
     },
     sessionManager: { appendMessage: vi.fn(() => "entry") },
@@ -893,6 +897,27 @@ describe("sessions", () => {
     });
     expect(responses()[0]).toMatchObject({
       data: { messages: [hello], running: true },
+    });
+  });
+
+  it("returns the reply being written after the ended messages", async () => {
+    const session = fakeSession();
+    const hello = { role: "user", content: "hi", timestamp: 1 } as const;
+    const reply = { ...hello, role: "assistant" } as unknown as AgentMessage;
+    session.messages = [hello];
+    session.agent.state.streamingMessage = reply;
+    const { request, responses } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({
+      id: 1,
+      type: "open_session",
+      cwd: "/work",
+      session: "/work:saved",
+    });
+    expect(responses()[0]).toMatchObject({
+      data: { messages: [hello, reply] },
     });
   });
 
@@ -2167,7 +2192,16 @@ describe("tool approval", () => {
       cwd: "/work",
       session: "/work:saved",
     });
-    const ask = (toolCallId: string, reason?: string) => {
+    // The conversation's own calls run before they ask; a subagent's never show in its events.
+    const ask = (toolCallId: string, reason?: string, own = true) => {
+      if (own) {
+        session.emit({
+          type: "tool_execution_start",
+          toolCallId,
+          toolName: "bash",
+          args: {},
+        } as SessionEvent);
+      }
       const answer = vi.fn();
       onApproval({ request: { toolCallId, reason }, answer });
       return answer;
@@ -2246,7 +2280,7 @@ describe("tool approval", () => {
     const { ask, request, session } = await opened();
     const answer = ask("t1");
     await request({ id: 2, type: "abort" });
-    expect(answer).toHaveBeenCalledWith(false);
+    expect(answer).toHaveBeenCalledWith(false, undefined, undefined, undefined);
     expect(session.abort).toHaveBeenCalled();
   });
 
@@ -2258,9 +2292,53 @@ describe("tool approval", () => {
     first.mockImplementation(() =>
       expect(session.queue.steering).toEqual(["Do it another way"]),
     );
-    await request({ id: 2, type: "prompt", text: "Do it another way" });
-    expect(first).toHaveBeenCalledWith(false);
-    expect(second).toHaveBeenCalledWith(false);
+    await request({
+      id: 2,
+      type: "prompt",
+      text: "Do it another way",
+      queue: "followUp",
+    });
+    expect(first).toHaveBeenCalledWith(
+      false,
+      undefined,
+      undefined,
+      WROTE_INSTEAD,
+    );
+    expect(second).toHaveBeenCalledWith(
+      false,
+      undefined,
+      undefined,
+      WROTE_INSTEAD,
+    );
+  });
+
+  it("denies a subagent's call plainly and keeps the message's queue", async () => {
+    const { ask, request, session } = await opened();
+    session.isStreaming = true;
+    const answer = ask("s1", undefined, false);
+    await request({ id: 2, type: "prompt", text: "Later", queue: "followUp" });
+    expect(answer).toHaveBeenCalledWith(false, undefined, undefined, undefined);
+    expect(session.queue.followUp).toEqual(["Later"]);
+  });
+
+  it("tells waiting calls the user wrote instead when a queued message is sent now", async () => {
+    const { ask, request, session } = await opened();
+    session.isStreaming = true;
+    await request({ id: 2, type: "prompt", text: "a", queue: "followUp" });
+    const answer = ask("t1");
+    await request({
+      id: 3,
+      type: "unqueue",
+      kind: "followUp",
+      text: "a",
+      action: "now",
+    });
+    expect(answer).toHaveBeenCalledWith(
+      false,
+      undefined,
+      undefined,
+      WROTE_INSTEAD,
+    );
   });
 
   it("keeps waiting calls when pi refuses the message", async () => {
@@ -2321,7 +2399,7 @@ describe("tool approval", () => {
     const { ask, request } = await opened();
     const answer = ask("t1");
     await request({ id: 2, type: "close_session", cwd: "/work" });
-    expect(answer).toHaveBeenCalledWith(false);
+    expect(answer).toHaveBeenCalledWith(false, undefined, undefined, undefined);
   });
 
   it("denies a question from a session that was closed", async () => {

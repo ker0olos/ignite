@@ -79,7 +79,7 @@ export type Session = {
   setThinkingLevel(level: ThinkingLevel, options: { persist: boolean }): void;
   readonly messages: AgentMessage[];
   readonly agent: {
-    state: { messages: AgentMessage[] };
+    state: { messages: AgentMessage[]; streamingMessage?: AgentMessage };
     /** Swapped while `/compact` runs, to read the summary's progress. */
     streamFunction: StreamFn;
   };

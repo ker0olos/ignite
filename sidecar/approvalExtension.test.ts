@@ -28,6 +28,8 @@ import { stopBackground } from "./backgroundBash.ts";
 import { answerPlanned, READ_ONLY_UNTIL_PLANNED } from "./taskSteps.ts";
 import { WINDOWS_SHELL } from "../src/lib/approvalPolicy.ts";
 
+const WROTE = "The user wrote instead.";
+
 // A fake sandbox: wrapping marks the command, and `violation` is what it
 // reports blocking. The real one is tested in sandbox.test.ts.
 const fake = vi.hoisted(() => ({ violation: "", program: "sh" }));
@@ -192,6 +194,14 @@ describe("tool_call", () => {
     );
     asks[0].answer(false);
     expect(await result).toEqual({ block: true, reason: DENIED });
+  });
+
+  it("tells the model the host's reason for denying the call", async () => {
+    const { asks, call } = load();
+    const result = call("read", { path: "~/.ssh/config" });
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    asks[0].answer(false, undefined, undefined, WROTE);
+    expect(await result).toEqual({ block: true, reason: WROTE });
   });
 
   it("asks before a dangerous command and runs it once approved", async () => {
@@ -453,6 +463,18 @@ describe("the sandbox in Auto", () => {
     asks[0].answer(false);
     expect(((await outcome) as Outcome).content[0].text).toBe(
       `${refused}\n\n${DECLINED_OUTSIDE}`,
+    );
+  });
+
+  it("tells the model the host's reason for not running it outside", async () => {
+    const { asks, call, result } = load();
+    await call("bash", { command: "touch ~/x" });
+    const refused = "touch: /Users/me/x: Operation not permitted";
+    const outcome = result(refused, true);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    asks[0].answer(false, undefined, undefined, WROTE);
+    expect(((await outcome) as Outcome).content[0].text).toBe(
+      `${refused}\n\n${WROTE}`,
     );
   });
 

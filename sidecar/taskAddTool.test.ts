@@ -9,7 +9,9 @@ import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
 import { DECLINED_ADD, registerTaskAdd } from "./taskAddTool.ts";
 import { TASK_EVENT, type TaskAsk } from "./taskExtension.ts";
 
-function load(approved: boolean, answered = true) {
+const WROTE = "The user wrote instead.";
+
+function load(approved: boolean | string, answered = true) {
   const events = createEventBus();
   let tool: ToolDefinition | undefined;
   registerTaskAdd({
@@ -19,7 +21,12 @@ function load(approved: boolean, answered = true) {
   const asked: ApprovalAsk[] = [];
   events.on(APPROVAL_EVENT, (data) => {
     asked.push(data as ApprovalAsk);
-    (data as ApprovalAsk).answer(approved);
+    (data as ApprovalAsk).answer(
+      approved === true,
+      undefined,
+      undefined,
+      typeof approved === "string" ? approved : undefined,
+    );
   });
   const added: TaskAsk[] = [];
   if (answered) {
@@ -60,6 +67,13 @@ describe("task_add", () => {
     const result = await run({ tasks: [{ title: "Bug 1" }] });
     expect(added).toEqual([]);
     expect(text(result)).toBe(DECLINED_ADD);
+  });
+
+  it("tells the model the host's reason for denying it", async () => {
+    const { added, run } = load(WROTE);
+    const result = await run({ tasks: [{ title: "Bug 1" }] });
+    expect(added).toEqual([]);
+    expect(text(result)).toBe(WROTE);
   });
 
   it("fails when nobody saves them", async () => {

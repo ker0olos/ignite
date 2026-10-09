@@ -18,7 +18,7 @@ import {
 import { describeError, toWireEvent } from "./wire.ts";
 import type { ApprovalAsk } from "./approvalExtension.ts";
 import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
-import { askApproval, denyAll } from "./hostApproval.ts";
+import { askApproval, denyAll, waitsOnUser } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { followSubagents, subagentsIn } from "./hostChildren.ts";
 import { firstTitle, titleOf } from "../shared/conversations.ts";
@@ -111,7 +111,8 @@ export async function open(
     session: id,
     workdir: agent.workdir,
     trust: ctx.trust.get(cwd),
-    messages: s.messages,
+    // pi lists a message once it ends; the one being written follows.
+    messages: [...s.messages, ...[s.agent.state.streamingMessage ?? []].flat()],
     running: s.isStreaming || !!agent.routing,
     ...(agent.routing && { routing: agent.routing.message }),
     ...(s.modelWarning && { modelWarning: s.modelWarning }),
@@ -271,12 +272,14 @@ export async function prompt(
   if (s.isStreaming) rememberImages(agent!, text, images);
   // A message sent mid-run steers the run; a conversation's first one may be routed.
   else if (!(await routeMessage(ctx, agent!, s, text, images))) return;
+  // A message written instead of answering says why, so it steers even when queued.
+  const behavior = waitsOnUser(agent!) ? "steer" : queue;
   const options = {
-    ...(s.isStreaming && { streamingBehavior: queue }),
+    ...(s.isStreaming && { streamingBehavior: behavior }),
     ...(images?.length ? { images } : {}),
     // Writing instead of answering declines what waits, once pi holds the
     // message: declined earlier, the run's next turn starts without it.
-    preflightResult: () => denyAll(ctx, agent!),
+    preflightResult: () => denyAll(ctx, agent!, true),
   };
   s.prompt(text, options).catch(onError ?? reportTo(ctx, agent!));
 }

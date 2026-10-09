@@ -92,7 +92,7 @@ export async function unqueue(
   await requeue(s, agent, queued);
   if (!taken) return null;
   if (action === "now") {
-    denyAll(ctx, agent);
+    denyAll(ctx, agent, true);
     await s.abort();
     await prompt(ctx, taken.text, taken.images, session);
   }
