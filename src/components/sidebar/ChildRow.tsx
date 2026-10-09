@@ -31,7 +31,7 @@ export function ChildRow({
   return (
     <div
       className={cn(
-        "group relative ml-6 flex h-6 items-center rounded-md",
+        "group relative ml-6 flex h-7 items-center rounded-md",
         selected
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "hover:bg-sidebar-accent/50",
