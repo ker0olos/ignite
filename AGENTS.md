@@ -152,6 +152,7 @@ src/                     React frontend (almost all logic lives here)
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
   main.ts                Entry: turns on mods/ overrides, then loads start.ts
   start.ts               stdio wiring; pi's files live in ~/.ignite/pi
+  extensionPaths.ts      The extensions conversations and subagents load, in order
   modsHooks.ts           Node resolve hooks that load mods/ files in place of the repo's
   host.ts                Request dispatch; createHost builds the handler
   hostTypes.ts           Shared types and HostContext; per-function context instead of closures
@@ -219,6 +220,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   skillCatalog.ts        Other apps' skills to import: Claude Code, Codex, Cursor, ~/.agents, Claude Code plugins
   cmem.ts           cmem: finds its worker, the app's on/off setting, recent observations
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
+  lessons.ts             Lessons from the agent's mistakes (~/.ignite/lessons.json): saving, the cap, which a tool call runs into
+  lessonExtension.ts     lesson_add / lesson_remove; system_prompt lessons in the prompt, tool_call ones block their call
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
   taskStore.ts           Each folder's tasks in ~/.ignite/tasks, written one at a time, pushed on change
   todoFile.ts            .todo files' open items (the folder's and its folders'), for the Tasks view; deleting one
@@ -738,6 +741,21 @@ works) to the adapter's config: eager, with `search`, `timeline` and
 `get_observations` as direct tools. It isn't in mcp.json, so the MCP page
 doesn't list it; toggling the setting sends `memory_changed`, which reloads
 the session like an MCP change.
+
+Separately from cmem, the agent keeps lessons from its own mistakes
+(`sidecar/lessonExtension.ts`, `~/.ignite/lessons.json`). The system prompt
+tells it to call `lesson_add` whenever it's corrected or promises to do
+something differently; lessons save without asking, for every folder or only
+this one, at most 30 per scope. Replacing one (`replaces`) or removing one
+(`lesson_remove`) asks the user first, and reaches only lessons that apply in
+the folder. A `system_prompt` lesson is listed in the system prompt (read once
+per conversation). A `tool_call` lesson names an exact tool (`git`, `bash`,
+`mcp__github`, or an MCP tool like `create_issue`) and is checked on that
+tool's calls, before approval: with `match`, plain text (3+ characters) in the
+call's argument values joined by spaces (`reason` left out), a matching call
+is always blocked with the lesson as the reason; without it, the tool's first
+call in each conversation is held once so the agent reads it. Subagents get
+the same checks.
 
 Claude subscriptions run through the user's own Claude Code via the
 `pi-claude-bridge` extension (pi provider `claude-bridge`), because Anthropic
