@@ -3,7 +3,7 @@ import type {
   SessionState,
   OpenedSession,
 } from "../shared/hostProtocol.ts";
-import type { ImageContent, SessionEvent } from "../shared/agentTypes.ts";
+import type { ImageContent } from "../shared/agentTypes.ts";
 import type { QueueKind } from "../shared/queue.ts";
 import {
   current,
@@ -15,18 +15,17 @@ import {
   type McpStatusSnapshot,
   type Session,
 } from "./hostTypes.ts";
-import { describeError, toWireEvent } from "./wire.ts";
 import type { ApprovalAsk } from "./approvalExtension.ts";
 import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
 import { askApproval, denyAll, waitsOnUser } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
-import { followSubagents, subagentsIn } from "./hostChildren.ts";
-import { firstTitle, titleOf } from "../shared/conversations.ts";
-import { pushProjects, trackRun } from "./hostProjects.ts";
+import { subagentsIn } from "./hostChildren.ts";
+import { firstTitle } from "../shared/conversations.ts";
+import { pushProjects } from "./hostProjects.ts";
 import { resume } from "./hostResume.ts";
-import { delivered, rememberImages } from "./queuedImages.ts";
+import { rememberImages } from "./queuedImages.ts";
 import { routeMessage } from "./hostRoute.ts";
-import { trackToolRun } from "./toolRuns.ts";
+import { follow, reportTo } from "./hostFollow.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -168,7 +167,7 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
     .then((s) => {
       agent.session = s;
       agent.running = s.isStreaming;
-      agent.title = firstTitle(s.messages);
+      agent.title = s.sessionManager.getSessionName() ?? firstTitle(s.messages);
       agent.subagents = subagentsIn(s.messages);
       pushProjects(ctx);
       agent.unsubscribe = s.subscribe((event) => follow(ctx, agent, event));
@@ -196,35 +195,6 @@ async function inWorkspace(
     await ctx.workspaces.close(agent.cwd, agent.id).catch(() => {});
     throw error;
   }
-}
-
-// Only the shown conversation's events reach the app; the rest keep running unseen.
-function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
-  if (isShown(ctx, agent)) {
-    ctx.send({
-      type: "session_event",
-      session: agent.id,
-      event: toWireEvent(event),
-    });
-  }
-  trackToolRun(agent, event);
-  const subagentsChanged = followSubagents(agent, event);
-  if (trackRun(agent, event) || subagentsChanged) pushProjects(ctx);
-  if (event.type === "message_start") delivered(agent, event.message);
-  // The first message names the conversation; pi stores it only afterwards.
-  const first = event.type === "message_start" && !agent.title;
-  if (first && event.message.role === "user") {
-    agent.title = titleOf(event.message);
-    pushProjects(ctx);
-  }
-  if (event.type === "agent_settled") settle(ctx, agent);
-}
-
-function settle(ctx: HostContext, agent: Agent) {
-  if (!agent.session?.pendingMessageCount) agent.queuedImages.clear();
-  if (!agent.reloadWhenSettled) return;
-  agent.reloadWhenSettled = false;
-  agent.session?.reload().catch(reportTo(ctx, agent));
 }
 
 /** Ends conversation `id`, or all of the folder's, denying their waiting tool calls. */
@@ -282,17 +252,4 @@ export async function prompt(
     preflightResult: () => denyAll(ctx, agent!, true),
   };
   s.prompt(text, options).catch(onError ?? reportTo(ctx, agent!));
-}
-
-/** Shows a run's failure, if its conversation is the one shown. */
-function reportTo(ctx: HostContext, agent: Agent) {
-  return (error: unknown) => {
-    if (isShown(ctx, agent)) {
-      ctx.send({
-        type: "session_error",
-        session: agent.id,
-        error: describeError(error),
-      });
-    }
-  };
 }

@@ -1,10 +1,9 @@
 /**
  * Wire protocol between the app (web view) and the pi host sidecar
  * (sidecar/main.ts): one JSON object per line, in both directions.
- * Auth prompt and event shapes mirror pi-ai's AuthPrompt / AuthEvent, minus
- * the AbortSignals that can't cross a process boundary.
  */
 import type { AgentMessage, ImageContent, SessionEvent } from "./agentTypes.ts";
+import type { AuthEventData, AuthPromptData } from "./auth.ts";
 import type {
   AgentStatus,
   ChildRequest,
@@ -16,6 +15,7 @@ import type { MemoryStatus } from "./memory.ts";
 import type {
   CommandSearch,
   CommandSearchResult,
+  ForkSession,
   SessionDetails,
 } from "./conversations.ts";
 import type { QuestionAnswer } from "./questions.ts";
@@ -57,34 +57,6 @@ export type ProviderStatus = {
   /** For openai-codex: signed in with the Codex CLI's login, not the app's. */
   viaCodex?: boolean;
 };
-
-export type AuthPromptData =
-  | {
-      type: "text" | "secret" | "manual_code";
-      message: string;
-      placeholder?: string;
-    }
-  | {
-      type: "select";
-      message: string;
-      options: readonly { id: string; label: string; description?: string }[];
-    };
-
-export type AuthEventData =
-  | {
-      type: "info";
-      message: string;
-      links?: readonly { url: string; label?: string }[];
-    }
-  | { type: "auth_url"; url: string; instructions?: string }
-  | {
-      type: "device_code";
-      userCode: string;
-      verificationUri: string;
-      intervalSeconds?: number;
-      expiresInSeconds?: number;
-    }
-  | { type: "progress"; message: string };
 
 /** pi's thinking levels (effort), from lowest to highest. */
 export type ThinkingLevel =
@@ -174,8 +146,8 @@ export type HostRequest =
    * folder never starts a conversation).
    */
   | { id: number; type: "open_session"; cwd: string; session?: string }
-  /** Starts another, empty conversation in the folder and shows it. */
-  | { id: number; type: "new_session"; cwd: string }
+  /** Starts another conversation in the folder and shows it: empty, or a copy of one (see ForkSession). */
+  | { id: number; type: "new_session"; cwd: string; fork?: ForkSession }
   /**
    * Ends a conversation, or without `session` all of the folder's; their
    * waiting tool calls are denied. Saved conversations stay.

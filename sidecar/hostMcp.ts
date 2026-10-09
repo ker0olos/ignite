@@ -107,8 +107,18 @@ export async function changeMcp(
   return mcpServers(ctx);
 }
 
+/** Applies a change to the app's skills, which sessions read on (re)load; returns them. */
+export async function changeSkills(
+  ctx: HostContext,
+  edit: () => Promise<void>,
+) {
+  await edit();
+  await reloadSessions(ctx);
+  return ctx.skills.list();
+}
+
 /** Reloads the MCP session and every open conversation, a running one once its run ends. */
-export async function reloadSessions(ctx: HostContext) {
+async function reloadSessions(ctx: HostContext) {
   const mcp = await ctx.mcpSession?.catch(() => undefined);
   await mcp?.reload();
   for (const agent of ctx.agents.values()) {

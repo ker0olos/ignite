@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Kbd } from "@/components/agent/Kbd";
 import { Textarea } from "@/components/ui/textarea";
 import { approvalHints, shortcut } from "@/lib/approvalKeys";
 import { cn } from "@/lib/utils";
@@ -36,12 +37,12 @@ export function QuestionOwnAnswer({
         )}
       />
       {shortcuts && (
-        <kbd
+        <Kbd
           aria-hidden
-          className="pointer-events-none absolute top-1.5 right-2.5 rounded border px-1.5 font-sans text-xs text-muted-foreground"
+          className="pointer-events-none absolute top-1.5 right-2.5"
         >
           {hint}
-        </kbd>
+        </Kbd>
       )}
     </div>
   );

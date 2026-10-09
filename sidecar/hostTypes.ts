@@ -1,11 +1,10 @@
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import type { StreamFn } from "./compactProgress.ts";
+import type { AuthEventData, AuthPromptData } from "../shared/auth.ts";
 import type {
   ModelInfo,
   ThinkingLevel,
-  AuthEventData,
   AuthMethod,
-  AuthPromptData,
   HostMessage,
 } from "../shared/hostProtocol.ts";
 import type { SubagentStatus } from "../shared/agentStatus.ts";
@@ -85,6 +84,10 @@ export type Session = {
   };
   readonly sessionManager: {
     appendMessage(message: ToolResultMessage): string;
+    getBranch(): unknown[];
+    appendCustomEntry(customType: string): string;
+    /** Set for a fork, which would otherwise take its original's title. */
+    getSessionName(): string | undefined;
   };
   sendCustomMessage(
     message: { customType: string; content: string; display: boolean },
@@ -216,7 +219,7 @@ export type HostContext = {
   send: (m: HostMessage) => void;
   openSession: OpenSession;
   sessions: SessionStore;
-  workspaces: Pick<Workspaces, "open" | "close">;
+  workspaces: Pick<Workspaces, "open" | "close" | "fork">;
   /** The command center's search over folders' conversations and files. */
   search: ReturnType<typeof createSearch>;
   /** The session that shows what a new conversation would start with. */

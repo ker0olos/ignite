@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { useRef } from "react";
+import { Kbd } from "@/components/agent/Kbd";
 import { Textarea } from "@/components/ui/textarea";
 import { typesText } from "@/lib/questions";
 import { cn } from "@/lib/utils";
@@ -80,12 +81,9 @@ export function QuestionOption({
           )}
         </span>
         {hint && (
-          <kbd
-            aria-hidden
-            className="ml-auto shrink-0 self-center rounded border px-1.5 font-sans text-xs text-muted-foreground"
-          >
+          <Kbd aria-hidden className="ml-auto shrink-0 self-center">
             {hint}
-          </kbd>
+          </Kbd>
         )}
       </button>
       {picked && (

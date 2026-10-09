@@ -130,6 +130,8 @@ export function useAgentSession(
     error,
     send: actions.send,
     compact: actions.compact,
+    /** Forks the shown conversation and shows the fork, empty; a refusal shows in its composer. */
+    fork: () => actions.fork("", []),
     stop: actions.stop,
     unqueue: actions.unqueue,
     /** The shown conversation's id; the folder may have others open. */

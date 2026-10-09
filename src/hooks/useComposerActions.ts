@@ -9,7 +9,8 @@ import type { ImageContent } from "../../shared/agentTypes";
 import type { QueueKind, QueuedMessage, Unqueue } from "../../shared/queue";
 import type { HostClient } from "@/lib/piHost";
 import { useCompact } from "@/hooks/useCompact";
-import { compactCommand } from "@/lib/mentions";
+import { useFork } from "@/hooks/useFork";
+import { appCommand } from "@/lib/mentions";
 import type { Queued } from "@/lib/queue";
 
 /** Model and effort picked before a folder's first message, applied once its session starts. */
@@ -83,12 +84,15 @@ export function useComposerActions({
   }, [opened, folder, start, pending, setState]);
 
   const compact = useCompact(opened, none, session, setError);
+  const fork = useFork(opened, folder, none ? null : session, start, setError);
 
   const send = useCallback(
     async (text: string, images: ImageContent[] = [], queue?: QueueKind) => {
       if (!opened || (!text.trim() && !images.length)) return;
-      const instructions = compactCommand(text);
+      const instructions = appCommand("compact", text);
       if (instructions !== null) return compact(instructions);
+      const task = appCommand("fork", text);
+      if (task !== null) return fork(task, images);
       setError(null);
       try {
         const to = none ? await begin() : session;
@@ -97,7 +101,7 @@ export function useComposerActions({
         setError((e as Error).message);
       }
     },
-    [opened, none, session, begin, setError, compact],
+    [opened, none, session, begin, setError, compact, fork],
   );
 
   const change = useCallback(
@@ -149,6 +153,7 @@ export function useComposerActions({
     pending,
     send,
     compact,
+    fork,
     stop,
     unqueue,
     setModel: (model: ModelInfo) =>

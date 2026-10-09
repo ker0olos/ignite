@@ -1,12 +1,12 @@
 import type { Item } from "@/components/settings/sections";
-import { Kbd } from "@/components/ui/kbd";
+import { Kbd } from "@/components/agent/Kbd";
 import { isWindows } from "@/lib/window";
 
 const MOD = isWindows() ? "Ctrl" : "⌘";
 
 const shortcut = (key: string) => (
   <>
-    <Kbd className="h-4">{MOD}</Kbd> <Kbd className="h-4">{key}</Kbd>
+    <Kbd>{MOD}</Kbd> <Kbd>{key}</Kbd>
   </>
 );
 

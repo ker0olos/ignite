@@ -1,16 +1,20 @@
+import type { ImageContent } from "../../../shared/agentTypes";
 import { MarkupDialog } from "@/components/app/MarkupDialog";
-import { useWhiteboard } from "@/hooks/useWhiteboard";
 
-/** A blank page to draw on, opened with ⌘N while `enabled`. */
-export function Whiteboard({ enabled }: { enabled: boolean }) {
-  const [page, close] = useWhiteboard(enabled);
-  if (!page) return null;
+/** A blank page to draw on (see useWhiteboard). */
+export function Whiteboard({
+  page,
+  onClose,
+}: {
+  page: ImageContent;
+  onClose: () => void;
+}) {
   return (
     <MarkupDialog
       image={page}
       name="Whiteboard"
       open
-      onOpenChange={(open) => !open && close()}
+      onOpenChange={(open) => !open && onClose()}
     />
   );
 }

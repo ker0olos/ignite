@@ -34,6 +34,12 @@ describe("useWhiteboard", () => {
     expect(result.current[0]).not.toBeNull();
   });
 
+  it("opens from the + menu", () => {
+    const { result } = renderHook(() => useWhiteboard(true));
+    act(() => result.current[2]());
+    expect(result.current[0]?.mimeType).toBe("image/png");
+  });
+
   it("ignores other keys, Shift or Alt, and when disabled", () => {
     const { result, rerender } = renderHook(({ on }) => useWhiteboard(on), {
       initialProps: { on: true },

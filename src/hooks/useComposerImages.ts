@@ -13,5 +13,9 @@ export function useComposerImages(
     attach([image]);
     input.current?.focus();
   });
-  return { images, setImages, attach };
+  const remove = (i: number) =>
+    setImages((current) => current.filter((_, j) => j !== i));
+  const replace = (i: number, marked: ImageContent) =>
+    setImages((current) => current.map((x, j) => (j === i ? marked : x)));
+  return { images, setImages, attach, remove, replace };
 }
