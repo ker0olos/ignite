@@ -158,10 +158,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     changeSkills(ctx, () => ctx.skills.importSkills(r.source, r.names)),
   memory_status: (_ctx, r) => memoryStatus(r.cwd),
   // The MCP extension reads the setting on (re)load, like mcp.json.
-  memory_changed: async (ctx) => {
-    await changeMcp(ctx, async () => {});
-    return undefined;
-  },
+  memory_changed: (ctx) => changeMcp(ctx, async () => {}).then(() => {}),
   set_trust: (ctx, r) => setTrust(ctx, r.cwd, r.trusted),
   git_diff: (_ctx, r) => fileDiff(r.repo, r.range, r.path),
   git_status: async (ctx, r) => {
