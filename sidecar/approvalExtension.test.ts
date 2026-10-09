@@ -394,6 +394,15 @@ describe("the sandbox in Auto", () => {
     expect(stopBackground).toHaveBeenCalledWith(7, "s1");
   });
 
+  it("asks when a keychain refusal is followed by a command that exits 0", async () => {
+    const { asks, call, result } = load();
+    await call("bash", {
+      command: "cd server && doppler run -- node x.js 2>&1 | tail -3; ls db",
+    });
+    void result("Token not found in system keyring\nindex.ts", false);
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+  });
+
   it("doesn't take a successful run's keychain line for a block", async () => {
     const { asks, call, result } = load();
     await call("bash", { command: "grep -rn keyring src" });

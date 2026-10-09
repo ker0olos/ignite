@@ -238,14 +238,20 @@ describe("mayBeBlocked", () => {
     expect(mayBeBlocked("200 OK")).toBe(false);
   });
 
-  it("leaves a failed CLI's keychain line to refusedLine, not a successful run's", () => {
+  it("spots a keychain refusal, even when a later command exited 0", () => {
     const doppler =
-      "Token not found in system keyring\nDoppler Error: secret not found in keyring";
+      "Token not found in system keyring\nDoppler Error: secret not found in keyring\nimport x";
     expect(refusedLine(doppler)).toBe("Token not found in system keyring");
     expect(refusedLine("security: User interaction is not allowed.")).toBe(
       "security: User interaction is not allowed.",
     );
-    expect(mayBeBlocked(doppler)).toBe(false);
+    expect(mayBeBlocked(doppler)).toBe(true);
+  });
+
+  it("doesn't take a search hit quoting a keychain line for one", () => {
+    const hit = "src/a.ts:3: Token not found in system keyring";
+    expect(mayBeBlocked(hit)).toBe(false);
+    expect(refusedLine(hit)).toBeNull();
   });
 });
 
