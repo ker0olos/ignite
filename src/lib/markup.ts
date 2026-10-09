@@ -40,7 +40,20 @@ export const MARKUP_FONT =
   "-apple-system, BlinkMacSystemFont, system-ui, sans-serif";
 
 /** Text is this many times the stroke width tall. */
-export const TEXT_SCALE = 7;
+export const TEXT_SCALE = 10;
+
+/** The weight of text marks, in the editor and the saved image. */
+export const TEXT_WEIGHT = "500";
+
+/** How wide text marks' `lines` are at `fontSize` px, with room for the caret, never under two text heights; estimated where canvas can't measure. */
+export function textWidth(lines: string[], fontSize: number): number {
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (ctx) ctx.font = `${TEXT_WEIGHT} ${fontSize}px ${MARKUP_FONT}`;
+  const width = (line: string) =>
+    ctx ? ctx.measureText(line).width : line.length * fontSize * 0.6;
+  const widest = Math.max(...lines.map(width)) + fontSize * 0.25;
+  return Math.max(fontSize * 2, widest);
+}
 
 /** A stroke width that looks the same on a small image or a 4K screenshot. */
 export function strokeWidth(

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   commit,
   extendMark,
@@ -15,6 +15,8 @@ import {
   TOOL_KEY,
   undo,
   type Mark,
+  MARKUP_FONT,
+  textWidth,
 } from "@/lib/markup";
 
 const mark = (kind: Mark["kind"]) =>
@@ -195,5 +197,31 @@ describe("pngImage", () => {
       data: "QUJD",
       mimeType: "image/png",
     });
+  });
+});
+
+describe("textWidth", () => {
+  it("fits the widest line, with room for the caret", () => {
+    const measureText = (t: string) => ({ width: t.length * 5 });
+    const ctx = {
+      font: "",
+      measureText,
+    } as unknown as CanvasRenderingContext2D;
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    expect(textWidth(["ab", "abcdefgh"], 20)).toBe(8 * 5 + 5);
+    expect(ctx.font).toBe(`500 20px ${MARKUP_FONT}`);
+    vi.restoreAllMocks();
+  });
+
+  it("estimates where canvas can't measure", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    expect(textWidth(["abcd"], 10)).toBe(4 * 6 + 2.5);
+    vi.restoreAllMocks();
+  });
+
+  it("keeps an empty box two text heights wide", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    expect(textWidth([""], 10)).toBe(20);
+    vi.restoreAllMocks();
   });
 });

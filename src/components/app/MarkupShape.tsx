@@ -1,5 +1,5 @@
 import { Arrow, Ellipse, Line, Rect, Text } from "react-konva";
-import { MARKUP_FONT, TEXT_SCALE, type Mark } from "@/lib/markup";
+import { MARKUP_FONT, TEXT_SCALE, TEXT_WEIGHT, type Mark } from "@/lib/markup";
 
 /** A mark's drawing, from its own origin; its group places it on the image. */
 export function MarkupShape({ mark }: { mark: Mark }) {
@@ -53,7 +53,7 @@ export function MarkupShape({ mark }: { mark: Mark }) {
           fill={color}
           fontSize={size * TEXT_SCALE}
           fontFamily={MARKUP_FONT}
-          fontStyle="bold"
+          fontStyle={TEXT_WEIGHT}
           lineHeight={1.2}
         />
       );
