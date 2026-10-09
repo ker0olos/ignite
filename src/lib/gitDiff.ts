@@ -38,6 +38,37 @@ export function parseUnifiedDiff(text: string): DiffLine[] {
 const isChange = (line: DiffLine | undefined) =>
   line?.kind === "add" || line?.kind === "del";
 
+export type DiffRow = { index: number } | { from: number; to: number };
+
+const CONTEXT = 3;
+
+/** Rows to show: unchanged lines more than 3 from a change folded, as VS Code does, unless expanded (by fold start). */
+export function foldUnchanged(
+  lines: DiffLine[],
+  expanded: ReadonlySet<number>,
+): DiffRow[] {
+  const changed = lines.some(isChange);
+  const near = lines.map(() => !changed);
+  lines.forEach((line, i) => {
+    if (line.kind === "ctx") return;
+    const last = Math.min(lines.length - 1, i + CONTEXT);
+    for (let j = Math.max(0, i - CONTEXT); j <= last; j++) near[j] = true;
+  });
+  const rows: DiffRow[] = [];
+  for (let i = 0; i < lines.length;) {
+    let end = i;
+    while (end < lines.length && !near[end]) end++;
+    if (end - i > CONTEXT && !expanded.has(i)) {
+      rows.push({ from: i, to: end });
+      i = end;
+    } else {
+      const stop = Math.max(end, i + 1);
+      for (; i < stop; i++) rows.push({ index: i });
+    }
+  }
+  return rows;
+}
+
 /** The row where each run of added or removed lines starts. */
 export function changeStarts(lines: DiffLine[]): number[] {
   return lines.flatMap((line, i) =>
