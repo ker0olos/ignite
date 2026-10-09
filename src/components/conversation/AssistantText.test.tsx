@@ -80,6 +80,45 @@ describe("AssistantText file links", () => {
     );
   });
 
+  it("opens a link from the keyboard, ignoring other keys", () => {
+    render(
+      <AssistantText
+        text="See https://example.com/a."
+        folder="/repo"
+        editor={DEFAULT_SETTINGS.editor}
+        codeThemes={DEFAULT_CODE_THEMES}
+      />,
+    );
+    const link = screen.getByRole("button", { name: /example\.com/ });
+    fireEvent.keyDown(link, { key: "a" });
+    fireEvent.keyDown(link, { key: "Enter", metaKey: true });
+    fireEvent.keyDown(link, { key: "Enter", repeat: true });
+    expect(opener.openUrl).not.toHaveBeenCalled();
+    fireEvent.keyDown(link, { key: "Enter" });
+    fireEvent.keyDown(link, { key: " " });
+    expect(opener.openUrl).toHaveBeenCalledTimes(2);
+    expect(opener.openUrl).toHaveBeenCalledWith("https://example.com/a");
+  });
+
+  it("doesn't open a link when the click ends a text selection", () => {
+    render(
+      <AssistantText
+        text="See https://example.com/a."
+        folder="/repo"
+        editor={DEFAULT_SETTINGS.editor}
+        codeThemes={DEFAULT_CODE_THEMES}
+      />,
+    );
+    const link = screen.getByRole("button", { name: /example\.com/ });
+    vi.spyOn(window, "getSelection").mockReturnValueOnce({
+      isCollapsed: false,
+    } as Selection);
+    fireEvent.click(link);
+    expect(opener.openUrl).not.toHaveBeenCalled();
+    fireEvent.click(link);
+    expect(opener.openUrl).toHaveBeenCalledOnce();
+  });
+
   it("leaves branches and files that don't exist as plain code", async () => {
     render(
       <AssistantText
