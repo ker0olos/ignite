@@ -20,9 +20,9 @@ import {
 import {
   APPROVAL_EVENT,
   DENIED,
-  approvalMode,
   type ApprovalAsk,
 } from "./approvalExtension.ts";
+import { approvalMode } from "./approvalSettings.ts";
 import { loadBashParser } from "./bashParser.ts";
 import { refuseMerged } from "./gitMerged.ts";
 import { marked, pushAfter, pushed, thenReason } from "./gitPush.ts";

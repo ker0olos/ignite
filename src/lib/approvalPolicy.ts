@@ -28,7 +28,7 @@ export type Place = {
   windows?: boolean;
 };
 
-/** Shell commands on Windows ask in Auto too: no sandbox, and a denylist for Unix. */
+/** Shell commands on Windows ask in Auto too unless sandboxed: the denylist is written for Unix. */
 export const WINDOWS_SHELL = "Shell commands aren't sandboxed on Windows";
 const SHELL_TOOLS = new Set(["bash", "powershell"]);
 
@@ -152,8 +152,9 @@ function bashReason(
 ): string | null {
   const pipelines = parse?.(command);
   const danger = dangerousCommand(command, pipelines);
-  if (danger || place.windows) return danger ?? WINDOWS_SHELL;
+  if (danger) return danger;
   if (sandboxed) return null;
+  if (place.windows) return WINDOWS_SHELL;
   const [outside] = outsidePaths(command, place, pipelines);
   return outside ? outsideReason(outside, place) : null;
 }

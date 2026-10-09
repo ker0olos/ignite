@@ -1,10 +1,8 @@
 import { parse } from "smol-toml";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fakeFs } from "@/test/fakeFs";
 import {
   DEFAULT_SETTINGS,
-  approvalSetting,
-  modelRouterSetting,
   SETTINGS_DIR,
   SETTINGS_FILE,
   loadSettings,
@@ -162,19 +160,27 @@ describe("loadSettings", () => {
     expect((await loadSettings()).memory).toEqual({ cmem: false });
   });
 
-  it("reads the Manual approval mode and full access", async () => {
-    fakeFs({ [FILE]: '[approval]\nmode = "manual"\nfull_access = true\n' });
+  it("reads the Manual approval mode, full access and the Windows sandbox", async () => {
+    fakeFs({
+      [FILE]:
+        '[approval]\nmode = "manual"\nfull_access = true\nwindows_sandbox = true\n',
+    });
     expect((await loadSettings()).approval).toEqual({
       mode: "manual",
       full_access: true,
+      windows_sandbox: true,
     });
   });
 
   it("falls back to Auto for an approval mode it doesn't know", async () => {
-    fakeFs({ [FILE]: '[approval]\nmode = "never"\nfull_access = 1\n' });
+    fakeFs({
+      [FILE]:
+        '[approval]\nmode = "never"\nfull_access = 1\nwindows_sandbox = "yes"\n',
+    });
     expect((await loadSettings()).approval).toEqual({
       mode: "auto",
       full_access: false,
+      windows_sandbox: false,
     });
   });
 
@@ -260,32 +266,6 @@ describe("loadSettings", () => {
   });
 });
 
-describe("approvalSetting", () => {
-  it("offers the mode and saves a change without touching other settings", () => {
-    const save = vi.fn(async () => {});
-    const approval = approvalSetting(DEFAULT_SETTINGS, save);
-    expect(approval.mode).toBe("auto");
-    approval.onChange("manual");
-    expect(save).toHaveBeenCalledWith({
-      ...DEFAULT_SETTINGS,
-      approval: { mode: "manual", full_access: false },
-    });
-  });
-});
-
-describe("modelRouterSetting", () => {
-  it("offers Model Router and saves a change", () => {
-    const save = vi.fn(async () => {});
-    const router = modelRouterSetting(DEFAULT_SETTINGS, save);
-    expect(router.on).toBe(true);
-    router.onChange(false);
-    expect(save).toHaveBeenCalledWith({
-      ...DEFAULT_SETTINGS,
-      conversation: { ...DEFAULT_SETTINGS.conversation, model_router: false },
-    });
-  });
-});
-
 describe("saveSettings", () => {
   const next: Settings = {
     theme: "github-dark",
@@ -306,7 +286,7 @@ describe("saveSettings", () => {
     },
     composer: { git_status: false },
     memory: { cmem: false },
-    approval: { mode: "manual", full_access: false },
+    approval: { mode: "manual", full_access: false, windows_sandbox: false },
     subagents: { enabled: false, max: 4 },
     power: { keep_awake: false, keep_screen_awake: true },
     mac: { liquid_glass: false },

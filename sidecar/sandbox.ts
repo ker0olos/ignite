@@ -218,14 +218,17 @@ const keychainLine = (line: string) =>
  * report can arrive too late (macOS logs it after the command ends), but a
  * refused file operation or keychain read always says so in the command's output.
  */
-export function refusedLine(output: string): string | null {
+export function refusedLine(
+  output: string,
+  windows = process.platform === "win32",
+): string | null {
+  // Windows' sandbox denies by ACL: plain permission errors, or EPERM from Node.
+  const refused = windows
+    ? /operation not permitted|permission denied|access is denied/i
+    : /operation not permitted|read-only file system/i;
   const line = output
     .split("\n")
-    .find(
-      (l) =>
-        /operation not permitted|read-only file system/i.test(l) ||
-        keychainLine(l),
-    );
+    .find((l) => refused.test(l) || keychainLine(l));
   return line ? line.trim() : null;
 }
 
@@ -235,7 +238,7 @@ export function refusedLine(output: string): string | null {
  */
 export function mayBeBlocked(output: string): boolean {
   return (
-    /operation not permitted|permission denied|read-only file system/i.test(
+    /operation not permitted|permission denied|read-only file system|access is denied/i.test(
       output,
     ) || output.split("\n").some(keychainLine)
   );
@@ -258,6 +261,8 @@ export async function explainWhenReported(
 }
 
 export type Sandbox = {
+  /** Whether wrap keeps the folder read-only (but `inFolder`) until the work is planned. */
+  locks: boolean;
   /** `command` rewritten to run in the sandbox for `cwd`, writing there only in `inFolder` if given; `id` names this run. */
   wrap(
     command: string,
@@ -299,6 +304,7 @@ export async function createSandbox(
     true,
   );
   return {
+    locks: true,
     // pipefail: agents pipe through head/tail, which would hide a block.
     // Hosts and sockets are the proxy's and profile's global config, so the
     // allowlist goes there too; it's cheap to swap.
@@ -320,10 +326,12 @@ export async function createSandbox(
         (text) => SandboxManager.annotateStderrWithSandboxFailures(id, text),
         output,
       ),
-    // The proxy records its denials as they happen, so there's no wait.
-    sendRefused: (id) =>
-      /deny http-request/.test(
-        SandboxManager.annotateStderrWithSandboxFailures(id, ""),
-      ),
+    sendRefused: refusedRequest,
   };
 }
+
+/** Whether run `id` sent a request the proxy refused; it records denials as they happen, so there's no wait. */
+export const refusedRequest = (id: string) =>
+  /deny http-request/.test(
+    SandboxManager.annotateStderrWithSandboxFailures(id, ""),
+  );

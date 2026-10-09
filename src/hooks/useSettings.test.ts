@@ -166,7 +166,7 @@ describe("useSettings", () => {
       sidebar: DEFAULT_SETTINGS.sidebar,
       composer: DEFAULT_SETTINGS.composer,
       memory: { cmem: true },
-      approval: { mode: "auto", full_access: false },
+      approval: { mode: "auto", full_access: false, windows_sandbox: false },
       subagents: { enabled: true, max: 2 },
       power: { keep_awake: true, keep_screen_awake: false },
       mac: { liquid_glass: true },

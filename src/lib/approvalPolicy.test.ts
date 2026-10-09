@@ -46,10 +46,22 @@ describe("on Windows", () => {
     expect(file("\\\\server\\share\\x")).not.toBeNull();
   });
 
-  it("asks for every shell command, naming a danger when there is one", () => {
+  it("asks for every shell command unsandboxed, naming a danger when there is one", () => {
+    const shell = (toolName: string, command: string) =>
+      approvalFor("auto", toolName, { command }, win);
+    expect(shell("bash", "npm test")).toEqual({ reason: WINDOWS_SHELL });
+    expect(shell("powershell", "Get-ChildItem")).toEqual({
+      reason: WINDOWS_SHELL,
+    });
+    expect(shell("bash", "git push --force")).toEqual({
+      reason: "Rewrites or deletes history on the remote",
+    });
+  });
+
+  it("runs sandboxed bash without asking, but not PowerShell or dangers", () => {
     const shell = (toolName: string, command: string) =>
       approvalFor("auto", toolName, { command }, win, { sandboxed: true });
-    expect(shell("bash", "npm test")).toEqual({ reason: WINDOWS_SHELL });
+    expect(shell("bash", "npm test")).toBeNull();
     expect(shell("powershell", "Get-ChildItem")).toEqual({
       reason: WINDOWS_SHELL,
     });

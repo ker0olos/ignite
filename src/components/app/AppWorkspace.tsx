@@ -14,11 +14,8 @@ import type { TaggedAgentStatus } from "@/lib/conversations";
 import { needingSignIn } from "@/lib/mcpServers";
 import { basename } from "@/lib/paths";
 import type { HostClient } from "@/lib/piHost";
-import {
-  approvalSetting,
-  modelRouterSetting,
-  type Settings,
-} from "@/lib/settings";
+import { approvalSetting, modelRouterSetting } from "@/lib/composerSettings";
+import type { Settings } from "@/lib/settings";
 
 /** The open folder's workspace, wired to the app: settings, folders, MCP sign-ins, remote devices. */
 export function AppWorkspace({
