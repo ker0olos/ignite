@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
+import { CodeLine } from "@/components/conversation/CodeLine";
+import { FoldedLines } from "@/components/conversation/FoldedLines";
 import { MoreLines } from "@/components/conversation/MoreLines";
 import type { Editor } from "@/components/conversation/shared";
+import { foldUnchanged } from "@/lib/gitDiff";
 import { highlightLines, type Token } from "@/lib/highlight";
 import type { DiffLine } from "@/lib/toolRows";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -23,6 +26,7 @@ export function CodeLines({
   className?: string;
 }) {
   const [all, setAll] = useState(false);
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
   const [tokens, setTokens] = useState<Token[][] | null>(null);
   const code = lines.map((l) => (l.kind === "gap" ? "" : l.text)).join("\n");
   const marks = lines.some((l) => l.kind === "add" || l.kind === "del");
@@ -47,50 +51,22 @@ export function CodeLines({
         )}
         style={{ fontFamily: editor.font_family }}
       >
-        {shown.map((line, i) =>
-          line.kind === "gap" ? (
-            <div
-              key={i}
-              data-row={i}
-              className="pl-12 text-muted-foreground select-none"
-            >
-              ⋯
-            </div>
+        {foldUnchanged(shown, expanded).map((row) =>
+          "from" in row ? (
+            <FoldedLines
+              key={`fold-${row.from}`}
+              count={row.to - row.from}
+              onExpand={() => setExpanded((s) => new Set(s).add(row.from))}
+            />
           ) : (
-            <div
-              key={i}
-              data-row={i}
-              className={cn(
-                "flex min-w-fit",
-                line.kind === "add" && "bg-success/15",
-                line.kind === "del" && "bg-destructive/15",
-              )}
-            >
-              <span className="w-10 shrink-0 pr-2 text-right text-muted-foreground select-none">
-                {line.num}
-              </span>
-              {marks && (
-                <span className="w-4 shrink-0 text-muted-foreground select-none">
-                  {line.kind === "add" ? "+" : line.kind === "del" ? "-" : ""}
-                </span>
-              )}
-              <span
-                className={cn(
-                  "pr-3",
-                  editor.word_wrap
-                    ? "min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]"
-                    : "whitespace-pre",
-                )}
-              >
-                {tokens?.[i]
-                  ? tokens[i].map((t, j) => (
-                      <span key={j} className="tok" style={t.style}>
-                        {t.content}
-                      </span>
-                    ))
-                  : line.text}
-              </span>
-            </div>
+            <CodeLine
+              key={row.index}
+              line={shown[row.index]}
+              row={row.index}
+              tokens={tokens?.[row.index]}
+              marks={marks}
+              editor={editor}
+            />
           ),
         )}
       </div>

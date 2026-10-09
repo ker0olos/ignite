@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   changeStarts,
+  foldUnchanged,
   nextChange,
   parseUnifiedDiff,
   withoutDiffstat,
@@ -84,6 +85,52 @@ describe("changeStarts and nextChange", () => {
     expect(nextChange(starts, 5, -1)).toBe(1);
     expect(nextChange(starts, 1, -1)).toBe(5);
     expect(nextChange([], 0, 1)).toBeUndefined();
+  });
+});
+
+describe("foldUnchanged", () => {
+  const ctx = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      kind: "ctx" as const,
+      num: i,
+      text: "",
+    }));
+  const add = { kind: "add" as const, num: 0, text: "" };
+  // 10 unchanged, a change, 10 unchanged, a change, 2 unchanged
+  const lines = [...ctx(10), add, ...ctx(10), add, ...ctx(2)];
+  const shown = (rows: ReturnType<typeof foldUnchanged>) =>
+    rows.map((r) => ("from" in r ? `${r.from}-${r.to}` : r.index));
+
+  it("folds runs more than 3 lines from a change, keeping 3 around each", () => {
+    expect(shown(foldUnchanged(lines, new Set()))).toEqual([
+      "0-7",
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      "14-18",
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+    ]);
+  });
+
+  it("shows an expanded fold's lines", () => {
+    expect(shown(foldUnchanged(lines, new Set([0]))).slice(0, 8)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7,
+    ]);
+  });
+
+  it("keeps a run of 3 or fewer and folds nothing without changes", () => {
+    const short = [...ctx(5), add];
+    expect(shown(foldUnchanged(short, new Set()))).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(shown(foldUnchanged(ctx(20), new Set()))).toHaveLength(20);
   });
 });
 

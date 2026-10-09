@@ -3,16 +3,10 @@ import { isShellBlock, terminalInput } from "./runCommand";
 
 describe("isShellBlock", () => {
   it("is true for shell languages in any case, false otherwise", () => {
-    expect(isShellBlock("bash", "a\nb")).toBe(true);
-    expect(isShellBlock("ZSH", "ls")).toBe(true);
-    expect(isShellBlock("console", "ls")).toBe(false);
-    expect(isShellBlock("ts", "f()")).toBe(false);
-  });
-
-  it("is true for an untagged block of one line only", () => {
-    expect(isShellBlock(undefined, "doppler run -- npx tsx a.ts\n")).toBe(true);
-    expect(isShellBlock(undefined, "line one\nline two")).toBe(false);
-    expect(isShellBlock(undefined, "  \n")).toBe(false);
+    expect(isShellBlock("bash")).toBe(true);
+    expect(isShellBlock("ZSH")).toBe(true);
+    expect(isShellBlock("console")).toBe(false);
+    expect(isShellBlock(undefined)).toBe(false);
   });
 });
 

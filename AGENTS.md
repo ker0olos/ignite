@@ -64,6 +64,7 @@ src/                     React frontend (almost all logic lives here)
     useTerminalSession.ts A terminal view's connection to the host: snapshot, live output, keystrokes
     useTerminalShortcut.ts ⌘1 / Ctrl+1 opens a terminal tab; returns run-in-terminal
     useRunInTerminal.ts  Run-in-terminal for assistant shell code blocks' Run button
+    useBlockLang.ts      A code block's language: its fence's, or bash once an untagged one parses as shell
     useTerminalTabs.ts   A closed tab's shell ends; a folder shown again reopens its shells' tabs
     useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request), read every 5s
     useGitRepoDetails.ts A repository's uncommitted files and unpushed commits, while its composer popover is open
@@ -134,6 +135,7 @@ src/                     React frontend (almost all logic lives here)
     tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
     runStep.ts           What a running conversation is doing now (its step, start time, elapsed text)
     runCommand.ts        Which code blocks Run offers for, and a block as terminal keystrokes
+    shellDetect.ts       Whether an untagged code block is shell commands (tree-sitter bash, in the webview)
     mentions.ts          `/compact`, `/skill` and `@` completions: the token at the caret, options, sending a skill as `/skill:name`
     queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys

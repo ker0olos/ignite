@@ -15,8 +15,8 @@ export function CodeBlockActions({
   const run = useRunInTerminal();
 
   return (
-    <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-      {run && isShellBlock(lang, code) && (
+    <div className="absolute top-1 right-1 flex gap-1 rounded-md bg-background opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      {run && isShellBlock(lang) && (
         <Button
           size="xs"
           variant="outline"

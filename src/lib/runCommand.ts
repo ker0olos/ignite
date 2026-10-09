@@ -1,11 +1,8 @@
 const SHELLS = new Set(["bash", "sh", "zsh", "shell"]);
 
-/** Whether a code block is one the user's terminal runs as is: a shell language, or one untagged line. */
-export function isShellBlock(lang: string | undefined, code: string): boolean {
-  // Agents often leave a command's fence untagged; output rarely fits on one line.
-  if (lang === undefined)
-    return code.trim() !== "" && !code.trim().includes("\n");
-  return SHELLS.has(lang.toLowerCase());
+/** Whether a code block is one the user's terminal runs as is: tagged with a shell language. */
+export function isShellBlock(lang: string | undefined): boolean {
+  return lang !== undefined && SHELLS.has(lang.toLowerCase());
 }
 
 /**

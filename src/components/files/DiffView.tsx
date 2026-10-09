@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight } from "lucide-react";
 import { CodeLines } from "@/components/conversation/CodeLines";
 import { ChangeNav } from "@/components/files/ChangeNav";
+import { PathCrumbs } from "@/components/files/PathCrumbs";
 import { useChangeNav } from "@/hooks/useChangeNav";
 import { rangeLabel, type DiffTab } from "@/lib/diffTabs";
 import { parseUnifiedDiff } from "@/lib/gitDiff";
@@ -52,20 +52,13 @@ export function DiffView({
     };
   }, [host, tab.repo, tab.range, tab.path]);
 
-  const crumbs = tab.path.split("/");
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <nav className="flex h-8 shrink-0 items-center gap-1 pr-2 pl-4 text-xs text-muted-foreground">
-        {crumbs.map((crumb, i) => (
-          <span key={i} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight className="size-3" />}
-            <span className={i === crumbs.length - 1 ? "text-foreground" : ""}>
-              {crumb}
-            </span>
-          </span>
-        ))}
-        <span>({rangeLabel(tab.range)})</span>
+        <PathCrumbs path={tab.path} />
+        <span className="shrink-0 whitespace-nowrap">
+          ({rangeLabel(tab.range)})
+        </span>
         {changes.count > 0 && <ChangeNav onStep={changes.go} />}
       </nav>
       {loaded && "message" in loaded ? (

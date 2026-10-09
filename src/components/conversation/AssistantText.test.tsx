@@ -12,6 +12,9 @@ const opener = vi.hoisted(() => ({
 }));
 
 vi.mock("@tauri-apps/plugin-opener", () => opener);
+vi.mock("@/lib/shellDetect", () => ({
+  looksLikeShell: async (code: string) => code.startsWith("echo"),
+}));
 vi.mock("@tauri-apps/plugin-fs", async (actual) => ({
   ...(await actual<object>()),
   exists: async (path: string) =>
@@ -96,11 +99,15 @@ describe("AssistantText code blocks", () => {
   const writeText = vi.fn(async () => {});
   beforeEach(() => Object.assign(navigator, { clipboard: { writeText } }));
 
-  const block = (lang: string, run: ((c: string) => void) | null) =>
+  const block = (
+    lang: string,
+    run: ((c: string) => void) | null,
+    code = "echo hi",
+  ) =>
     render(
       <RunInTerminalContext.Provider value={run}>
         <AssistantText
-          text={"```" + lang + "\necho hi\n```"}
+          text={"```" + lang + "\n" + code + "\n```"}
           folder="/repo"
           editor={DEFAULT_SETTINGS.editor}
           codeThemes={DEFAULT_CODE_THEMES}
@@ -115,11 +122,21 @@ describe("AssistantText code blocks", () => {
     expect(run).toHaveBeenCalledWith("echo hi");
   });
 
-  it("runs an untagged one-line block too", () => {
+  it("runs an untagged block that parses as shell commands", async () => {
     const run = vi.fn();
     block("", run);
-    fireEvent.click(screen.getByRole("button", { name: "Run in terminal" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Run in terminal" }),
+    );
     expect(run).toHaveBeenCalledWith("echo hi");
+  });
+
+  it("offers only Copy for an untagged block that isn't shell", async () => {
+    block("", vi.fn(), "Tests 52 passed");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByRole("button", { name: "Run in terminal" })).toBe(
+      null,
+    );
   });
 
   it("offers only Copy for other languages, or with no terminal", () => {
