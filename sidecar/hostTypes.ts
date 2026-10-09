@@ -192,6 +192,10 @@ export type Agent = {
   };
   /** Its last run ended in an error. */
   failed?: boolean;
+  /** The conversation it was forked from, which waits for it. */
+  forkOf?: string;
+  /** Its closed forks whose reports are still being written. */
+  forkReports?: number;
   /** Unsubscribe from the session's events. */
   unsubscribe: () => void;
   /** Adapter status per server name, from the session's latest snapshot. */

@@ -7,14 +7,14 @@ import type { AgentMessage } from "../shared/agentTypes.ts";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import {
   dropFork,
+  forkOf,
   forkSession,
   noteFor,
-  reportFork,
   summarize,
   takeNotes,
   unreported,
 } from "./forks.ts";
-import type { Agent, Session } from "./hostTypes.ts";
+import type { Session } from "./hostTypes.ts";
 import { sessionFor } from "./sessionStore.ts";
 
 let agentDir: string;
@@ -136,18 +136,15 @@ describe("forks", () => {
     expect(SessionManager.findById(cwd, "first")).toBeTruthy();
   });
 
-  it("notes the fork's report for its original, delivered with its next run", async () => {
+  it("knows a fork's original", () => {
     say(sessionFor(cwd, cwd, "first"), "plan it", "planned");
     forkSession(cwd, "first", "copy", "bench");
-    const fork = sessionFor(cwd, cwd, "copy");
-    say(fork, "run them", "2x faster");
-    const session = { ...unpriced, sessionManager: fork };
-    await reportFork({
-      id: "copy",
-      title: "bench",
-      session,
-    } as unknown as Agent);
+    expect(forkOf(sessionFor(cwd, cwd, "copy"))).toBe("first");
+    expect(forkOf(sessionFor(cwd, cwd, "first"))).toBeUndefined();
+  });
 
+  it("delivers a note with the conversation's next run", async () => {
+    noteFor("first", "Your fork is done: 2x faster");
     // pi loads each extension with its own copy of the modules it imports.
     vi.resetModules();
     const { default: forkExtension } = await import("./forkExtension.ts");
@@ -158,8 +155,7 @@ describe("forks", () => {
       sessionManager: { getSessionId: () => id },
     });
     const result = handler({}, ctx("first"));
-    expect(result.message.content).toContain('Your fork ("bench", copy)');
-    expect(result.message.content).toContain("2x faster");
+    expect(result.message.content).toBe("Your fork is done: 2x faster");
     expect(handler({}, ctx("first"))).toBeUndefined();
   });
 

@@ -3,6 +3,7 @@ import type { OpenedSession, ProviderStatus } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
 import { useComposerActions } from "@/hooks/useComposerActions";
 import { useDraftState } from "@/hooks/useDraftState";
+import { useForkWait } from "@/hooks/useForkWait";
 import type { AgentMessage } from "../../shared/agentTypes";
 import {
   toEntry,
@@ -128,6 +129,8 @@ export function useAgentSession(
   return {
     ...view(current, draft),
     error,
+    /** A fork of it is open, or its report is on the way; it takes no messages. */
+    waitingOnFork: useForkWait(host, shown),
     send: actions.send,
     compact: actions.compact,
     /** Forks the shown conversation and shows the fork, empty; a refusal shows in its composer. */

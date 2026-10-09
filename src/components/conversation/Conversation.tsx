@@ -22,8 +22,11 @@ export function Conversation({
   stickyUserMessages,
   scrollRef,
   onApprove,
+  waitingOnFork,
 }: {
   transcript: Transcript;
+  /** A fork of it is open: the working line says so while it waits. */
+  waitingOnFork?: boolean;
   showThinking: boolean;
   stickyUserMessages: boolean;
   folder: string;
@@ -46,7 +49,7 @@ export function Conversation({
   const waiting = useWaitingOrder(
     waitingCalls(transcript.items, transcript.tools),
   );
-  const working = workingLine(transcript, folder, showThinking);
+  const working = workingLine(transcript, folder, showThinking, waitingOnFork);
   const rows = toRows(items, transcript.tools);
 
   return (

@@ -21,11 +21,12 @@ import { askApproval, denyAll, waitsOnUser } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { subagentsIn } from "./hostChildren.ts";
 import { firstTitle } from "../shared/conversations.ts";
-import { pushProjects } from "./hostProjects.ts";
+import { pushProjects, refuseWhileForked } from "./hostProjects.ts";
 import { resume } from "./hostResume.ts";
 import { rememberImages } from "./queuedImages.ts";
 import { routeMessage } from "./hostRoute.ts";
 import { follow, reportTo } from "./hostFollow.ts";
+import { forkOf } from "./forks.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -169,6 +170,7 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
       agent.running = s.isStreaming;
       agent.title = s.sessionManager.getSessionName() ?? firstTitle(s.messages);
       agent.subagents = subagentsIn(s.messages);
+      agent.forkOf = forkOf(s.sessionManager);
       pushProjects(ctx);
       agent.unsubscribe = s.subscribe((event) => follow(ctx, agent, event));
       return s;
@@ -237,6 +239,7 @@ export async function prompt(
   queue: QueueKind = "steer",
 ) {
   const agent = target(ctx, session);
+  refuseWhileForked(ctx, session);
   const s = await current(ctx, session);
   await agent!.ready;
   if (s.isStreaming) rememberImages(agent!, text, images);

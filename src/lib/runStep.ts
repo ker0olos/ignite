@@ -55,15 +55,26 @@ export function latestThought(messages: AgentMessage[]): string | undefined {
   return sentences.at(-1);
 }
 
-/** The working line's step, start and (when asked for) newest thought, or null when nothing runs or compaction shows its own progress. */
+/** The working line's step, start and (when asked for) newest thought, or null when nothing runs or compaction shows its own progress; "Waiting for fork" while a fork of it is open. */
 export function workingLine(
   t: Transcript,
   folder: string,
   withThought: boolean,
-): { step: string; since?: number; thought?: string } | null {
+  waitingOnFork = false,
+): WorkingLine | null {
+  if (t.running) return runLine(t, folder, withThought);
+  return waitingOnFork ? { step: "Waiting for fork" } : null;
+}
+
+type WorkingLine = { step: string; since?: number; thought?: string };
+
+function runLine(
+  t: Transcript,
+  folder: string,
+  withThought: boolean,
+): WorkingLine | null {
   const last = t.items.at(-1);
-  const compacting = last?.kind === "compaction" && !last.summary;
-  if (!t.running || compacting) return null;
+  if (last?.kind === "compaction" && !last.summary) return null;
   const messages = t.items.flatMap((i) =>
     i.kind === "message" ? [i.message] : [],
   );

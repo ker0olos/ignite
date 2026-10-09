@@ -73,6 +73,7 @@ export function Composer({
     !!state || session.none,
     { text, images: images.length },
     session.transcript?.routing ?? false,
+    session.waitingOnFork,
   );
   // While the agent works, a message waits for the run's end.
   const handleSend = () => {
@@ -102,7 +103,11 @@ export function Composer({
       }}
     >
       <MentionMenu {...mentions.menu} />
-      <div className="group border-t transition-colors focus-within:border-foreground/35">
+      {/* While a fork is open, every control here is off (a disabled fieldset). */}
+      <fieldset
+        disabled={session.waitingOnFork}
+        className="group min-w-0 border-t transition-colors focus-within:border-foreground/35 disabled:opacity-50"
+      >
         <QueuedMessages
           queued={queued}
           unqueue={session.unqueue}
@@ -145,7 +150,7 @@ export function Composer({
             onStop={stop}
           />
         </div>
-      </div>
+      </fieldset>
     </form>
   );
 }

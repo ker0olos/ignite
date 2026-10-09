@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Fragment } from "react";
 import { ConversationChildren } from "@/components/sidebar/ConversationChildren";
+import { ConversationForks } from "@/components/sidebar/ConversationForks";
 import { ConversationRow } from "@/components/sidebar/ConversationRow";
 import type { ChildActions } from "@/components/sidebar/FolderList";
 import type { Conversations } from "@/hooks/useConversations";
@@ -55,6 +56,15 @@ export function FolderConversations({
             }
             allTags={tags}
             onSetTags={(next) => onSetTags(agent.session, next)}
+          />
+          <ConversationForks
+            agent={agent}
+            shown={shown}
+            onShow={(fork) => void conversations.show(cwd, fork)}
+            // Closing the shown fork shows its original.
+            onClose={(fork) =>
+              void conversations.close(cwd, fork, [fork, agent.session])
+            }
           />
           <ConversationChildren
             agent={agent}

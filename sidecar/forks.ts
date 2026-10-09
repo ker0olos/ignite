@@ -1,6 +1,7 @@
 /**
  * Forks: a conversation copied, with its worktree's files, into a new one that
- * works separately and, after each of its runs, sends the original a summary.
+ * works separately while the original waits; closing it sends the original a
+ * summary, and the original carries on.
  */
 import {
   SessionManager,
@@ -9,7 +10,7 @@ import {
 import { rmSync } from "node:fs";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import { APP_NAME } from "../src/lib/app.ts";
-import type { Agent, Session } from "./hostTypes.ts";
+import type { Session } from "./hostTypes.ts";
 import { cheapest } from "./router.ts";
 
 // In the fork: what it was forked from. Its work up to a REPORTED entry was sent.
@@ -63,7 +64,7 @@ export function forkSession(
   fork.appendSessionInfo(name);
   fork.appendCustomMessageEntry(
     FORKED,
-    `You are a fork of conversation ${from}: the user copied it, with its files as they were, into this new conversation to work on something separately. The original goes on without you; after each of your runs, a summary of what you did is sent to it.`,
+    `You are a fork of conversation ${from}: the user copied it, with its files as they were, into this new conversation to work on something separately. The original waits for you; once the user closes you, a summary of what you did is sent to it and it carries on.`,
     false,
     { parent: from },
   );
@@ -73,6 +74,12 @@ export function forkSession(
 export function dropFork(folder: string, to: string) {
   const file = SessionManager.findById(folder, to);
   if (file) rmSync(file, { force: true });
+}
+
+/** The conversation `s` was forked from, if it's a fork. */
+export function forkOf(s: Pick<Session["sessionManager"], "getBranch">) {
+  const branch = s.getBranch() as Entry[];
+  return branch.findLast((e) => e.customType === FORKED)?.details?.parent;
 }
 
 /**
@@ -86,8 +93,7 @@ export function unreported(s: {
   >;
 }) {
   const branch = s.sessionManager.getBranch() as Entry[];
-  const fork = branch.findLast((e) => e.customType === FORKED);
-  const parent = fork?.details?.parent;
+  const parent = forkOf(s.sessionManager);
   if (!parent) return null;
   const since = branch.findLastIndex(
     (e) => e.customType === FORKED || e.customType === REPORTED,
@@ -110,11 +116,11 @@ const lastText = (messages: AgentMessage[]) => {
 
 /** A summary of `messages` by the cheapest model of `s`'s provider; the last reply when none can write one. */
 export async function summarize(
-  s: Pick<Session, "model" | "modelRuntime">,
+  s: Pick<Session, "model" | "modelRuntime"> | null | undefined,
   messages: AgentMessage[],
 ): Promise<string> {
-  const found = await cheapest(s).catch(() => null);
-  if (!found) return lastText(messages);
+  const found = s && (await cheapest(s).catch(() => null));
+  if (!s || !found) return lastText(messages);
   const llm = messages.filter((m) =>
     ["user", "assistant", "toolResult"].includes(m.role),
   ) as Parameters<typeof serializeConversation>[0];
@@ -140,18 +146,4 @@ export async function summarize(
     .flatMap((c) => (c.type === "text" ? [c.text] : []))
     .join("");
   return answer.stopReason === "error" || !text ? lastText(messages) : text;
-}
-
-/** Sends a fork's work since its last report to the conversation it came from. */
-export async function reportFork(agent: Agent) {
-  const s = agent.session;
-  const found = s && unreported(s);
-  if (!found) return;
-  const summary = await summarize(s, found.messages);
-  if (!summary) return;
-  const name = agent.title ? `"${agent.title}", ` : "";
-  noteFor(
-    found.parent,
-    `Your fork (${name}${agent.id}) finished a run. Its report:\n\n${summary}`,
-  );
 }

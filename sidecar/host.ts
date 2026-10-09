@@ -19,12 +19,11 @@ import {
   sessionState,
   setModel,
   open,
-  close,
   closeAll,
   prompt,
 } from "./hostSession.ts";
 import { userPickedModel } from "./hostRoute.ts";
-import { fork } from "./hostFork.ts";
+import { closeConversation, fork } from "./hostFork.ts";
 import { mcpServers, changeMcp, changeSkills } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
@@ -92,7 +91,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
       : open(ctx, r.cwd, ctx.sessions.create()),
   // The user dismissing a conversation is done with its task.
   close_session: async (ctx, r) => {
-    await close(ctx, r.cwd, r.session);
+    await closeConversation(ctx, r.cwd, r.session);
     if (r.session) await finishTask(ctx, r.cwd, r.session);
   },
   read_session: (ctx, r) => messagesOf(ctx, r.cwd, r.session),

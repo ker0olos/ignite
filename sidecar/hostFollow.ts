@@ -1,6 +1,5 @@
 import type { SessionEvent } from "../shared/agentTypes.ts";
 import { titleOf } from "../shared/conversations.ts";
-import { reportFork } from "./forks.ts";
 import { followSubagents } from "./hostChildren.ts";
 import { pushProjects, trackRun } from "./hostProjects.ts";
 import { isShown, type Agent, type HostContext } from "./hostTypes.ts";
@@ -32,7 +31,6 @@ export function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
 }
 
 function settle(ctx: HostContext, agent: Agent) {
-  reportFork(agent).catch(() => {});
   if (!agent.session?.pendingMessageCount) agent.queuedImages.clear();
   if (!agent.reloadWhenSettled) return;
   agent.reloadWhenSettled = false;
