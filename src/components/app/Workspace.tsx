@@ -121,53 +121,46 @@ export function Workspace({
       />
     );
   const pane = { folder, tabs, codeThemes, editor, session, host };
-  const whiteboard = <Whiteboard enabled={view === "conversation"} />;
-  if (narrow) {
-    return (
-      <OpenTabContext.Provider value={openFile}>
-        <RunInTerminalContext.Provider value={runIn}>
-          <MobileWorkspace {...pane} sidebar={sidebar} agent={agent} />
-          {whiteboard}
-        </RunInTerminalContext.Provider>
-      </OpenTabContext.Provider>
-    );
-  }
   return (
     <OpenTabContext.Provider value={openFile}>
       <RunInTerminalContext.Provider value={runIn}>
-        <ResizablePanelGroup
-          orientation="horizontal"
-          className="flex-1"
-          data-glass
-          defaultLayout={layout.defaultLayout}
-          onLayoutChanged={layout.onLayoutChanged}
-        >
-          <ResizablePanel
-            id="sidebar"
-            defaultSize="240px"
-            minSize="180px"
-            maxSize="480px"
-            // Like VS Code: the sidebar keeps its width when the window resizes.
-            groupResizeBehavior="preserve-pixel-size"
+        {narrow ? (
+          <MobileWorkspace {...pane} sidebar={sidebar} agent={agent} />
+        ) : (
+          <ResizablePanelGroup
+            orientation="horizontal"
+            className="flex-1"
+            data-glass
+            defaultLayout={layout.defaultLayout}
+            onLayoutChanged={layout.onLayoutChanged}
           >
-            {sidebar}
-          </ResizablePanel>
-          <PaneHandle />
-          <ResizablePanel
-            id="agent"
-            className="glass:bg-background"
-            minSize={view === "tasks" ? "640px" : "320px"}
-          >
-            <div className="relative flex h-full flex-col">{agent}</div>
-          </ResizablePanel>
-          {active && <PaneHandle />}
-          {active && (
-            <ResizablePanel id="editor" minSize="320px">
-              <EditorPane {...pane} active={active} />
+            <ResizablePanel
+              id="sidebar"
+              defaultSize="240px"
+              minSize="180px"
+              maxSize="480px"
+              // Like VS Code: the sidebar keeps its width when the window resizes.
+              groupResizeBehavior="preserve-pixel-size"
+            >
+              {sidebar}
             </ResizablePanel>
-          )}
-        </ResizablePanelGroup>
-        {whiteboard}
+            <PaneHandle />
+            <ResizablePanel
+              id="agent"
+              className="glass:bg-background"
+              minSize={view === "tasks" ? "640px" : "320px"}
+            >
+              <div className="relative flex h-full flex-col">{agent}</div>
+            </ResizablePanel>
+            {active && <PaneHandle />}
+            {active && (
+              <ResizablePanel id="editor" minSize="320px">
+                <EditorPane {...pane} active={active} />
+              </ResizablePanel>
+            )}
+          </ResizablePanelGroup>
+        )}
+        <Whiteboard enabled={view === "conversation"} />
       </RunInTerminalContext.Provider>
     </OpenTabContext.Provider>
   );
