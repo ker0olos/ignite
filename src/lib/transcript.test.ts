@@ -109,6 +109,26 @@ describe("applyEvent", () => {
     ]);
   });
 
+  it("adds a reply whose start it missed after the user's message, keeping the earlier one", () => {
+    const earlier = assistant([{ type: "text", text: "Opened the PR." }]);
+    const reply = assistant([{ type: "text", text: "No." }]);
+    const t = run(
+      [
+        update({ type: "text_start", contentIndex: 0 }),
+        { type: "message_end", message: reply },
+      ],
+      run([
+        { type: "message_start", message: earlier },
+        { type: "message_start", message: user },
+      ]),
+    );
+    expect(t.items).toEqual([
+      { kind: "message", message: earlier },
+      { kind: "message", message: user },
+      { kind: "message", message: reply },
+    ]);
+  });
+
   it("adds a message that ends without having started", () => {
     expect(run([{ type: "message_end", message: user }]).items).toEqual([
       { kind: "message", message: user },

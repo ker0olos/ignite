@@ -85,6 +85,10 @@ export function MarkupEditor({
         {img && fit > 0 && (
           <div
             aria-label={`Marking up ${name}`}
+            // The click that places a text field would otherwise move focus off it, ending it empty.
+            onMouseDown={(e) => {
+              if (e.target instanceof HTMLCanvasElement) e.preventDefault();
+            }}
             className="relative overflow-hidden rounded-lg shadow-2xl"
           >
             <MarkupStage

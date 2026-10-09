@@ -112,14 +112,16 @@ export default function ask(pi: ExtensionAPI) {
       const reply = await new Promise<{
         approved: boolean;
         answers?: QuestionAnswer[];
+        reason?: string;
       }>((resolve) => {
         signal?.addEventListener("abort", () => resolve({ approved: false }));
         pi.events.emit(APPROVAL_EVENT, {
           request: { toolCallId },
-          answer: (approved, answers) => resolve({ approved, answers }),
+          answer: (approved, answers, _always, reason) =>
+            resolve({ approved, answers, reason }),
         } satisfies ApprovalAsk);
       });
-      const text = replyText(reply.approved, reply.answers);
+      const text = reply.reason ?? replyText(reply.approved, reply.answers);
       return { content: [{ type: "text", text }], details: undefined };
     },
   });

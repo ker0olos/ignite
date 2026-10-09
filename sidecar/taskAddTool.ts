@@ -25,11 +25,12 @@ const Params = Type.Object({
 });
 
 const approve = (pi: ExtensionAPI, toolCallId: string, signal?: AbortSignal) =>
-  new Promise<boolean>((resolve) => {
-    signal?.addEventListener("abort", () => resolve(false));
+  new Promise<{ approved: boolean; reason?: string }>((resolve) => {
+    signal?.addEventListener("abort", () => resolve({ approved: false }));
     pi.events.emit(APPROVAL_EVENT, {
       request: { toolCallId, reason: "Add these to your tasks?" },
-      answer: resolve,
+      answer: (approved, _answers, _always, reason) =>
+        resolve({ approved, reason }),
     } satisfies ApprovalAsk);
   });
 
@@ -51,9 +52,10 @@ export function registerTaskAdd(pi: ExtensionAPI) {
       "Use it when the user asks to track work as tasks, e.g. issues gathered from an MCP server.",
     parameters: Params,
     async execute(toolCallId, params, signal) {
-      if (!(await approve(pi, toolCallId, signal))) {
+      const { approved, reason } = await approve(pi, toolCallId, signal);
+      if (!approved) {
         return {
-          content: [{ type: "text", text: DECLINED_ADD }],
+          content: [{ type: "text", text: reason ?? DECLINED_ADD }],
           details: undefined,
         };
       }

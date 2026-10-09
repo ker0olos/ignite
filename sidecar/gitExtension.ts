@@ -187,14 +187,16 @@ async function refusal(pi: Pick<ExtensionAPI, "events">, declinedPr: boolean) {
 }
 
 export default function gitTools(pi: ExtensionAPI) {
-  // "declined" only when the user answered no; a stop or close is "denied".
+  type Answer = { approved: boolean; declined?: boolean; reason?: string };
+  // `declined` only when the user answered no, not on a stop, close or message.
   const ask = (request: ApprovalRequest, signal?: AbortSignal) =>
-    new Promise<"approved" | "denied" | "declined">((resolve) => {
-      signal?.addEventListener("abort", () => resolve("denied"));
+    new Promise<Answer>((resolve) => {
+      signal?.addEventListener("abort", () => resolve({ approved: false }));
       pi.events.emit(APPROVAL_EVENT, {
         request,
-        answer: (approved) => resolve(approved ? "approved" : "denied"),
-        declined: () => resolve("declined"),
+        answer: (approved, _answers, _always, reason) =>
+          resolve({ approved, reason }),
+        declined: () => resolve({ approved: false, declined: true }),
       } satisfies ApprovalAsk);
     });
 
@@ -221,13 +223,8 @@ export default function gitTools(pi: ExtensionAPI) {
         !shown && { reason: thenReason(auto.reason, then) }),
       ...(shown && { review: shown }),
     };
-    const answer = await ask(request, signal);
-    return {
-      allowed: answer === "approved",
-      declined: answer === "declined",
-      asked: true,
-      shown,
-    };
+    const { approved, declined, reason } = await ask(request, signal);
+    return { allowed: approved, declined, reason, asked: true, shown };
   }
 
   function register(tool: Tool, description: string) {
@@ -243,7 +240,8 @@ export default function gitTools(pi: ExtensionAPI) {
         const gated = await gate(tool, args, ctx.cwd, toolCallId, signal, then);
         if (!gated.allowed) {
           throw new Error(
-            await refusal(pi, !!gated.declined && createsPr(tool, args)),
+            gated.reason ??
+              (await refusal(pi, !!gated.declined && createsPr(tool, args))),
           );
         }
         const before = await headBefore(tool, args, ctx.cwd);

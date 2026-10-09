@@ -67,8 +67,13 @@ export const APPROVAL_EVENT = "app/approval";
 /** An approval question on the event bus; `answer` settles it. */
 export type ApprovalAsk = {
   request: ApprovalRequest;
-  /** `always`: the user also allowed the request's `allow` from now on. */
-  answer(approved: boolean, answers?: QuestionAnswer[], always?: boolean): void;
+  /** `always`: the user also allowed the request's `allow` from now on; `reason`: what the model is told in place of the tool's own denial. */
+  answer(
+    approved: boolean,
+    answers?: QuestionAnswer[],
+    always?: boolean,
+    reason?: string,
+  ): void;
   /** Called when the user declined it, not when a stop, close or message denied it. */
   declined?(): void;
 };
@@ -158,14 +163,19 @@ export default function approval(pi: ExtensionAPI) {
   const sandboxed = new Map<string, Run>();
 
   const ask = (request: ApprovalRequest, ctx: ExtensionContext) =>
-    new Promise<{ approved: boolean; always?: boolean }>((resolve) => {
-      // Stopping the run denies it.
-      ctx.signal?.addEventListener("abort", () => resolve({ approved: false }));
-      pi.events.emit(APPROVAL_EVENT, {
-        request,
-        answer: (approved, _answers, always) => resolve({ approved, always }),
-      } satisfies ApprovalAsk);
-    });
+    new Promise<{ approved: boolean; always?: boolean; reason?: string }>(
+      (resolve) => {
+        // Stopping the run denies it.
+        ctx.signal?.addEventListener("abort", () =>
+          resolve({ approved: false }),
+        );
+        pi.events.emit(APPROVAL_EVENT, {
+          request,
+          answer: (approved, _answers, always, reason) =>
+            resolve({ approved, always, reason }),
+        } satisfies ApprovalAsk);
+      },
+    );
 
   /** Asks to run a blocked command outside, offering to always allow what it hit. */
   async function askOutside(
@@ -179,7 +189,7 @@ export default function approval(pi: ExtensionAPI) {
     const unplanned = locked && unplannedWrite(explained, folders);
     if (unplanned) return unplanned;
     const rule = await ruleFor(explained, command);
-    const { approved, always } = await ask(
+    const { approved, always, reason } = await ask(
       {
         toolCallId: event.toolCallId,
         reason: blockedReason(what),
@@ -192,7 +202,7 @@ export default function approval(pi: ExtensionAPI) {
         content: [
           {
             type: "text" as const,
-            text: `${explained}\n\n${DECLINED_OUTSIDE}`,
+            text: `${explained}\n\n${reason ?? DECLINED_OUTSIDE}`,
           },
         ],
       };
@@ -233,9 +243,8 @@ export default function approval(pi: ExtensionAPI) {
     const wait = await needed(event, ctx, mode, box);
     if (wait) {
       const request = { toolCallId: event.toolCallId, ...wait };
-      if (!(await ask(request, ctx)).approved) {
-        return { block: true, reason: DENIED };
-      }
+      const { approved, reason } = await ask(request, ctx);
+      if (!approved) return { block: true, reason: reason ?? DENIED };
       // An approved command runs as is, outside the sandbox.
       return;
     }

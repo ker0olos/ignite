@@ -195,10 +195,15 @@ function addMessage(t: Transcript, message: AgentMessage): Transcript {
   };
 }
 
+// The newest message, if it has `role`: a missed start never lands in an older one.
+function newestAt(t: Transcript, role: AgentMessage["role"]) {
+  const i = t.items.findLastIndex((item) => item.kind === "message");
+  const item = t.items[i];
+  return item?.kind === "message" && item.message.role === role ? i : -1;
+}
+
 function finishMessage(t: Transcript, message: AgentMessage): Transcript {
-  const i = t.items.findLastIndex(
-    (item) => item.kind === "message" && item.message.role === message.role,
-  );
+  const i = newestAt(t, message.role);
   if (i < 0) return addMessage(t, message);
   const items = t.items.slice();
   items[i] = { kind: "message", message };
@@ -280,9 +285,7 @@ function deltaBlock(
 }
 
 function updateStreaming(t: Transcript, update: StreamUpdate): Transcript {
-  const i = t.items.findLastIndex(
-    (item) => item.kind === "message" && item.message.role === "assistant",
-  );
+  const i = newestAt(t, "assistant");
   if (i < 0 || !("contentIndex" in update)) return t;
   const message = (t.items[i] as { message: AssistantMessage }).message;
   const content = message.content.slice();

@@ -19,6 +19,8 @@ import ask, {
 } from "./askExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 
+const WROTE = "The user wrote instead.";
+
 let home: string;
 beforeEach(async () => {
   home = await mkdtemp(join(tmpdir(), "ask-"));
@@ -116,6 +118,14 @@ describe("ask_user", () => {
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     stop.abort();
     expect(text(await result)).toBe(LEFT_TO_AGENT);
+  });
+
+  it("tells the model the host's reason for denying it", async () => {
+    const { asks, run } = load();
+    const result = run();
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    asks[0].answer(false, undefined, undefined, WROTE);
+    expect(text(await result)).toBe(WROTE);
   });
 });
 

@@ -24,6 +24,8 @@ import gitTools, {
 import { resultText, run } from "./gitRun.ts";
 import { TASK_EVENT, type TaskAsk } from "./taskExtension.ts";
 
+const WROTE = "The user wrote instead.";
+
 let home: string;
 let repo: string;
 
@@ -160,6 +162,15 @@ describe("the git tool", () => {
     asks[0].answer(false);
     await expect(done).rejects.toThrow(DENIED);
     await expect(call("git", ["log"])).rejects.toThrow(/Exited with code/);
+  });
+
+  it("tells the model the host's reason for denying it", async () => {
+    const { asks, call } = load();
+    await call("git", ["add", "a.txt"]);
+    const done = call("git", ["commit", "-m", "first"]);
+    await asked(asks);
+    asks[0].answer(false, undefined, undefined, WROTE);
+    await expect(done).rejects.toThrow(WROTE);
   });
 
   it("asks for every call in Manual, without a reason", async () => {
