@@ -1,10 +1,9 @@
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { CodeBlock } from "@/components/conversation/CodeBlock";
-import { CodeBlockActions } from "@/components/conversation/CodeBlockActions";
 import { InlineCode } from "@/components/conversation/InlineCode";
 import { LinkPill } from "@/components/conversation/LinkPill";
+import { MarkdownCodeBlock } from "@/components/conversation/MarkdownCodeBlock";
 import { QuoteBlock } from "@/components/conversation/QuoteBlock";
 import type { Editor } from "@/components/conversation/shared";
 import { useOpenTab } from "@/hooks/useOpenTab";
@@ -101,17 +100,12 @@ export function AssistantText({
       const match = /language-(\w+)/.exec(codeProps.className ?? "");
       const code = String(codeProps.children ?? "").replace(/\n$/, "");
       return (
-        <div className="group relative">
-          {/* Tall enough for its buttons on one line. */}
-          <CodeBlock
-            code={code}
-            lang={match?.[1]}
-            editor={editor}
-            codeThemes={codeThemes}
-            className="[&_pre]:py-1.5"
-          />
-          <CodeBlockActions code={code} lang={match?.[1]} />
-        </div>
+        <MarkdownCodeBlock
+          code={code}
+          fenceLang={match?.[1]}
+          editor={editor}
+          codeThemes={codeThemes}
+        />
       );
     },
     code: ({ children }) => (
