@@ -4,6 +4,7 @@ import { EditorPane } from "@/components/app/EditorPane";
 import { MobileWorkspace } from "@/components/app/MobileWorkspace";
 import { PaneHandle } from "@/components/app/PaneHandle";
 import { ViewSwitch, type WorkspaceView } from "@/components/app/ViewSwitch";
+import { Whiteboard } from "@/components/app/Whiteboard";
 import { AgentPanel } from "@/components/agent/AgentPanel";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { TasksView } from "@/components/tasks/TasksView";
@@ -120,11 +121,13 @@ export function Workspace({
       />
     );
   const pane = { folder, tabs, codeThemes, editor, session, host };
+  const whiteboard = <Whiteboard enabled={view === "conversation"} />;
   if (narrow) {
     return (
       <OpenTabContext.Provider value={openFile}>
         <RunInTerminalContext.Provider value={runIn}>
           <MobileWorkspace {...pane} sidebar={sidebar} agent={agent} />
+          {whiteboard}
         </RunInTerminalContext.Provider>
       </OpenTabContext.Provider>
     );
@@ -164,6 +167,7 @@ export function Workspace({
             </ResizablePanel>
           )}
         </ResizablePanelGroup>
+        {whiteboard}
       </RunInTerminalContext.Provider>
     </OpenTabContext.Provider>
   );

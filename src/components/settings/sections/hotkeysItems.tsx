@@ -35,5 +35,14 @@ export function hotkeysItems(): Item[] {
       hint: shortcut("1"),
       keywords: "hotkeys shortcuts keybindings command 1 terminal shell",
     },
+    {
+      section: "Keyboard Shortcuts",
+      title: "Open whiteboard",
+      description:
+        "Draw on a blank page, then add it to the conversation. In Tasks, starts a new task instead.",
+      hint: shortcut("N"),
+      keywords:
+        "hotkeys shortcuts keybindings command n whiteboard draw sketch",
+    },
   ];
 }

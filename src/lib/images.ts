@@ -1,6 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import type { ImageContent } from "../../shared/agentTypes";
+import { pngImage } from "@/lib/markup";
 import { isRemote } from "@/lib/remote";
 
 const TYPES: Record<string, string> = {
@@ -73,3 +74,16 @@ export const pastedImages = (data: DataTransfer) => fileImages(data.files);
 /** A data URL to show an image block. */
 export const imageUrl = (image: ImageContent) =>
   `data:${image.mimeType};base64,${image.data}`;
+
+/** A white PNG page of the given size. */
+export function blankImage(width: number, height: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, width, height);
+  }
+  return pngImage(canvas.toDataURL("image/png"));
+}
