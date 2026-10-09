@@ -247,6 +247,11 @@ describe("cmemServer", () => {
         args: [script()],
         lifecycle: "eager",
         directTools: ["search", "timeline", "get_observations"],
+        excludeTools: [
+          "work_state_write",
+          "work_state_read",
+          "session_start_context",
+        ],
       },
     });
   });

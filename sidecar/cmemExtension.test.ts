@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import cmem, { lastAssistantText } from "./cmemExtension.ts";
+import cmem, { lastAssistantText, withoutWorkState } from "./cmemExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 
 let dir: string;
@@ -124,6 +124,17 @@ it("records the session and adds recalled context to the prompt", async () => {
     ],
     ["/api/sessions/summarize", { ...session, last_assistant_message: "ok" }],
   ]);
+});
+
+it.each([
+  ["Still open:\n- mode-switching\n  - [todo] Phase 1"],
+  ["Nothing open yet."],
+])("leaves cmem's work state out of the recalled context (%s)", (open) => {
+  const workState = `# Work state: your to-do lists and working state\nUse claude-mem's work_state_write tool.\n- One list per to-do list\n\n${open}`;
+  const recent = "# [app] recent context, 2026-10-10\nfacts";
+  expect(withoutWorkState(`${workState}\n\n${recent}`)).toBe(recent);
+  expect(withoutWorkState(`${recent}\n\n${workState}`)).toBe(`${recent}\n\n`);
+  expect(withoutWorkState(recent)).toBe(recent);
 });
 
 it("recalls once per session", async () => {

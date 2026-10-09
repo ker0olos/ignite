@@ -28,6 +28,10 @@ export function lastAssistantText(messages: unknown[]): string {
   return last ? textOf(last.content as Content) : "";
 }
 
+/** `context` without cmem's work-state section, which would make it the agent's to-do list instead of tasks. */
+export const withoutWorkState = (context: string): string =>
+  context.replace(/^# Work state\b[\s\S]*?(?=^# |(?![\s\S]))/m, "");
+
 // No platformSource: recall what Claude Code and other tools learned too.
 async function recall(url: string, cwd: string): Promise<string> {
   const project = encodeURIComponent(projectOf(cwd));
@@ -35,6 +39,7 @@ async function recall(url: string, cwd: string): Promise<string> {
     signal: AbortSignal.timeout(5000),
   })
     .then((r) => (r.ok ? r.text() : ""))
+    .then(withoutWorkState)
     .catch(() => "");
 }
 

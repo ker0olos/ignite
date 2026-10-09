@@ -15,7 +15,7 @@ const Params = Type.Object({
       notes: Type.Optional(
         Type.String({
           description:
-            "Everything an agent needs to start it later: context, links, acceptance criteria.",
+            "Everything an agent needs to start it later: context, decisions, files to change, risks, links, acceptance criteria.",
         }),
       ),
       subtasks: Type.Optional(Type.Array(Type.String())),
@@ -49,7 +49,7 @@ export function registerTaskAdd(pi: ExtensionAPI) {
     description:
       "Add tasks to the user's task list (not started; the user starts them later). " +
       "The user sees them as cards and approves or declines before anything is added. " +
-      "Use it when the user asks to track work as tasks, e.g. issues gathered from an MCP server.",
+      "Use it for any plan of work for later (a feature's phases, a backlog, issues gathered from an MCP server) instead of a plan file.",
     parameters: Params,
     async execute(toolCallId, params, signal) {
       const { approved, reason } = await approve(pi, toolCallId, signal);

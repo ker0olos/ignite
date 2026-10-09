@@ -107,6 +107,12 @@ export async function cmemServer(): Promise<Record<string, McpEntry>> {
       args: [script],
       lifecycle: "eager",
       directTools: DIRECT_TOOLS,
+      // Plans and to-dos belong in tasks; session_start_context returns the unfiltered work state.
+      excludeTools: [
+        "work_state_write",
+        "work_state_read",
+        "session_start_context",
+      ],
     },
   };
 }

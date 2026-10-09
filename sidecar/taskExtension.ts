@@ -83,7 +83,9 @@ The user follows the plan as you go, so keep it true:
 - A subtask is "done" only once all its work is; don't mark a later one done early.
 - When the user asks for more, or the work turns out to need a step the plan lacks, add it as a subtask before doing it.
 - When the user changes the plan, remove the subtasks it made obsolete instead of leaving them open.
-- Before you end a reply, every subtask you finished is "done".`;
+- Before you end a reply, every subtask you finished is "done".
+
+Tasks hold every plan and to-do list: don't write a plan, design or to-do file, or keep one anywhere else, unless the user asks for that file. When the user asks for a plan of work to do later (a feature to design before coding, phases, a backlog), propose it with ${TASK_ADD_TOOL}: one task per part that can ship on its own, its notes holding everything an agent needs to start it (context, decisions, files to change, risks, how to check it works), its subtasks the steps. Only when this conversation won't change files does that plan need no ${TASK_TOOL} subtasks of its own.`;
 
 /** The plan so far, added to an interactive conversation's prompt each run so it picks up where it left off. */
 export const planReminder = (task: Task): string =>
