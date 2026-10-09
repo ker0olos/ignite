@@ -5,7 +5,6 @@
  */
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   createAgentSession,
   createEventBus,
@@ -45,6 +44,12 @@ import { createSkillStore } from "./skillStore.ts";
 import { createRemote } from "./remote.ts";
 import { taskAnswerer, taskStoreIn } from "./hostTasks.ts";
 import { TASK_EVENT } from "./taskExtension.ts";
+import {
+  claudeBridge,
+  mcpExtension,
+  SESSION_EXTENSIONS,
+  SUBAGENT_EXTENSIONS,
+} from "./extensionPaths.ts";
 
 // pi's files for this app live beside our settings, never in the pi CLI's
 // own ~/.pi/agent, so signing in or out here doesn't affect it.
@@ -90,18 +95,6 @@ const send = (message: HostMessage) =>
 
 const headlessUI = createHeadlessUI(send);
 
-// Runs Claude through the user's own Claude Code (Agent SDK), which Anthropic
-// bills to the Claude plan; pi's direct Claude sign-in draws extra usage.
-// Resolved, not joined, so they're found (or overridden) from a modded copy.
-const sibling = (name: string) => fileURLToPath(import.meta.resolve(name));
-const claudeBridge = sibling("pi-claude-bridge/src/index.ts");
-// pi-mcp-adapter, reading only agentDir/mcp.json.
-const mcpExtension = sibling("./mcpExtension.ts");
-const subagentExtension = sibling("./subagentExtension.ts");
-const taskExtension = sibling("./taskExtension.ts");
-const exploring = sibling("./exploreExtension.ts");
-// Last, so it judges tool calls as the other extensions left them.
-const approvalExtension = sibling("./approvalExtension.ts");
 const trust = createTrustStore(agentDir);
 const skills = createSkillStore(agentDir, homedir());
 const skillsOverride = skills.sessionSkills;
@@ -146,26 +139,7 @@ async function openSession(
     agentDir,
     settingsManager,
     eventBus,
-    additionalExtensionPaths: [
-      claudeBridge,
-      mcpExtension,
-      sibling("./cmemExtension.ts"),
-      sibling("./askExtension.ts"),
-      subagentExtension,
-      sibling("./gitExtension.ts"),
-      sibling("./worktreeExtension.ts"),
-      sibling("./chromeExtension.ts"),
-      sibling("./adbExtension.ts"),
-      sibling("./imageExtension.ts"),
-      sibling("./htmlExtension.ts"),
-      sibling("./bashExtension.ts"),
-      sibling("./terminalExtension.ts"),
-      exploring,
-      taskExtension,
-      approvalExtension,
-      // After approval: snapshots only calls that will run, and sees a rerun outside the sandbox.
-      sibling("./shellEditsExtension.ts"),
-    ],
+    additionalExtensionPaths: SESSION_EXTENSIONS,
     skillsOverride,
   });
   freshExtensions();
@@ -217,7 +191,7 @@ async function openSubagent(
     agentDir,
     settingsManager,
     eventBus,
-    additionalExtensionPaths: [claudeBridge, exploring, approvalExtension],
+    additionalExtensionPaths: SUBAGENT_EXTENSIONS,
     skillsOverride,
     appendSystemPromptOverride: (base) => [...base, prompt],
   });

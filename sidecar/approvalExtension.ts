@@ -18,6 +18,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { ApprovalRequest } from "../shared/hostProtocol.ts";
 import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
+import { LESSON_ADD_TOOL, LESSON_REMOVE_TOOL } from "../shared/lessons.ts";
 import { ASK_TOOL, type QuestionAnswer } from "../shared/questions.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
 import {
@@ -81,7 +82,14 @@ export type ApprovalAsk = {
 export const DENIED = "The user denied this tool call.";
 export const DECLINED_OUTSIDE =
   "The sandbox blocked this command, and the user declined to run it outside the sandbox.";
-const SELF_ASKING = new Set([ASK_TOOL, TASK_ADD_TOOL, GIT_TOOL, GH_TOOL]);
+const SELF_ASKING = new Set([
+  ASK_TOOL,
+  TASK_ADD_TOOL,
+  GIT_TOOL,
+  GH_TOOL,
+  LESSON_ADD_TOOL,
+  LESSON_REMOVE_TOOL,
+]);
 
 /** `path` with symlinks resolved, as far as it exists. */
 export async function realPath(path: string): Promise<string> {
