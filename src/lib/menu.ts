@@ -1,4 +1,10 @@
-import { Menu, type MenuOptions } from "@tauri-apps/api/menu";
+import {
+  Menu,
+  MenuItem,
+  Submenu,
+  type MenuOptions,
+  type SubmenuOptions,
+} from "@tauri-apps/api/menu";
 import type { AppVersion } from "../../shared/hostProtocol";
 import { aboutPanel } from "./about";
 import { APP_TITLE } from "./app";
@@ -25,8 +31,25 @@ export type MenuHandlers = {
  * this to own the handlers; on Windows it belongs to this window.
  */
 export async function setAppMenu(handlers: MenuHandlers) {
-  const menu = await Menu.new({ items: menuItems(handlers) });
+  const menu = await Menu.new({ items: await held(menuItems(handlers)) });
   await (isWindows() ? menu.setAsWindowMenu() : menu.setAsAppMenu());
+}
+
+type ItemOption = NonNullable<MenuOptions["items"]>[number];
+
+// Tauri 2.12 drops an inline item's action as soon as the menu is built, so
+// items with an action are made as their own resources, which keep it.
+function held(items: ItemOption[]): Promise<ItemOption[]> {
+  return Promise.all(
+    items.map(async (item) => {
+      if ("text" in item && "items" in item && Array.isArray(item.items)) {
+        const submenu = item as SubmenuOptions;
+        return Submenu.new({ ...submenu, items: await held(item.items) });
+      }
+      if ("action" in item && item.action) return MenuItem.new(item);
+      return item;
+    }),
+  );
 }
 
 /**
