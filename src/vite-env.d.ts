@@ -6,3 +6,6 @@ declare const __PI_HOST_PATH__: string;
 declare const __DEMO_FOLDER__: string | null;
 /** Where to report a healthy start when run by launcher/launch.sh, else null. */
 declare const __HEALTH_FILE__: string | null;
+
+/** daisyUI ships no types; it's only handed to Tailwind's compiler as a plugin. */
+declare module "daisyui";

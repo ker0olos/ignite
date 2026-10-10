@@ -51,7 +51,8 @@ describe("captureFrame", () => {
     const frame = document.createElement("iframe");
     document.body.append(frame);
     const shot = captureFrame(frame);
-    vi.advanceTimersByTime(10000);
-    await expect(shot).rejects.toThrow("in time");
+    const failed = expect(shot).rejects.toThrow("in time");
+    await vi.advanceTimersByTimeAsync(10000);
+    await failed;
   });
 });
