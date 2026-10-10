@@ -66,8 +66,11 @@ export const IMAGE_TYPES: Record<string, string> = {
 /** The tool the agent shows the user an image file with; the image is in `details.image`. */
 export const IMAGE_TOOL = "show_image";
 
-/** The tool the agent embeds an HTML page in the conversation with; the page is in its `html` argument. */
-export const HTML_TOOL = "show_html";
+/** The tool the agent shows an artifact with: one or more HTML or markdown pages, in its `pages` argument. */
+export const ARTIFACT_TOOL = "show_artifact";
+
+/** The artifact tool's earlier name, one HTML page in `html`; saved conversations still hold its calls. */
+export const LEGACY_HTML_TOOL = "show_html";
 
 /** The tool that ends a bash command left running in the background. */
 export const BASH_STOP_TOOL = "bash_stop";

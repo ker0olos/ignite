@@ -26,7 +26,7 @@ export const SESSION_EXTENSIONS = [
   sibling("./chromeExtension.ts"),
   sibling("./adbExtension.ts"),
   sibling("./imageExtension.ts"),
-  sibling("./htmlExtension.ts"),
+  sibling("./artifactExtension.ts"),
   sibling("./bashExtension.ts"),
   sibling("./terminalExtension.ts"),
   sibling("./forkExtension.ts"),
