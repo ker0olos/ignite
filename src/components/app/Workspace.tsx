@@ -71,7 +71,7 @@ export function Workspace({
   const { active, open: openFile } = tabs;
   const narrow = useNarrow();
   const [view, setView] = useState<WorkspaceView>("conversation");
-  const runIn = useTerminalShortcut(host, folder, session.session, view, tabs);
+  const runIn = useTerminalShortcut(host, folder, view, tabs);
   // Pane sizes persist, saved separately for with and without the editor.
   const layout = useDefaultLayout({
     id: "workspace",

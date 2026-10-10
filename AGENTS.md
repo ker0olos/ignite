@@ -67,7 +67,7 @@ src/                     React frontend (almost all logic lives here)
     useTerminalShortcut.ts ⌘1 / Ctrl+1 opens a terminal tab; returns run-in-terminal
     useRunInTerminal.ts  Run-in-terminal for assistant shell code blocks' Run button
     useBlockLang.ts      A code block's language: its fence's, or bash once an untagged one parses as shell
-    useTerminalTabs.ts   A closed tab's shell ends; a folder shown again reopens its shells' tabs
+    useTerminalTabs.ts   The folders' running terminals for the sidebar; Stop ends one, closing its tab doesn't
     useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request), read every 5s
     useGitRepoDetails.ts A repository's uncommitted files and unpushed commits, while its composer popover is open
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
@@ -550,8 +550,9 @@ also feeds a headless xterm, so agents read the rendered screen, not escape
 codes: before each run, what the folder's terminals printed since that
 conversation last looked is added as a hidden message (like Claude Code's
 `!`), and `terminal_read` reads them on demand. Agents can't type into them.
-⌘1 (Ctrl+1) opens a new one as a tab beside the conversation; closing the
-tab ends its shell.
+⌘1 (Ctrl+1) opens a new one as a tab beside the conversation. Closing the
+tab leaves its shell running, listed under its folder in the sidebar, where
+Stop ends it.
 
 The composer completes `/` at the start of a message with the app's
 `/compact` (pi's `compact()`: older messages become a summary, shown as a
