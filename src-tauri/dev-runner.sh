@@ -32,6 +32,7 @@ cat > "$app/Info.plist" <<EOF
   <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSAppSleepDisabled</key><true/>
 </dict>
 </plist>
 EOF
