@@ -19,7 +19,14 @@ export function ArtifactPageView({
   codeThemes: CodeThemes;
 }) {
   if ("html" in page)
-    return <ArtifactHtml title={page.title} html={page.html} height={height} />;
+    return (
+      <ArtifactHtml
+        title={page.title}
+        html={page.html}
+        libraries={page.libraries}
+        height={height}
+      />
+    );
   return (
     <div
       className="overflow-y-auto rounded-lg border"

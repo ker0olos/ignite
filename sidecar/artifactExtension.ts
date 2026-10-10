@@ -24,8 +24,18 @@ export default function showArtifact(pi: ExtensionAPI) {
       "Show the user an artifact in the conversation: a mockup, design options, an interactive demo, a chart, a report. " +
       "Give several pages to show alternatives or screens side by side; the user switches between them as tabs. " +
       "Each page is either `markdown` (rendered like your replies) or `html`, a self-contained page " +
-      "in a sandboxed frame: scripts on, no access to the app and no network, so nothing loads from a URL. " +
-      "Inline all CSS, JS, fonts and images (data: URLs); size HTML pages to fit `height`.",
+      "in a sandboxed frame: scripts on, no access to the app and no network, so nothing loads from a URL " +
+      'but Google Fonts (`<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">`). ' +
+      "Inline all JS and images (data: URLs); size HTML pages to fit `height`. " +
+      'For an HTML page, prefer `libraries: ["daisyui"]` over writing CSS: daisyUI 5 components ' +
+      "(btn, card, navbar, tabs, modal, table, input, badge, stat…) and Tailwind CSS 4 utility classes " +
+      "are then built in, with daisyUI's light and dark themes (`data-theme` on <html>). " +
+      "They are bundled with the app (no CDN links, no `<script src>`) and take over class names like " +
+      '`card`, `btn` and `label`, so leave them off a page with CSS of its own; `["tailwind"]` gives Tailwind alone. ' +
+      'Icons need no setup on any HTML page: `<span class="i-lucide-house"></span>` (any Lucide icon) and ' +
+      '`<span class="i-simple-icons-github"></span>` (brand logos from Simple Icons) draw inline at 1em in the text color; ' +
+      "size them with font-size or `size-6`. Material Symbols come from Google Fonts like any font " +
+      '(`family=Material+Symbols+Rounded`, then `<span class="material-symbols-rounded">settings</span>`).',
     promptSnippet: `${ARTIFACT_TOOL}: show HTML or markdown pages (mockups, designs, reports) in the conversation`,
     parameters: Type.Object({
       title: Type.String({ description: "A short name for the artifact." }),
@@ -37,6 +47,15 @@ export default function showArtifact(pi: ExtensionAPI) {
           ),
           markdown: Type.Optional(
             Type.String({ description: "The page as markdown." }),
+          ),
+          libraries: Type.Optional(
+            Type.Array(
+              Type.Union([Type.Literal("daisyui"), Type.Literal("tailwind")]),
+              {
+                description:
+                  "Styles built into this HTML page: daisyui (with Tailwind) or tailwind.",
+              },
+            ),
           ),
         }),
         {

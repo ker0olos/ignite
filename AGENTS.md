@@ -83,6 +83,7 @@ src/                     React frontend (almost all logic lives here)
     useTasks.ts          The folder's tasks, pushed by the sidecar, with status from their conversations
     useTodos.ts          The open items of the folder's .todo files, read when the Tasks view shows
     useNewTaskSheet.ts   ⌘N / Ctrl+N opens the new-task sheet while the Tasks view shows
+    useEmbeddedPage.ts   An HTML artifact page ready for its frame, once its libraries' CSS is built
     useMarkup.ts         An image's marks being drawn: tools, ink, selection, text, undo/redo;
                          useMarkupKeys.ts its shortcuts, useMarkupImage.ts loading and fitting the image,
                          useMarkupView.ts zooming and panning it
@@ -145,6 +146,10 @@ src/                     React frontend (almost all logic lives here)
     demoHtml.ts          The page the dark mode conversation shows with show_artifact
     demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images
     artifact.ts          show_artifact's pages (and old show_html calls'); the HTML frame's policy and height
+    artifactStyles.ts    A page's bundled libraries: Tailwind (and daisyUI) compiled for the classes it uses
+    artifactIcons.ts     A page's `i-lucide-*` / `i-simple-icons-*` icons as CSS masks, only the ones it uses
+    artifactCapture.ts   Mark up: an artifact page drawn as a PNG (HTML frames draw themselves, html-to-image,
+                         with Google Fonts fetched for it)
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
     window.ts            Window sizing and New Window
     paths.ts             basename / dirname / ~ shortening

@@ -1,15 +1,19 @@
 import { toPng } from "html-to-image";
 import htmlToImage from "html-to-image/dist/html-to-image.js?raw";
 import type { ImageContent } from "../../shared/agentTypes";
+import { googleFontCss } from "@/lib/artifactFonts";
 import { pngImage } from "@/lib/markup";
 
 const CAPTURE = "ignite-capture";
 
-// The frame is sandboxed off the app's origin, so it draws itself and posts the PNG back.
+// The frame draws itself (it's sandboxed off the app's origin); Google Fonts come from captureFrame.
 const LISTENER = `addEventListener("message", (e) => {
   if (e.source !== parent || e.data?.type !== "${CAPTURE}") return;
   const reply = (r) => parent.postMessage({ type: "${CAPTURE}", id: e.data.id, ...r }, "*");
-  htmlToImage.toPng(document.documentElement, { pixelRatio: 2, backgroundColor: "white" })
+  const own = [...document.styleSheets].flatMap((s) => { try { return [...s.cssRules]; } catch { return []; } })
+    .filter((r) => r instanceof CSSFontFaceRule).map((r) => r.cssText);
+  const fontEmbedCSS = [e.data.fonts, ...own].join("\\n");
+  htmlToImage.toPng(document.documentElement, { pixelRatio: 2, backgroundColor: "white", fontEmbedCSS })
     .then((url) => reply({ url }), (err) => reply({ error: String(err) }));
 });`;
 
@@ -17,10 +21,11 @@ const LISTENER = `addEventListener("message", (e) => {
 export const CAPTURE_SCRIPTS = `<script>${htmlToImage}</script><script>${LISTENER}</script>`;
 
 /** An HTML page's frame drawn as a PNG, by the page itself. */
-export function captureFrame(
+export async function captureFrame(
   frame: HTMLIFrameElement,
   timeout = 10000,
 ): Promise<ImageContent> {
+  const fonts = await googleFontCss(frame.srcdoc);
   const id = crypto.randomUUID();
   return new Promise((resolve, reject) => {
     const done = () => {
@@ -44,12 +49,14 @@ export function captureFrame(
       return;
     }
     addEventListener("message", onMessage);
-    frame.contentWindow.postMessage({ type: CAPTURE, id }, "*");
+    frame.contentWindow.postMessage({ type: CAPTURE, id, fonts }, "*");
   });
 }
 
 /** An artifact page as a PNG: its frame's page, else its whole markdown, not just what's scrolled into view. */
 export async function capturePage(page: HTMLElement): Promise<ImageContent> {
+  if (page.querySelector("[data-artifact-loading]"))
+    throw new Error("The page is still loading.");
   const frame = page.querySelector("iframe");
   if (frame) return captureFrame(frame);
   const content =

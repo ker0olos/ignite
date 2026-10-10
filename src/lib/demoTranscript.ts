@@ -69,7 +69,7 @@ const showPreview = call("h1", ARTIFACT_TOOL, {
   title: "Tempo theme preview",
   pages: [
     { title: "Timer", html: THEME_PREVIEW },
-    { title: "Settings", html: PICKER_PREVIEW },
+    { title: "Settings", html: PICKER_PREVIEW, libraries: ["daisyui"] },
     { title: "Palette", markdown: PALETTE_NOTES },
   ],
   height: 300,

@@ -7,21 +7,21 @@ describe("artifactPages", () => {
       artifactPages({
         title: "Designs",
         pages: [
-          { title: "A", html: "<p>a</p>" },
+          { title: "A", html: "<p>a</p>", libraries: ["daisyui", "react"] },
           { markdown: "# b" },
           { title: "Empty" },
           "junk",
         ],
       }),
     ).toEqual([
-      { title: "A", html: "<p>a</p>" },
+      { title: "A", html: "<p>a</p>", libraries: ["daisyui"] },
       { title: "Page 2", markdown: "# b" },
     ]);
   });
 
   it("reads a show_html call as one HTML page", () => {
     expect(artifactPages({ title: "Old", html: "<p>x</p>" })).toEqual([
-      { title: "Old", html: "<p>x</p>" },
+      { title: "Old", html: "<p>x</p>", libraries: [] },
     ]);
   });
 
@@ -45,6 +45,12 @@ describe("embeddedPage", () => {
     );
   });
 
+  it("adds the libraries' CSS before the page's own", () => {
+    expect(embeddedPage("<p>hi</p>", ".x{}")).toMatch(
+      /<\/script><style>\.x\{\}<\/style><p>hi<\/p>$/,
+    );
+  });
+
   it("blocks the page's own network requests", () => {
     const doc = new DOMParser().parseFromString(
       embeddedPage("<!doctype html><img src='https://example.com/x'>"),
@@ -54,6 +60,17 @@ describe("embeddedPage", () => {
     expect(
       doc.head.querySelector("meta[http-equiv]")?.getAttribute("content"),
     ).toContain("default-src 'none'");
+  });
+
+  it("lets pages load Google Fonts and nothing else from the network", () => {
+    const policy = new DOMParser()
+      .parseFromString(embeddedPage("<p>hi</p>"), "text/html")
+      .head.querySelector("meta[http-equiv]")
+      ?.getAttribute("content");
+    const hosts = policy?.match(/https:\/\/[\w.]+/g) ?? [];
+    expect(new Set(hosts)).toEqual(
+      new Set(["https://fonts.googleapis.com", "https://fonts.gstatic.com"]),
+    );
   });
 });
 

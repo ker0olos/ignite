@@ -1,17 +1,28 @@
-import { useMemo } from "react";
-import { embeddedPage, frameHeight } from "@/lib/artifact";
+import { useEmbeddedPage } from "@/hooks/useEmbeddedPage";
+import { frameHeight } from "@/lib/artifact";
+import type { Library } from "@/lib/artifactStyles";
 
 /** An artifact's HTML page, in a frame that may run scripts but can't reach the app or the network. */
 export function ArtifactHtml({
   title,
   html,
+  libraries,
   height,
 }: {
   title: string;
   html: string;
+  libraries: Library[];
   height: unknown;
 }) {
-  const page = useMemo(() => embeddedPage(html), [html]);
+  const page = useEmbeddedPage(html, libraries);
+  if (page === undefined)
+    return (
+      <div
+        data-artifact-loading
+        style={{ height: frameHeight(height) }}
+        className="w-full rounded-lg border bg-white"
+      />
+    );
   return (
     <iframe
       title={title}

@@ -15,8 +15,8 @@ export default defineConfig({
     setupFiles: ["src/test/setup.ts"],
     // demo/ is a sample project the app opens, with tests of its own.
     exclude: [...configDefaults.exclude, "demo/**"],
-    // demo.test.ts reads demo/tempo's stylesheet as text.
-    css: { include: [/demo\/tempo/] },
+    // demo.test.ts reads demo/tempo's stylesheet as text; artifacts compile Tailwind's.
+    css: { include: [/demo\/tempo/, /tailwindcss\/index\.css/] },
     restoreMocks: true,
     // Sidecar tests spawn git, shells and PTYs, which a full parallel run slows well past 5s.
     testTimeout: 30_000,
