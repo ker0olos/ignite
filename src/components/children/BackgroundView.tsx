@@ -25,13 +25,8 @@ export function BackgroundView({
     : `${promptLine(command)}\r\n${shown?.truncated ? "…\r\n" : ""}${shown?.output ?? ""}`;
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <TerminalSurface
-        text={text}
-        cursor={shown?.running ?? false}
-        fontFamily={editor.font_family}
-      />
-      <div className="absolute top-2 right-3 flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-8 shrink-0 items-center justify-end gap-2 px-3 text-xs text-muted-foreground">
         <span>{backgroundState(shown, pid)}</span>
         {shown?.running && (
           <Button size="xs" variant="outline" onClick={() => void stop()}>
@@ -39,6 +34,11 @@ export function BackgroundView({
           </Button>
         )}
       </div>
+      <TerminalSurface
+        text={text}
+        cursor={shown?.running ?? false}
+        fontFamily={editor.font_family}
+      />
     </div>
   );
 }

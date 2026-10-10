@@ -4,9 +4,6 @@ import type { HostClient } from "@/lib/piHost";
 import { childTabId } from "@/lib/childTabs";
 import { useTerminalShortcut } from "./useTerminalShortcut";
 
-// Its tabs' lifecycle is useTerminalTabs', tested on its own.
-vi.mock("@/hooks/useTerminalTabs", () => ({ useTerminalTabs: vi.fn() }));
-
 const press = (init: KeyboardEventInit) => {
   const e = new KeyboardEvent("keydown", {
     code: "Digit1",
@@ -17,10 +14,7 @@ const press = (init: KeyboardEventInit) => {
   return e;
 };
 
-function setup(
-  shown: string | null = "s1",
-  view: "conversation" | "tasks" = "conversation",
-) {
+function setup(view: "conversation" | "tasks" = "conversation") {
   const request = vi.fn((r: { type: string }) =>
     Promise.resolve(
       r.type === "terminal_open"
@@ -30,10 +24,8 @@ function setup(
   );
   const host = { request } as unknown as HostClient;
   const open = vi.fn();
-  const hook = renderHook(
-    ({ files }) =>
-      useTerminalShortcut(host, "/w", shown, view, { files, open }),
-    { initialProps: { files: [] as string[] } },
+  const hook = renderHook(() =>
+    useTerminalShortcut(host, "/w", view, { open }),
   );
   return { request, open, ...hook };
 }
@@ -51,7 +43,7 @@ describe("useTerminalShortcut", () => {
       rows: 24,
     });
     expect(open).toHaveBeenCalledWith(
-      childTabId({ kind: "terminal", session: "s1", terminal: "t1" }),
+      childTabId({ kind: "terminal", session: "", terminal: "t1" }),
     );
     press({ metaKey: true, shiftKey: true });
     press({ ctrlKey: true });
@@ -66,16 +58,6 @@ describe("useTerminalShortcut", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it("opens one in a new conversation, before its first message starts it", async () => {
-    const { open } = setup(null);
-    press({ metaKey: true });
-    await waitFor(() =>
-      expect(open).toHaveBeenCalledWith(
-        childTabId({ kind: "terminal", session: "", terminal: "t1" }),
-      ),
-    );
-  });
-
   it("runs a command in a new terminal tab", async () => {
     const { request, open, result } = setup();
     result.current!("echo hi\necho bye");
@@ -87,22 +69,19 @@ describe("useTerminalShortcut", () => {
       }),
     );
     expect(open).toHaveBeenCalledWith(
-      childTabId({ kind: "terminal", session: "s1", terminal: "t1" }),
+      childTabId({ kind: "terminal", session: "", terminal: "t1" }),
     );
   });
 
   it("has nothing to run with no sidecar", () => {
     const { result } = renderHook(() =>
-      useTerminalShortcut(null, "/w", "s1", "conversation", {
-        files: [],
-        open: vi.fn(),
-      }),
+      useTerminalShortcut(null, "/w", "conversation", { open: vi.fn() }),
     );
     expect(result.current).toBe(null);
   });
 
   it("does nothing on the Tasks view", () => {
-    const { request } = setup("s1", "tasks");
+    const { request } = setup("tasks");
     const e = press({ metaKey: true });
     expect(e.defaultPrevented).toBe(false);
     expect(request).not.toHaveBeenCalled();

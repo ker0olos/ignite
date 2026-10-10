@@ -51,6 +51,9 @@ function setup(
     onOpenTab: vi.fn(),
     onStopBackground: vi.fn(),
     onClear: vi.fn(),
+    terminals: (cwd: string) => (cwd === "/other" ? ["t2"] : []),
+    onOpenTerminal: vi.fn(),
+    onStopTerminal: vi.fn(),
   };
   render(
     <FolderList
@@ -153,6 +156,14 @@ it("stops a running background command, not one that ended", () => {
     screen.queryByRole("button", { name: "Stop npm run watch" }),
   ).toBeNull();
   expect(screen.queryByRole("button", { name: "Stop agent-1" })).toBeNull();
+});
+
+it("lists a folder's running terminals, opening and stopping each", () => {
+  const { childActions } = setup();
+  fireEvent.click(screen.getByText("t2"));
+  expect(childActions.onOpenTerminal).toHaveBeenCalledWith("/other", "t2");
+  fireEvent.click(screen.getByRole("button", { name: "Stop Terminal" }));
+  expect(childActions.onStopTerminal).toHaveBeenCalledWith("t2");
 });
 
 it("selects the row whose tab is active", () => {

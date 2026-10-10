@@ -2,6 +2,7 @@ import { Fragment, useState } from "react";
 import { ProjectRow } from "@/components/app/ProjectRow";
 import { ConversationTagFilter } from "@/components/sidebar/ConversationTagFilter";
 import { FolderConversations } from "@/components/sidebar/FolderConversations";
+import { FolderTerminals } from "@/components/sidebar/FolderTerminals";
 import type { Conversations } from "@/hooks/useConversations";
 import type { TaggedAgentStatus } from "@/lib/conversations";
 import { sortedByName } from "@/lib/paths";
@@ -15,6 +16,10 @@ export type ChildActions = {
   onStopBackground: (session: string, pid: number) => void;
   /** Closes a finished row's tab, taking it off the sidebar. */
   onClear: (tab: string) => void;
+  /** A folder's running terminals. */
+  terminals: (cwd: string) => string[];
+  onOpenTerminal: (cwd: string, terminal: string) => void;
+  onStopTerminal: (terminal: string) => void;
 };
 
 export type ConversationLimit = {
@@ -119,6 +124,12 @@ export function FolderList({
             max={conversationLimit.max}
             limited={conversationLimit.enabled}
             onToggle={() => toggle(path)}
+          />
+          <FolderTerminals
+            terminals={childActions.terminals(path)}
+            activeTab={path === folder ? childActions.activeTab : null}
+            onOpen={(terminal) => childActions.onOpenTerminal(path, terminal)}
+            onStop={childActions.onStopTerminal}
           />
         </Fragment>
       ))}

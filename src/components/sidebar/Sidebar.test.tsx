@@ -52,6 +52,9 @@ const sidebar = (
           onOpenTab: vi.fn(),
           onStopBackground: vi.fn(),
           onClear: vi.fn(),
+          terminals: () => [],
+          onOpenTerminal: vi.fn(),
+          onStopTerminal: vi.fn(),
         },
         onOpenFolder: vi.fn(),
       }}
