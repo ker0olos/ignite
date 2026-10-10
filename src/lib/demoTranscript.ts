@@ -4,7 +4,7 @@
  * diffs here match them (checked in demo.test.ts).
  */
 import {
-  HTML_TOOL,
+  ARTIFACT_TOOL,
   IMAGE_TOOL,
   type AgentMessage,
   type AssistantMessage,
@@ -12,7 +12,7 @@ import {
   type ToolResultMessage,
 } from "../../shared/agentTypes";
 import { TASK_TOOL, type Subtask } from "../../shared/tasks";
-import { THEME_PREVIEW } from "./demoHtml";
+import { PALETTE_NOTES, PICKER_PREVIEW, THEME_PREVIEW } from "./demoHtml";
 import { DARK_MOCKUP } from "./demoTaskImages";
 
 export const T = Date.UTC(2026, 8, 27, 9, 30);
@@ -65,9 +65,13 @@ const planned: Subtask[] = PLAN.map((title, i) => ({
   status: i === 0 ? "working" : "todo",
 }));
 const showDark = call("i1", IMAGE_TOOL, { path: "/tmp/tempo-dark.png" });
-const showPreview = call("h1", HTML_TOOL, {
+const showPreview = call("h1", ARTIFACT_TOOL, {
   title: "Tempo theme preview",
-  html: THEME_PREVIEW,
+  pages: [
+    { title: "Timer", html: THEME_PREVIEW },
+    { title: "Settings", html: PICKER_PREVIEW },
+    { title: "Palette", markdown: PALETTE_NOTES },
+  ],
   height: 300,
 });
 

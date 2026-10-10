@@ -1,7 +1,8 @@
 import {
+  ARTIFACT_TOOL,
   BASH_STOP_TOOL,
-  HTML_TOOL,
   IMAGE_TOOL,
+  LEGACY_HTML_TOOL,
   type TextContent,
   type ToolCall,
   type ToolResult,
@@ -17,8 +18,8 @@ import {
   SkipWaitContext,
   type ToolProps,
 } from "@/components/conversation/shared";
+import { ToolArtifact } from "@/components/conversation/ToolArtifact";
 import { ToolHead } from "@/components/conversation/ToolHead";
-import { ToolHtml } from "@/components/conversation/ToolHtml";
 import { ToolOutcome } from "@/components/conversation/ToolOutcome";
 import { ToolRunOutcome } from "@/components/conversation/ToolRunOutcome";
 import { mcpCall } from "@/lib/mcpToolCall";
@@ -38,6 +39,8 @@ function resultText(result: ToolResult | undefined) {
     .join("\n");
 }
 
+const ARTIFACT_TOOLS = new Set([ARTIFACT_TOOL, LEGACY_HTML_TOOL]);
+
 const TOOL_TITLES: Record<string, string> = {
   read: "Read",
   write: "Write",
@@ -51,7 +54,8 @@ const TOOL_TITLES: Record<string, string> = {
   [ASK_TOOL]: "Questions",
   [SUBAGENT_TOOL]: "Agent",
   [IMAGE_TOOL]: "Image",
-  [HTML_TOOL]: "HTML",
+  [ARTIFACT_TOOL]: "Artifact",
+  [LEGACY_HTML_TOOL]: "Artifact",
   [TASK_ADD_TOOL]: "Add tasks",
   [TASK_TOOL]: "Plan",
   [BASH_STOP_TOOL]: "Stop",
@@ -98,7 +102,8 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   [ASK_TOOL]: questionsArg,
   [SUBAGENT_TOOL]: subagentArg,
   [IMAGE_TOOL]: pathArg,
-  [HTML_TOOL]: (call) => String(call.arguments.title ?? ""),
+  [ARTIFACT_TOOL]: (call) => String(call.arguments.title ?? ""),
+  [LEGACY_HTML_TOOL]: (call) => String(call.arguments.title ?? ""),
   [TASK_ADD_TOOL]: (call) => String(readProposed(call.arguments).length),
   [BASH_STOP_TOOL]: (call) => String(call.arguments.pid ?? ""),
 };
@@ -136,8 +141,13 @@ export function ToolView({
       {run &&
         !showsNothingYet(call, run, text, !!skip && canSkipWait(call, run)) && (
           <ToolOutcome>
-            {call.name === HTML_TOOL && run.status === "done" ? (
-              <ToolHtml args={call.arguments} />
+            {ARTIFACT_TOOLS.has(call.name) && run.status === "done" ? (
+              <ToolArtifact
+                args={call.arguments}
+                folder={folder}
+                editor={editor}
+                codeThemes={codeThemes}
+              />
             ) : (
               <ToolRunOutcome
                 call={call}

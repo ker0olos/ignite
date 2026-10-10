@@ -1,5 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { embeddedPage, frameHeight } from "./htmlEmbed";
+import { artifactPages, embeddedPage, frameHeight } from "./artifact";
+
+describe("artifactPages", () => {
+  it("reads each page as HTML or markdown, labelling untitled ones", () => {
+    expect(
+      artifactPages({
+        title: "Designs",
+        pages: [
+          { title: "A", html: "<p>a</p>" },
+          { markdown: "# b" },
+          { title: "Empty" },
+          "junk",
+        ],
+      }),
+    ).toEqual([
+      { title: "A", html: "<p>a</p>" },
+      { title: "Page 2", markdown: "# b" },
+    ]);
+  });
+
+  it("reads a show_html call as one HTML page", () => {
+    expect(artifactPages({ title: "Old", html: "<p>x</p>" })).toEqual([
+      { title: "Old", html: "<p>x</p>" },
+    ]);
+  });
+
+  it("has no pages when a show_html call has no html", () => {
+    expect(artifactPages({ title: "Old", markdown: "# x" })).toEqual([]);
+  });
+});
 
 describe("embeddedPage", () => {
   it("puts the policy right after the doctype", () => {
@@ -11,7 +40,9 @@ describe("embeddedPage", () => {
   });
 
   it("puts it first when there's no doctype", () => {
-    expect(embeddedPage("<p>hi</p>")).toMatch(/^<meta [^>]+><p>hi<\/p>$/);
+    expect(embeddedPage("<p>hi</p>")).toMatch(
+      /^<meta [^>]+><script>.*<p>hi<\/p>$/s,
+    );
   });
 
   it("blocks the page's own network requests", () => {

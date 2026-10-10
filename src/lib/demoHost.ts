@@ -73,6 +73,13 @@ const textOf = (c: DemoConversation) =>
     })
     .join("\n");
 
+// Nothing runs in the demo: nothing to stop, no terminals.
+const NOTHING_RUNS = {
+  background_stop: () => false,
+  skip_wait: () => false,
+  terminal_list: () => [],
+};
+
 const queueOf = (c: DemoConversation | undefined) =>
   c?.queue ?? { steering: [], followUp: [] };
 
@@ -218,9 +225,7 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
     git_status: () => [],
     git_repo_details: () => ({ files: [], commits: [] }),
     background_output: () => DEV_OUTPUT,
-    // Nothing runs in the demo, so there's nothing to stop.
-    background_stop: () => false,
-    skip_wait: () => false,
+    ...NOTHING_RUNS,
     prompt: (r: { text: string; session?: string }) =>
       r.session && reply(r.session, r.text),
     ...tasksAnswers(demoTasks(tempo)),
