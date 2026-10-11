@@ -300,6 +300,7 @@ shared/tasks.ts          Tasks and the agent's updates to them (used by both)
 shared/queue.ts          Messages sent mid-run: how they wait, and taking one back (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/shellEdits.ts     The files a bash call changed, as its result carries them (used by both)
+shared/featuredModels.ts The model menu's featured (current generation) models, which the router picks from
 shared/steps.ts          A tool call as a current step ("Editing src/app.ts"), for tasks and the working line
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
@@ -637,7 +638,9 @@ first message (a composer conversation's, or a Tasks-view task's as it starts)
 `sidecar/hostRoute.ts`
 asks the provider's cheapest model (`sidecar/router.ts`, `completeSimple` with
 `cacheRetention: "none"`, so claude-bridge runs it in a separate Claude Code
-process) for the model and effort the conversation runs on. They're set
+process) for the model and effort the conversation runs on, choosing only
+among the model menu's featured (current generation) models when the
+provider has any (`shared/featuredModels.ts`). They're set
 without saving them as defaults (the app reads them again when routing ends),
 and later messages never change them, since a switch would throw away the
 prompt cache. A message too vague to judge (a bare link, "take a look") gets

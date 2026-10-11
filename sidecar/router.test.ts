@@ -115,6 +115,25 @@ describe("route", () => {
     expect(options).toMatchObject({ cacheRetention: "none" });
   });
 
+  it("offers only current models when the provider has any", async () => {
+    const old = model("claude-bridge", "claude-sonnet-4-6", 15);
+    const sonnet = model("claude-bridge", "claude-sonnet-5-5", 15);
+    const haiku = model("claude-bridge", "claude-haiku-4-5", 5);
+    const { s, completeSimple } = session(sonnet, answer("{}"));
+    Object.assign((s as { modelRuntime: object }).modelRuntime, {
+      getAvailable: async () => [old, sonnet, haiku],
+      getModels: () => [old, sonnet, haiku],
+    });
+    await route(s, "Hi");
+    const [picked, context] = completeSimple.mock.calls[0] as unknown as [
+      object,
+      { messages: { content: string }[] },
+    ];
+    expect(picked).toBe(haiku);
+    expect(context.messages[0].content).toContain("claude-sonnet-5-5");
+    expect(context.messages[0].content).not.toContain("4-");
+  });
+
   it("tells the router a vague message gets the middle-ground model at high effort", async () => {
     const { s, completeSimple } = session(MODELS[0], answer("{}"));
     await route(s, "take a look at https://x");

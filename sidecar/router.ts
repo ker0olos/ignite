@@ -7,6 +7,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { APP_NAME } from "../src/lib/app.ts";
+import { currentModels } from "../shared/featuredModels.ts";
 import { EFFORTS } from "../shared/subagents.ts";
 import type { Session } from "./hostTypes.ts";
 import { price, type Effort, type Model } from "./subagentModels.ts";
@@ -98,7 +99,8 @@ export async function route(
 ): Promise<Route | null> {
   const found = await cheapest(s);
   if (!found) return null;
-  const { model: router, models, all } = found;
+  const { model: router, all } = found;
+  const models = currentModels(found.models);
   const answer = await s.modelRuntime.completeSimple(
     router,
     {
