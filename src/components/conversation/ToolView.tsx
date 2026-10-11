@@ -7,6 +7,7 @@ import {
   type ToolCall,
   type ToolResult,
 } from "../../../shared/agentTypes";
+import { ADB_TOOL } from "../../../shared/adb";
 import { GH_TOOL, GIT_TOOL } from "../../../shared/git";
 import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL } from "../../../shared/subagents";
@@ -82,7 +83,7 @@ function subagentArg(call: ToolCall) {
 }
 
 // Paths in the folder are shown relative to it, like `-C server`.
-function gitArg(call: ToolCall, folder: string) {
+function argsArg(call: ToolCall, folder: string) {
   const args = (call.arguments.args as string[] | undefined) ?? [];
   return args
     .map((arg) => (arg === folder ? "." : relativePath(arg, folder)))
@@ -97,8 +98,9 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   bash: (call) => String(call.arguments.command ?? ""),
   grep: (call) => String(call.arguments.pattern ?? ""),
   find: (call) => String(call.arguments.pattern ?? ""),
-  [GIT_TOOL]: gitArg,
-  [GH_TOOL]: gitArg,
+  [GIT_TOOL]: argsArg,
+  [GH_TOOL]: argsArg,
+  [ADB_TOOL]: argsArg,
   [ASK_TOOL]: questionsArg,
   [SUBAGENT_TOOL]: subagentArg,
   [IMAGE_TOOL]: pathArg,
