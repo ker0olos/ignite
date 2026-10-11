@@ -587,11 +587,12 @@ composer's controls are off and its working line says "Waiting for fork"). Closi
 cheapest priced model of the original's provider (the router's) summarize
 what it did since its last report (`sidecar/forks.ts`), else its last reply
 is used; the report is sent to the original as a message, so it carries on.
-When the original isn't open (or another fork of it is), the report waits in
-memory, like the note that the fork was made, and joins its next run as a
-hidden message (`sidecar/forkExtension.ts`), so a sidecar restart drops
-undelivered ones. Notes live on `globalThis`, since pi loads each extension
-with its own copy of the modules it imports.
+When the original isn't open, it opens in the background to take the report
+(and closes with its folder). When another fork of it is open (or it can't
+open), the report waits in `~/.ignite/pi/fork-notes/<id>.json`, like the note
+that the fork was made, and joins its next run as a hidden message
+(`sidecar/forkExtension.ts`). While the summary is written, the fork's last
+reply waits there in its place, so a sidecar restart never drops a report.
 
 Tasks and conversations are one thing shown two ways. Every conversation
 plans before it changes files: `task_update` lays out its subtasks and keeps
