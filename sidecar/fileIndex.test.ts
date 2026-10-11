@@ -36,6 +36,12 @@ describe("listFiles", () => {
     ]);
   });
 
+  it("walks a folder git ignores, where git lists nothing", async () => {
+    execFileSync("git", ["init", "-q"], { cwd: dir });
+    writeFileSync(join(dir, ".gitignore"), "node_modules/\n");
+    expect(await listFiles(join(dir, "node_modules/dep"))).toEqual(["i.js"]);
+  });
+
   it("lists a repository inside a plain folder as its git sees it", async () => {
     write("app/src/b.ts");
     write("app/ios/Pods/x.hpp");

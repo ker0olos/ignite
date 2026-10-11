@@ -1,9 +1,9 @@
 // @vitest-environment node
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { outline, outlines, symbolLines } from "./outline.ts";
+import { outline, outlineFolder, outlines, symbolLines } from "./outline.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "outline-"));
 const file = (name: string, text: string) => {
@@ -74,5 +74,44 @@ it("refuses files it has no grammar for", async () => {
   expect(outlines("App.TSX")).toBe(true);
   await expect(outline(file("d.md", "# hi"))).rejects.toThrow(
     "No outline for .md files",
+  );
+});
+
+it("outlines a folder's code files with their top-level definitions", async () => {
+  const folder = mkdtempSync(join(tmpdir(), "outline-folder-"));
+  mkdirSync(join(folder, "lib"));
+  writeFileSync(join(folder, "lib/b.ts"), "class Box {\n  open() {}\n}\n");
+  writeFileSync(join(folder, "a.py"), "def go():\n    pass\n");
+  writeFileSync(join(folder, "notes.md"), "# hi");
+  writeFileSync(join(folder, "a.test.ts"), "function t() {}\n");
+  writeFileSync(join(folder, "x_test.go"), "package x\n");
+  mkdirSync(join(folder, "tests"));
+  writeFileSync(join(folder, "tests/test_y.py"), "def t():\n    pass\n");
+  symlinkSync("/etc/hosts", join(folder, "link.ts"));
+  expect(await outlineFolder(folder)).toBe(
+    ["a.py", "  1: def go():", "lib/b.ts", "  1: class Box {"].join("\n"),
+  );
+  const empty = mkdtempSync(join(tmpdir(), "outline-empty-"));
+  expect(await outlineFolder(empty)).toMatch(/^No code files here/);
+});
+
+it("says how many code files a big folder leaves out", async () => {
+  const folder = mkdtempSync(join(tmpdir(), "outline-big-"));
+  for (let i = 0; i < 82; i++) writeFileSync(join(folder, `f${i}.ts`), "");
+  expect(await outlineFolder(folder)).toMatch(
+    /\n\[2 more code files; outline a folder inside this one\.\]$/,
+  );
+});
+
+it("stops a folder at whole files once its text gets long", async () => {
+  const folder = mkdtempSync(join(tmpdir(), "outline-long-"));
+  const fns = Array.from({ length: 400 }, (_, i) => `function f${i}() {}`);
+  for (let i = 0; i < 5; i++) {
+    writeFileSync(join(folder, `g${i}.ts`), fns.join("\n"));
+  }
+  const text = await outlineFolder(folder);
+  expect(text.length).toBeLessThan(30_000 + 100);
+  expect(text).toMatch(
+    /\n\[\d more code files; outline a folder inside this one\.\]$/,
   );
 });

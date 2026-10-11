@@ -57,9 +57,10 @@ async function listDir(folder: string, dir: string) {
 
 /**
  * The folder's files relative to it, as git sees them in a repository
- * (tracked and untracked, not ignored), else from a walk.
+ * (tracked and untracked, not ignored), else (or when git lists none) from a walk.
  */
 export async function listFiles(folder: string): Promise<string[]> {
   const listed = await gitFiles(folder);
-  return (listed ?? (await walk(folder))).slice(0, MAX_FILES);
+  // An ignored folder (node_modules/pkg, dist) lists nothing in git.
+  return (listed?.length ? listed : await walk(folder)).slice(0, MAX_FILES);
 }

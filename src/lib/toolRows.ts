@@ -21,7 +21,7 @@ export type Row =
   | { kind: "end"; message: AssistantMessage };
 
 // Look-around tools that fold into one summary line, as in Claude Code.
-const QUIET = new Set(["read", "grep", "find", "ls", "bash"]);
+const QUIET = new Set(["read", "outline", "grep", "find", "ls", "bash"]);
 
 type Block = AssistantMessage["content"][number];
 
@@ -108,12 +108,38 @@ export function toRows(
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
+const partPaths = (also: unknown) =>
+  Array.isArray(also) ? also.map((p) => (p as { path?: unknown })?.path) : [];
+
+/** The different files the group's reads read, `also` parts included. */
+const filesRead = (calls: ToolCall[]) =>
+  new Set(
+    calls
+      .filter((c) => c.name === "read")
+      .flatMap((c) => [
+        c.arguments.path ?? c.id,
+        ...partPaths(c.arguments.also),
+      ]),
+  ).size;
+
+/** The group's outlines: of files, and of folders (a path with no extension). */
+function outlines(calls: ToolCall[]) {
+  const paths = calls
+    .filter((c) => c.name === "outline")
+    .map((c) => String(c.arguments.path ?? ""));
+  const folders = paths.filter((p) => !/\.[a-z]+$/i.test(p)).length;
+  return { files: paths.length - folders, folders };
+}
+
 /** "Read 2 files, ran 1 shell command" for a folded group. */
 export function groupSummary(calls: ToolCall[]) {
   const count = (...names: string[]) =>
     calls.filter((c) => names.includes(c.name)).length;
+  const outlined = outlines(calls);
   const parts = [
-    [count("read"), "read", "file", "files"],
+    [filesRead(calls), "read", "file", "files"],
+    [outlined.files, "outlined", "file", "files"],
+    [outlined.folders, "outlined", "folder", "folders"],
     [count("grep", "find"), "searched for", "pattern", "patterns"],
     [count("ls"), "listed", "folder", "folders"],
     [count("bash"), "ran", "shell command", "shell commands"],

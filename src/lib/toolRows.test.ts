@@ -206,8 +206,8 @@ describe("groupSummary", () => {
   it("counts each kind, singular and plural", () => {
     expect(
       groupSummary([
-        call("read"),
-        call("read"),
+        call("read", "r1"),
+        call("read", "r2"),
         call("grep"),
         call("find"),
         call("ls"),
@@ -216,6 +216,25 @@ describe("groupSummary", () => {
     ).toBe(
       "Read 2 files, searched for 2 patterns, listed 1 folder, ran 1 shell command",
     );
+  });
+
+  it("counts the different files reads read, and outlined files and folders", () => {
+    const read = (path: string, also?: object[]) => ({
+      ...call("read", path),
+      arguments: { path, also },
+    });
+    const outline = (path: string) => ({
+      ...call("outline", path),
+      arguments: { path },
+    });
+    expect(
+      groupSummary([
+        read("a.ts", [{ path: "a.ts", offset: 300 }, { path: "b.ts" }]),
+        read("a.ts"),
+        outline("src"),
+        outline("src/app.ts"),
+      ]),
+    ).toBe("Read 2 files, outlined 1 file, outlined 1 folder");
   });
 
   it("leaves out kinds that didn't run", () => {

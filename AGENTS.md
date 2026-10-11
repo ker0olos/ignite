@@ -212,7 +212,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   readTools.ts           pi's read with numbered lines, 400 unless told otherwise, one definition by name (`symbol`)
                          and more files or ranges in the same call (`also`); `outline`
   readSections.ts        read's arguments as models write them (`"[310, 330]"` ranges), its line numbers
-  outline.ts             A code file's definitions by line, and one's lines by name (tree-sitter tags queries: TS, JS, Python, Rust, Go)
+  outline.ts             A code file's definitions by line, a folder's files with their top-level ones, and one's lines
+                         by name (tree-sitter tags queries: TS, JS, Python, Rust, Go)
   hostChildren.ts        Each conversation's subagents and background commands, for the sidebar
   sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths;
                          how the agent must write commands allowed outside
