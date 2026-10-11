@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +7,7 @@ import type { AgentMessage } from "../shared/agentTypes.ts";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import {
   dropFork,
+  dropNote,
   forkOf,
   forkSession,
   noteFor,
@@ -28,7 +29,6 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.PI_CODING_AGENT_DIR;
   rmSync(agentDir, { recursive: true, force: true });
-  takeNotes("first");
 });
 
 const usage = {
@@ -157,6 +157,18 @@ describe("forks", () => {
     const result = handler({}, ctx("first"));
     expect(result.message.content).toBe("Your fork is done: 2x faster");
     expect(handler({}, ctx("first"))).toBeUndefined();
+  });
+
+  it("drops one waiting note and ignores a broken notes file", () => {
+    noteFor("first", "draft");
+    noteFor("first", "kept");
+    dropNote("first", "draft");
+    dropNote("first", "gone already");
+    expect(takeNotes("first")).toEqual(["kept"]);
+    mkdirSync(join(agentDir, "fork-notes"), { recursive: true });
+    writeFileSync(join(agentDir, "fork-notes", "first.json"), "null");
+    noteFor("first", "after");
+    expect(takeNotes("first")).toEqual(["after"]);
   });
 
   it("joins several notes for one run", () => {

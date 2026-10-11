@@ -3,13 +3,15 @@ import { titleOf } from "../shared/conversations.ts";
 import type { OpenedSession } from "../shared/hostProtocol.ts";
 import {
   dropFork,
+  dropNote,
   forkSession,
+  lastText,
   noteFor,
   summarize,
   unreported,
 } from "./forks.ts";
 import { pushProjects, waitsOnFork } from "./hostProjects.ts";
-import { close, open, prompt } from "./hostSession.ts";
+import { close, launch, open, prompt } from "./hostSession.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
 
 // Mid-run, the copy would end on tool calls that never get results.
@@ -56,8 +58,8 @@ export async function fork(
 
 /**
  * Ends conversation `id`, or all of `folder`'s. A fork's work since its last
- * report goes to its original, which carries on from it (or reads it next
- * run, when it isn't open).
+ * report goes to its original, opened if need be, which carries on from it
+ * (or reads it next run, while another fork holds it).
  */
 export async function closeConversation(
   ctx: HostContext,
@@ -66,33 +68,57 @@ export async function closeConversation(
 ) {
   const fork = id === undefined ? undefined : ctx.agents.get(id);
   if (!fork?.forkOf) return close(ctx, folder, id);
-  const found = fork.session && unreported(fork.session);
-  const parent = ctx.agents.get(fork.forkOf) ?? null;
-  if (parent) parent.forkReports = (parent.forkReports ?? 0) + 1;
+  const messages = fork.session && unreported(fork.session)?.messages;
+  if (messages) void report(ctx, fork, messages, hold(ctx, folder, fork));
   await close(ctx, folder, id);
-  void report(ctx, fork, found?.messages, parent);
 }
+
+// The original waits for the report. A closed one opens in the background
+// (and closes with its folder), unless another fork still holds it.
+function hold(ctx: HostContext, folder: string, fork: Agent) {
+  const id = fork.forkOf!;
+  const held = [...ctx.agents.values()].some(
+    (a) => a !== fork && a.forkOf === id,
+  );
+  if (!held && !ctx.agents.has(id))
+    void launch(ctx, folder, id).catch(() => {});
+  const parent = ctx.agents.get(id) ?? null;
+  if (parent) parent.forkReports = (parent.forkReports ?? 0) + 1;
+  return parent;
+}
+
+const reportText = (fork: Agent, summary: string) =>
+  summary &&
+  `Your fork "${fork.title}" (${fork.id}) is done. Its report:\n\n${summary}`;
 
 async function report(
   ctx: HostContext,
   fork: Agent,
-  messages: AgentMessage[] | undefined,
+  messages: AgentMessage[],
   parent: Agent | null,
 ) {
-  let summary = "";
+  const to = fork.forkOf!;
+  // Kept until the summary replaces it, in case the sidecar ends first.
+  const draft = reportText(fork, lastText(messages));
+  if (draft) noteFor(to, draft);
+  let summary: string;
   try {
-    if (messages) summary = await summarize(parent?.session, messages);
+    summary = await summarize(
+      await parent?.opening.catch(() => null),
+      messages,
+    );
   } finally {
     if (parent) parent.forkReports! -= 1;
     pushProjects(ctx);
   }
-  if (!summary) return;
-  const text = `Your fork "${fork.title}" (${fork.id}) is done. Its report:\n\n${summary}`;
+  if (draft) dropNote(to, draft);
+  const text = reportText(fork, summary);
+  if (!text) return;
   // Another fork still open keeps it waiting; then it reads this next run.
   const carriesOn =
     parent?.session &&
     ctx.agents.get(parent.id) === parent &&
     !waitsOnFork(ctx, parent.id);
   if (carriesOn) await prompt(ctx, text, undefined, parent.id);
-  else noteFor(fork.forkOf!, text);
+  else noteFor(to, text);
 }

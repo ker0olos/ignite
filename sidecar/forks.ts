@@ -5,11 +5,18 @@
  */
 import {
   SessionManager,
+  getAgentDir,
   serializeConversation,
 } from "@earendil-works/pi-coding-agent";
-import { rmSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
 import type { AgentMessage } from "../shared/agentTypes.ts";
-import { APP_NAME } from "../src/lib/app.ts";
 import type { Session } from "./hostTypes.ts";
 import { cheapest } from "./router.ts";
 
@@ -30,20 +37,47 @@ type Entry = {
   message?: AgentMessage;
 };
 
-// On globalThis: the host and each session's extensions load their own copy.
-// ponytail: notes wait in memory, so a sidecar restart drops undelivered ones; persist them if that bites.
-const shared = globalThis as { [key: symbol]: Map<string, string[]> };
-const notes = (shared[Symbol.for(`${APP_NAME}.forkNotes`)] ??= new Map());
+// On disk, one file per conversation: a closed fork is already marked
+// reported, so a report held in memory would be lost on restart.
+const notesDir = () => join(getAgentDir(), "fork-notes");
+const notesFile = (id: string) => join(notesDir(), `${id}.json`);
+
+const readNotes = (id: string): string[] => {
+  try {
+    const notes: unknown = JSON.parse(readFileSync(notesFile(id), "utf8"));
+    return Array.isArray(notes) ? notes : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeNotes = (id: string, notes: string[]) => {
+  const file = notesFile(id);
+  if (!notes.length) return rmSync(file, { force: true });
+  mkdirSync(notesDir(), { recursive: true });
+  const temp = `${file}.${process.pid}.tmp`;
+  writeFileSync(temp, JSON.stringify(notes));
+  renameSync(temp, file);
+};
 
 /** Adds a note for conversation `id`, delivered with its next run. */
 export function noteFor(id: string, text: string) {
-  notes.set(id, [...(notes.get(id) ?? []), text]);
+  writeNotes(id, [...readNotes(id), text]);
+}
+
+/** Removes one of conversation `id`'s waiting notes, if it's still there. */
+export function dropNote(id: string, text: string) {
+  const notes = readNotes(id);
+  const at = notes.indexOf(text);
+  if (at < 0) return;
+  notes.splice(at, 1);
+  writeNotes(id, notes);
 }
 
 /** The notes waiting for conversation `id`, taken. */
 export function takeNotes(id: string): string[] {
-  const waiting = notes.get(id) ?? [];
-  notes.delete(id);
+  const waiting = readNotes(id);
+  if (waiting.length) writeNotes(id, []);
   return waiting;
 }
 
@@ -106,7 +140,8 @@ export function unreported(s: {
   return { parent, messages };
 }
 
-const lastText = (messages: AgentMessage[]) => {
+/** The text of the last assistant reply in `messages`. */
+export const lastText = (messages: AgentMessage[]) => {
   const last = messages.findLast((m) => m.role === "assistant");
   const content = last && "content" in last ? last.content : [];
   return (Array.isArray(content) ? content : [])
