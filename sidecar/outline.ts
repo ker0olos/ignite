@@ -74,18 +74,28 @@ function grammar(name: string) {
   return found;
 }
 
-/** The tagged definition nodes, each once, in file order. */
-function definitions(query: Query, root: Node): Node[] {
-  const byId = new Map<number, Node>();
+type Def = { node: Node; name?: string };
+
+/** The tagged definitions, each once, in file order. */
+function definitions(query: Query, root: Node): Def[] {
+  const byId = new Map<number, Def>();
   for (const match of query.matches(root)) {
     const def = match.captures.find((c) => c.name.startsWith("definition."));
-    if (def) byId.set(def.node.id, def.node);
+    const name = match.captures.find((c) => c.name === "name")?.node.text;
+    if (def) byId.set(def.node.id, { node: def.node, name });
   }
-  return [...byId.values()].sort((a, b) => a.startIndex - b.startIndex);
+  return [...byId.values()].sort(
+    (a, b) => a.node.startIndex - b.node.startIndex,
+  );
 }
 
-/** `line: signature` for each definition, indented under the ones holding it. */
-export async function outline(path: string): Promise<string> {
+const holds = (outer: Node, inner: Node) =>
+  outer !== inner &&
+  outer.startIndex <= inner.startIndex &&
+  outer.endIndex >= inner.endIndex;
+
+/** A code file's definitions, parsed with its grammar. */
+async function parsed(path: string) {
   const name = BY_EXTENSION[extname(path).toLowerCase()];
   if (!name) {
     throw new Error(
@@ -94,21 +104,44 @@ export async function outline(path: string): Promise<string> {
   }
   const { parser, query } = await grammar(name);
   const source = await readFile(path, "utf8");
-  const sourceLines = source.split("\n");
   const tree = parser.parse(source);
   if (!tree) throw new Error(`Couldn't parse ${path}.`);
-  const defs = definitions(query, tree.rootNode);
-  const lines = defs.map((node) => {
-    const depth = defs.filter(
-      (o) =>
-        o !== node &&
-        o.startIndex <= node.startIndex &&
-        o.endIndex >= node.endIndex,
-    ).length;
+  return { source, tree, defs: definitions(query, tree.rootNode) };
+}
+
+/** `line: signature` for each definition, indented under the ones holding it. */
+export async function outline(path: string): Promise<string> {
+  const { source, tree, defs } = await parsed(path);
+  const sourceLines = source.split("\n");
+  const lines = defs.map(({ node }) => {
+    const depth = defs.filter((o) => holds(o.node, node)).length;
     const row = node.startPosition.row;
     const head = sourceLines[row].trim().slice(0, 120);
     return `${row + 1}: ${"  ".repeat(depth)}${head}`;
   });
   tree.delete();
   return lines.join("\n") || "No definitions found; read it instead.";
+}
+
+/** The 1-based line ranges of the definitions named `symbol` ("open", or "Box.open" for one inside Box). */
+export async function symbolLines(
+  path: string,
+  symbol: string,
+): Promise<{ start: number; end: number }[]> {
+  const { tree, defs } = await parsed(path);
+  const dot = symbol.lastIndexOf(".");
+  const name = symbol.slice(dot + 1);
+  const outer = dot < 0 ? undefined : symbol.slice(0, dot).split(".").pop();
+  const found = defs
+    .filter(
+      (d) =>
+        d.name === name &&
+        (!outer || defs.some((o) => o.name === outer && holds(o.node, d.node))),
+    )
+    .map(({ node }) => ({
+      start: node.startPosition.row + 1,
+      end: node.endPosition.row + 1,
+    }));
+  tree.delete();
+  return found;
 }

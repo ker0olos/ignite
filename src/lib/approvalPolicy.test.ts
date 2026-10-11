@@ -212,6 +212,16 @@ describe("approvalFor", () => {
     });
   });
 
+  it("checks every part of a read, not just its first path", () => {
+    const read = (also: unknown) =>
+      approvalFor("auto", "read", { path: "a.ts", also }, place);
+    expect(read([{ path: "b.ts" }, { offset: 3 }])).toBeNull();
+    expect(read([{ path: "b.ts" }, { path: "~/.ssh/id_rsa" }])).toEqual({
+      reason: "Outside the folder: ~/.ssh/id_rsa",
+    });
+    expect(read("not a list")).toBeNull();
+  });
+
   it("lets file tools use temp folders in Auto, like sandboxed bash", () => {
     const withTemp = { ...place, temp: ["/private/tmp"] };
     expect(

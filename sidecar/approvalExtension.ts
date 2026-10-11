@@ -23,6 +23,7 @@ import { ASK_TOOL, type QuestionAnswer } from "../shared/questions.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
 import {
   approvalFor,
+  filePaths,
   resolvePath,
   type ApprovalGate,
 } from "../src/lib/approvalPolicy.ts";
@@ -119,8 +120,12 @@ async function judged(input: Record<string, unknown>, cwd: string) {
     home: await realPath(homedir()),
     temp: [...new Set(await Promise.all([tmpdir(), "/tmp"].map(realPath)))],
   };
-  const path = await realPath(resolvePath(input.path, place));
-  return { input: { ...input, path }, place };
+  const real = (p: string) => realPath(resolvePath(p, place));
+  const [path, ...also] = await Promise.all(filePaths(input).map(real));
+  return {
+    input: { ...input, path, also: also.map((p) => ({ path: p })) },
+    place,
+  };
 }
 
 function commandOf(event: ToolCallEvent): string | undefined {
