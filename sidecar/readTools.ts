@@ -1,11 +1,12 @@
 /** pi's read with numbered lines, a smaller default window, definitions by name and several parts per call; and `outline`. */
+import { stat } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import {
   createReadToolDefinition,
   type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { outline, outlines, symbolLines } from "./outline.ts";
+import { outline, outlineFolder, outlines, symbolLines } from "./outline.ts";
 import { numbered, prepareRead } from "./readSections.ts";
 
 /** Lines a read shows without offset or limit; pi's own default is 2000. */
@@ -159,15 +160,18 @@ export function registerOutline(pi: ExtensionAPI) {
     name: "outline",
     label: "Outline",
     description:
-      "List a code file's definitions (functions, classes, methods, types) with their line numbers and first line, nested ones indented, without their bodies. Use it on a long file to find what to read. TypeScript, JavaScript, Python, Rust and Go.",
+      "List a code file's definitions (functions, classes, methods, types) with their line numbers and first line, nested ones indented, without their bodies. Use it on a long file to find what to read. Given a folder, lists each code file under it (tests left out) with its top-level definitions: use that instead of grepping for exports or listing folders one by one. TypeScript, JavaScript, Python, Rust and Go.",
     promptSnippet:
-      "outline: a code file's definitions by line, to find what to read",
+      "outline: a code file's definitions by line, or a folder's files with theirs, to find what to read",
     parameters: Type.Object({
-      path: Type.String({ description: "The file, relative to the folder." }),
+      path: Type.String({
+        description: "The file or folder, relative to the open folder.",
+      }),
     }),
     async execute(_id, { path }, _signal, _onUpdate, ctx) {
       const file = isAbsolute(path) ? path : resolve(ctx.cwd, path);
-      const text = await outline(file);
+      const folder = (await stat(file)).isDirectory();
+      const text = await (folder ? outlineFolder(file) : outline(file));
       return { content: [{ type: "text", text }], details: {} };
     },
   });

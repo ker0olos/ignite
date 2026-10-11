@@ -90,3 +90,8 @@ it("says why one part failed and still reads the rest; throws when all fail", as
     "No definition named nope",
   );
 });
+
+it("outlines a folder when given one", async () => {
+  const run = load(registerOutline);
+  expect(await run({ path: "." })).toContain("short.ts\n  1: function f() {}");
+});

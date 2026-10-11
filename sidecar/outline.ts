@@ -1,8 +1,9 @@
 /** A code file's definitions (functions, classes, methods…) by line, from tree-sitter's tags queries. */
-import { readFile } from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { extname } from "node:path";
+import { extname, join } from "node:path";
 import { Language, Parser, Query, type Node } from "web-tree-sitter";
+import { listFiles } from "./fileIndex.ts";
 
 const require = createRequire(import.meta.url);
 const JS = "tree-sitter-javascript/queries/tags.scm";
@@ -109,18 +110,77 @@ async function parsed(path: string) {
   return { source, tree, defs: definitions(query, tree.rootNode) };
 }
 
-/** `line: signature` for each definition, indented under the ones holding it. */
-export async function outline(path: string): Promise<string> {
+/** `line: signature` for each definition, indented under the ones holding it; only top-level ones with `top`. */
+async function entries(path: string, top = false): Promise<string[]> {
   const { source, tree, defs } = await parsed(path);
   const sourceLines = source.split("\n");
-  const lines = defs.map(({ node }) => {
+  const lines = defs.flatMap(({ node }) => {
     const depth = defs.filter((o) => holds(o.node, node)).length;
+    if (top && depth > 0) return [];
     const row = node.startPosition.row;
     const head = sourceLines[row].trim().slice(0, 120);
-    return `${row + 1}: ${"  ".repeat(depth)}${head}`;
+    return [`${row + 1}: ${"  ".repeat(depth)}${head}`];
   });
   tree.delete();
+  return lines;
+}
+
+/** A code file's definitions by line, nested ones indented. */
+export async function outline(path: string): Promise<string> {
+  const lines = await entries(path);
   return lines.join("\n") || "No definitions found; read it instead.";
+}
+
+const MAX_FOLDER_FILES = 80;
+// About 7,500 tokens, so one call can't flood the context.
+const MAX_FOLDER_CHARS = 30_000;
+
+const TEST_FILE =
+  /(^|\/)(__tests__|tests?)\/|\.(test|spec)\.[^/]+$|_test\.(go|py|rs)$|(^|\/)test_[^/]+\.py$/;
+
+/** `files` that aren't symlinks, which could lead outside the folder unasked. */
+async function plainFiles(folder: string, files: string[]) {
+  const links = await Promise.all(
+    files.map((f) =>
+      lstat(join(folder, f)).then(
+        (s) => s.isSymbolicLink(),
+        () => true,
+      ),
+    ),
+  );
+  return files.filter((_, i) => !links[i]);
+}
+
+/** The parts that fit in MAX_FOLDER_CHARS, whole ones only. */
+function fitting(parts: string[]) {
+  let size = 0;
+  const kept = parts.filter((p) => (size += p.length + 1) <= MAX_FOLDER_CHARS);
+  return kept.length ? kept : parts.slice(0, 1);
+}
+
+/** Each code file under `folder` (as git lists them, tests left out) with its top-level definitions. */
+export async function outlineFolder(folder: string): Promise<string> {
+  const listed = (await listFiles(folder))
+    .filter((f) => outlines(f) && !TEST_FILE.test(f))
+    .sort();
+  const files = await plainFiles(folder, listed);
+  if (!files.length) {
+    return "No code files here that outline reads; ls it instead.";
+  }
+  const parts = await Promise.all(
+    files.slice(0, MAX_FOLDER_FILES).map(async (file) => {
+      const lines = await entries(join(folder, file), true).catch(
+        (e: Error) => [e.message],
+      );
+      return [file, ...lines.map((l) => `  ${l}`)].join("\n");
+    }),
+  );
+  const shown = fitting(parts);
+  const more = files.length - shown.length;
+  const note = more
+    ? `\n[${more} more code files; outline a folder inside this one.]`
+    : "";
+  return shown.join("\n") + note;
 }
 
 /** The 1-based line ranges of the definitions named `symbol` ("open", or "Box.open" for one inside Box). */
