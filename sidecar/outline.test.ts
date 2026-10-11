@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { outline, outlines } from "./outline.ts";
+import { outline, outlines, symbolLines } from "./outline.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "outline-"));
 const file = (name: string, text: string) => {
@@ -35,6 +35,29 @@ it("lists a TypeScript file's definitions by line, nested ones indented", async 
       "10: interface Shape { sides: number }",
     ].join("\n"),
   );
+});
+
+it("finds a definition's lines by name, or by the one holding it", async () => {
+  const path = file(
+    "e.ts",
+    [
+      "class Box {",
+      "  open() {",
+      "    return 1;",
+      "  }",
+      "}",
+      "class Jar {",
+      "  open() {}",
+      "}",
+    ].join("\n"),
+  );
+  expect(await symbolLines(path, "open")).toEqual([
+    { start: 2, end: 4 },
+    { start: 7, end: 7 },
+  ]);
+  expect(await symbolLines(path, "Jar.open")).toEqual([{ start: 7, end: 7 }]);
+  expect(await symbolLines(path, "Box")).toEqual([{ start: 1, end: 5 }]);
+  expect(await symbolLines(path, "close")).toEqual([]);
 });
 
 it("reads Python and says when a file defines nothing", async () => {

@@ -209,8 +209,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          tells the agent what the composer's `@` mentions name
   exploreExtension.ts    Tells the agent how to search the code before answering (parallel calls, follow the flow)
   grepFiles.ts           pi's grep with `filesOnly`: matching files and their counts, not the lines
-  readTools.ts           pi's read showing 400 lines unless told otherwise; `outline`
-  outline.ts             A code file's definitions by line (tree-sitter tags queries: TS, JS, Python, Rust, Go)
+  readTools.ts           pi's read with numbered lines, 400 unless told otherwise, one definition by name (`symbol`)
+                         and more files or ranges in the same call (`also`); `outline`
+  readSections.ts        read's arguments as models write them (`"[310, 330]"` ranges), its line numbers
+  outline.ts             A code file's definitions by line, and one's lines by name (tree-sitter tags queries: TS, JS, Python, Rust, Go)
   hostChildren.ts        Each conversation's subagents and background commands, for the sidebar
   sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths;
                          how the agent must write commands allowed outside
@@ -253,6 +255,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   chrome.ts              Chrome over CDP: a headless one the app starts, or the user's own (port 9222) when asked
   chromeExtension.ts     chrome_* tools: tabs, screenshot, eval, navigate, raw CDP calls
   chromePage.ts          A tab's CDP calls: run JS, wait for load, screenshot
+  cdpResult.ts           chrome_cdp's results with long base64 data (screenshots, PDFs) saved to files, not inlined
   taskTabs.ts            Which Chrome tabs a task may use: only its own, named by id
   adbExtension.ts        adb and adb_screenshot: Android devices, run outside the sandbox
   imageExtension.ts      show_image: shows the user an image file from any path in its tool row

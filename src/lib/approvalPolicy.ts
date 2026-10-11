@@ -134,6 +134,15 @@ function fileReason(path: string, place: Place): string | null {
   return inside ? null : outsideReason(resolved, place);
 }
 
+/** The paths a file tool call names: its `path`, and the paths of read's `also` parts. */
+export function filePaths(input: Record<string, unknown>): string[] {
+  const also = Array.isArray(input.also) ? (input.also as unknown[]) : [];
+  const more = also.map((p) => (p as { path?: unknown } | null)?.path);
+  return [input.path, ...more].filter(
+    (p): p is string => typeof p === "string",
+  );
+}
+
 /** How calls are judged under Auto. */
 export type Checks = {
   /** Splits commands for a precise check; without it, the raw text is checked. */
@@ -159,14 +168,19 @@ function bashReason(
   return outside ? outsideReason(outside, place) : null;
 }
 
-/** Why an adb call needs approval under Auto: it reads or writes here outside the folder. */
-function adbReason(args: unknown[], place: Place): string | null {
-  const strings = args.filter((a): a is string => typeof a === "string");
-  for (const path of adbHostPaths(strings)) {
+/** Why the first of `paths` outside the folder needs approval, or null when none is. */
+function firstReason(paths: string[], place: Place): string | null {
+  for (const path of paths) {
     const reason = fileReason(path, place);
     if (reason) return reason;
   }
   return null;
+}
+
+/** Why an adb call needs approval under Auto: it reads or writes here outside the folder. */
+function adbReason(args: unknown[], place: Place): string | null {
+  const strings = args.filter((a): a is string => typeof a === "string");
+  return firstReason(adbHostPaths(strings), place);
 }
 
 /** Why a call needs approval under Auto, or null when it may run. */
@@ -181,7 +195,7 @@ function autoReason(
   }
   if (place.windows && SHELL_TOOLS.has(toolName)) return WINDOWS_SHELL;
   if (FILE_TOOLS.has(toolName) && typeof input.path === "string") {
-    return fileReason(input.path, place);
+    return firstReason(filePaths(input), place);
   }
   if (toolName === ADB_TOOL && Array.isArray(input.args)) {
     return adbReason(input.args, place);

@@ -10,6 +10,7 @@ import { Type } from "typebox";
 import { IMAGE_TOOL } from "../shared/agentTypes.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { chrome, pages, withTab, type Tab } from "./chrome.ts";
+import { savedBlobs } from "./cdpResult.ts";
 import { capture, evaluate, settle } from "./chromePage.ts";
 import { chromeToolsOn } from "./chromeSettings.ts";
 import {
@@ -214,17 +215,19 @@ function registerActing(pi: ExtensionAPI, scope: Scope) {
       browser: Type.Optional(Type.Boolean()),
       user_chrome: UserParam,
     }),
-    async execute(_id, { method, params, tab, browser, user_chrome }) {
+    async execute(id, { method, params, tab, browser, user_chrome }) {
+      const shown = async (result: unknown) =>
+        text(show(await savedBlobs(result, method, params, id)));
       if (browser) {
         if (await scope.task()) throw new Error(NO_BROWSER_CALLS);
         if (!user_chrome) throw new Error(NO_OWN_BROWSER_CALLS);
-        return text(show(await (await chrome(true)).send(method, params)));
+        return shown(await (await chrome(true)).send(method, params));
       }
       const at = await scope.at(tab, user_chrome);
       return withTab(
         at.tab,
         async (cdp, sessionId) =>
-          text(show(await cdp.send(method, params, sessionId))),
+          shown(await cdp.send(method, params, sessionId)),
         at.user,
         at.skip,
       );
