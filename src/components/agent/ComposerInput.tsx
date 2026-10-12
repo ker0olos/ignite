@@ -18,7 +18,7 @@ export function ComposerInput({
   onChange: (text: string) => void;
   onCaret: (caret: number) => void;
   onImages: (images: ImageContent[]) => void;
-  onKeyDown: (e: KeyboardEvent) => void;
+  onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
 }) {
   return (
     <Textarea
