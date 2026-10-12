@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { createBashToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { StreamFn } from "./compactProgress.ts";
 import { describe, expect, it, vi } from "vitest";
 import type {
@@ -809,21 +810,27 @@ describe("prompt answers with no pending prompt", () => {
 });
 
 describe("skip_wait", () => {
-  it("ends the running bash call, and says when none runs", async () => {
+  it("ends a running call's sleep, and says when none runs", async () => {
     const { runtime } = fakeRuntime();
     const { request, responses } = setup(runtime);
-    const run = skippable(
-      "c1",
-      undefined,
-      (signal) =>
-        new Promise((_, reject) =>
-          signal.addEventListener("abort", () => reject(new Error("aborted"))),
-        ),
+    const run = skippable("c1", (spawnHook) =>
+      createBashToolDefinition(process.cwd(), { spawnHook }).execute(
+        "c1",
+        { command: "sleep 30" },
+        undefined,
+        undefined,
+        undefined as never,
+      ),
     );
-    await request({ id: 1, type: "skip_wait", toolCallId: "c1" });
-    await expect(run).resolves.toMatchObject({ details: { skipped: true } });
-    await request({ id: 2, type: "skip_wait", toolCallId: "c1" });
-    expect(responses()).toMatchObject([{ data: true }, { data: false }]);
+    let ended = false;
+    for (let i = 0; i < 100 && !ended; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      await request({ id: i, type: "skip_wait", toolCallId: "c1" });
+      ended = (responses().at(-1) as { data?: unknown })?.data === true;
+    }
+    await run;
+    await request({ id: 999, type: "skip_wait", toolCallId: "c1" });
+    expect(responses().at(-1)).toMatchObject({ data: false });
   });
 });
 

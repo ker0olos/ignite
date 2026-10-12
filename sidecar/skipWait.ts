@@ -1,58 +1,94 @@
-/** Foreground bash calls the user can stop waiting on: the command ends and the agent carries on. */
+/** Skip wait: the user cuts a foreground bash call's `sleep` short, and the command carries on as if it had slept. */
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
+import type { BashSpawnHook } from "@earendil-works/pi-coding-agent";
 import { APP_NAME } from "../src/lib/app.ts";
 
-// On globalThis: the host and each session's extensions load their own copy.
-const shared = globalThis as { [key: symbol]: Map<string, AbortController> };
-const waits = (shared[Symbol.for(`${APP_NAME}.skipWait`)] ??= new Map());
+const ROOT = join(tmpdir(), `${APP_NAME}-sleep`);
+const BIN = join(ROOT, "bin");
 
-const SKIPPED =
-  "The user stopped waiting, so the command was ended here. Take what it printed so far as done and carry on.";
+// Stands in for sleep on PATH; ended by Skip wait, it exits 0, so `sleep 60 && next` runs next.
+const SHIM = `#!/bin/sh
+"$IGNITE_SLEEP" "$@" &
+pid=$!
+mark="$IGNITE_SLEEPS/$$"
+trap 'kill $pid 2>/dev/null; rm -f "$mark"; exit 0' TERM
+mkdir -p "$IGNITE_SLEEPS" && : > "$mark"
+wait $pid
+status=$?
+rm -f "$mark"
+exit $status
+`;
 
-// How pi's bash fails once its signal aborts: before it starts, or with the output so far.
-const ABORTED = /^aborted$|(?:^|\n\n)Command aborted$/;
+/** The real sleep on the sidecar's PATH. */
+const realSleep = () =>
+  (process.env.PATH ?? "")
+    .split(delimiter)
+    .map((dir) => join(dir, "sleep"))
+    .find((path) => path !== join(BIN, "sleep") && existsSync(path));
 
-type Text = { type: "text"; text: string };
-type Skipped = {
-  content: Text[];
-  details: { skipped: true };
-  isError: false;
-};
+/** Where a call's running sleeps leave their pids. */
+const sleepsOf = (toolCallId: string) =>
+  join(ROOT, toolCallId.replace(/[^\w-]/g, "_"));
 
-/**
- * Runs a bash call with a signal `skipWait` also aborts; skipped, it returns
- * the output so far as its result instead of failing the run.
- */
+/** Puts the shim on PATH for one call; on Windows (or with no sleep found) it leaves the call as is. */
+function sleepHook(toolCallId: string): BashSpawnHook | undefined {
+  const real = realSleep();
+  if (process.platform === "win32" || !real) return undefined;
+  const shim = join(BIN, "sleep");
+  // Written once: rewriting it under a shell running it could break that run.
+  if (!existsSync(shim)) {
+    mkdirSync(BIN, { recursive: true });
+    writeFileSync(shim, SHIM, { mode: 0o755 });
+  }
+  return (context) => ({
+    ...context,
+    env: {
+      ...context.env,
+      PATH: `${BIN}${delimiter}${context.env.PATH ?? ""}`,
+      IGNITE_SLEEP: real,
+      IGNITE_SLEEPS: sleepsOf(toolCallId),
+    },
+  });
+}
+
+/** Runs a foreground bash call whose sleeps `skipWait` can end. */
 export async function skippable<T>(
   toolCallId: string,
-  signal: AbortSignal | undefined,
-  run: (signal: AbortSignal) => Promise<T>,
-): Promise<T | Skipped> {
-  const wait = new AbortController();
-  waits.set(toolCallId, wait);
+  run: (spawnHook: BashSpawnHook | undefined) => Promise<T>,
+): Promise<T> {
   try {
-    return await run(
-      signal ? AbortSignal.any([signal, wait.signal]) : wait.signal,
-    );
-  } catch (error) {
-    const output = error instanceof Error ? error.message : String(error);
-    const skipped = wait.signal.aborted && !signal?.aborted;
-    if (!skipped || !ABORTED.test(output)) throw error;
-    const text = output.replace(ABORTED, (m) =>
-      m.startsWith("\n\n") ? `\n\n${SKIPPED}` : SKIPPED,
-    );
-    return {
-      content: [{ type: "text", text }],
-      details: { skipped: true },
-      isError: false,
-    };
+    return await run(sleepHook(toolCallId));
   } finally {
-    waits.delete(toolCallId);
+    rmSync(sleepsOf(toolCallId), { recursive: true, force: true });
   }
 }
 
-/** Ends a running foreground bash call; false when none runs under that id. */
+/** Ends the sleeps a running bash call is waiting on; false when it's in none. */
 export function skipWait(toolCallId: string): boolean {
-  const wait = waits.get(toolCallId);
-  wait?.abort();
-  return !!wait;
+  let ended = false;
+  for (const pid of readdirSafe(sleepsOf(toolCallId))) {
+    try {
+      process.kill(Number(pid), "SIGTERM");
+      ended = true;
+    } catch {
+      // Already done.
+    }
+  }
+  return ended;
+}
+
+function readdirSafe(dir: string): string[] {
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
 }

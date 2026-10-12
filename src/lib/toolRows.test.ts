@@ -316,17 +316,25 @@ describe("isShortOutput", () => {
 
 describe("canSkipWait", () => {
   const running = { status: "running" } as const;
-
-  it("offers it on a running foreground bash command only", () => {
-    expect(canSkipWait(call("bash"), running)).toBe(true);
-    expect(canSkipWait(call("read"), running)).toBe(false);
-    expect(canSkipWait(call("bash"), { status: "done" })).toBe(false);
+  const bash = (command: string, background?: boolean) => ({
+    ...call("bash"),
+    arguments: { command, background },
   });
 
-  it("not on a background command or one waiting for approval", () => {
-    const background = { ...call("bash"), arguments: { background: true } };
-    expect(canSkipWait(background, running)).toBe(false);
-    expect(canSkipWait(call("bash"), { ...running, approval: {} })).toBe(false);
+  it("offers it on a running foreground bash command that sleeps", () => {
+    expect(canSkipWait(bash("sleep 60 && gh run view"), running)).toBe(true);
+    expect(canSkipWait(bash("until ok; do sleep 5; done"), running)).toBe(true);
+    expect(canSkipWait(bash("sleep 60"), { status: "done" })).toBe(false);
+  });
+
+  it("not on one that doesn't sleep, other tools, background commands or ones waiting for approval", () => {
+    expect(canSkipWait(bash("npm test"), running)).toBe(false);
+    expect(canSkipWait(bash("grep sleepy src"), running)).toBe(false);
+    expect(canSkipWait(call("read"), running)).toBe(false);
+    expect(canSkipWait(bash("sleep 60", true), running)).toBe(false);
+    expect(canSkipWait(bash("sleep 60"), { ...running, approval: {} })).toBe(
+      false,
+    );
   });
 });
 

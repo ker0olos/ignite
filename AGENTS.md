@@ -199,7 +199,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   approvalSettings.ts    `[approval]` read per tool call; which sandbox applies (Windows' only when turned on)
   bashExtension.ts       pi's bash with `background: true` (dev servers, watchers), and bash_stop to end them
   backgroundBash.ts      Background commands per conversation: their logs, stopping them with what they started
-  skipWait.ts            Skip wait: the user ends a running bash call and the agent carries on with its output so far
+  skipWait.ts            Skip wait: the user cuts a bash call's `sleep` short (a `sleep` on PATH that exits 0), and it carries on
   runOutside.ts          Runs a bash call outside the sandbox once the user approved it
   shellEditsExtension.ts The files a bash command changed (working tree before and after), shown as edits;
                          an image as its two versions, compared with a dragged line
