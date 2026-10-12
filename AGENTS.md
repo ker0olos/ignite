@@ -209,6 +209,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   terminalExtension.ts   terminal_read, and the terminals' new output added to each run;
                          tells the agent what the composer's `@` mentions name
   exploreExtension.ts    Tells the agent how to search the code before answering (parallel calls, follow the flow)
+  bashSearch.ts          Bash commands that only search or read the folder's files, sent to grep and read instead
+  editContext.ts         pi's edit, whose result shows the changed lines as they now read, numbered
   grepFiles.ts           pi's grep with `filesOnly`: matching files and their counts, not the lines
   readTools.ts           pi's read with numbered lines, 400 unless told otherwise, one definition by name (`symbol`)
                          and more files or ranges in the same call (`also`); `outline`
@@ -556,7 +558,11 @@ pointing the agent at a new branch from the default one
 (`sidecar/gitMerged.ts`); when gh can't tell within 10 seconds, it goes ahead. The sandbox already refuses writes to `.git/config` and
 `.git/hooks`; hooks can still live in the working tree (husky), so calls that
 ran without asking run with hooks off. Bash commands that commit, push, pull,
-fetch, clone or run gh are blocked with a pointer to the tools.
+fetch, clone or run gh are blocked with a pointer to the tools. Likewise, bash commands that only
+search or read the folder's files (grep, rg, cat, sed, head, tail; no writes,
+no paths outside it) are blocked with a pointer to the grep and read tools
+(`sidecar/bashSearch.ts`), and an edit's result shows its changed lines,
+numbered, so the agent doesn't search the file again before the next one.
 
 The user's own terminals (`sidecar/terminal.ts`) run their login shell in
 the folder (not a worktree) in a PTY, outside the sandbox: `terminal_open`

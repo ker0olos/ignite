@@ -156,8 +156,7 @@ function visit(
   }
 }
 
-/** Loads the grammar once; the result parses a command into its pipelines. */
-export async function loadBashParser(): Promise<ParseBash> {
+async function load(): Promise<ParseBash> {
   await Parser.init();
   const wasm = createRequire(import.meta.url).resolve(
     "tree-sitter-bash/tree-sitter-bash.wasm",
@@ -181,4 +180,13 @@ export async function loadBashParser(): Promise<ParseBash> {
       throw error;
     }
   };
+}
+
+let loaded: Promise<ParseBash> | undefined;
+
+/** Loads the grammar once for every extension; the result parses a command into its pipelines. */
+export function loadBashParser(): Promise<ParseBash> {
+  loaded ??= load();
+  loaded.catch(() => (loaded = undefined));
+  return loaded;
 }
