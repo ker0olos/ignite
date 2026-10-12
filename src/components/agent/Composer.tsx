@@ -10,6 +10,7 @@ import { MentionMenu } from "@/components/agent/MentionMenu";
 import { QueuedMessages } from "@/components/agent/QueuedMessages";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import { useGitStatus } from "@/hooks/useGitStatus";
+import { useComposerHistory } from "@/hooks/useComposerHistory";
 import { useComposerImages } from "@/hooks/useComposerImages";
 import { useMentions } from "@/hooks/useMentions";
 import { appCommand, skillPrompt } from "@/lib/mentions";
@@ -48,6 +49,7 @@ export function Composer({
   gitStatus: boolean;
 }) {
   const { state } = session;
+  const skills = state?.skills ?? [];
   const [text, setText] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
   const { images, setImages, attach, remove, replace } =
@@ -59,9 +61,10 @@ export function Composer({
     text,
     setText,
     input,
-    skills: state?.skills ?? [],
+    skills,
     images: images.length,
   });
+  const history = useComposerHistory(text, setText, input);
 
   // A new conversation is ready to type in.
   useEffect(() => {
@@ -78,14 +81,11 @@ export function Composer({
   // While the agent works, a message waits for the run's end.
   const handleSend = () => {
     if (!sendable) return;
+    history.record(text);
     setText("");
     // `/compact` sends no images; they wait for the next message.
     if (appCommand("compact", text) === null) setImages([]);
-    void session.send(
-      skillPrompt(text, state?.skills ?? []),
-      images,
-      "followUp",
-    );
+    void session.send(skillPrompt(text, skills), images, "followUp");
   };
   const restore = (taken: QueuedMessage[]) => {
     setText((t) => takenText(taken, t));
@@ -121,7 +121,7 @@ export function Composer({
           onCaret={mentions.setCaret}
           onImages={attach}
           onKeyDown={(e) => {
-            if (mentions.onKeyDown(e)) return;
+            if (mentions.onKeyDown(e) || history.onKeyDown(e)) return;
             const act = composerKey(
               { ...e, isComposing: e.nativeEvent.isComposing },
               { running, empty: !sendable, queued: queued.length > 0 },

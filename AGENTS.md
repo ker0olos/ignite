@@ -90,6 +90,7 @@ src/                     React frontend (almost all logic lives here)
                          useMarkupView.ts zooming and panning it
     useSpinnerFrame.ts   The working line's braille spinner frame (still under reduced motion); useNow.ts ticks its elapsed time
     useComposerImages.ts The composer's attached images, and marked-up ones added to it
+    useComposerHistory.ts ↑ at the composer's start / ↓ at its end step through sent messages (all folders)
     useImageTarget.ts    The showing input (conversation, task sheet) marked-up images are added to
   lib/
     app.ts               APP_NAME, the single source of the app's name
@@ -142,6 +143,7 @@ src/                     React frontend (almost all logic lives here)
     runCommand.ts        Which code blocks Run offers for, and a block as terminal keystrokes
     shellDetect.ts       Whether an untagged code block is shell commands (tree-sitter bash, in the webview)
     mentions.ts          `/compact`, `/skill` and `@` completions: the token at the caret, options, sending a skill as `/skill:name`
+    history.ts           The composer's sent messages, shared by all folders (localStorage, newest 100)
     queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
     demoHtml.ts          The page the dark mode conversation shows with show_artifact
@@ -399,6 +401,8 @@ Two places hold persisted data:
   sandboxes bash there instead of asking for each command. The sidecar reads
   them on every tool call (`sidecar/approvalSettings.ts`).
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
+- **Composer history** in the webview's `localStorage` (`composer-history`):
+  the newest 100 sent messages, shared by every folder (`lib/history.ts`).
 - **pi's own files** in `~/.ignite/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
   default for new sessions, and `sessions/`, one JSONL file per
