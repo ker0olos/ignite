@@ -291,7 +291,7 @@ describe("subagent", () => {
       explore: true,
     });
     expect(asks[0]).toMatchObject({
-      tools: ["read", "grep", "find", "ls", "outline"],
+      tools: ["read", "grep", "find", "ls", "outline", "web_search"],
       prompt: expect.stringContaining("Exploring as a subagent"),
     });
   });
