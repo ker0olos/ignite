@@ -18,6 +18,7 @@ export function LinkPill({
     <span
       role="button"
       tabIndex={0}
+      data-link={kind}
       onClick={(e) => {
         e.stopPropagation();
         if (window.getSelection()?.isCollapsed === false) return;
