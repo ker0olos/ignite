@@ -3,15 +3,14 @@ import type { ToolResultEvent } from "@earendil-works/pi-coding-agent";
 import { stopBackground } from "./backgroundBash.ts";
 import { mayBeBlocked, type Sandbox } from "./sandbox.ts";
 
-type Ran = { background?: { pid?: unknown }; skipped?: unknown };
+type Ran = { background?: { pid?: unknown } };
 
-/** Whether the result may come from the sandbox blocking the run; never for one the user skipped, which a rerun would start again. */
+/** Whether the result may come from the sandbox blocking the run. */
 export function mayHaveBeenBlocked(
   event: ToolResultEvent,
   box: Sandbox,
   text: string,
 ) {
-  if ((event.details as Ran | undefined)?.skipped) return false;
   return (
     event.isError || mayBeBlocked(text) || box.sendRefused(event.toolCallId)
   );

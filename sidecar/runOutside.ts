@@ -17,9 +17,12 @@ export async function runOutside(
       const done = await runBackground(toolCallId, input as never, ctx);
       return { ...done, isError: done.isError ?? false };
     }
-    const bash = createBashTool(ctx.cwd);
-    const done = await skippable(toolCallId, ctx.signal, (signal) =>
-      bash.execute(toolCallId, input as never, signal),
+    const done = await skippable(toolCallId, (spawnHook) =>
+      createBashTool(ctx.cwd, { spawnHook }).execute(
+        toolCallId,
+        input as never,
+        ctx.signal,
+      ),
     );
     const { content, details, isError = false } = done;
     return { content, details, isError };
