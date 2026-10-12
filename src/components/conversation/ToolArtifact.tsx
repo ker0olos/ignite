@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { ArtifactExpandButton } from "@/components/conversation/ArtifactExpandButton";
 import { ArtifactMarkupButton } from "@/components/conversation/ArtifactMarkupButton";
 import { ArtifactPageView } from "@/components/conversation/ArtifactPageView";
 import type { Editor } from "@/components/conversation/shared";
@@ -38,10 +39,20 @@ export function ToolArtifact({
             ))}
           </TabsList>
         )}
-        <ArtifactMarkupButton
-          page={() => pageRef.current}
-          name={pages[shown]?.title ?? ""}
-        />
+        <div className="ml-auto flex items-center">
+          {pages[shown] && (
+            <ArtifactExpandButton
+              page={pages[shown]}
+              folder={folder}
+              editor={editor}
+              codeThemes={codeThemes}
+            />
+          )}
+          <ArtifactMarkupButton
+            page={() => pageRef.current}
+            name={pages[shown]?.title ?? ""}
+          />
+        </div>
       </div>
       {pages.map((page, i) => (
         <TabsContent key={i} value={i} keepMounted>

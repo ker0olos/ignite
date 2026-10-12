@@ -84,6 +84,7 @@ src/                     React frontend (almost all logic lives here)
     useTodos.ts          The open items of the folder's .todo files, read when the Tasks view shows
     useNewTaskSheet.ts   ⌘N / Ctrl+N opens the new-task sheet while the Tasks view shows
     useEmbeddedPage.ts   An HTML artifact page ready for its frame, once its libraries' CSS is built
+    useFrameEscape.ts    Esc pressed in an artifact's frame, which closes its expanded view
     useMarkup.ts         An image's marks being drawn: tools, ink, selection, text, undo/redo;
                          useMarkupKeys.ts its shortcuts, useMarkupImage.ts loading and fitting the image,
                          useMarkupView.ts zooming and panning it

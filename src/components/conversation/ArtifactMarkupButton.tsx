@@ -35,7 +35,7 @@ export function ArtifactMarkupButton({
       <Button
         size="xs"
         variant="ghost"
-        className="ml-auto text-[13px] text-muted-foreground"
+        className="text-[13px] text-muted-foreground"
         disabled={state === "capturing"}
         onClick={capture}
       >

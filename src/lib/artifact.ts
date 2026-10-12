@@ -9,12 +9,18 @@ export type ArtifactPage = {
 // No network but Google Fonts' stylesheets and files: the page could otherwise send what the agent read past the sandbox's allowed hosts.
 const CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; img-src data: blob:; font-src data: https://fonts.gstatic.com; media-src data: blob:">`;
 
+/** The message a page sends when Esc is pressed in it. */
+export const ESCAPE_MESSAGE = "ignite-escape";
+
+// Keys pressed in the frame never reach the app, so the expanded view couldn't close on Esc.
+const ESCAPE_SCRIPT = `<script>addEventListener("keydown", (e) => e.key === "Escape" && parent.postMessage({ type: "${ESCAPE_MESSAGE}" }, "*"));</script>`;
+
 /** An HTML page with the policy, capture scripts and library CSS first, after any doctype so it stays in standards mode. */
 export function embeddedPage(html: string, css = ""): string {
   const styles = css && `<style>${css}</style>`;
   return html.replace(
     /^\s*(<!doctype[^>]*>)?/i,
-    (doctype) => doctype + CSP + CAPTURE_SCRIPTS + styles,
+    (doctype) => doctype + CSP + CAPTURE_SCRIPTS + ESCAPE_SCRIPT + styles,
   );
 }
 
