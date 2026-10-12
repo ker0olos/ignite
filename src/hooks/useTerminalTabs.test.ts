@@ -13,12 +13,18 @@ function setup(
   files: string[] = [],
 ) {
   let listener: (m: { type: string }) => void = () => {};
-  const request = vi.fn((r: { type: string; cwd?: string }) =>
-    r.type === "terminal_list" && r.cwd === "/broken"
-      ? Promise.reject(new Error("gone"))
-      : Promise.resolve(
-          r.type === "terminal_list" ? (listed[r.cwd ?? ""] ?? []) : undefined,
-        ),
+  // The sidecar finds only t1 idle.
+  const request = vi.fn(
+    (r: { type: string; cwd?: string; terminal?: string }) =>
+      r.type === "terminal_list" && r.cwd === "/broken"
+        ? Promise.reject(new Error("gone"))
+        : Promise.resolve(
+            r.type === "terminal_list"
+              ? (listed[r.cwd ?? ""] ?? [])
+              : r.type === "terminal_close_idle"
+                ? r.terminal === "t1"
+                : undefined,
+          ),
   );
   const subscribe = vi.fn((cb: typeof listener) => {
     listener = cb;
@@ -66,6 +72,49 @@ describe("useTerminalTabs", () => {
     expect(closed()).toEqual([]);
     act(() => rerender({ files: [] }));
     await waitFor(() => expect(closed()).toContain("t2"));
+  });
+
+  it("names each terminal's running command, listed then pushed", async () => {
+    const listed = {
+      "/a": [{ terminal: "t1", cwd: "/a", running: true, command: "vite" }],
+    };
+    const { result, emit } = setup(listed);
+    await waitFor(() => expect(result.current.command("t1")).toBe("vite"));
+    act(() => emit({ type: "terminal_command", terminal: "t1" } as never));
+    expect(result.current.command("t1")).toBeUndefined();
+    act(() =>
+      emit({
+        type: "terminal_command",
+        terminal: "t1",
+        command: "npm run dev",
+      } as never),
+    );
+    expect(result.current.command("t1")).toBe("npm run dev");
+    // A listing taken before the push doesn't undo it.
+    act(() => emit({ type: "terminal_exit" }));
+    await waitFor(() => expect(result.current.running("/a")).toEqual(["t1"]));
+    expect(result.current.command("t1")).toBe("npm run dev");
+  });
+
+  it("closing a terminal's tab ends it only if the sidecar finds it idle", async () => {
+    const listed = {
+      "/a": [
+        { terminal: "t1", cwd: "/a", running: true },
+        { terminal: "t2", cwd: "/a", running: true },
+      ],
+    };
+    const { result, request, close } = setup(listed);
+    await waitFor(() =>
+      expect(result.current.running("/a")).toEqual(["t1", "t2"]),
+    );
+    act(() => result.current.closeTab(tab("t1")));
+    act(() => result.current.closeTab(tab("t2")));
+    act(() => result.current.closeTab("/a/x.ts"));
+    expect(close).toHaveBeenCalledTimes(3);
+    await waitFor(() => expect(result.current.running("/a")).toEqual(["t2"]));
+    expect(
+      request.mock.calls.filter(([r]) => r.type === "terminal_close_idle"),
+    ).toHaveLength(2);
   });
 
   it("stop ends the shell, closes its tab and drops its row", async () => {

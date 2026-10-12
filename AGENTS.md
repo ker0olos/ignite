@@ -562,9 +562,13 @@ also feeds a headless xterm, so agents read the rendered screen, not escape
 codes: before each run, what the folder's terminals printed since that
 conversation last looked is added as a hidden message (like Claude Code's
 `!`), and `terminal_read` reads them on demand. Agents can't type into them.
-⌘1 (Ctrl+1) opens a new one as a tab beside the conversation. Closing the
-tab leaves its shell running, listed under its folder in the sidebar, where
-Stop ends it.
+⌘1 (Ctrl+1) opens a new one as a tab beside the conversation. While a
+command runs in it, its tab and sidebar row are named by that command line
+(the terminal's foreground process, read with `ps` after output; not on
+Windows), and "Terminal" at the prompt. Closing the
+tab ends its shell when it sits at its prompt (`terminal_close_idle`, checked
+afresh); with a command running (and always on Windows) the shell keeps
+running, listed under its folder in the sidebar, where Stop ends it.
 
 The composer completes `/` at the start of a message with the app's
 `/compact` (pi's `compact()`: older messages become a summary, shown as a

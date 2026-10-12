@@ -9,6 +9,8 @@ export type TerminalInfo = {
   cwd: string;
   running: boolean;
   exitCode?: number;
+  /** The command line running in it, while one is (not at the shell's prompt). */
+  command?: string;
 };
 
 /** A terminal's screen and scrollback as escape codes; `exitCode` once its shell has exited. */
@@ -34,6 +36,8 @@ export type TerminalRequest =
     }
   /** Ends the shell and forgets the terminal. */
   | { id: number; type: "terminal_close"; terminal: string }
+  /** Ends the shell only if no command runs in it (its tab closed); true if it did. */
+  | { id: number; type: "terminal_close_idle"; terminal: string }
   | { id: number; type: "terminal_list"; cwd: string }
   /** The screen and scrollback as escape codes, for a new view to write before live data. */
   | { id: number; type: "terminal_snapshot"; terminal: string };
@@ -43,10 +47,12 @@ export type TerminalResponses = {
   terminal_input: undefined;
   terminal_resize: undefined;
   terminal_close: undefined;
+  terminal_close_idle: boolean;
   terminal_list: TerminalInfo[];
   terminal_snapshot: TerminalSnapshot;
 };
 
 export type TerminalMessage =
   | { type: "terminal_data"; terminal: string; data: string }
-  | { type: "terminal_exit"; terminal: string; exitCode: number };
+  | { type: "terminal_exit"; terminal: string; exitCode: number }
+  | { type: "terminal_command"; terminal: string; command?: string };

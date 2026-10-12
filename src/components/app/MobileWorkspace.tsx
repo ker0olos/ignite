@@ -5,6 +5,7 @@ import { MobileDrawer } from "@/components/app/MobileDrawer";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useTabs } from "@/hooks/useTabs";
 import type { CodeThemes } from "@/lib/codeThemes";
+import { tabLabel } from "@/lib/diffTabs";
 import type { HostClient } from "@/lib/piHost";
 import { basename } from "@/lib/paths";
 import type { Settings } from "@/lib/settings";
@@ -20,6 +21,7 @@ export function MobileWorkspace({
   editor,
   session,
   host,
+  terminalCommand,
   sidebar,
   agent,
 }: {
@@ -29,6 +31,7 @@ export function MobileWorkspace({
   editor: Settings["editor"];
   session: ReturnType<typeof useAgentSession>;
   host: HostClient | null;
+  terminalCommand?: (terminal: string) => string | undefined;
   sidebar: ReactNode;
   agent: ReactNode;
 }) {
@@ -44,7 +47,11 @@ export function MobileWorkspace({
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <MobileBar
-        title={active ? basename(active) : basename(folder)}
+        title={
+          active
+            ? tabLabel(active, folder, terminalCommand).name
+            : basename(folder)
+        }
         onMenu={() => setOpen(true)}
         onBack={active ? () => tabs.close(active) : undefined}
       />
@@ -58,6 +65,7 @@ export function MobileWorkspace({
             editor={editor}
             session={session}
             host={host}
+            terminalCommand={terminalCommand}
           />
         ) : (
           agent

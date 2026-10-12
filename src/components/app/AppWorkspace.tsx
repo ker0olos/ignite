@@ -9,7 +9,7 @@ import type { useCommandCenter } from "@/hooks/useCommandCenter";
 import type { Conversations } from "@/hooks/useConversations";
 import type { useMcpServers } from "@/hooks/useMcpServers";
 import type { useTabs } from "@/hooks/useTabs";
-import { useTerminalTabs } from "@/hooks/useTerminalTabs";
+import type { useTerminalTabs } from "@/hooks/useTerminalTabs";
 import { childTabId } from "@/lib/childTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
 import type { TaggedAgentStatus } from "@/lib/conversations";
@@ -37,6 +37,7 @@ export function AppWorkspace({
   openFolder,
   openSettings,
   host,
+  terminals,
   openIn,
   tags,
   tagFilter,
@@ -65,10 +66,10 @@ export function AppWorkspace({
   openFolder: () => void;
   openSettings: (section?: Section) => void;
   host: HostClient | null;
+  terminals: ReturnType<typeof useTerminalTabs>;
   /** Opens a tab in any folder, selecting it first. */
   openIn: (folder: string, tab: string) => void;
 }) {
-  const terminals = useTerminalTabs(host, folders, tabs);
   return (
     <Workspace
       folder={folder}
@@ -114,6 +115,7 @@ export function AppWorkspace({
               ?.request({ type: "background_stop", session: shown, pid })
               .catch(() => {}),
           terminals: terminals.running,
+          terminalCommand: terminals.command,
           onOpenTerminal: (cwd, terminal) =>
             openIn(
               cwd,

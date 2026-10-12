@@ -55,6 +55,7 @@ function relativeTo(path: string, folder: string): string {
 export function tabLabel(
   tab: string,
   folder: string,
+  terminalCommand?: (terminal: string) => string | undefined,
 ): {
   name: string;
   detail?: string;
@@ -65,7 +66,7 @@ export function tabLabel(
   status?: GitChange["status"];
 } {
   const child = readChildTab(tab);
-  if (child) return { ...childTabLabel(child), iconPath: "" };
+  if (child) return { ...childTabLabel(child, terminalCommand), iconPath: "" };
   const diff = readDiffTab(tab);
   if (!diff) {
     return {

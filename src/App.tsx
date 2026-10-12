@@ -20,6 +20,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { useSettings } from "@/hooks/useSettings";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useTabs } from "@/hooks/useTabs";
+import { useTerminalTabs } from "@/hooks/useTerminalTabs";
 import { useTextSize } from "@/hooks/useTextSize";
 import { OPEN_HOST, shownRows, shownSession } from "@/lib/demo";
 import { orderedRows } from "@/lib/conversations";
@@ -54,7 +55,9 @@ export default function App() {
     dismiss: dismissFolder,
     forget: list.forget,
   });
-  const tabs = useTabs(current);
+  const fileTabs = useTabs(current);
+  const terminals = useTerminalTabs(host, shownFolders, fileTabs);
+  const tabs = { ...fileTabs, close: terminals.closeTab };
   const openIn = useOpenFile(current, tabs.open, addFolder);
   const openFile = (folder: string, path: string) =>
     openIn(folder, `${folder}/${path}`);
@@ -118,6 +121,7 @@ export default function App() {
             openSettings,
           }}
           host={host}
+          terminals={terminals}
           openIn={openIn}
         />
       ) : (

@@ -18,6 +18,8 @@ export type ChildActions = {
   onClear: (tab: string) => void;
   /** A folder's running terminals. */
   terminals: (cwd: string) => string[];
+  /** The command running in a terminal, while one is. */
+  terminalCommand: (terminal: string) => string | undefined;
   onOpenTerminal: (cwd: string, terminal: string) => void;
   onStopTerminal: (terminal: string) => void;
 };
@@ -127,6 +129,7 @@ export function FolderList({
           />
           <FolderTerminals
             terminals={childActions.terminals(path)}
+            command={childActions.terminalCommand}
             activeTab={path === folder ? childActions.activeTab : null}
             onOpen={(terminal) => childActions.onOpenTerminal(path, terminal)}
             onStop={childActions.onStopTerminal}
