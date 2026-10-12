@@ -348,7 +348,8 @@ Two places hold persisted data:
   has the agent bring open decisions to the user with `ask_user`; off, the
   tool is dropped and the agent is told to decide alone. Read before each run.
   `model_router` (on by default) lets a quick model pick a new conversation's
-  model and effort; the model menu's Router item sets it.
+  model and effort; the model menu's Router item turns it on, Settings → Agent
+  on or off.
   `text_size` (px, default 14, 10–24) sizes user and assistant messages only;
   ⌘/Ctrl +, - and 0 change it (`hooks/useTextSize.ts`).
 - **Sidebar settings** (`[sidebar]`): `conversation_order` (`oldest_first` by

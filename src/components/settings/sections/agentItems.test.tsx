@@ -86,6 +86,19 @@ describe("agentItems", () => {
     });
   });
 
+  it("toggles Model Router, on by default", () => {
+    const onChange = vi.fn();
+    const router = agentItems({ settings: DEFAULT_SETTINGS, onChange }).at(-3)!;
+    expect(router.title).toBe("Model Router");
+    const { checked, onCheckedChange } = props<SwitchProps>(router);
+    expect(checked).toBe(true);
+    onCheckedChange(false);
+    expect(onChange).toHaveBeenCalledWith({
+      ...DEFAULT_SETTINGS,
+      conversation: { ...DEFAULT_SETTINGS.conversation, model_router: false },
+    });
+  });
+
   it("toggles notifications, on by default", () => {
     const onChange = vi.fn();
     const notify = agentItems({ settings: DEFAULT_SETTINGS, onChange }).at(-2)!;
