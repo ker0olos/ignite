@@ -2,6 +2,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { ARTIFACT_TOOL } from "../shared/agentTypes.ts";
+import { pageErrors } from "./artifactCheck.ts";
 
 type Page = { title: string; html?: string; markdown?: string };
 
@@ -14,6 +15,26 @@ export function emptyPages(pages: Page[]): string | undefined {
   if (!empty.length) return undefined;
   const names = empty.map((page) => `"${page.title}"`).join(", ");
   return `Nothing shown: ${names} has no \`html\` or \`markdown\`. Give every page one of them.`;
+}
+
+/** Why nothing would show when an HTML page fails as it loads in a browser, else undefined. */
+export async function brokenPages(
+  pages: Page[],
+  errorsOf = pageErrors,
+): Promise<string | undefined> {
+  const checked = await Promise.all(
+    pages.map(async (page) => ({
+      title: page.title,
+      errors: page.html === undefined ? [] : await errorsOf(page.html),
+    })),
+  );
+  const broken = checked.filter((page) => page.errors.length);
+  if (!broken.length) return undefined;
+  const lines = broken.map(
+    (page) =>
+      `"${page.title}":\n${page.errors.map((e) => `- ${e}`).join("\n")}`,
+  );
+  return `Nothing shown: these pages fail in a browser. Fix them and show the artifact again.\n${lines.join("\n")}`;
 }
 
 export default function showArtifact(pi: ExtensionAPI) {
@@ -70,7 +91,7 @@ export default function showArtifact(pi: ExtensionAPI) {
       ),
     }),
     async execute(_id, { pages }) {
-      const error = emptyPages(pages);
+      const error = emptyPages(pages) ?? (await brokenPages(pages));
       if (error) throw new Error(error);
       return {
         content: [{ type: "text", text: "Shown to the user." }],

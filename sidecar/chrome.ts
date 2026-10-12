@@ -22,6 +22,7 @@ export type Tab = {
   type: string;
   title: string;
   url: string;
+  browserContextId?: string;
 };
 
 /** One open connection to a browser. `own`: the Chrome the app started. */
@@ -200,9 +201,20 @@ function activeUrl(): string | null {
   }
 }
 
-/** Page tabs, without DevTools windows. */
+const HIDDEN_KEY = Symbol.for(`${APP_NAME}.chrome.hidden`);
+/** Browser contexts the app works in on its own (artifact checks); the chrome_* tools never see their tabs. */
+export const hiddenContexts = ((globalThis as { [key: symbol]: unknown })[
+  HIDDEN_KEY
+] ??= new Set<string>()) as Set<string>;
+
+/** Page tabs, without DevTools windows or hidden contexts' tabs. */
 export const pages = (targets: Tab[]) =>
-  targets.filter((t) => t.type === "page" && !t.url.startsWith("devtools://"));
+  targets.filter(
+    (t) =>
+      t.type === "page" &&
+      !t.url.startsWith("devtools://") &&
+      !hiddenContexts.has(t.browserContextId ?? ""),
+  );
 
 /** The tab `hint` names (id, or part of its title or URL), else the active one, else the first. */
 export function pickTab(

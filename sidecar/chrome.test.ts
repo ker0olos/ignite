@@ -5,6 +5,7 @@ import { APP_NAME } from "../src/lib/app.ts";
 import {
   chrome,
   endpointOn,
+  hiddenContexts,
   NO_USER_CHROME,
   pages,
   pickTab,
@@ -58,6 +59,16 @@ it("pages drops workers and DevTools windows", () => {
     tab("D", "dt", "devtools://devtools"),
   ];
   expect(pages(all).map((t) => t.targetId)).toEqual(["A", "B"]);
+});
+
+it("pages drops hidden contexts' tabs", () => {
+  hiddenContexts.add("check");
+  const all = [
+    ...tabs,
+    { ...tab("C", "c", "about:blank"), browserContextId: "check" },
+  ];
+  expect(pages(all).map((t) => t.targetId)).toEqual(["A", "B"]);
+  hiddenContexts.delete("check");
 });
 
 describe("chrome", () => {

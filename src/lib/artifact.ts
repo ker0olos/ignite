@@ -1,13 +1,11 @@
 import { CAPTURE_SCRIPTS } from "@/lib/artifactCapture";
+import { ARTIFACT_CSP } from "../../shared/agentTypes";
 import { artifactLibraries, type Library } from "@/lib/artifactStyles";
 
 /** One page of an artifact: an HTML page (with the libraries it asked for) or markdown, under its tab label. */
 export type ArtifactPage = {
   title: string;
 } & ({ html: string; libraries: Library[] } | { markdown: string });
-
-// No network but Google Fonts' stylesheets and files: the page could otherwise send what the agent read past the sandbox's allowed hosts.
-const CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; img-src data: blob:; font-src data: https://fonts.gstatic.com; media-src data: blob:">`;
 
 /** The message a page sends when Esc is pressed in it. */
 export const ESCAPE_MESSAGE = "ignite-escape";
@@ -20,7 +18,8 @@ export function embeddedPage(html: string, css = ""): string {
   const styles = css && `<style>${css}</style>`;
   return html.replace(
     /^\s*(<!doctype[^>]*>)?/i,
-    (doctype) => doctype + CSP + CAPTURE_SCRIPTS + ESCAPE_SCRIPT + styles,
+    (doctype) =>
+      doctype + ARTIFACT_CSP + CAPTURE_SCRIPTS + ESCAPE_SCRIPT + styles,
   );
 }
 

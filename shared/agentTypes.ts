@@ -69,6 +69,10 @@ export const IMAGE_TOOL = "show_image";
 /** The tool the agent shows an artifact with: one or more HTML or markdown pages, in its `pages` argument. */
 export const ARTIFACT_TOOL = "show_artifact";
 
+// No network but Google Fonts' stylesheets and files: the page could otherwise send what the agent read past the sandbox's allowed hosts.
+/** The policy an HTML artifact page runs under, in its frame and in its check. */
+export const ARTIFACT_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; img-src data: blob:; font-src data: https://fonts.gstatic.com; media-src data: blob:">`;
+
 /** The artifact tool's earlier name, one HTML page in `html`; saved conversations still hold its calls. */
 export const LEGACY_HTML_TOOL = "show_html";
 
