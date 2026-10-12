@@ -55,11 +55,7 @@ export function Workspace({
   editor,
   hideGitIgnored,
   showFileTree,
-  showThinking,
-  stickyUserMessages,
-  gitStatus,
   resizableProjectSplit,
-  approval,
   modelRouter,
   actions,
   projectList,
@@ -67,6 +63,7 @@ export function Workspace({
   footer,
   session,
   host,
+  ...panel
 }: WorkspaceProps) {
   const { active, open: openFile } = tabs;
   const narrow = useNarrow();
@@ -112,11 +109,8 @@ export function Workspace({
         session={session}
         codeThemes={codeThemes}
         editor={editor}
-        showThinking={showThinking}
-        stickyUserMessages={stickyUserMessages}
-        gitStatus={gitStatus}
-        approval={approval}
         modelRouter={modelRouter}
+        {...panel}
       />
     );
   const { terminalCommand } = projectList.childActions;

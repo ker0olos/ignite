@@ -19,6 +19,33 @@ import type { HostClient } from "@/lib/piHost";
 import { approvalSetting, modelRouterSetting } from "@/lib/composerSettings";
 import type { Settings } from "@/lib/settings";
 
+type AppWorkspaceProps = {
+  folder: string;
+  tabs: ReturnType<typeof useTabs>;
+  settings: Settings;
+  setSettings: (settings: Settings) => Promise<void>;
+  settingsButton: ReactNode;
+  folders: string[];
+  rows: (cwd: string) => TaggedAgentStatus[];
+  tags: string[];
+  tagFilter: string[];
+  onToggleTagFilter: (tag: string) => void;
+  onClearTagFilter: () => void;
+  onSetConversationTags: (session: string, tags: string[]) => void;
+  session: ReturnType<typeof useAgentSession>;
+  conversations: Conversations;
+  home: string;
+  command: ReturnType<typeof useCommandCenter>;
+  mcp: ReturnType<typeof useMcpServers>;
+  remote: RemoteStatus | null;
+  openFolder: () => void;
+  openSettings: (section?: Section) => void;
+  host: HostClient | null;
+  terminals: ReturnType<typeof useTerminalTabs>;
+  /** Opens a tab in any folder, selecting it first. */
+  openIn: (folder: string, tab: string) => void;
+};
+
 /** The open folder's workspace, wired to the app: settings, folders, MCP sign-ins, remote devices. */
 export function AppWorkspace({
   folder,
@@ -44,32 +71,7 @@ export function AppWorkspace({
   onToggleTagFilter,
   onClearTagFilter,
   onSetConversationTags,
-}: {
-  folder: string;
-  tabs: ReturnType<typeof useTabs>;
-  settings: Settings;
-  setSettings: (settings: Settings) => Promise<void>;
-  settingsButton: ReactNode;
-  folders: string[];
-  rows: (cwd: string) => TaggedAgentStatus[];
-  tags: string[];
-  tagFilter: string[];
-  onToggleTagFilter: (tag: string) => void;
-  onClearTagFilter: () => void;
-  onSetConversationTags: (session: string, tags: string[]) => void;
-  session: ReturnType<typeof useAgentSession>;
-  conversations: Conversations;
-  home: string;
-  command: ReturnType<typeof useCommandCenter>;
-  mcp: ReturnType<typeof useMcpServers>;
-  remote: RemoteStatus | null;
-  openFolder: () => void;
-  openSettings: (section?: Section) => void;
-  host: HostClient | null;
-  terminals: ReturnType<typeof useTerminalTabs>;
-  /** Opens a tab in any folder, selecting it first. */
-  openIn: (folder: string, tab: string) => void;
-}) {
+}: AppWorkspaceProps) {
   return (
     <Workspace
       folder={folder}

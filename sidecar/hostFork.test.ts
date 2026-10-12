@@ -191,12 +191,12 @@ describe("closing a fork", () => {
       parent: "first",
       messages: [reply] as never,
     });
-    const summary = Promise.withResolvers<string>();
-    summarize.mockReturnValueOnce(summary.promise);
+    let finish: (text: string) => void = () => {};
+    summarize.mockReturnValueOnce(new Promise((r) => (finish = r)));
     const ctx = forked();
     await closeConversation(ctx, "/work", "copy");
     expect(readNotes()).toEqual([expect.stringContaining("all green")]);
-    summary.resolve("2x faster");
+    finish("2x faster");
     await settled();
     expect(readNotes()).toEqual([]);
     expect(prompt).toHaveBeenCalledWith(
