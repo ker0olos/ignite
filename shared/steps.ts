@@ -1,6 +1,8 @@
 import { ASK_TOOL } from "./questions.ts";
 import { TASK_TOOL } from "./tasks.ts";
 
+export const WEB_SEARCH_TOOL = "web_search";
+
 const STEP_LENGTH = 60;
 
 const clip = (text: string) =>
@@ -37,6 +39,7 @@ const STEPS: Record<string, (input: Input, cwd: string) => string | null> = {
   grep: () => "Searching the code",
   find: () => "Searching the code",
   ls: () => "Searching the code",
+  [WEB_SEARCH_TOOL]: () => "Searching the web",
 };
 
 /** A tool call as the current step ("Reading app/root.tsx"); null for the task's own tools. */

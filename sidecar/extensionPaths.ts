@@ -9,6 +9,7 @@ export const claudeBridge = sibling("pi-claude-bridge/src/index.ts");
 // pi-mcp-adapter, reading only agentDir/mcp.json.
 export const mcpExtension = sibling("./mcpExtension.ts");
 const exploring = sibling("./exploreExtension.ts");
+const webSearch = sibling("./webSearchExtension.ts");
 // Before approval, so a call a lesson blocks never asks.
 const lessons = sibling("./lessonExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
@@ -24,6 +25,7 @@ export const SESSION_EXTENSIONS = [
   sibling("./gitExtension.ts"),
   sibling("./worktreeExtension.ts"),
   sibling("./chromeExtension.ts"),
+  webSearch,
   sibling("./adbExtension.ts"),
   sibling("./imageExtension.ts"),
   sibling("./artifactExtension.ts"),
@@ -39,4 +41,10 @@ export const SESSION_EXTENSIONS = [
 ];
 
 /** A subagent's extensions, in load order. */
-export const SUBAGENT_EXTENSIONS = [claudeBridge, exploring, lessons, approval];
+export const SUBAGENT_EXTENSIONS = [
+  claudeBridge,
+  webSearch,
+  exploring,
+  lessons,
+  approval,
+];

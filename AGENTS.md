@@ -259,6 +259,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   chromePage.ts          A tab's CDP calls: run JS, wait for load, screenshot
   cdpResult.ts           chrome_cdp's results with long base64 data (screenshots, PDFs) saved to files, not inlined
   taskTabs.ts            Which Chrome tabs a task may use: only its own, named by id
+  webSearchExtension.ts  web_search: Claude Code's WebSearch (no WebFetch: it would fetch unsandboxed), run by Haiku
+                         in the SDK's Claude Code on the user's login, 8 turns or 2 minutes; only when signed in
   adbExtension.ts        adb and adb_screenshot: Android devices, run outside the sandbox
   imageExtension.ts      show_image: shows the user an image file from any path in its tool row
                          and, in a task's conversation, on the task's card
