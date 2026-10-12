@@ -1,5 +1,5 @@
 /** Every shell the app runs (the user's terminals, the agent's bash) runs in a PTY, so programs act as in a terminal. */
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { chmodSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import unicode11 from "@xterm/addon-unicode11";
@@ -76,6 +76,25 @@ export function killTree(
   } catch {
     // Already gone.
   }
+}
+
+const ps = (args: string[]) =>
+  new Promise<string>((resolve) =>
+    execFile("ps", args, (_, out) => resolve(String(out ?? "").trim())),
+  );
+
+/** The process group in the foreground of `shell`'s terminal, or undefined at its prompt. */
+export async function foregroundGroup(
+  shell: number,
+): Promise<number | undefined> {
+  if (process.platform === "win32") return undefined;
+  const group = Number(await ps(["-o", "tpgid=", "-p", String(shell)]));
+  return group > 0 && group !== shell ? group : undefined;
+}
+
+/** A process's command line, or undefined once it has exited. */
+export async function commandLine(pid: number): Promise<string | undefined> {
+  return (await ps(["-ww", "-o", "args=", "-p", String(pid)])) || undefined;
 }
 
 /** A headless xterm measuring widths like the app's (Unicode 11). */

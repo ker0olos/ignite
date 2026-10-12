@@ -19,6 +19,7 @@ export function EditorPane({
   editor,
   session,
   host,
+  terminalCommand,
 }: {
   folder: string;
   tabs: ReturnType<typeof useTabs>;
@@ -28,6 +29,7 @@ export function EditorPane({
   session: ReturnType<typeof useAgentSession>;
   /** The sidecar, whether or not a conversation shows. */
   host: HostClient | null;
+  terminalCommand?: (terminal: string) => string | undefined;
 }) {
   const diffTab = readDiffTab(active);
   const childTab = readChildTab(active);
@@ -39,6 +41,7 @@ export function EditorPane({
         folder={folder}
         onSelect={tabs.activate}
         onClose={tabs.close}
+        terminalCommand={terminalCommand}
       />
       {childTab ? (
         <ChildView

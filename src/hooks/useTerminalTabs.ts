@@ -18,9 +18,18 @@ function listTerminals(host: HostClient, cwd: string) {
     .catch((): TerminalInfo[] => []);
 }
 
+const without = (all: Record<string, string[]>, terminal: string) =>
+  Object.fromEntries(
+    Object.entries(all).map(([cwd, ids]) => [
+      cwd,
+      ids.filter((id) => id !== terminal),
+    ]),
+  );
+
 /**
- * The open folders' running terminals, for the sidebar. Closing a terminal's
- * tab leaves its shell running; `stop` ends it and closes its tab. One that
+ * The open folders' running terminals, for the sidebar. `closeTab` ends a
+ * terminal's shell with its tab only when no command runs in it; otherwise it
+ * stays listed until `stop`, which ends it and closes its tab. One that
  * exited is forgotten once no tab shows it.
  */
 export function useTerminalTabs(
@@ -30,6 +39,8 @@ export function useTerminalTabs(
 ) {
   const { files, close } = tabs;
   const [running, setRunning] = useState<Record<string, string[]>>({});
+  // null once a push said nothing runs; pushes are newer than any listing in flight.
+  const [commands, setCommands] = useState<Record<string, string | null>>({});
   const [exits, setExits] = useState(0);
   const key = folders.join("\n");
 
@@ -37,6 +48,9 @@ export function useTerminalTabs(
     () =>
       host?.subscribe((m) => {
         if (m.type === "terminal_exit") setExits((n) => n + 1);
+        if (m.type === "terminal_command") {
+          setCommands((all) => ({ ...all, [m.terminal]: m.command ?? null }));
+        }
       }),
     [host],
   );
@@ -55,10 +69,25 @@ export function useTerminalTabs(
               .catch(() => {});
           }
         }
-        return [cwd, list.filter((t) => t.running).map((t) => t.terminal)];
+        return [cwd, list.filter((t) => t.running)] as const;
       }),
     ).then((entries) => {
-      if (!cancelled) setRunning(Object.fromEntries(entries));
+      if (cancelled) return;
+      setRunning(
+        Object.fromEntries(
+          entries.map(([cwd, list]) => [cwd, list.map((t) => t.terminal)]),
+        ),
+      );
+      setCommands((all) =>
+        Object.fromEntries(
+          entries.flatMap(([, list]) =>
+            list.map((t) => [
+              t.terminal,
+              t.terminal in all ? all[t.terminal] : (t.command ?? null),
+            ]),
+          ),
+        ),
+      );
     });
     return () => {
       cancelled = true;
@@ -71,19 +100,32 @@ export function useTerminalTabs(
         const tab = readChildTab(id);
         if (tab?.kind === "terminal" && tab.terminal === terminal) close(id);
       }
-      setRunning((all) =>
-        Object.fromEntries(
-          Object.entries(all).map(([cwd, ids]) => [
-            cwd,
-            ids.filter((id) => id !== terminal),
-          ]),
-        ),
-      );
+      setRunning((all) => without(all, terminal));
       host?.request({ type: "terminal_close", terminal }).catch(() => {});
     },
     [host, files, close],
   );
 
+  const closeTab = useCallback(
+    (id: string) => {
+      close(id);
+      const tab = readChildTab(id);
+      if (tab?.kind !== "terminal" || !host) return;
+      const { terminal } = tab;
+      host
+        .request({ type: "terminal_close_idle", terminal })
+        .then((closed) => {
+          if (closed) setRunning((all) => without(all, terminal));
+        })
+        .catch(() => {});
+    },
+    [host, close],
+  );
+
   const runningIn = useCallback((cwd: string) => running[cwd] ?? [], [running]);
-  return { running: runningIn, stop };
+  const command = useCallback(
+    (terminal: string): string | undefined => commands[terminal] ?? undefined,
+    [commands],
+  );
+  return { running: runningIn, command, stop, closeTab };
 }

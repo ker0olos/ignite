@@ -11,12 +11,14 @@ export function FileTabs({
   folder,
   onSelect,
   onClose,
+  terminalCommand,
 }: {
   files: string[];
   active: string;
   folder: string;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
+  terminalCommand?: (terminal: string) => string | undefined;
 }) {
   return (
     <div
@@ -24,7 +26,7 @@ export function FileTabs({
       className="flex shrink-0 flex-wrap items-end gap-0.5 border-b px-2 pt-4"
     >
       {files.map((path) => {
-        const label = tabLabel(path, folder);
+        const label = tabLabel(path, folder, terminalCommand);
         return (
           <div
             key={path}

@@ -119,7 +119,16 @@ export function Workspace({
         modelRouter={modelRouter}
       />
     );
-  const pane = { folder, tabs, codeThemes, editor, session, host };
+  const { terminalCommand } = projectList.childActions;
+  const pane = {
+    folder,
+    tabs,
+    codeThemes,
+    editor,
+    session,
+    host,
+    terminalCommand,
+  };
   return (
     <OpenTabContext.Provider value={openFile}>
       <RunInTerminalContext.Provider value={runIn}>

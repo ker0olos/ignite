@@ -47,6 +47,12 @@ describe("child tab ids", () => {
       detail: "t1",
       icon: SquareTerminal,
     });
+    const running = (t: string) => (t === "t1" ? "npm run dev" : undefined);
+    expect(tabLabel(childTabId(term), "/work", running)).toMatchObject({
+      name: "npm run dev",
+      detail: "t1",
+      title: "npm run dev",
+    });
   });
 
   it("label a tab by its subagent or command", () => {

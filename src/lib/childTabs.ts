@@ -48,18 +48,22 @@ function parse(id: string): (Partial<ChildTab> & { session: string }) | null {
   }
 }
 
-/** How the tab strip shows a child tab. */
-export function childTabLabel(tab: ChildTab): {
+/** How the tab strip shows a child tab; a terminal by the command running in it, if one is. */
+export function childTabLabel(
+  tab: ChildTab,
+  command?: (terminal: string) => string | undefined,
+): {
   name: string;
   detail: string;
   title: string;
   icon: LucideIcon;
 } {
   if (tab.kind === "terminal") {
+    const running = command?.(tab.terminal) ?? "Terminal";
     return {
-      name: "Terminal",
+      name: running,
       detail: tab.terminal,
-      title: "Terminal",
+      title: running,
       icon: SquareTerminal,
     };
   }

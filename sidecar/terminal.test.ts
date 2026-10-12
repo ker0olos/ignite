@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TerminalMessage } from "../shared/terminal.ts";
 import {
+  closeIdleTerminal,
   closeTerminal,
   openTerminal,
   readTerminals,
@@ -78,6 +79,47 @@ describe("terminal", () => {
     expect(unseenTerminals("a", cwd)).toBeNull();
     expect(screen(id)).not.toContain("redraw\nredraw");
   });
+
+  it.skipIf(process.platform === "win32")(
+    "names the command running in it, until the prompt is back",
+    async () => {
+      const sent: TerminalMessage[] = [];
+      const id = open(sent);
+      const commands = () =>
+        sent.flatMap((m) => (m.type === "terminal_command" ? [m] : []));
+      writeTerminal(id, "sleep 1.5\r");
+      await vi.waitFor(() =>
+        expect(commands()).toEqual([
+          { type: "terminal_command", terminal: id, command: "sleep 1.5" },
+        ]),
+      );
+      expect(terminalsIn(cwd)[0]?.command).toBe("sleep 1.5");
+      await vi.waitFor(
+        () => expect(commands().at(-1)?.command).toBeUndefined(),
+        { timeout: 4000 },
+      );
+      expect(commands()).toHaveLength(2);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "closes when idle, not while a command runs",
+    async () => {
+      const id = open();
+      writeTerminal(id, "sleep 5\r");
+      await vi.waitFor(() =>
+        expect(terminalsIn(cwd)[0]?.command).toBe("sleep 5"),
+      );
+      expect(await closeIdleTerminal(id)).toBe(false);
+      expect(terminalsIn(cwd)).toHaveLength(1);
+      writeTerminal(id, "\x03");
+      await vi.waitFor(async () =>
+        expect(await closeIdleTerminal(id)).toBe(true),
+      );
+      expect(terminalsIn(cwd)).toEqual([]);
+      expect(await closeIdleTerminal(id)).toBe(true);
+    },
+  );
 
   it("reports the shell's exit and stops taking input", async () => {
     const sent: TerminalMessage[] = [];

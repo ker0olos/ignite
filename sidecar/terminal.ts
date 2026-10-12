@@ -9,7 +9,13 @@ import type {
   TerminalSnapshot,
 } from "../shared/terminal.ts";
 import { APP_NAME } from "../src/lib/app.ts";
-import { headlessTerminal, spawnPty, terminalEnv } from "./ptyShell.ts";
+import {
+  commandLine,
+  foregroundGroup,
+  headlessTerminal,
+  spawnPty,
+  terminalEnv,
+} from "./ptyShell.ts";
 
 type Terminal = {
   info: TerminalInfo;
@@ -20,6 +26,13 @@ type Terminal = {
   listeners: { dispose(): void }[];
   /** Lines the shell has printed, counted by line feeds; what an agent has seen is measured against it. */
   lines: number;
+  /** Looking at what runs in the foreground after output; `again` when more came meanwhile. */
+  watch: {
+    timer?: NodeJS.Timeout;
+    busy: boolean;
+    again: boolean;
+    group?: number;
+  };
 };
 
 type Registry = {
@@ -38,6 +51,7 @@ const SCROLLBACK = 5000;
 /** The most an agent is handed of one terminal unasked, before its next run. */
 const UNSEEN_LINES = 200;
 const MAX_CHARS = 50_000;
+const COMMAND_CHECK_MS = 500;
 
 function shell(): { file: string; args: string[] } {
   if (process.platform === "win32") return { file: "powershell.exe", args: [] };
@@ -73,6 +87,7 @@ export function openTerminal(
     serializer,
     listeners: [],
     lines: 0,
+    watch: { busy: false, again: false },
   };
   // Full-screen programs (vim, less, top) redraw on the alternate screen; only shell output counts.
   screen.onLineFeed(() => {
@@ -82,14 +97,48 @@ export function openTerminal(
     pty.onData((data) => {
       screen.write(data);
       send({ type: "terminal_data", terminal: id, data });
+      watchCommand(t, send);
     }),
     pty.onExit(({ exitCode }) => {
-      t.info = { ...t.info, running: false, exitCode };
+      t.info = { ...t.info, running: false, exitCode, command: undefined };
       send({ type: "terminal_exit", terminal: id, exitCode });
     }),
   );
   registry.all.set(id, t);
   return t.info;
+}
+
+// A command starting echoes the Enter and one ending prints the prompt, so output is when it changes.
+function watchCommand(t: Terminal, send: (m: TerminalMessage) => void) {
+  const { watch } = t;
+  if (watch.busy) {
+    watch.again = true;
+    return;
+  }
+  watch.busy = true;
+  watch.timer = setTimeout(() => void checkCommand(t, send), COMMAND_CHECK_MS);
+}
+
+async function checkCommand(t: Terminal, send: (m: TerminalMessage) => void) {
+  const { watch } = t;
+  watch.again = false;
+  const group = await foregroundGroup(t.pty.pid);
+  // Same group, same command: a pipeline runs on after its leader (named) exits.
+  const command =
+    group === watch.group
+      ? t.info.command
+      : group
+        ? await commandLine(group)
+        : undefined;
+  watch.group = group;
+  watch.busy = false;
+  const { terminal, running } = t.info;
+  if (registry.all.get(terminal) !== t || !running) return;
+  if (command !== t.info.command) {
+    t.info = { ...t.info, command };
+    send({ type: "terminal_command", terminal, command });
+  }
+  if (watch.again) watchCommand(t, send);
 }
 
 export function writeTerminal(id: string, data: string) {
@@ -107,10 +156,23 @@ export function closeTerminal(id: string) {
   const t = registry.all.get(id);
   if (!t) return;
   t.listeners.forEach((l) => l.dispose());
+  clearTimeout(t.watch.timer);
   if (t.info.running) t.pty.kill();
   t.screen.dispose();
   registry.all.delete(id);
   for (const seen of registry.seen.values()) seen.delete(id);
+}
+
+/** Closes the terminal unless a command runs in it; true if it's gone. Windows can't tell, so keeps it. */
+export async function closeIdleTerminal(id: string): Promise<boolean> {
+  const t = registry.all.get(id);
+  if (!t) return true;
+  if (t.info.running) {
+    if (process.platform === "win32") return false;
+    if (await foregroundGroup(t.pty.pid)) return false;
+  }
+  closeTerminal(id);
+  return true;
 }
 
 /** The folder's terminals, oldest first. */
