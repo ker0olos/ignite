@@ -65,6 +65,31 @@ function windowsSandboxItem(
   };
 }
 
+/** The row that lets a quick model pick each new conversation's model and effort. */
+function modelRouterItem(
+  settings: Settings,
+  onChange: (settings: Settings) => void,
+): Item {
+  return {
+    section: "Agent",
+    title: "Model Router",
+    description:
+      "A quick model reads a new conversation's first message and picks the model and effort it runs on. Off, new conversations start on your default model.",
+    keywords: "router model effort pick choose automatic",
+    control: (
+      <Switch
+        checked={settings.conversation.model_router}
+        onCheckedChange={(model_router) =>
+          onChange({
+            ...settings,
+            conversation: { ...settings.conversation, model_router },
+          })
+        }
+      />
+    ),
+  };
+}
+
 /** The row that turns on notifications for finished and waiting conversations. */
 function notificationsItem(
   settings: Settings,
@@ -115,7 +140,7 @@ function notificationSoundItem(
   };
 }
 
-/** Settings rows for how the agent works: questions, subagents, full access, notifications. */
+/** Settings rows for how the agent works: questions, subagents, full access, Model Router, notifications. */
 export function agentItems({
   settings,
   onChange,
@@ -194,6 +219,7 @@ export function agentItems({
         </Select>
       ),
     },
+    modelRouterItem(settings, onChange),
     notificationsItem(settings, onChange),
     notificationSoundItem(settings, onChange),
   ];
