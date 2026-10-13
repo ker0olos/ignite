@@ -201,6 +201,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   approvalSettings.ts    `[approval]` read per tool call; which sandbox applies (Windows' only when turned on)
   bashExtension.ts       pi's bash with `background: true` (dev servers, watchers), and bash_stop to end them
   backgroundBash.ts      Background commands per conversation: their logs, stopping them with what they started
+  bashWait.ts            bash_wait: the conversation runs again once a background command exits
+  hostWait.ts            Wakes those conversations (a hidden message), or leaves a note while one waits on its fork
   skipWait.ts            Skip wait: the user cuts a bash call's `sleep` short (a `sleep` on PATH that exits 0), and it carries on
   runOutside.ts          Runs a bash call outside the sandbox once the user approved it
   shellEditsExtension.ts The files a bash command changed (working tree before and after), shown as edits;
@@ -532,7 +534,14 @@ approval and the sandbox treat it like any command. It returns after 5
 seconds with the output so far, the pid and a log file in the temp folder;
 `bash_stop` ends it with everything it started (the sandbox only lets a
 process signal its own sandbox), killing it if it hasn't exited after 3
-seconds. The sandbox doesn't let commands listen on ports or reach local
+seconds. `bash_wait` (`sidecar/bashWait.ts`) returns at once; when the
+command exits, the host (`sidecar/hostWait.ts`) sends a hidden message with
+its exit code and the end of its output that starts a new run (pi's
+`sendCustomMessage` with `triggerTurn`, queued as a follow-up mid-run), so
+the agent carries on instead of promising to report back. A conversation
+waiting on its fork gets it as a fork note instead, with its next run.
+`bash_stop` on the command, or Stop on the conversation, cancels the wake,
+and a task isn't nudged to wrap up while it waits. The sandbox doesn't let commands listen on ports or reach local
 services (the user's Chrome, the remote access server), so a dev server
 fails there and asks to run outside. A conversation's background commands
 end with it (not on a reload) and with the sidecar, on a signal too.

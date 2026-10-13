@@ -20,6 +20,8 @@ export type Background = {
   raw: string;
   running: boolean;
   exitCode?: number;
+  /** The agent waits on it with bash_wait and hasn't been told it exited. */
+  wake?: boolean;
 };
 
 type Registry = { all: Map<string, Background>; listeners: Set<() => void> };
@@ -83,8 +85,21 @@ export function stopBackground(
 ): boolean {
   const found = all.get(keyOf(session, pid));
   if (!found?.running) return false;
+  found.wake = false;
   end(found, after);
   return true;
+}
+
+/** The commands waited on with bash_wait that have exited, taken. */
+export function exitedWaits(): Background[] {
+  const exited = [...all.values()].filter((b) => b.wake && !b.running);
+  for (const b of exited) b.wake = false;
+  return exited;
+}
+
+/** Drops conversation `session`'s bash_wait calls, as the user stops it. */
+export function cancelWaits(session: string) {
+  for (const b of backgroundOf(session)) b.wake = false;
 }
 
 /** Stops conversation `session`'s background commands and forgets them, as it ends. */
@@ -189,6 +204,7 @@ export function backgroundOperations(
         const timer = setTimeout(
           () =>
             !signal?.aborted &&
+            !exited &&
             settle(() => {
               const pending = shell.pending();
               if (pending.trim()) onData(Buffer.from(pending));
@@ -200,10 +216,12 @@ export function backgroundOperations(
             }),
           wait,
         );
-        void done.then(({ exitCode, signal: killed }) => {
+        void done.then(async ({ exitCode, signal: killed }) => {
           exited = true;
-          textOut.end();
-          rawOut.end();
+          // Flushed first: bash_wait reads the log as soon as it has ended.
+          await Promise.all(
+            [textOut, rawOut].map((out) => new Promise((r) => out.end(r))),
+          );
           if (entry) {
             entry.running = false;
             entry.exitCode = killed ? undefined : exitCode;

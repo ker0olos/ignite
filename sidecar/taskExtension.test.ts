@@ -5,10 +5,20 @@ import {
   type ExtensionAPI,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import { tmpdir } from "node:os";
 import { describe, expect, it, vi } from "vitest";
 import type { Task, TaskUpdate } from "../shared/tasks.ts";
 import { ASKING, AUTONOMOUS } from "./askExtension.ts";
-import { COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE } from "./bashExtension.ts";
+import {
+  backgroundOf,
+  forgetBackground,
+  STARTUP_MS,
+} from "./backgroundBash.ts";
+import {
+  COMMAND_GUIDANCE,
+  runBackground,
+  TASK_COMMAND_GUIDANCE,
+} from "./bashExtension.ts";
 import tasks, {
   TASK_EVENT,
   PLAN_GUIDANCE,
@@ -89,7 +99,10 @@ function load(first: Task | null, active = ["read", "ask_user"]) {
   const call = (toolName: string, input: object) =>
     handlers.get("tool_call")!({ toolName, input }, { cwd: "/w" });
   const end = (stopReason?: string) =>
-    handlers.get("agent_end")!({ messages: [{ stopReason }] });
+    handlers.get("agent_end")!(
+      { messages: [{ stopReason }] },
+      { sessionManager: { getSessionId: () => "s1" } },
+    );
   return {
     asks,
     sent,
@@ -236,6 +249,33 @@ describe("agent_end", () => {
     await end("stop");
     expect(sent).toEqual([nudge, nudge]);
   });
+
+  it.runIf(process.platform !== "win32")(
+    "doesn't nudge while it waits on a background command",
+    async () => {
+      const { start, end, sent } = load(task);
+      vi.useFakeTimers({ toFake: ["setTimeout"] });
+      const ctx = {
+        cwd: tmpdir(),
+        sessionManager: {
+          getSessionId: () => "s1",
+          getSessionFile: () => undefined,
+        },
+      } as never;
+      const done = runBackground("t", { command: "sleep 30" }, ctx);
+      await vi.advanceTimersByTimeAsync(STARTUP_MS);
+      await done;
+      vi.useRealTimers();
+      const [waited] = backgroundOf("s1");
+      waited.wake = true;
+      await start();
+      await end("stop");
+      expect(sent).toEqual([]);
+      forgetBackground("s1");
+      await end("stop");
+      expect(sent).toEqual([nudge]);
+    },
+  );
 
   it("leaves a finished task alone", async () => {
     const { start, end, sent } = load(finished);

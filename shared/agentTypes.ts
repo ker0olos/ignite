@@ -79,6 +79,9 @@ export const LEGACY_HTML_TOOL = "show_html";
 /** The tool that ends a bash command left running in the background. */
 export const BASH_STOP_TOOL = "bash_stop";
 
+/** The tool that has the conversation carry on once a background command exits. */
+export const BASH_WAIT_TOOL = "bash_wait";
+
 /** A result's images: its own, and show_image's (kept out of the model's context). */
 export function resultImages(result: ToolResult | undefined): ImageContent[] {
   if (!result) return [];

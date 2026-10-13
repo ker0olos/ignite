@@ -23,6 +23,7 @@ import {
   type TaskUpdate,
 } from "../shared/tasks.ts";
 import { ASKING, AUTONOMOUS } from "./askExtension.ts";
+import { backgroundOf } from "./backgroundBash.ts";
 import { COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE } from "./bashExtension.ts";
 import { registerTaskAdd } from "./taskAddTool.ts";
 import { stepOf } from "../shared/steps.ts";
@@ -251,9 +252,12 @@ export default function tasks(pi: ExtensionAPI) {
     if (step) void askTask(pi, "update", { step });
   });
 
-  pi.on("agent_end", async (event) => {
+  pi.on("agent_end", async (event, ctx) => {
     if (nudged || !(await known)?.autonomous || !endedNormally(event.messages))
       return;
+    // It carries on once the commands it waits on exit.
+    const session = ctx.sessionManager.getSessionId();
+    if (backgroundOf(session).some((b) => b.wake)) return;
     const task = await askTask(pi, "get");
     if (!task || !unfinished(task)) return;
     nudged = true;

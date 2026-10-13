@@ -1,6 +1,7 @@
 import {
   ARTIFACT_TOOL,
   BASH_STOP_TOOL,
+  BASH_WAIT_TOOL,
   IMAGE_TOOL,
   LEGACY_HTML_TOOL,
   type TextContent,
@@ -60,6 +61,7 @@ const TOOL_TITLES: Record<string, string> = {
   [TASK_ADD_TOOL]: "Add tasks",
   [TASK_TOOL]: "Plan",
   [BASH_STOP_TOOL]: "Stop",
+  [BASH_WAIT_TOOL]: "Wait",
 };
 
 function toolTitle(call: ToolCall) {
@@ -108,6 +110,7 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   [LEGACY_HTML_TOOL]: (call) => String(call.arguments.title ?? ""),
   [TASK_ADD_TOOL]: (call) => String(readProposed(call.arguments).length),
   [BASH_STOP_TOOL]: (call) => String(call.arguments.pid ?? ""),
+  [BASH_WAIT_TOOL]: (call) => String(call.arguments.pid ?? ""),
 };
 
 function toolArg(call: ToolCall, folder: string) {
