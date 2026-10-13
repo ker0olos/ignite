@@ -1,6 +1,7 @@
 import type Konva from "konva";
 import { useEffect, useRef } from "react";
 import type { ImageContent } from "../../../shared/agentTypes";
+import { MarkupInk } from "@/components/app/MarkupInk";
 import { MarkupStage } from "@/components/app/MarkupStage";
 import { MarkupTextInput } from "@/components/app/MarkupTextInput";
 import { MarkupToolbar } from "@/components/app/MarkupToolbar";
@@ -18,7 +19,7 @@ const NO_SIZE = { width: 0, height: 0 };
  * An opened image to zoom into and draw on. Done (`doneLabel`, or ⌘Enter)
  * saves the marks into it, at full size, as a PNG; `onDirty` says whether
  * there's drawing that closing would lose. Shortcuts wait while `paused`.
- * The image fits the space the toolbar leaves; a click beside it `onDismiss`es.
+ * The image fits the space the ink column and toolbar leave; a click beside it `onDismiss`es.
  */
 export function MarkupEditor({
   image,
@@ -77,39 +78,47 @@ export function MarkupEditor({
 
   return (
     <>
-      <div
-        ref={area}
-        onClick={(e) => e.target === e.currentTarget && onDismiss()}
-        className="flex min-h-0 w-full flex-1 items-center justify-center"
-      >
-        {img && fit > 0 && (
-          <div
-            aria-label={`Marking up ${name}`}
-            // The click that places a text field would otherwise move focus off it, ending it empty.
-            onMouseDown={(e) => {
-              if (e.target instanceof HTMLCanvasElement) e.preventDefault();
-            }}
-            className="relative overflow-hidden rounded-lg shadow-2xl"
-          >
-            <MarkupStage
-              image={img}
-              fit={fit}
-              markup={markup}
-              view={view}
-              layer={layer}
-            />
-            {markup.editing && (
-              <MarkupTextInput
-                key={markup.editing.id}
-                mark={markup.editing}
-                scale={fit * view.view.scale}
-                offset={view.view}
-                onType={markup.type}
-                onDone={markup.finishText}
+      <div className="flex min-h-0 w-full flex-1 gap-3">
+        <MarkupInk
+          color={markup.color}
+          onColor={markup.setColor}
+          size={markup.size}
+          onSize={markup.setSize}
+        />
+        <div
+          ref={area}
+          onClick={(e) => e.target === e.currentTarget && onDismiss()}
+          className="flex min-h-0 min-w-0 flex-1 items-center justify-center"
+        >
+          {img && fit > 0 && (
+            <div
+              aria-label={`Marking up ${name}`}
+              // The click that places a text field would otherwise move focus off it, ending it empty.
+              onMouseDown={(e) => {
+                if (e.target instanceof HTMLCanvasElement) e.preventDefault();
+              }}
+              className="relative overflow-hidden rounded-lg shadow-2xl"
+            >
+              <MarkupStage
+                image={img}
+                fit={fit}
+                markup={markup}
+                view={view}
+                layer={layer}
               />
-            )}
-          </div>
-        )}
+              {markup.editing && (
+                <MarkupTextInput
+                  key={markup.editing.id}
+                  mark={markup.editing}
+                  scale={fit * view.view.scale}
+                  offset={view.view}
+                  onType={markup.type}
+                  onDone={markup.finishText}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
       <MarkupToolbar
         markup={markup}
