@@ -108,6 +108,23 @@ export function insertMention(text: string, mention: Mention, insert: string) {
   };
 }
 
+/** `text` with `@imageN` tags for `count` pasted images (numbered from `first`) in place of `start`–`end`. */
+export function insertImageTags(
+  text: string,
+  start: number,
+  end: number,
+  first: number,
+  count: number,
+) {
+  const tags = Array.from({ length: count }, (_, i) => `@image${first + i}`);
+  const lead = start > 0 && !/\s/.test(text[start - 1]) ? " " : "";
+  return insertMention(
+    text,
+    { trigger: "@", query: "", start, end },
+    lead + tags.join(" "),
+  );
+}
+
 /** `/name …` as pi's skill command when `name` is one of `skills` and not one of the app's commands. */
 export function skillPrompt(text: string, skills: SkillInfo[]) {
   const name = /^\/(\S+)/.exec(text)?.[1];

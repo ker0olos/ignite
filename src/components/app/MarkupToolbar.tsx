@@ -1,5 +1,4 @@
 import { Eraser, Redo2, Undo2 } from "lucide-react";
-import { MarkupInk } from "@/components/app/MarkupInk";
 import { MarkupTools } from "@/components/app/MarkupTools";
 import { MarkupZoom } from "@/components/app/MarkupZoom";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import { shortcut } from "@/lib/approvalKeys";
 const DIVIDER = "mx-1 h-5 w-px shrink-0 bg-border max-sm:hidden";
 
 /**
- * Tools, ink, undo / redo / clear, zoom, and Cancel / Done (⌘Enter)
+ * Tools, undo / redo / clear, zoom, and Cancel / Done (⌘Enter)
  * (`doneLabel`) under the image; with nowhere to save it, just Close.
  */
 export function MarkupToolbar({
@@ -30,13 +29,6 @@ export function MarkupToolbar({
   return (
     <div className="flex max-w-full shrink-0 flex-wrap items-center justify-center gap-1 rounded-lg border bg-popover p-1 text-[13px] text-popover-foreground shadow-lg">
       <MarkupTools tool={markup.tool} onTool={markup.setTool} />
-      <div className={DIVIDER} />
-      <MarkupInk
-        color={markup.color}
-        onColor={markup.setColor}
-        size={markup.size}
-        onSize={markup.setSize}
-      />
       <div className={DIVIDER} />
       <Button
         variant="ghost"

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  insertImageTags,
   insertMention,
   mentionAt,
   appCommand,
@@ -104,6 +105,23 @@ describe("insertMention", () => {
       text: "/code-review ",
       caret: 13,
     });
+  });
+});
+
+describe("insertImageTags", () => {
+  it("tags each pasted image at the caret, spaced from the text before", () => {
+    expect(insertImageTags("look at this", 7, 7, 2, 2)).toEqual({
+      text: "look at @image2 @image3 this",
+      caret: 24,
+    });
+  });
+
+  it("replaces the selection, adding no space at the start or after one", () => {
+    expect(insertImageTags("x", 0, 1, 1, 1)).toEqual({
+      text: "@image1 ",
+      caret: 8,
+    });
+    expect(insertImageTags("see x", 4, 5, 1, 1).text).toBe("see @image1 ");
   });
 });
 

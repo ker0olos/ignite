@@ -12,7 +12,7 @@ const SIZE_NAME: Record<MarkupSize, string> = {
   l: "Thick",
 };
 
-/** Ink colour and stroke size. */
+/** Ink colour and stroke size, in a column beside the image. */
 export function MarkupInk({
   color,
   onColor,
@@ -25,8 +25,8 @@ export function MarkupInk({
   onSize: (size: MarkupSize) => void;
 }) {
   return (
-    <div className="flex items-center gap-3 px-1.5">
-      <div className="flex items-center gap-1.5">
+    <div className="flex shrink-0 flex-col items-center gap-3 self-center rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-lg">
+      <div className="flex flex-col items-center gap-2 pt-1">
         {MARKUP_COLORS.map((c) => (
           <button
             key={c}
@@ -36,14 +36,15 @@ export function MarkupInk({
             onClick={() => onColor(c)}
             style={{ background: c }}
             className={cn(
-              "size-4 rounded-full border border-border",
+              "size-5 rounded-full border border-border",
               c === color &&
                 "ring-2 ring-ring ring-offset-1 ring-offset-popover",
             )}
           />
         ))}
       </div>
-      <div className="flex items-center">
+      <div className="h-px w-5 bg-border" />
+      <div className="flex flex-col items-center">
         {MARKUP_SIZES.map((s) => (
           <button
             key={s}
