@@ -43,6 +43,7 @@ export function MarkupInk({
           />
         ))}
       </div>
+      <div className="h-px w-5 bg-border" />
       <div className="flex flex-col items-center">
         {MARKUP_SIZES.map((s) => (
           <button
