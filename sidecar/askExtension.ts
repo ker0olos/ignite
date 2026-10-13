@@ -34,6 +34,8 @@ Text the user will likely copy and paste elsewhere always goes in a block of its
 - Prose written for them (replies, reviews, messages, emails, commit or PR text): a markdown blockquote, every line starting with \`> \`. It's copied as written, so use markdown inside only where it's pasted as markdown (GitHub, commit messages), and plain text elsewhere (app store replies, emails, chat messages).
 - Commands, snippets and file contents: a fenced code block tagged with its language, \`\`\`bash for shell commands (the app offers to run those in a terminal), \`\`\`ts, \`\`\`json and so on for code.`;
 
+export const ASK_NUDGE = `Your reply ended with a question for the user. Ask it with ${ASK_TOOL} now, with concrete options, and carry on with their answer. Don't repeat your reply.`;
+
 export const LEFT_TO_AGENT =
   "The user left these questions to you. Decide them, and say what you chose and why.";
 
@@ -100,7 +102,29 @@ export function replyText(
     .join("\n\n");
 }
 
+type Ended = {
+  role?: string;
+  stopReason?: string;
+  content?: string | { type: string; text?: string }[];
+};
+
+/** Whether a finished run's last reply ends by asking the user something. */
+export function endsWithQuestion(messages: readonly unknown[]): boolean {
+  const last = messages.at(-1) as Ended | undefined;
+  if (last?.role !== "assistant" || last.stopReason !== "stop") return false;
+  const text =
+    typeof last.content === "string"
+      ? last.content
+      : (last.content ?? [])
+          .filter((part) => part.type === "text")
+          .map((part) => part.text)
+          .join("");
+  return /\?[\s*_)"'”]*$/.test(text);
+}
+
 export default function ask(pi: ExtensionAPI) {
+  // One nudge per user message, so a reply that still asks can't loop.
+  let nudged = false;
   pi.registerTool({
     name: ASK_TOOL,
     label: "Ask the user",
@@ -127,7 +151,18 @@ export default function ask(pi: ExtensionAPI) {
     },
   });
 
+  pi.on("agent_end", async (event) => {
+    if (nudged || !pi.getActiveTools().includes(ASK_TOOL)) return;
+    if (!endsWithQuestion(event.messages)) return;
+    nudged = true;
+    pi.sendMessage(
+      { customType: "ask-nudge", content: ASK_NUDGE, display: false },
+      { triggerTurn: true, deliverAs: "followUp" },
+    );
+  });
+
   pi.on("before_agent_start", async (event) => {
+    if (event.prompt.trim() && event.prompt !== ASK_NUDGE) nudged = false;
     const asking = await askEnabled();
     const others = pi.getActiveTools().filter((name) => name !== ASK_TOOL);
     pi.setActiveTools(asking ? [...others, ASK_TOOL] : others);

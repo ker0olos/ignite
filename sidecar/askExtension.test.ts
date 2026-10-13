@@ -11,10 +11,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
 import ask, {
   ASKING,
+  ASK_NUDGE,
   AUTONOMOUS,
   COPYABLE,
   LEFT_TO_AGENT,
   askEnabled,
+  endsWithQuestion,
   replyText,
 } from "./askExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
@@ -83,18 +85,75 @@ function load(active = ["read", "bash"]) {
     registerTool: (t: ToolDefinition) => (tool = t),
     getActiveTools: () => active,
     setActiveTools: (names: string[]) => (active = names),
+    sendMessage: (message: { content: string }) => sent.push(message.content),
     events,
   } as unknown as ExtensionAPI);
+  const sent: string[] = [];
+  const end = (messages: unknown[]) => handlers.get("agent_end")!({ messages });
   const asks: ApprovalAsk[] = [];
   events.on(APPROVAL_EVENT, (data) => void asks.push(data as ApprovalAsk));
   const run = (signal?: AbortSignal) =>
     tool!.execute("t1", { questions: [] }, signal, undefined, {} as never);
-  const start = () =>
-    handlers.get("before_agent_start")!({ systemPrompt: "Base" }) as Promise<{
-      systemPrompt: string;
-    }>;
-  return { asks, run, start, active: () => active };
+  const start = (prompt = "Hi") =>
+    handlers.get("before_agent_start")!({
+      prompt,
+      systemPrompt: "Base",
+    }) as Promise<{ systemPrompt: string }>;
+  return { asks, run, start, end, sent, active: () => active };
 }
+
+const reply = (text: string, stopReason = "stop") => ({
+  role: "assistant",
+  stopReason,
+  content: [{ type: "text", text }],
+});
+
+describe("endsWithQuestion", () => {
+  it("is true for a finished reply ending in a question", () => {
+    expect(endsWithQuestion([reply("Done. Push both branches?")])).toBe(true);
+    expect(endsWithQuestion([reply("**Open the PR?**\n")])).toBe(true);
+    expect(
+      endsWithQuestion([
+        { role: "assistant", stopReason: "stop", content: "Fix it?" },
+      ]),
+    ).toBe(true);
+  });
+
+  it("is false otherwise", () => {
+    expect(endsWithQuestion([reply("Why? Because it broke.")])).toBe(false);
+    expect(endsWithQuestion([reply("Push?", "aborted")])).toBe(false);
+    expect(endsWithQuestion([{ role: "user", content: "Push?" }])).toBe(false);
+    expect(
+      endsWithQuestion([
+        { role: "assistant", stopReason: "stop", content: undefined },
+      ]),
+    ).toBe(false);
+    expect(endsWithQuestion([])).toBe(false);
+  });
+});
+
+describe("agent_end", () => {
+  it("nudges once per user message to ask with the tool", async () => {
+    const { start, end, sent } = load();
+    await start();
+    await end([reply("Push?")]);
+    await start(ASK_NUDGE);
+    await end([reply("Push?")]);
+    expect(sent).toEqual([ASK_NUDGE]);
+    await start("next");
+    await end([reply("Merge?")]);
+    expect(sent).toEqual([ASK_NUDGE, ASK_NUDGE]);
+  });
+
+  it("leaves replies alone without the tool or a question", async () => {
+    const { start, end, sent } = load(["read", "ask_user"]);
+    await end([reply("Done.")]);
+    await settings("[conversation]\nask_questions = false\n");
+    await start();
+    await end([reply("Push?")]);
+    expect(sent).toEqual([]);
+  });
+});
 
 const text = (result: { content: { type: string; text?: string }[] }) =>
   result.content[0].text;
