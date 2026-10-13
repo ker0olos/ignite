@@ -2,10 +2,10 @@ import { useFileExists } from "@/hooks/useFileExists";
 import { useOpenFileLink } from "@/hooks/useOpenTab";
 import { filePathTarget } from "@/lib/fileLinks";
 
-/** A path in a tool call's argument; a link when it exists. */
+/** A path in a tool call's argument; a link when it's a file. */
 export function ArgPath({ text, folder }: { text: string; folder: string }) {
   const open = useOpenFileLink(folder);
-  if (!useFileExists(filePathTarget(folder, text))) return text;
+  if (!useFileExists(filePathTarget(folder, text), true)) return text;
   return (
     <span
       role="link"

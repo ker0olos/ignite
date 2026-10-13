@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  filePathTarget,
-  isInsideFolder,
-  looksLikeFilePath,
-  splitPaths,
-} from "./fileLinks";
+import { filePathTarget, looksLikeFilePath, splitPaths } from "./fileLinks";
 
 describe("splitPaths", () => {
   it("picks out a command's paths, leaving quotes and punctuation as text", () => {
@@ -53,10 +48,5 @@ describe("file links", () => {
     expect(filePathTarget("/repo", "file:///repo/notes.md")).toBe(
       "/repo/notes.md",
     );
-  });
-
-  it("detects whether a resolved file is inside the open folder", () => {
-    expect(isInsideFolder("/repo", "/repo/tmp/notes.md")).toBe(true);
-    expect(isInsideFolder("/repo", "/repo-other/tmp/notes.md")).toBe(false);
   });
 });

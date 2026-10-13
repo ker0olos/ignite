@@ -37,13 +37,6 @@ export function filePathTarget(folder: string, text: string) {
   return normalizePath(`${folder}/${path.replace(/^\.\//, "")}`);
 }
 
-/** True when `path` belongs to `folder`. */
-export function isInsideFolder(folder: string, path: string) {
-  const root = normalizePath(folder);
-  const target = normalizePath(path);
-  return target === root || target.startsWith(`${root}/`);
-}
-
 function trimFilePath(text: string) {
   return text.trim().replace(LINE_SUFFIX, "");
 }

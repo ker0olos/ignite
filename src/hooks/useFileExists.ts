@@ -1,4 +1,4 @@
-import { exists } from "@tauri-apps/plugin-fs";
+import { exists, stat } from "@tauri-apps/plugin-fs";
 import { useEffect, useState } from "react";
 
 // A missing path is asked again after this: the agent may write it soon, or
@@ -9,10 +9,17 @@ const found = new Set<string>();
 const missingAt = new Map<string, number>();
 const checking = new Map<string, Promise<boolean>>();
 
+// Keys are the path, or `file:` and the path for a check that a folder fails.
+function lookUp(key: string) {
+  return key.startsWith("file:")
+    ? stat(key.slice(5)).then((info) => info.isFile)
+    : exists(key);
+}
+
 function check(path: string): Promise<boolean> {
   let pending = checking.get(path);
   if (!pending) {
-    pending = exists(path)
+    pending = lookUp(path)
       .catch(() => false)
       .then((yes) => {
         checking.delete(path);
@@ -29,10 +36,15 @@ const missingRecently = (path: string) =>
   Date.now() - (missingAt.get(path) ?? -Infinity) < MISSING_FOR_MS;
 
 /**
- * Whether `path` exists; false until known, or for null. Known at once on
- * remounts (markdown remounts inline code on every streamed render).
+ * Whether `path` exists (as a file, with `filesOnly`); false until known, or
+ * for null. Known at once on remounts (markdown remounts inline code on every
+ * streamed render).
  */
-export function useFileExists(path: string | null): boolean {
+export function useFileExists(
+  target: string | null,
+  filesOnly = false,
+): boolean {
+  const path = target && filesOnly ? `file:${target}` : target;
   const [known, setKnown] = useState<string>();
   const now = !!path && (found.has(path) || known === path);
   useEffect(() => {

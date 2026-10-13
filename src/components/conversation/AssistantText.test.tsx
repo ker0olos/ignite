@@ -7,7 +7,6 @@ import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { AssistantText } from "./AssistantText";
 
 const opener = vi.hoisted(() => ({
-  openPath: vi.fn(async () => {}),
   openUrl: vi.fn(async () => {}),
 }));
 
@@ -42,10 +41,9 @@ describe("AssistantText file links", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /core-user/ }));
     expect(openTab).toHaveBeenCalledWith("/repo/tmp/core-user-tenets-notes.md");
-    expect(opener.openPath).not.toHaveBeenCalled();
   });
 
-  it("opens external absolute file paths through the OS", async () => {
+  it("opens file paths outside the folder in a tab too", async () => {
     const openTab = vi.fn();
     render(
       <OpenTabContext.Provider value={openTab}>
@@ -59,10 +57,7 @@ describe("AssistantText file links", () => {
     );
 
     fireEvent.click(await screen.findByRole("button", { name: /core-user/ }));
-    expect(openTab).not.toHaveBeenCalled();
-    expect(opener.openPath).toHaveBeenCalledWith(
-      "/tmp/core-user-tenets-notes.md",
-    );
+    expect(openTab).toHaveBeenCalledWith("/tmp/core-user-tenets-notes.md");
   });
 
   it("opens URLs in the browser", () => {
