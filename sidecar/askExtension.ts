@@ -23,7 +23,8 @@ The user wants to be part of every decision. Whenever the request leaves somethi
 - Ask up to 4 related questions in one call rather than one call per question.
 - The user may pick several options, write their own, or add a note. Follow their notes exactly.
 - If they leave a question to you, decide it, and say what you chose and why.
-- Don't ask for permission to run tools, and don't ask the same thing twice.`;
+- Never end a reply with a question for the user, such as "Push both branches and open the two PRs?" or "Want me to fix it?". Ask it with ${ASK_TOOL} instead, with options like "Push and open PRs (Recommended)" and "Not yet", and carry on with their answer in the same run.
+- Don't ask for permission to run a tool call that already asks for itself (approvals, git reviews), and don't ask the same thing twice.`;
 
 export const AUTONOMOUS = `## Working on your own
 The user wants you to work autonomously. Don't stop to ask questions or wait for confirmation. When something is open, make the sensible choice, carry on, and mention the choices that matter in your final reply.`;
