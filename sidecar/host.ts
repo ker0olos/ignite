@@ -35,12 +35,8 @@ import { compact, stop, unqueue } from "./hostQueue.ts";
 import { appUpdate, appVersion } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
 import { conversationGitStatus, repoDetails } from "./gitStatus.ts";
-import {
-  backgroundOutput,
-  onBackgroundChange,
-  stopBackground,
-} from "./backgroundBash.ts";
-import { pushProjects } from "./hostProjects.ts";
+import { backgroundOutput, stopBackground } from "./backgroundBash.ts";
+import { watchBackground } from "./hostWait.ts";
 import { skipWait } from "./skipWait.ts";
 import { describeSession } from "./describeSession.ts";
 import { listFiles } from "./fileIndex.ts";
@@ -255,7 +251,7 @@ export function createHost(
     }
   }
 
-  const unwatch = onBackgroundChange(() => pushProjects(ctx));
+  const unwatch = watchBackground(ctx);
   const shutdown = async () => {
     unwatch();
     await closeAll(ctx);

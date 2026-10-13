@@ -6,6 +6,7 @@ import {
   type HostContext,
   type Session,
 } from "./hostTypes.ts";
+import { cancelWaits } from "./backgroundBash.ts";
 import { withSummaryProgress } from "./compactProgress.ts";
 import { denyAll } from "./hostApproval.ts";
 import { prompt } from "./hostSession.ts";
@@ -35,7 +36,10 @@ const message = ({ text, images }: QueuedMessage): QueuedMessage => ({
 export async function stop(ctx: HostContext, session?: string) {
   const agent = target(ctx, session);
   const s = await current(ctx, session);
-  if (agent) denyAll(ctx, agent);
+  if (agent) {
+    denyAll(ctx, agent);
+    cancelWaits(agent.id);
+  }
   const routing = agent?.routing;
   routing?.controller.abort();
   const queued = agent ? take(s, agent) : [];
