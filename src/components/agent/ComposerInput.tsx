@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { typedText } from "@/lib/demo";
 import { pastedImages } from "@/lib/images";
 
-/** The composer's text: tells where the caret is, and attaches pasted images. */
+/** The composer's text: tells where the caret is, and attaches pasted images with the selection they replace. */
 export function ComposerInput({
   ref,
   value,
@@ -17,7 +17,7 @@ export function ComposerInput({
   value: string;
   onChange: (text: string) => void;
   onCaret: (caret: number) => void;
-  onImages: (images: ImageContent[]) => void;
+  onImages: (images: ImageContent[], start: number, end: number) => void;
   onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
 }) {
   return (
@@ -30,10 +30,13 @@ export function ComposerInput({
       }}
       onSelect={(e) => onCaret(e.currentTarget.selectionStart)}
       onPaste={(e) => {
-        const { clipboardData } = e;
+        const { clipboardData, currentTarget } = e;
         if (clipboardData.files.length === 0) return;
         e.preventDefault();
-        void pastedImages(clipboardData).then(onImages);
+        const { selectionStart, selectionEnd } = currentTarget;
+        void pastedImages(clipboardData).then((images) =>
+          onImages(images, selectionStart, selectionEnd),
+        );
       }}
       onKeyDown={onKeyDown}
       placeholder="Describe a task"
