@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from "react";
+import { ArgPath } from "@/components/conversation/ArgPath";
 import { StatusDot } from "@/components/conversation/StatusDot";
+import { splitPaths } from "@/lib/fileLinks";
 import type { ToolRun } from "@/lib/transcript";
 import { cn } from "@/lib/utils";
 
@@ -8,10 +10,12 @@ export function ToolHead({
   run,
   title,
   arg,
+  folder,
 }: {
   run: ToolRun | undefined;
   title: ReactNode;
   arg: string;
+  folder: string;
 }) {
   const [full, setFull] = useState(false);
   const label = (
@@ -19,7 +23,15 @@ export function ToolHead({
       <span className="font-semibold">{title}</span>
       {arg && (
         <span className="font-mono text-[12px] text-muted-foreground">
-          ({arg})
+          (
+          {splitPaths(arg).map((part, i) =>
+            part.path ? (
+              <ArgPath key={i} text={part.text} folder={folder} />
+            ) : (
+              part.text
+            ),
+          )}
+          )
         </span>
       )}
     </>

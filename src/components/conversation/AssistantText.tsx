@@ -1,4 +1,4 @@
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { InlineCode } from "@/components/conversation/InlineCode";
@@ -6,14 +6,10 @@ import { LinkPill } from "@/components/conversation/LinkPill";
 import { MarkdownCodeBlock } from "@/components/conversation/MarkdownCodeBlock";
 import { QuoteBlock } from "@/components/conversation/QuoteBlock";
 import type { Editor } from "@/components/conversation/shared";
-import { useOpenTab } from "@/hooks/useOpenTab";
+import { useOpenFileLink } from "@/hooks/useOpenTab";
 import { useSmoothText } from "@/hooks/useSmoothText";
 import type { CodeThemes } from "@/lib/codeThemes";
-import {
-  filePathTarget,
-  isInsideFolder,
-  looksLikeFilePath,
-} from "@/lib/fileLinks";
+import { looksLikeFilePath } from "@/lib/fileLinks";
 import { quoteSource } from "@/lib/quote";
 
 /** Assistant markdown text, with fenced code blocks syntax-highlighted. */
@@ -29,12 +25,7 @@ export function AssistantText({
   codeThemes: CodeThemes;
 }) {
   const shown = useSmoothText(text);
-  const openTab = useOpenTab();
-  const openFileLink = (text: string) => {
-    const path = filePathTarget(folder, text);
-    if (isInsideFolder(folder, path)) openTab(path);
-    else openPath(path).catch(() => {});
-  };
+  const openFileLink = useOpenFileLink(folder);
   const components: Components = {
     a: ({ href = "", children }) => {
       const file = looksLikeFilePath(href);

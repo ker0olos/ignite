@@ -16,6 +16,19 @@ export function looksLikeFilePath(text: string) {
   );
 }
 
+/** Splits a command line into plain text and the words that look like file paths (quotes and `;,)` left out). */
+export function splitPaths(text: string): { text: string; path?: true }[] {
+  return text.split(/(\s+)/).flatMap((word) => {
+    const [, before, core, after] = /^(['"(]*)(.*?)(['");,]*)$/s.exec(word)!;
+    if (!core || !looksLikeFilePath(core)) return [{ text: word }];
+    return [
+      { text: before },
+      { text: core, path: true as const },
+      { text: after },
+    ].filter((p) => p.text);
+  });
+}
+
 /** Converts a file reference into an absolute path, relative to `folder` when needed. */
 export function filePathTarget(folder: string, text: string) {
   const path = trimFilePath(text);

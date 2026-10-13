@@ -139,6 +139,7 @@ export function ToolView({
           )
         }
         arg={mcp ? "" : toolArg(call, folder)}
+        folder={folder}
       />
       {run &&
         !showsNothingYet(call, run, text, !!skip && canSkipWait(call, run)) && (

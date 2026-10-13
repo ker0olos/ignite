@@ -4,7 +4,7 @@ import { ToolHead } from "./ToolHead";
 
 it("shows the whole argument when clicked, and truncates it again", () => {
   const command = "cd server && cat > scripts/_probe.ts <<'EOF'\nimport x\nEOF";
-  render(<ToolHead run={undefined} title="Bash" arg={command} />);
+  render(<ToolHead run={undefined} title="Bash" arg={command} folder="/repo" />);
   const head = screen.getByRole("button", { name: /Bash/ });
   expect(head.className).toContain("truncate");
   fireEvent.click(head);
@@ -15,6 +15,6 @@ it("shows the whole argument when clicked, and truncates it again", () => {
 });
 
 it("is plain text without an argument", () => {
-  render(<ToolHead run={undefined} title="Questions" arg="" />);
+  render(<ToolHead run={undefined} title="Questions" arg="" folder="/repo" />);
   expect(screen.queryByRole("button")).toBe(null);
 });

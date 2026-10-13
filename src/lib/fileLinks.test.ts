@@ -1,5 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { filePathTarget, isInsideFolder, looksLikeFilePath } from "./fileLinks";
+import {
+  filePathTarget,
+  isInsideFolder,
+  looksLikeFilePath,
+  splitPaths,
+} from "./fileLinks";
+
+describe("splitPaths", () => {
+  it("picks out a command's paths, leaving quotes and punctuation as text", () => {
+    expect(splitPaths("grep -E 'a|b' \"/tmp/x.log\";")).toEqual([
+      { text: "grep" },
+      { text: " " },
+      { text: "-E" },
+      { text: " " },
+      { text: "'a|b'" },
+      { text: " " },
+      { text: '"' },
+      { text: "/tmp/x.log", path: true },
+      { text: '";' },
+    ]);
+  });
+
+  it("keeps the text whole", () => {
+    const text = "sleep 45; cat src/app.ts\n  | head";
+    expect(
+      splitPaths(text)
+        .map((p) => p.text)
+        .join(""),
+    ).toBe(text);
+  });
+});
 
 describe("file links", () => {
   it("recognizes common file references", () => {
