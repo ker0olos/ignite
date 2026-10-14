@@ -121,7 +121,7 @@ function registerAdd(pi: ExtensionAPI, file: string) {
       const similar = others.length
         ? `\n\nOther lessons here for the same tool; if one says the same, merge them with \`replaces\`:\n${list(others)}`
         : "";
-      return done(`Saved lesson [${lesson.id}].${similar}`);
+      return done(`Saved lesson [${lesson.id}]: ${lesson.text}${similar}`);
     },
   });
 }

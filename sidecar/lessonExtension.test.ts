@@ -96,7 +96,7 @@ it("lesson_add saves without asking, for every folder or this one, and lists sim
     level: "tool_call",
     tool: "git",
   });
-  expect(textOf(first)).toMatch(/^Saved lesson \[\w+\]\.$/);
+  expect(textOf(first)).toMatch(/^Saved lesson \[\w+\]: A$/);
   const second = await run("lesson_add", {
     text: "B",
     level: "tool_call",
