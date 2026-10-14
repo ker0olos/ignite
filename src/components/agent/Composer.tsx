@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import type { ImageContent } from "../../../shared/agentTypes";
 import type { QueuedMessage } from "../../../shared/queue";
 import type { ApprovalMode } from "../../../shared/hostProtocol";
 import { ComposerAddMenu } from "@/components/agent/ComposerAddMenu";
@@ -14,7 +13,7 @@ import { useGitStatus } from "@/hooks/useGitStatus";
 import { useComposerHistory } from "@/hooks/useComposerHistory";
 import { useComposerImages } from "@/hooks/useComposerImages";
 import { useMentions } from "@/hooks/useMentions";
-import { appCommand, insertImageTags, skillPrompt } from "@/lib/mentions";
+import { appCommand, skillPrompt } from "@/lib/mentions";
 import type { HostClient } from "@/lib/piHost";
 import { canSend, composerKey, takenText } from "@/lib/queue";
 
@@ -53,8 +52,8 @@ export function Composer({
   const skills = state?.skills ?? [];
   const [text, setText] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
-  const { images, setImages, attach, remove, replace } =
-    useComposerImages(input);
+  const { images, setImages, attach, remove, replace, paste } =
+    useComposerImages(input, text, setText);
   const repos = useGitStatus(host, gitStatus ? session.session : null);
   const mentions = useMentions({
     host,
@@ -94,20 +93,6 @@ export function Composer({
     input.current?.focus();
   };
   const stop = () => void session.stop().then(restore);
-  const paste = (added: ImageContent[], start: number, end: number) => {
-    const tagged = insertImageTags(
-      text,
-      start,
-      end,
-      images.length + 1,
-      added.length,
-    );
-    attach(added);
-    setText(tagged.text);
-    requestAnimationFrame(() =>
-      input.current?.setSelectionRange(tagged.caret, tagged.caret),
-    );
-  };
 
   return (
     <form

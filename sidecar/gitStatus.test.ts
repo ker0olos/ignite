@@ -1,12 +1,24 @@
 // @vitest-environment node
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import { fileDiff } from "./gitReview.ts";
-import { gitStatus, repoDetails, touchedDirs } from "./gitStatus.ts";
+import {
+  discardFile,
+  gitStatus,
+  repoDetails,
+  touchedDirs,
+} from "./gitStatus.ts";
 
 let root: string;
 const git = (cwd: string, ...args: string[]) =>
@@ -136,5 +148,37 @@ describe("untracked files", () => {
     ]);
     expect(await fileDiff(app, "HEAD", "café.txt")).toContain("+y");
     await expect(fileDiff(app, "HEAD", "big.log")).rejects.toThrow("too large");
+  });
+});
+
+describe("discardFile", () => {
+  it("restores changed and staged files, deletes new ones, refuses paths outside", async () => {
+    const app = join(root, "app");
+    await mkdir(app);
+    git(app, "init", "-q", "-b", "main");
+    await writeFile(join(app, "a.txt"), "one\n");
+    await writeFile(join(app, "b.txt"), "one\n");
+    git(app, "add", ".");
+    git(app, "commit", "-qm", "first");
+    await writeFile(join(app, "a.txt"), "two\n");
+    await writeFile(join(app, "b.txt"), "two\n");
+    git(app, "add", "b.txt");
+    await writeFile(join(app, "new.txt"), "x\n");
+    await writeFile(join(app, "staged.txt"), "x\n");
+    git(app, "add", "staged.txt");
+
+    await writeFile(join(app, "..env"), "x\n");
+
+    for (const path of ["a.txt", "b.txt", "new.txt", "staged.txt", "..env"]) {
+      await discardFile(app, path);
+    }
+    expect((await repoDetails(app)).files).toEqual([]);
+    expect(await readFile(join(app, "a.txt"), "utf8")).toBe("one\n");
+    await expect(discardFile(app, "../outside")).rejects.toThrow("outside");
+    await expect(discardFile(app, "missing.txt")).rejects.toThrow("no changes");
+    // Not a repository: nothing is deleted.
+    await writeFile(join(root, "keep.txt"), "x\n");
+    await expect(discardFile(root, "keep.txt")).rejects.toThrow("not a repo");
+    expect(await readFile(join(root, "keep.txt"), "utf8")).toBe("x\n");
   });
 });

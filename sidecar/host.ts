@@ -34,7 +34,11 @@ import { setTrust } from "./hostTrust.ts";
 import { compact, stop, unqueue } from "./hostQueue.ts";
 import { appUpdate, appVersion } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
-import { conversationGitStatus, repoDetails } from "./gitStatus.ts";
+import {
+  conversationGitStatus,
+  discardFile,
+  repoDetails,
+} from "./gitStatus.ts";
 import { backgroundOutput, stopBackground } from "./backgroundBash.ts";
 import { watchBackground } from "./hostWait.ts";
 import { skipWait } from "./skipWait.ts";
@@ -162,6 +166,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     return repos;
   },
   git_repo_details: (_ctx, r) => repoDetails(r.repo),
+  git_discard: (_ctx, r) => discardFile(r.repo, r.path),
   background_output: (_ctx, r) => backgroundOutput(r.pid, r.session),
   background_stop: (_ctx, r) => stopBackground(r.pid, r.session),
   skip_wait: (_ctx, r) => skipWait(r.toolCallId),

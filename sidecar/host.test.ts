@@ -42,6 +42,11 @@ vi.mock("./gitStatus.ts", async (original) => ({
   ...(await original<typeof import("./gitStatus.ts")>()),
   conversationGitStatus: vi.fn(async () => []),
 }));
+// The real one reads the machine's ~/.ignite/settings.toml.
+vi.mock("./router.ts", async (original) => ({
+  ...(await original<typeof import("./router.ts")>()),
+  modelRouterOn: vi.fn(async () => true),
+}));
 
 type Interaction = Parameters<Runtime["login"]>[2];
 

@@ -1,5 +1,6 @@
 /** The git repositories a conversation worked in, and what of its work isn't committed, pushed or merged. */
-import { dirname, resolve } from "node:path";
+import { rm } from "node:fs/promises";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import type {
   AgentMessage,
   AssistantMessage,
@@ -16,7 +17,7 @@ import type { HostContext } from "./hostTypes.ts";
 import { changes, commitsIn, repoOf } from "./gitReview.ts";
 import { untrackedChanges } from "./gitUntracked.ts";
 import { CHANGES_FILES } from "./taskSteps.ts";
-import { gitOr } from "./worktreeGit.ts";
+import { git, gitOr } from "./worktreeGit.ts";
 
 // gh asks GitHub; the app polls every few seconds.
 const PR_TTL_MS = 30_000;
@@ -160,4 +161,23 @@ export async function repoDetails(repo: string): Promise<GitRepoDetails> {
     ? await commitsIn(repo, ["HEAD", "--not", "--remotes"])
     : [];
   return { files: [...tracked, ...untracked], commits };
+}
+
+/** Discards a file's uncommitted changes: back to HEAD's version, or deleted when HEAD has none. */
+export async function discardFile(repo: string, path: string) {
+  if ((await gitOr(repo, ["rev-parse", "--show-toplevel"])) !== repo) {
+    throw new Error(`${repo} is not a repository`);
+  }
+  if (!path || isAbsolute(path) || path.split(/[\\/]/).includes("..")) {
+    throw new Error(`${path} is outside ${repo}`);
+  }
+  const spec = `:(literal)${path}`;
+  if (await git(repo, ["ls-tree", "--name-only", "HEAD", "--", path])) {
+    await git(repo, ["restore", "-s", "HEAD", "-SW", "--", spec]);
+    return;
+  }
+  await git(repo, ["rm", "-q", "--cached", "--ignore-unmatch", "--", spec]);
+  const untracked = ["ls-files", "-z", "-o", "--exclude-standard", "--", spec];
+  if (!(await git(repo, untracked))) throw new Error(`${path} has no changes`);
+  await rm(join(repo, path), { force: true });
 }

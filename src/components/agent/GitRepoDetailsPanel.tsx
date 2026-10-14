@@ -10,10 +10,12 @@ export function GitRepoDetailsPanel({
   status,
   details,
   error,
+  onDiscard,
 }: {
   status: GitRepoStatus;
   details: GitRepoDetails | null;
   error: string | null;
+  onDiscard: (path: string) => void;
 }) {
   const { pr } = status;
   const files = details?.files ?? [];
@@ -42,6 +44,7 @@ export function GitRepoDetailsPanel({
               repo={status.repo}
               range="HEAD"
               file={file}
+              onRevert={() => onDiscard(file.path)}
             />
           ))}
         </div>
