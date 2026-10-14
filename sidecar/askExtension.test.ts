@@ -119,8 +119,48 @@ describe("endsWithQuestion", () => {
     ).toBe(true);
   });
 
+  it("is true for a question to the user in the last paragraph", () => {
+    expect(
+      endsWithQuestion([
+        reply(
+          "Done.\n\nShould I commit and push both? I won't open a PR unless you ask.",
+        ),
+      ]),
+    ).toBe(true);
+    expect(
+      endsWithQuestion([reply("**Should I push both?** I'll wait.")]),
+    ).toBe(true);
+    expect(endsWithQuestion([reply("(Want me to push?) I'll wait.")])).toBe(
+      true,
+    );
+    expect(
+      endsWithQuestion([
+        {
+          role: "assistant",
+          stopReason: "stop",
+          content: [
+            { type: "text", text: "Should I push?" },
+            { type: "text", text: "I won't open a PR." },
+          ],
+        },
+      ]),
+    ).toBe(true);
+  });
+
   it("is false otherwise", () => {
+    expect(
+      endsWithQuestion([reply("If you want, use `a ?? b` here instead.")]),
+    ).toBe(false);
+    expect(
+      endsWithQuestion([reply("Is index i out of range? No, it's guarded.")]),
+    ).toBe(false);
     expect(endsWithQuestion([reply("Why? Because it broke.")])).toBe(false);
+    expect(
+      endsWithQuestion([reply("Want me to push?\n\nPushed it anyway.")]),
+    ).toBe(false);
+    expect(
+      endsWithQuestion([reply("Done.\n\n```ts\nconst a = b ? c : d;\n```")]),
+    ).toBe(false);
     expect(endsWithQuestion([reply("Push?", "aborted")])).toBe(false);
     expect(endsWithQuestion([{ role: "user", content: "Push?" }])).toBe(false);
     expect(

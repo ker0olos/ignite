@@ -108,7 +108,9 @@ type Ended = {
   content?: string | { type: string; text?: string }[];
 };
 
-/** Whether a finished run's last reply ends by asking the user something. */
+const QUESTION_END = /\?[\s*_)"'”]*$/;
+
+/** Whether a finished run's last reply asks the user something in its last paragraph. */
 export function endsWithQuestion(messages: readonly unknown[]): boolean {
   const last = messages.at(-1) as Ended | undefined;
   if (last?.role !== "assistant" || last.stopReason !== "stop") return false;
@@ -118,8 +120,19 @@ export function endsWithQuestion(messages: readonly unknown[]): boolean {
       : (last.content ?? [])
           .filter((part) => part.type === "text")
           .map((part) => part.text)
-          .join("");
-  return /\?[\s*_)"'”]*$/.test(text);
+          .join("\n");
+  if (QUESTION_END.test(text)) return true;
+  const paragraph = text
+    .replace(/```[\s\S]*?```|`[^`\n]*`/g, "")
+    .trim()
+    .split(/\n\s*\n/)
+    .at(-1)!;
+  return paragraph
+    .split(/(?<=[.!?][*_)"'”]*)\s+/)
+    .some(
+      (s) =>
+        QUESTION_END.test(s) && (/\bI\b/.test(s) || /\b(me|you|we)\b/i.test(s)),
+    );
 }
 
 export default function ask(pi: ExtensionAPI) {
