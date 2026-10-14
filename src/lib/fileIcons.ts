@@ -3,6 +3,8 @@ import {
   Code,
   CodeXml,
   File,
+  Folder,
+  FolderOpen,
   Hash,
   Image,
   Lock,
@@ -30,4 +32,13 @@ const BY_EXT = new Map(
 export function fileIcon(name: string): LucideIcon {
   const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
   return (name.includes(".") && BY_EXT.get(ext)) || File;
+}
+
+/** The Minimal icon theme's glyph for a file, or a folder open or closed. */
+export function minimalIcon(
+  name: string,
+  kind: "file" | "folder" | "openFolder",
+): LucideIcon {
+  if (kind === "file") return fileIcon(name);
+  return kind === "folder" ? Folder : FolderOpen;
 }

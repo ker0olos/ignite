@@ -9,6 +9,7 @@ import { parse, stringify } from "smol-toml";
 import type { ApprovalMode } from "../../shared/hostProtocol";
 import { APP_NAME } from "./app";
 import { SYSTEM_THEME } from "./codeThemes";
+import { MINIMAL_ICONS } from "./iconThemes";
 
 /** Shape of ~/.<APP_NAME>/settings.toml (keys stay snake_case, as in TOML). */
 export type Settings = {
@@ -17,6 +18,8 @@ export type Settings = {
    * decides light or dark mode; "system" follows macOS.
    */
   theme: string;
+  /** "minimal" (the app's own glyphs), or a VS Code icon theme's id from iconThemes.ts. */
+  icon_theme: string;
   /** How the file viewer shows code. `font_family` is a CSS font-family list. */
   editor: { font_family: string; word_wrap: boolean };
   /** `show_tree`: the sidebar lists the folder's files under its conversations. */
@@ -79,6 +82,7 @@ export type ConversationOrder = "oldest_first" | "newest_first";
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: SYSTEM_THEME,
+  icon_theme: MINIMAL_ICONS,
   editor: {
     font_family: "Menlo, Monaco, 'Courier New', monospace",
     word_wrap: true,
@@ -221,6 +225,9 @@ const readRemote = (
       : DEFAULT_SETTINGS.remote.port,
 });
 
+const readIconTheme = (value: unknown) =>
+  typeof value === "string" && value ? value : DEFAULT_SETTINGS.icon_theme;
+
 // Earlier versions stored the appearance itself; map it to the matching theme.
 const LEGACY_THEMES: Record<string, string> = {
   light: "github-light",
@@ -248,6 +255,7 @@ export async function loadSettings(): Promise<Settings> {
   const editor: Partial<Settings["editor"]> = raw.editor ?? {};
   return {
     theme,
+    icon_theme: readIconTheme(raw.icon_theme),
     editor: {
       font_family:
         typeof editor.font_family === "string" && editor.font_family.trim()

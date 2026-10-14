@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { Image, Shrink, SquareTerminal, Zap } from "lucide-react";
 import { Highlight } from "@/components/command/Highlight";
-import { fileIcon } from "@/lib/fileIcons";
+import { FileIcon } from "@/components/files/FileIcon";
 import type { MentionOption } from "@/lib/mentions";
 import { cn } from "@/lib/utils";
 
@@ -33,8 +33,6 @@ export function MentionMenu({
     >
       {options.map((option, i) => {
         const label = option.insert.slice(1);
-        const icon =
-          option.kind === "file" ? fileIcon(label) : ICONS[option.kind];
         return (
           <div
             key={option.insert}
@@ -48,9 +46,16 @@ export function MentionMenu({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onPick(option)}
           >
-            {createElement(icon, {
-              className: "size-3.5 shrink-0 text-muted-foreground",
-            })}
+            {option.kind === "file" ? (
+              <FileIcon
+                name={label}
+                className="size-3.5 shrink-0 text-muted-foreground"
+              />
+            ) : (
+              createElement(ICONS[option.kind], {
+                className: "size-3.5 shrink-0 text-muted-foreground",
+              })
+            )}
             <span className="shrink-0">
               {option.insert[0]}
               <Highlight text={label} query={query} fuzzy />

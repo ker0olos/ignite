@@ -41,6 +41,20 @@ export async function readJsonc<T>(path: string): Promise<T> {
 export const join = (dir: string, rel: string) =>
   `${dir}/${rel.replace(/^\.\//, "")}`;
 
+/** Translates an extension's "%key%" labels (built-in ones), from its package.nls.json. */
+export async function labelTranslator(dir: string) {
+  const nls = await readJsonc<Record<string, unknown>>(
+    `${dir}/package.nls.json`,
+  ).catch(() => ({}) as Record<string, unknown>);
+  return (label: string) =>
+    label.replace(/^%(.+)%$/, (key, name: string) => {
+      const value = nls[name];
+      if (typeof value === "string") return value;
+      const message = (value as { message?: unknown } | undefined)?.message;
+      return typeof message === "string" ? message : key;
+    });
+}
+
 type ExtensionManifest = {
   name?: string;
   publisher?: string;
@@ -55,17 +69,7 @@ async function themesInExtension(dir: string): Promise<CodeTheme[]> {
   const contributed = manifest.contributes?.themes ?? [];
   if (!contributed.length) return [];
 
-  // Built-in extensions label themes "%key%", translated in package.nls.json.
-  const nls = await readJsonc<Record<string, unknown>>(
-    `${dir}/package.nls.json`,
-  ).catch(() => ({}) as Record<string, unknown>);
-  const translate = (label: string) =>
-    label.replace(/^%(.+)%$/, (key, name: string) => {
-      const value = nls[name];
-      if (typeof value === "string") return value;
-      const message = (value as { message?: unknown } | undefined)?.message;
-      return typeof message === "string" ? message : key;
-    });
+  const translate = await labelTranslator(dir);
 
   // Ids leave out the version so a saved choice survives extension updates.
   const extension = `${manifest.publisher ?? "vscode"}.${manifest.name ?? basename(dir)}`;

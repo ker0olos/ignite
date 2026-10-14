@@ -11,6 +11,7 @@ it("turns the composer's git status off", () => {
     themes: [],
     settings: DEFAULT_SETTINGS,
     onChange,
+    iconThemes: [],
     onThemesChange: vi.fn(),
   }).find((i) => i.title === "Git status in the composer")!;
   const { checked, onCheckedChange } = (

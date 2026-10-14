@@ -160,6 +160,7 @@ describe("useSettings", () => {
     const { result } = renderHook(() => useSettings());
     const next: Settings = {
       theme: "github-dark",
+      icon_theme: "minimal",
       editor: { font_family: "Monaco", word_wrap: true },
       files: { hide_gitignored: true, show_tree: true },
       conversation: DEFAULT_SETTINGS.conversation,
