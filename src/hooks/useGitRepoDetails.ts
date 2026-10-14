@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { ask } from "@tauri-apps/plugin-dialog";
+import { useCallback, useEffect, useState } from "react";
 import type { GitRepoDetails, GitRepoStatus } from "../../shared/git";
+import { basename } from "@/lib/paths";
 import type { HostClient } from "@/lib/piHost";
 
-/** A repository's uncommitted files and unpushed commits, read while `open` and again whenever its status changes. */
+/** A repository's uncommitted files and unpushed commits, read while `open` and again whenever its status changes; discarding a file's changes. */
 export function useGitRepoDetails(
   host: HostClient | null,
   status: GitRepoStatus,
@@ -10,6 +12,7 @@ export function useGitRepoDetails(
 ) {
   const [details, setDetails] = useState<GitRepoDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [discarded, setDiscarded] = useState(0);
   const { repo, changed, unpushed, branch } = status;
 
   useEffect(() => {
@@ -26,7 +29,27 @@ export function useGitRepoDetails(
     return () => {
       cancelled = true;
     };
-  }, [host, open, repo, changed, unpushed, branch]);
+  }, [host, open, repo, changed, unpushed, branch, discarded]);
 
-  return { details, error };
+  const discard = useCallback(
+    async (path: string) => {
+      const ok = await ask(
+        `Are you sure you want to discard changes in '${basename(path)}'?`,
+        { kind: "warning", okLabel: "Discard File", cancelLabel: "Cancel" },
+      );
+      if (!ok || !host) return;
+      try {
+        await host.request({ type: "git_discard", repo, path });
+        setDetails(
+          (d) => d && { ...d, files: d.files.filter((f) => f.path !== path) },
+        );
+        setDiscarded((n) => n + 1);
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    },
+    [host, repo],
+  );
+
+  return { details, error, discard };
 }

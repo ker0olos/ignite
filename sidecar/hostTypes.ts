@@ -91,7 +91,10 @@ export type Session = {
   };
   sendCustomMessage(
     message: { customType: string; content: string; display: boolean },
-    options: { deliverAs: "nextTurn" },
+    options: {
+      triggerTurn?: boolean;
+      deliverAs?: "steer" | "followUp" | "nextTurn";
+    },
   ): Promise<void>;
   readonly isStreaming: boolean;
   subscribe(listener: (event: SessionEvent) => void): () => void;

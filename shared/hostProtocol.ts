@@ -238,6 +238,8 @@ export type HostRequest =
   | { id: number; type: "git_status"; session: string }
   /** A repository's uncommitted files and unpushed commits. */
   | { id: number; type: "git_repo_details"; repo: string }
+  /** Discards one file's uncommitted changes (`path` relative to `repo`). */
+  | { id: number; type: "git_discard"; repo: string; path: string }
   | TaskRequest
   | TerminalRequest
   | { id: number; type: "app_version" }
@@ -301,6 +303,7 @@ export type HostResponses = SkillResponses &
     git_diff: string;
     git_status: GitRepoStatus[];
     git_repo_details: GitRepoDetails;
+    git_discard: undefined;
     app_version: AppVersion;
     app_update: { updated: boolean };
   };

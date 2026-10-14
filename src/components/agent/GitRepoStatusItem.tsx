@@ -45,7 +45,7 @@ export function GitRepoStatusItem({
   status: GitRepoStatus;
 }) {
   const [open, setOpen] = useState(false);
-  const { details, error } = useGitRepoDetails(host, status, open);
+  const { details, error, discard } = useGitRepoDetails(host, status, open);
   const { pr } = status;
   const state = pr && prState(pr);
   return (
@@ -90,7 +90,12 @@ export function GitRepoStatusItem({
         )}
       </PopoverTrigger>
       <PopoverContent align="start" side="top" className="w-96 gap-0 p-0">
-        <GitRepoDetailsPanel status={status} details={details} error={error} />
+        <GitRepoDetailsPanel
+          status={status}
+          details={details}
+          error={error}
+          onDiscard={discard}
+        />
       </PopoverContent>
     </Popover>
   );

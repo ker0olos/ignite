@@ -4,7 +4,9 @@ import { ToolHead } from "./ToolHead";
 
 it("shows the whole argument when clicked, and truncates it again", () => {
   const command = "cd server && cat > scripts/_probe.ts <<'EOF'\nimport x\nEOF";
-  render(<ToolHead run={undefined} title="Bash" arg={command} folder="/repo" />);
+  render(
+    <ToolHead run={undefined} title="Bash" arg={command} folder="/repo" />,
+  );
   const head = screen.getByRole("button", { name: /Bash/ });
   expect(head.className).toContain("truncate");
   fireEvent.click(head);
