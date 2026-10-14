@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { X } from "lucide-react";
 import { tabLabel } from "@/lib/diffTabs";
-import { fileIcon } from "@/lib/fileIcons";
+import { FileIcon } from "@/components/files/FileIcon";
 import { cn } from "@/lib/utils";
 
 /** The editor pane's tab strip: one tab per open file, diff, subagent or background command. */
@@ -42,9 +42,11 @@ export function FileTabs({
               onClick={() => onSelect(path)}
               className="flex min-w-0 items-center gap-1.5 whitespace-nowrap"
             >
-              {createElement(label.icon ?? fileIcon(label.iconPath), {
-                className: "size-3.5 shrink-0",
-              })}
+              {label.icon ? (
+                createElement(label.icon, { className: "size-3.5 shrink-0" })
+              ) : (
+                <FileIcon name={label.iconPath} className="size-3.5 shrink-0" />
+              )}
               <span className="truncate">{label.name}</span>
               {label.detail && (
                 <span className="min-w-0 truncate text-xs text-muted-foreground italic">

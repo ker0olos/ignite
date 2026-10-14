@@ -1,19 +1,23 @@
 import type { Item } from "@/components/settings/sections";
+import { IconThemePicker } from "@/components/settings/IconThemePicker";
 import { ThemePicker } from "@/components/settings/ThemePicker";
 import { Switch } from "@/components/ui/switch";
 import type { CodeTheme } from "@/lib/codeThemes";
 import { CUSTOM_THEMES_DIR, listThemes } from "@/lib/codeThemeDiscovery";
 import { importTheme } from "@/lib/codeThemeLoad";
+import { CUSTOM_ICON_THEMES_DIR, type IconThemeInfo } from "@/lib/iconThemes";
 import type { Settings } from "@/lib/settings";
 
-/** Settings rows for appearance: the theme picker, and the composer's git status. */
+/** Settings rows for appearance: the theme and icon theme pickers, and the composer's git status. */
 export function appearanceItems({
   themes,
+  iconThemes,
   settings,
   onChange,
   onThemesChange,
 }: {
   themes: CodeTheme[];
+  iconThemes: IconThemeInfo[];
   settings: Settings;
   onChange: (settings: Settings) => void;
   onThemesChange: (themes: CodeTheme[]) => void;
@@ -35,6 +39,19 @@ export function appearanceItems({
             onChange({ ...settings, theme });
             if (theme !== id) listThemes(true).then(onThemesChange);
           }}
+        />
+      ),
+    },
+    {
+      section: "Appearance",
+      title: "File icons",
+      description: `Icon themes installed in VS Code, Cursor, Windsurf or VSCodium. Add your own to ~/${CUSTOM_ICON_THEMES_DIR}.`,
+      keywords: "icon theme pack file folder material seti jetbrains vs code",
+      control: (
+        <IconThemePicker
+          themes={iconThemes}
+          value={settings.icon_theme}
+          onChange={(icon_theme) => onChange({ ...settings, icon_theme })}
         />
       ),
     },

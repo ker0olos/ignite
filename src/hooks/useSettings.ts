@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { codeThemesFor, type ThemeKind } from "@/lib/codeThemes";
 import { DEMO_FOLDER } from "@/lib/demo";
+import { useApplyIconTheme } from "@/hooks/useIconTheme";
 import { importTheme, themeKind } from "@/lib/codeThemeLoad";
 import { applyPalettes, loadPalettes } from "@/lib/themePalette";
 import { setGlass, setGlassTheme } from "@/lib/window";
@@ -65,6 +66,8 @@ export function useSettings(demo = !!DEMO_FOLDER) {
       media.removeEventListener("change", apply);
     };
   }, [theme]);
+
+  useApplyIconTheme(settings.icon_theme);
 
   // Waits for the user's settings, so glass they turned off never flashes on.
   // In a browser (remote access) there is no window to glaze; the page stays opaque.

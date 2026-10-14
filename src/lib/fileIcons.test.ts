@@ -1,6 +1,14 @@
-import { Braces, CodeXml, File, Hash, Lock } from "lucide-react";
+import {
+  Braces,
+  CodeXml,
+  File,
+  Folder,
+  FolderOpen,
+  Hash,
+  Lock,
+} from "lucide-react";
 import { describe, expect, it } from "vitest";
-import { fileIcon } from "./fileIcons";
+import { fileIcon, minimalIcon } from "./fileIcons";
 
 describe("fileIcon", () => {
   it.each([
@@ -31,5 +39,11 @@ describe("fileIcon", () => {
   it("does not treat a name that equals an extension as one", () => {
     // "json" has no dot, so it is not a .json file.
     expect(fileIcon("json")).toBe(File);
+  });
+
+  it("gives folders their open or closed glyph", () => {
+    expect(minimalIcon("src", "folder")).toBe(Folder);
+    expect(minimalIcon("src", "openFolder")).toBe(FolderOpen);
+    expect(minimalIcon("a.json", "file")).toBe(Braces);
   });
 });

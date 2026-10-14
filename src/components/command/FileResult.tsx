@@ -1,8 +1,7 @@
-import { createElement } from "react";
 import { pathRanges } from "../../../shared/fuzzy";
 import { Highlight } from "@/components/command/Highlight";
 import { CommandShortcut } from "@/components/ui/command";
-import { fileIcon } from "@/lib/fileIcons";
+import { FileIcon } from "@/components/files/FileIcon";
 import { basename } from "@/lib/paths";
 
 /** A found file's row: its name, then the folders it's in, marked where `query` matched. */
@@ -19,7 +18,7 @@ export function FileResult({
   const cut = path.lastIndexOf("/") + 1;
   return (
     <>
-      {createElement(fileIcon(path), { className: "text-muted-foreground" })}
+      <FileIcon name={path} className="size-4 shrink-0 text-muted-foreground" />
       <span className="shrink-0">
         <Highlight text={path.slice(cut)} ranges={ranges} offset={cut} />
       </span>

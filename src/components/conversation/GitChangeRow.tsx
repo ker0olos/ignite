@@ -1,9 +1,8 @@
-import { createElement } from "react";
 import type { GitChange } from "../../../shared/git";
 import { RevertButton } from "@/components/conversation/RevertButton";
 import { useOpenTab } from "@/hooks/useOpenTab";
 import { diffTabId } from "@/lib/diffTabs";
-import { fileIcon } from "@/lib/fileIcons";
+import { FileIcon } from "@/components/files/FileIcon";
 import { basename, dirname } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +45,7 @@ export function GitChangeRow({
         title={file.path}
         className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left outline-none"
       >
-        {createElement(fileIcon(file.path), { className: "size-3.5 shrink-0" })}
+        <FileIcon name={file.path} className="size-3.5 shrink-0" />
         <span className="shrink-0">{basename(file.path)}</span>
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
           {dir}

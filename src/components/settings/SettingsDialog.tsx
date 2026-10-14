@@ -32,6 +32,7 @@ import { useScrollToNewServer } from "@/hooks/useScrollToNewServer";
 import type { useSkills } from "@/hooks/useSkills";
 import type { CodeTheme } from "@/lib/codeThemes";
 import { listThemes } from "@/lib/codeThemeDiscovery";
+import { listIconThemes, type IconThemeInfo } from "@/lib/iconThemes";
 import type { Settings } from "@/lib/settings";
 
 export type { Section } from "@/components/settings/sections";
@@ -78,13 +79,16 @@ export function SettingsDialog({
   const [editing, setEditing] = useState<McpServer | "new" | null>(null);
   const [query, setQuery] = useState("");
   const [themes, setThemes] = useState<CodeTheme[]>([]);
+  const [iconThemes, setIconThemes] = useState<IconThemeInfo[]>([]);
   const search = useRef<HTMLInputElement>(null);
 
   useScrollToNewServer(mcp.servers);
 
   // Rescan on every open so newly installed themes show up.
   useEffect(() => {
-    if (open) listThemes(true).then(setThemes);
+    if (!open) return;
+    listThemes(true).then(setThemes);
+    listIconThemes(true).then(setIconThemes);
   }, [open]);
 
   const items: Item[] = [
@@ -98,6 +102,7 @@ export function SettingsDialog({
     ...macItems(settings, onChange),
     ...appearanceItems({
       themes,
+      iconThemes,
       settings,
       onChange,
       onThemesChange: setThemes,

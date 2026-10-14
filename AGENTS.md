@@ -20,7 +20,7 @@ src/                     React frontend (almost all logic lives here)
                          zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner
-    files/               Lazy directory tree, read-only syntax-highlighted file view
+    files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer, model/effort/approval menus, git status, trust prompt
     conversation/        Transcript rendering: messages, tool rows (with approve/deny, or the
@@ -82,6 +82,7 @@ src/                     React frontend (almost all logic lives here)
     useAbout.ts          The commit the app runs from; Check for updates, reloading every window
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
+    useIconTheme.ts      The loaded icon theme every FileIcon draws with, and light or dark; useIconUrl.ts its images
     useRemoteAccess.ts   Main window: starts the remote access server, runs browsers' allowed Tauri calls
     useTasks.ts          The folder's tasks, pushed by the sidecar, with status from their conversations
     useTodos.ts          The open items of the folder's .todo files, read when the Tasks view shows
@@ -111,7 +112,11 @@ src/                     React frontend (almost all logic lives here)
     recent.ts            Recent-folders list logic
     conversationTags.ts  Conversation tags: splitting typed text, adding, removing, suggestions
     commandQuery.ts      Command center query: `@folder`, `@convos`/`@files`/`@folders`, result picks
-    fileIcons.ts         Extension → monochrome icon
+    fileIcons.ts         Extension → monochrome icon (the Minimal icon theme)
+    iconThemes.ts        VS Code icon themes: finding installed ones, loading one (fonts too), image URLs
+    iconResolve.ts       A file's or folder's icon in a VS Code icon theme, in VS Code's lookup order
+    iconThemeGroups.ts   Icon themes grouped for the picker
+    openFolders.ts       The file tree's open folders, remembered (localStorage, newest 500)
     menu.ts              macOS menu bar
     lifecycle.ts         Confirm before quitting or closing a window
     piHost.ts            Starts the pi host sidecar; request/response client
@@ -296,6 +301,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   remote.ts              Remote access: browsers share this sidecar; replies routed by id, events to all
   remoteServer.ts        Its HTTP server: proxies the UI from Vite, WebSocket; its links (network, Tailscale)
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
+public/icon-themes/      Bundled icon themes (VS Code format), served as-is
 demo/tempo/, demo/pantry/ Sample projects `npm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
@@ -353,6 +359,13 @@ Two places hold persisted data:
   copy's id, so uninstalling the editor later can't break it; the copy records
   `importedFrom`, and the picker lists it once. Never read other editors'
   settings; only their installed theme files.
+- **Icon theme:** `icon_theme` is `"minimal"` (the app's Lucide glyphs, the
+  default), `"jetbrains"` (bundled in `public/icon-themes/jetbrains`, fogio's
+  MIT-licensed JetBrains New UI icon theme, served with the app), or a VS
+  Code file icon theme's id (`<publisher>.<name>/<id>`), found in the same
+  VS Code-family editors' extensions or in `~/.ignite/icon-themes/` (each
+  folder there an extension with a `package.json`). Read in place, not
+  copied: one that's gone falls back to Minimal. Image and font icons both work.
 - **Editor settings** (`[editor]` in settings.toml): `font_family` (CSS list,
   default Menlo) and `word_wrap` for the file viewer.
 - **Conversation settings** (`[conversation]`): `show_thinking` (off by
@@ -410,6 +423,9 @@ Two places hold persisted data:
   sandboxes bash there instead of asking for each command. The sidecar reads
   them on every tool call (`sidecar/approvalSettings.ts`).
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
+- **File tree's open folders** in the webview's `localStorage`
+  (`file-tree-open`): absolute paths, so switching folders or relaunching
+  keeps them open (`lib/openFolders.ts`).
 - **Composer history** in the webview's `localStorage` (`composer-history`):
   the newest 100 sent messages, shared by every folder (`lib/history.ts`).
 - **pi's own files** in `~/.ignite/pi`: credentials (`auth.json`),

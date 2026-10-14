@@ -269,6 +269,7 @@ describe("loadSettings", () => {
 describe("saveSettings", () => {
   const next: Settings = {
     theme: "github-dark",
+    icon_theme: "minimal",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false, show_tree: false },
     conversation: {
