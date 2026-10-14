@@ -1,5 +1,6 @@
 import type { McpServer, McpServerStatus } from "../shared/hostProtocol.ts";
 import {
+  reload,
   shown,
   type HostContext,
   type McpStatusSnapshot,
@@ -122,9 +123,8 @@ async function reloadSessions(ctx: HostContext) {
   const mcp = await ctx.mcpSession?.catch(() => undefined);
   await mcp?.reload();
   for (const agent of ctx.agents.values()) {
-    const s = agent.session;
-    if (s?.isStreaming) agent.reloadWhenSettled = true;
-    else await s?.reload();
+    if (agent.session?.isStreaming) agent.reloadWhenSettled = true;
+    else await reload(agent);
   }
 }
 

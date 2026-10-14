@@ -85,7 +85,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     await ctx.runtime.logout(r.provider);
     return status(ctx, r.provider);
   },
-  open_session: (ctx, r) => open(ctx, r.cwd, r.session),
+  open_session: (ctx, r) => open(ctx, r.cwd, r.session, r.known),
   new_session: async (ctx, r) =>
     r.fork
       ? fork(ctx, r.cwd, r.fork.session, r.fork.task)

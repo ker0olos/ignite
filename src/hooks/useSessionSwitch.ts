@@ -11,46 +11,83 @@ export function nextShown(open: string[], closing: string): string | null {
 }
 
 /**
- * Shows and closes a folder's conversations, each running on its own. A
- * conversation shows from its saved messages (`preview`) while its session
- * starts, then as it is (`put`, which also gets null: no conversation).
- * Only the last one asked for shows, however the answers race.
+ * Shows and closes a folder's conversations, each running on its own. One the
+ * app already follows shows at once (`reshow`); another shows from its saved
+ * messages (`preview`) while its session starts. Then it shows as it is
+ * (`put`, which also gets null: no conversation). Only the last one asked
+ * for shows, however the answers race.
  */
 export function useSessionSwitch({
   host,
   folder,
   put,
   preview,
+  reshow,
+  drop,
   setError,
 }: {
   host: HostClient | null;
   folder: string | null;
-  put: (cwd: string, s: OpenedSession | null) => void;
+  /** False when the reply left out messages the app no longer has. */
+  put: (cwd: string, s: OpenedSession | null) => boolean;
   preview: (cwd: string, session: string, messages: AgentMessage[]) => void;
+  reshow: (cwd: string, session: string) => boolean;
+  drop: (session: string) => void;
   setError: (e: string | null) => void;
 }) {
   const wanted = useRef<string | null>(null);
+
+  /** Opens and shows a conversation (the folder's last without `session`) while `still()`; `known`: the app follows it. */
+  const open = useCallback(
+    async (
+      cwd: string,
+      still: () => boolean,
+      session?: string,
+      known?: string,
+    ) => {
+      if (!host) return;
+      const s = await host.request({
+        type: "open_session",
+        cwd,
+        session,
+        known,
+      });
+      if (!still() || put(cwd, s)) return;
+      // Forgotten while it opened: its messages are needed after all.
+      const again = await host.request({
+        type: "open_session",
+        cwd,
+        session: s!.session,
+      });
+      if (still()) put(cwd, again);
+    },
+    [host, put],
+  );
 
   const reveal = useCallback(
     async (cwd: string, session: string) => {
       if (!host) return;
       wanted.current = session;
-      const still = () => wanted.current === session;
       let started = false;
+      const still = () => wanted.current === session;
       setError(null);
-      void host
-        .request({ type: "read_session", cwd, session })
-        .then((m) => still() && !started && preview(cwd, session, m))
-        .catch(() => {});
-      try {
-        const s = await host.request({ type: "open_session", cwd, session });
-        started = true;
-        if (still()) put(cwd, s);
-      } catch (e) {
-        if (still()) setError((e as Error).message);
+      const known = reshow(cwd, session);
+      if (!known) {
+        void host
+          .request({ type: "read_session", cwd, session })
+          .then((m) => still() && !started && preview(cwd, session, m))
+          .catch(() => {});
       }
+      // Its answer ends the preview, shown or not.
+      const answered = () => {
+        started = true;
+        return still();
+      };
+      await open(cwd, answered, session, known ? session : undefined).catch(
+        (e: Error) => still() && setError(e.message),
+      );
     },
-    [host, put, preview, setError],
+    [host, open, preview, reshow, setError],
   );
 
   const show = useCallback(
@@ -65,6 +102,7 @@ export function useSessionSwitch({
       await host
         .request({ type: "close_session", cwd: folder, session })
         .catch((e: Error) => setError(e.message));
+      drop(session);
       if (session !== shown) return;
       const next = nextShown(open, session);
       if (next) await show(next);
@@ -73,8 +111,8 @@ export function useSessionSwitch({
         put(folder, null);
       }
     },
-    [host, folder, show, put, setError],
+    [host, folder, show, put, drop, setError],
   );
 
-  return { reveal, show, close };
+  return { open, reveal, show, close };
 }

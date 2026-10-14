@@ -24,8 +24,11 @@ export function cutOff(messages: AgentMessage[]): ToolCall[] | null {
   return stopReason === "toolUse" && calls.length ? calls : null;
 }
 
-/** Records a cut-off run's pending calls as not run, then has the agent carry on. */
-export async function resume(s: Session) {
+/**
+ * Records a cut-off run's pending calls as not run, then has the agent carry
+ * on. `changed` hears of the messages added without an event.
+ */
+export async function resume(s: Session, changed: () => void) {
   const calls = s.isStreaming ? null : cutOff(s.messages);
   if (!calls) return;
   const results = calls.map((call): ToolResultMessage => ({
@@ -38,6 +41,7 @@ export async function resume(s: Session) {
   }));
   for (const result of results) s.sessionManager.appendMessage(result);
   s.agent.state.messages = [...s.agent.state.messages, ...results];
+  changed();
   // A prompt, not triggerTurn: that skips before_agent_start (pi#5581), so
   // claude-bridge can't match the system prompt and fails the turn.
   await s.sendCustomMessage(

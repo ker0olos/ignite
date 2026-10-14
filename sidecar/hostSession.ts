@@ -85,6 +85,7 @@ export async function open(
   ctx: HostContext,
   cwd: string,
   id = reopened(ctx, cwd),
+  known?: string,
 ): Promise<OpenedSession | null> {
   if (id === undefined) {
     ctx.shown = null;
@@ -101,18 +102,22 @@ export async function open(
   // and like a prompt, once the worktree's ignored files are in.
   if (!started) {
     setTimeout(() => {
-      agent.ready.then(() => resume(s)).catch(reportTo(ctx, agent));
+      const changed = () => (agent.followed = false);
+      agent.ready.then(() => resume(s, changed)).catch(reportTo(ctx, agent));
     });
   }
   // Servers now have a status, even before the adapter reports any.
   if (isShown(ctx, agent)) await pushMcpServers(ctx);
+  const state = await sessionState(ctx, s);
+  // Taken after the last await, so no event falls between them and the app's.
+  const messages = messagesFor(s, !!agent.followed, known === id);
+  agent.followed = true;
   return {
-    ...(await sessionState(ctx, s)),
+    ...state,
     session: id,
     workdir: agent.workdir,
     trust: ctx.trust.get(cwd),
-    // pi lists a message once it ends; the one being written follows.
-    messages: [...s.messages, ...[s.agent.state.streamingMessage ?? []].flat()],
+    ...messages,
     running: s.isStreaming || !!agent.routing,
     ...(agent.routing && { routing: agent.routing.message }),
     ...(s.modelWarning && { modelWarning: s.modelWarning }),
@@ -122,6 +127,18 @@ export async function open(
       steering: [...s.getSteeringMessages()],
       followUp: [...s.getFollowUpMessages()],
     },
+  };
+}
+
+/**
+ * The conversation so far, unless the app follows it and says so (`known`):
+ * it has applied every event since, and a long one is megabytes.
+ */
+function messagesFor(s: Session, followed: boolean, known: boolean) {
+  if (followed && known) return {};
+  // pi lists a message once it ends; the one being written follows.
+  return {
+    messages: [...s.messages, ...[s.agent.state.streamingMessage ?? []].flat()],
   };
 }
 

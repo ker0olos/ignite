@@ -181,6 +181,12 @@ export type Agent = {
   /** Null while it opens. */
   session: Session | null;
   opening: Promise<Session>;
+  /**
+   * The app holds its messages and gets all its events, so opening it again
+   * needn't send them. Off until the app opens it, and after any change made
+   * without an event (resuming a cut-off run, a reload).
+   */
+  followed?: boolean;
   /** Between agent_start and agent_settled. */
   running: boolean;
   /** The user picked its model, so Model Router is off for it. */
@@ -275,6 +281,17 @@ export function shown(ctx: HostContext): Agent | undefined {
 /** Whether the app shows this conversation. */
 export function isShown(ctx: HostContext, agent: Agent): boolean {
   return shown(ctx) === agent;
+}
+
+/** Reloads its session, which may change its messages without an event: the app gets them again. */
+export async function reload(agent: Agent) {
+  agent.followed = false;
+  await agent.session?.reload();
+}
+
+/** Whether the app gets this conversation's events: it holds its messages, or shows it. */
+export function tellsApp(ctx: HostContext, agent: Agent): boolean {
+  return !!agent.followed || isShown(ctx, agent);
 }
 
 /** The folder's conversation to show: the last one shown, else another one open; a folder may have none. */

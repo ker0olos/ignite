@@ -11,40 +11,39 @@ import {
 } from "@/lib/transcript";
 
 /**
- * Applies the shown session's events and approval requests to its
- * transcript, ignoring those of the folder's other conversations. Returns the
- * function that approves or denies a waiting call, or answers its questions.
+ * Applies every followed conversation's events and approval requests to its
+ * own transcript, so each one is current when it shows. Returns the function
+ * that approves or denies a waiting call of the shown one, or answers its
+ * questions.
  */
 export function useSessionEvents(
-  opened: HostClient | null,
-  /** The shown conversation, read as each event arrives. */
-  session: { readonly current: string | null },
-  update: (f: (t: Transcript) => Transcript) => void,
+  host: HostClient | null,
+  /** The shown conversation, read when answering. */
+  shownNow: () => string | null,
+  apply: (session: string, f: (t: Transcript) => Transcript) => void,
   onError: (message: string) => void,
-  setState: (state: SessionState) => void,
+  setState: (state: SessionState, session: string) => void,
 ) {
   useEffect(() => {
-    if (!opened) return;
-    return opened.subscribe((message) => {
-      if ("session" in message && message.session !== session.current) return;
+    if (!host) return;
+    return host.subscribe((message) => {
       if (message.type === "session_event") {
-        update((t) => applyEvent(t, message.event));
-        // The router may have switched the model and effort; applied only
-        // while the same conversation still shows.
+        apply(message.session, (t) => applyEvent(t, message.event));
+        // The router may have switched the model and effort.
         if (message.event.type === "routing_end") {
           const routed = message.session;
-          opened
+          host
             .request({ type: "session_state", session: routed })
-            .then((state) => session.current === routed && setState(state))
+            .then((state) => setState(state, routed))
             .catch((e: Error) => onError(e.message));
         }
       } else if (message.type === "session_error") {
-        update((t) => applyError(t, message.error));
+        apply(message.session, (t) => applyError(t, message.error));
       } else if (message.type === "approval_request") {
-        update((t) => requestApproval(t, message.request));
+        apply(message.session, (t) => requestApproval(t, message.request));
       }
     });
-  }, [opened, session, update, onError, setState]);
+  }, [host, apply, onError, setState]);
 
   return useCallback(
     (
@@ -53,9 +52,10 @@ export function useSessionEvents(
       answers?: QuestionAnswer[],
       always?: boolean,
     ) => {
-      if (!opened) return;
-      update((t) => settleApproval(t, toolCallId));
-      opened
+      const shown = shownNow();
+      if (!host || !shown) return;
+      apply(shown, (t) => settleApproval(t, toolCallId));
+      host
         .send({
           type: "approval_answer",
           toolCallId,
@@ -65,6 +65,6 @@ export function useSessionEvents(
         })
         .catch((e: Error) => onError(e.message));
     },
-    [opened, update, onError],
+    [host, shownNow, apply, onError],
   );
 }

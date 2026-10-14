@@ -66,7 +66,10 @@ function fakeSession(messages: AgentMessage[], isStreaming = false) {
 describe("resume", () => {
   it("records pending calls as not run and continues the run", async () => {
     const s = fakeSession([user, assistant("toolUse")]);
-    await resume(s);
+    const changed = vi.fn();
+    await resume(s, changed);
+    // The app is told to fetch the messages again: no event carried these.
+    expect(changed).toHaveBeenCalledOnce();
     const notRun = expect.objectContaining({
       role: "toolResult",
       toolCallId: "t1",
@@ -85,8 +88,10 @@ describe("resume", () => {
   it("does nothing for a finished conversation or a running one", async () => {
     const done = fakeSession([user, assistant("stop", [])]);
     const running = fakeSession([user], true);
-    await resume(done);
-    await resume(running);
+    const changed = vi.fn();
+    await resume(done, changed);
+    await resume(running, changed);
+    expect(changed).not.toHaveBeenCalled();
     expect(done.sendCustomMessage).not.toHaveBeenCalled();
     expect(running.sendCustomMessage).not.toHaveBeenCalled();
     expect(done.prompt).not.toHaveBeenCalled();

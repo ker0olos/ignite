@@ -154,11 +154,19 @@ describe("routeMessage", () => {
     expect(router.route).toHaveBeenCalled();
   });
 
-  it("tells only a shown conversation's app that it's routing", async () => {
-    vi.mocked(router.route).mockResolvedValueOnce(null);
-    const { ctx, run } = setup([], false);
-    await run();
-    expect(ctx.send).not.toHaveBeenCalled();
+  it("tells the app only about a conversation it shows or follows", async () => {
+    vi.mocked(router.route)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    const hidden = setup([], false);
+    await hidden.run();
+    expect(hidden.ctx.send).not.toHaveBeenCalled();
+    const followed = setup([], false);
+    followed.agent.followed = true;
+    await followed.run();
+    expect(events(followed.ctx.send)).toContainEqual(
+      expect.objectContaining({ type: "routing_start" }),
+    );
   });
 
   it("refuses a second message while the first is routed, and Stop drops the first", async () => {

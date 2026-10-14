@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type {
   OpenedSession,
   ProjectTrust,
@@ -6,182 +6,197 @@ import type {
 } from "../../shared/hostProtocol";
 import type { AgentMessage } from "../../shared/agentTypes";
 import type { HostClient } from "@/lib/piHost";
-import { applyQueue } from "@/lib/queue";
-import { applyRouting } from "@/lib/routedMessage";
 import {
-  applyError,
-  applyEvent,
-  fromHistory,
-  requestApproval,
-  type Transcript,
-} from "@/lib/transcript";
+  toOpened,
+  toStarting,
+  type Entry,
+  type Opened,
+} from "@/lib/sessionEntry";
+import type { Transcript } from "@/lib/transcript";
 
-export type Opened = {
-  host: HostClient;
-  folder: string;
-  session: string;
-  /** Null while its session starts, with the transcript already shown. */
-  state: SessionState | null;
-  trust: ProjectTrust | null;
-  transcript: Transcript;
+/** How many recently shown conversations are kept (and stay rendered), so showing one again is instant. */
+export const KEPT = 8;
+
+type Shown = { host: HostClient; session: string | null };
+type Store = {
+  conversations: Record<string, Opened>;
+  /** The conversation each folder shows. */
+  shownIn: Record<string, Shown>;
+  /** Newest first. */
+  recent: string[];
 };
 
-/** A folder showing no conversation, until the user starts or picks one. */
-type Empty = { host: HostClient; folder: string; session: null };
+const EMPTY: Store = { conversations: {}, shownIn: {}, recent: [] };
 
-type Entry = Opened | Empty;
-
-const isOpened = (e: Entry | null): e is Opened => !!e && e.session !== null;
-
-/** A conversation whose session is starting, shown from its saved messages. */
-export const toStarting = (
+/** Points `cwd` at `session`; keeps only the recent conversations and those a folder shows. */
+function pointAt(
+  s: Store,
+  cwd: string,
   host: HostClient,
-  folder: string,
-  session: string,
-  messages: AgentMessage[],
-): Opened => ({
-  host,
-  folder,
-  session,
-  state: null,
-  trust: null,
-  transcript: fromHistory(messages, false),
-});
-
-/** The cache entry for what opening a folder's conversation returned. */
-export const toEntry = (
-  host: HostClient,
-  folder: string,
-  s: OpenedSession | null,
-): Entry => (s ? toOpened(host, folder, s) : { host, folder, session: null });
-
-const toOpened = (
-  host: HostClient,
-  folder: string,
-  {
-    session,
-    messages,
-    running,
-    trust,
-    modelWarning,
-    approvals,
-    toolRuns = [],
-    queue,
-    routing,
-    ...state
-  }: OpenedSession,
-): Opened => {
-  const history = toolRuns.reduce(applyEvent, fromHistory(messages, running));
-  // Shown again while the router reads its first message: that message shows, timed from its send.
-  const routed = routing
-    ? applyRouting(history, { type: "routing_start", message: routing })
-    : history;
-  const transcript = approvals.reduce(
-    requestApproval,
-    applyQueue(routed, queue),
+  session: string | null,
+): Store {
+  const shownIn = { ...s.shownIn, [cwd]: { host, session } };
+  const recent = session
+    ? [session, ...s.recent.filter((r) => r !== session)].slice(0, KEPT)
+    : s.recent;
+  const keep = new Set<string | null>(recent);
+  Object.values(shownIn).forEach((p) => keep.add(p.session));
+  const conversations = Object.fromEntries(
+    Object.entries(s.conversations).filter(([id]) => keep.has(id)),
   );
-  return {
-    host,
-    folder,
-    session,
-    state,
-    trust,
-    transcript: modelWarning
-      ? applyError(transcript, modelWarning)
-      : transcript,
-  };
-};
+  return { conversations, shownIn, recent };
+}
 
-/** What the app sees of the session; every field is null until it's open. */
-type View = {
-  state: SessionState | null;
-  /** The conversation. */
-  transcript: Transcript | null;
-  /** Whether the folder's own pi resources load. */
-  trust: ProjectTrust | null;
-  /** The session's host, for requests outside the conversation (e.g. a diff). */
-  host: HostClient | null;
-  /** The folder shows no conversation; one starts only when the user asks. */
-  none: boolean;
-};
-
-/** What the app sees of the entry; in a folder with none, what its first message would start with. */
-export const view = (e: Entry | null, draft: SessionState | null): View =>
-  isOpened(e)
-    ? {
-        state: e.state,
-        transcript: e.transcript,
-        trust: e.trust,
-        host: e.host,
-        none: false,
-      }
-    : {
-        state: e ? draft : null,
-        transcript: null,
-        trust: null,
-        host: null,
-        none: !!e,
-      };
+/** The folder's shown entry, if it belongs to `host`. */
+function shownEntry(
+  host: HostClient | null,
+  folder: string | null,
+  s: Store,
+): Entry | null {
+  const pointer = folder ? s.shownIn[folder] : undefined;
+  if (!host || !folder || pointer?.host !== host) return null;
+  if (pointer.session === null) return { host, folder, session: null };
+  const o = s.conversations[pointer.session];
+  return o?.host === host ? o : null;
+}
 
 /**
- * Every open folder's last known session, so switching back shows it at once;
- * each is tagged with its host, so a stale one never shows. Also the
- * conversation events apply to, which changes as soon as another is put
- * (before the next render).
+ * The conversations the app has recently shown, kept current by their
+ * events, so showing one again needs nothing from the sidecar; and the one
+ * each folder shows. Each is tagged with its host, so a stale one never
+ * shows. Reads are synchronous: a change right after showing one reaches it.
  */
 export function useSessionCache(
   host: HostClient | null,
   folder: string | null,
 ) {
-  const [sessions, setSessions] = useState<Record<string, Entry>>({});
-  const shownRef = useRef<string | null>(null);
-  // Events only apply once the sidecar has answered for this folder.
-  const synced = useRef<string | null>(null);
-  const folderRef = useRef(folder);
-  useEffect(() => {
-    folderRef.current = folder;
-  }, [folder]);
-  const cached = folder ? sessions[folder] : undefined;
-  const current = cached?.host === host ? cached : null;
-  const opened = current?.host ?? null;
-  // A late answer for a folder no longer shown is kept, but events stay the shown one's.
-  const put = useCallback((e: Entry) => {
-    if (e.folder === folderRef.current) {
-      shownRef.current = e.session;
-      synced.current = e.folder;
-    }
-    setSessions((all) => ({ ...all, [e.folder]: e }));
+  const [store, setStore] = useState(EMPTY);
+  const ref = useRef(store);
+  const update = useCallback((f: (s: Store) => Store) => {
+    ref.current = f(ref.current);
+    setStore(ref.current);
   }, []);
-  const patch = useCallback(
-    (f: (o: Opened) => Opened) =>
-      setSessions((all) => {
-        const o = folder ? all[folder] : undefined;
-        return isOpened(o ?? null)
-          ? { ...all, [o!.folder]: f(o as Opened) }
-          : all;
+  const change = useCallback(
+    (id: string | null, f: (o: Opened) => Opened) =>
+      update((s) => {
+        const o = id ? s.conversations[id] : undefined;
+        if (o?.host !== host) return s;
+        return {
+          ...s,
+          conversations: { ...s.conversations, [o.session]: f(o) },
+        };
       }),
+    [host, update],
+  );
+  const shownNow = useCallback(
+    () => (folder ? (ref.current.shownIn[folder]?.session ?? null) : null),
     [folder],
   );
-  const setState = useCallback(
-    (state: SessionState) => patch((o) => ({ ...o, state })),
-    [patch],
-  );
-  const update = useCallback(
-    (f: (t: Transcript) => Transcript) => {
-      if (synced.current !== folder) return;
-      patch((o) => ({ ...o, transcript: f(o.transcript) }));
+  // A followed conversation, not one still starting from its file.
+  const known = useCallback(
+    (session: string | null | undefined) => {
+      const o = session ? ref.current.conversations[session] : undefined;
+      return o?.host === host && o.state ? o : null;
     },
-    [patch, folder],
+    [host],
   );
+  const current = shownEntry(host, folder, store);
 
   return {
     current,
-    opened,
-    shownRef,
-    synced,
-    put,
-    patch,
-    setState,
-    update,
+    opened: current?.host ?? null,
+    /** Recently shown conversations, newest first, to keep rendered. */
+    kept: store.recent
+      .map((id) => store.conversations[id])
+      .filter((o): o is Opened => o?.host === host),
+    shownNow,
+    /**
+     * Shows what opening a conversation returned, or none. False when the
+     * reply left out messages the app no longer has: open it again without `known`.
+     */
+    show: useCallback(
+      (cwd: string, s: OpenedSession | null) => {
+        if (!host) return true;
+        if (!s) {
+          update((st) => pointAt(st, cwd, host, null));
+          return true;
+        }
+        const kept = ref.current.conversations[s.session];
+        const followed = kept?.host === host ? kept.transcript : undefined;
+        if (!s.messages && !followed) return false;
+        const o = toOpened(host, cwd, s, followed);
+        update((st) =>
+          pointAt(
+            { ...st, conversations: { ...st.conversations, [o.session]: o } },
+            cwd,
+            host,
+            o.session,
+          ),
+        );
+        return true;
+      },
+      [host, update],
+    ),
+    /** Shows a starting conversation from its saved messages. */
+    preview: useCallback(
+      (cwd: string, session: string, messages: AgentMessage[]) => {
+        if (!host) return;
+        const o = toStarting(host, cwd, session, messages);
+        update((st) =>
+          pointAt(
+            { ...st, conversations: { ...st.conversations, [session]: o } },
+            cwd,
+            host,
+            session,
+          ),
+        );
+      },
+      [host, update],
+    ),
+    /** Shows a followed conversation at once; false when there is none to show. */
+    reshow: useCallback(
+      (cwd: string, session: string) => {
+        if (!host || !known(session)) return false;
+        update((st) => pointAt(st, cwd, host, session));
+        return true;
+      },
+      [host, known, update],
+    ),
+    /** The conversation `cwd` shows, if the app follows it. */
+    knownIn: useCallback(
+      (cwd: string) => known(ref.current.shownIn[cwd]?.session)?.session,
+      [known],
+    ),
+    /** Applies an event to conversation `session`'s transcript. */
+    apply: useCallback(
+      (session: string, f: (t: Transcript) => Transcript) =>
+        change(session, (o) => ({ ...o, transcript: f(o.transcript) })),
+      [change],
+    ),
+    /** Sets conversation `session`'s model and effort (the shown one's by default). */
+    setState: useCallback(
+      (state: SessionState, session = shownNow()) =>
+        change(session, (o) => ({ ...o, state })),
+      [change, shownNow],
+    ),
+    /** Sets the trust of every kept conversation in `cwd`: it's the folder's. */
+    setTrust: useCallback(
+      (cwd: string, trust: ProjectTrust) =>
+        Object.values(ref.current.conversations)
+          .filter((o) => o.folder === cwd)
+          .forEach((o) => change(o.session, (c) => ({ ...c, trust }))),
+      [change],
+    ),
+    /** Forgets a closed conversation. */
+    drop: useCallback(
+      (session: string) =>
+        update((s) => {
+          const conversations = { ...s.conversations };
+          delete conversations[session];
+          const recent = s.recent.filter((r) => r !== session);
+          return { ...s, conversations, recent };
+        }),
+      [update],
+    ),
   };
 }

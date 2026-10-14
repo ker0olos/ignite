@@ -120,7 +120,7 @@ describe("the demo host", () => {
         cwd: TEMPO,
         session,
       });
-      return opened!.messages.findLast((m) => m.role === "user")!.timestamp!;
+      return opened!.messages!.findLast((m) => m.role === "user")!.timestamp!;
     };
     const age = Date.now() - (await lastUser("tempo-reload"));
     expect(age).toBeGreaterThanOrEqual(42_000);
