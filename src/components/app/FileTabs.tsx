@@ -47,12 +47,12 @@ export function FileTabs({
               })}
               <span className="truncate">{label.name}</span>
               {label.detail && (
-                <span className="text-xs text-muted-foreground italic">
+                <span className="min-w-0 truncate text-xs text-muted-foreground italic">
                   ({label.detail})
                 </span>
               )}
               {label.status && (
-                <span className="text-xs text-muted-foreground">
+                <span className="shrink-0 text-xs text-muted-foreground">
                   {label.status}
                 </span>
               )}

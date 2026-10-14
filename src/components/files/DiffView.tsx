@@ -56,9 +56,7 @@ export function DiffView({
     <div className="flex min-h-0 flex-1 flex-col">
       <nav className="flex h-8 shrink-0 items-center gap-1 pr-2 pl-4 text-xs text-muted-foreground">
         <PathCrumbs path={tab.path} />
-        <span className="shrink-0 whitespace-nowrap">
-          ({rangeLabel(tab.range)})
-        </span>
+        <span className="min-w-0 truncate">({rangeLabel(tab.range)})</span>
         {changes.count > 0 && <ChangeNav onStep={changes.go} />}
       </nav>
       {loaded && "message" in loaded ? (
