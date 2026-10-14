@@ -96,7 +96,7 @@ export function useSessionCache(
   const known = useCallback(
     (session: string | null | undefined) => {
       const o = session ? ref.current.conversations[session] : undefined;
-      return o?.host === host && o.state ? o : null;
+      return o?.host === host && o.state && !o.preview ? o : null;
     },
     [host],
   );

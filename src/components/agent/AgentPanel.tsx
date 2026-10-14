@@ -56,7 +56,7 @@ export function AgentPanel({
           return (
             <ConversationPane
               // The opened conversation replaces its preview drawn afresh, from its newest rows.
-              key={o.state ? o.session : `${o.session} preview`}
+              key={o.preview ? `${o.session} preview` : o.session}
               transcript={o.transcript}
               folder={o.folder}
               shown={shown}
