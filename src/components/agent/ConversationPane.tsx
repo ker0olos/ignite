@@ -2,6 +2,7 @@ import { memo, useRef } from "react";
 import { Conversation } from "@/components/conversation/Conversation";
 import {
   ContinueContext,
+  RunningContext,
   SkipWaitContext,
   type Editor,
   type ToolProps,
@@ -54,18 +55,20 @@ export const ConversationPane = memo(function ConversationPane({
         <ContinueContext.Provider
           value={running ? null : () => void send("Continue")}
         >
-          <Conversation
-            transcript={transcript}
-            folder={folder}
-            shown={shown}
-            editor={editor}
-            codeThemes={codeThemes}
-            showThinking={showThinking}
-            stickyUserMessages={stickyUserMessages}
-            scrollRef={ref}
-            onApprove={onApprove}
-            waitingOnFork={waitingOnFork}
-          />
+          <RunningContext.Provider value={running}>
+            <Conversation
+              transcript={transcript}
+              folder={folder}
+              shown={shown}
+              editor={editor}
+              codeThemes={codeThemes}
+              showThinking={showThinking}
+              stickyUserMessages={stickyUserMessages}
+              scrollRef={ref}
+              onApprove={onApprove}
+              waitingOnFork={waitingOnFork}
+            />
+          </RunningContext.Provider>
         </ContinueContext.Provider>
       </SkipWaitContext.Provider>
     </main>

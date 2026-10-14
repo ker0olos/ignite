@@ -16,6 +16,8 @@ export type ToolCall = {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
+  /** The arguments' JSON so far, while a streamed call is written (app only). */
+  partialJson?: string;
 };
 
 /** What the conversation runs on after routing; `kept` when the router left the user's default (it had no answer, or nothing to change). */

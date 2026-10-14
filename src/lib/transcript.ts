@@ -10,6 +10,7 @@ import type {
 import type { GitReview } from "../../shared/git";
 import { applyCompactionEvent, type CompactionItem } from "@/lib/compaction";
 import { applyRouting, ended } from "@/lib/routedMessage";
+import { nextBlock, type StreamUpdate } from "@/lib/streamBlocks";
 
 export type Item =
   | { kind: "message"; message: AgentMessage }
@@ -233,64 +234,13 @@ function setTool(t: Transcript, id: string, run: ToolRun): Transcript {
   return { ...t, tools: { ...t.tools, [id]: { ...t.tools[id], ...run } } };
 }
 
-type StreamUpdate = Extract<
-  SessionEvent,
-  { type: "message_update" }
->["assistantMessageEvent"];
-type ContentBlock = AssistantMessage["content"][number];
-
-function startOrEndBlock(update: StreamUpdate): ContentBlock | undefined {
-  switch (update.type) {
-    case "text_start":
-      return { type: "text", text: "" };
-    case "thinking_start":
-      return { type: "thinking", thinking: "" };
-    case "toolcall_start":
-      // Without a name the row can't be drawn; it shows at toolcall_end.
-      if (!update.toolName) return undefined;
-      return {
-        type: "toolCall",
-        id: update.id,
-        name: update.toolName,
-        arguments: {},
-      };
-    case "text_end":
-      return { type: "text", text: update.content };
-    case "thinking_end":
-      return { type: "thinking", thinking: update.content };
-    case "toolcall_end":
-      return update.toolCall;
-    default:
-      return undefined;
-  }
-}
-
-function deltaBlock(
-  update: StreamUpdate,
-  block: ContentBlock | undefined,
-): ContentBlock | undefined {
-  switch (update.type) {
-    case "text_delta":
-      return block?.type === "text"
-        ? { ...block, text: block.text + update.delta }
-        : undefined;
-    case "thinking_delta":
-      return block?.type === "thinking"
-        ? { ...block, thinking: block.thinking + update.delta }
-        : undefined;
-    default:
-      // toolcall_delta streams partial JSON; the call shows once it ends.
-      return undefined;
-  }
-}
-
 function updateStreaming(t: Transcript, update: StreamUpdate): Transcript {
   const i = newestAt(t, "assistant");
   if (i < 0 || !("contentIndex" in update)) return t;
   const message = (t.items[i] as { message: AssistantMessage }).message;
   const content = message.content.slice();
   const at = update.contentIndex;
-  const next = startOrEndBlock(update) ?? deltaBlock(update, content[at]);
+  const next = nextBlock(update, content[at]);
   if (!next) return t;
   content[at] = next;
   const items = t.items.slice();

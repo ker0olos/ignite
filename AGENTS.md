@@ -67,6 +67,8 @@ src/                     React frontend (almost all logic lives here)
     useTerminalSession.ts A terminal view's connection to the host: snapshot, live output, keystrokes
     useTerminalShortcut.ts ⌘1 / Ctrl+1 opens a terminal tab; returns run-in-terminal
     useRunInTerminal.ts  Run-in-terminal for assistant shell code blocks' Run button
+    useStreamedCall.ts   An artifact call's arguments while it's written, read a few times a second (useThrottled.ts)
+    useDraftFrame.ts     Posts a draft artifact page into its frame, which updates it in place
     useBlockLang.ts      A code block's language: its fence's, or bash once an untagged one parses as shell
     useTerminalTabs.ts   The folders' running terminals for the sidebar; Stop ends one, closing its tab doesn't
     useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request), read every 5s
@@ -116,6 +118,7 @@ src/                     React frontend (almost all logic lives here)
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     gitStatus.ts         Which of a conversation's repositories the composer shows, and their pull requests' state
     transcript.ts        Rebuilds the conversation from pi's session events
+    streamBlocks.ts      A streamed message's blocks: text, thinking, tool calls (an artifact's JSON as it's written)
     sessionEntry.ts      A conversation as the app keeps it, built from what opening it returned
     routedMessage.ts     The first message while the router reads it, shown until pi adds it
     compaction.ts        Compaction in the conversation: running, then its summary; saved summaries
@@ -150,7 +153,9 @@ src/                     React frontend (almost all logic lives here)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
     demoHtml.ts          The page the dark mode conversation shows with show_artifact
     demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images
-    artifact.ts          show_artifact's pages (and old show_html calls'); the HTML frame's policy and height
+    artifact.ts          show_artifact's pages (and old show_html calls'); the HTML frame's policy and height;
+                         drafts while the call is written (no scripts, no half-written tag)
+    artifactDraft.ts     A draft's frame: a shell loaded once, each draft swapped into it in place
     artifactStyles.ts    A page's bundled libraries: Tailwind (and daisyUI) compiled for the classes it uses
     artifactIcons.ts     A page's `i-lucide-*` / `i-simple-icons-*` icons as CSS masks, only the ones it uses
     artifactCapture.ts   Mark up: an artifact page drawn as a PNG (HTML frames draw themselves, html-to-image,

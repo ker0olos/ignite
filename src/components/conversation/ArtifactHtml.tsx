@@ -1,5 +1,7 @@
+import { useDraftFrame } from "@/hooks/useDraftFrame";
 import { useEmbeddedPage } from "@/hooks/useEmbeddedPage";
 import { frameHeight } from "@/lib/artifact";
+import { DRAFT_SHELL } from "@/lib/artifactDraft";
 import type { Library } from "@/lib/artifactStyles";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +12,7 @@ export function ArtifactHtml({
   libraries,
   height,
   fill,
+  draft,
 }: {
   title: string;
   html: string;
@@ -17,16 +20,21 @@ export function ArtifactHtml({
   height?: unknown;
   /** Fills its parent's height instead of taking `height`. */
   fill?: boolean;
+  /** Still being written: updated in place rather than reloaded. */
+  draft?: boolean;
 }) {
   const page = useEmbeddedPage(html, libraries);
+  const [frameRef, onLoad] = useDraftFrame(draft ? page : undefined);
   const style = fill ? undefined : { height: frameHeight(height) };
   const className = cn("w-full rounded-lg border bg-white", fill && "h-full");
-  if (page === undefined)
+  if (page === undefined && !draft)
     return <div data-artifact-loading style={style} className={className} />;
   return (
     <iframe
+      ref={frameRef}
+      onLoad={onLoad}
       title={title}
-      srcDoc={page}
+      srcDoc={draft ? DRAFT_SHELL : page}
       sandbox="allow-scripts"
       style={style}
       // A page with no background of its own draws on white, as in a browser.

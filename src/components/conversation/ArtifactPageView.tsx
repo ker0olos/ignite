@@ -30,6 +30,7 @@ export function ArtifactPageView({
         libraries={page.libraries}
         height={height}
         fill={fill}
+        draft={page.draft}
       />
     );
   return (

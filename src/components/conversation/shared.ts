@@ -29,6 +29,9 @@ export const SkipWaitContext = createContext<
   ((toolCallId: string) => Promise<boolean>) | null
 >(null);
 
+/** Whether the conversation runs, so a call it never ran (the run was stopped) shows as left. */
+export const RunningContext = createContext(false);
+
 /** Sends "Continue" after a failed run; null while one runs, or where nothing can send. */
 export const ContinueContext = createContext<(() => void) | null>(null);
 

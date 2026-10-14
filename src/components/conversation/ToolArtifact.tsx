@@ -4,25 +4,25 @@ import { ArtifactMarkupButton } from "@/components/conversation/ArtifactMarkupBu
 import { ArtifactPageView } from "@/components/conversation/ArtifactPageView";
 import type { Editor } from "@/components/conversation/shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { artifactPages } from "@/lib/artifact";
+import type { ArtifactPage } from "@/lib/artifact";
 import type { CodeThemes } from "@/lib/codeThemes";
 
 /** show_artifact's pages, as tabs when there are several, and Mark up for the shown one. */
 export function ToolArtifact({
-  args,
+  pages,
+  height,
   folder,
   editor,
   codeThemes,
 }: {
-  args: Record<string, unknown>;
+  pages: ArtifactPage[];
+  height: unknown;
   folder: string;
   editor: Editor;
   codeThemes: CodeThemes;
 }) {
-  const pages = artifactPages(args);
   const [shown, setShown] = useState(0);
   const pageRef = useRef<HTMLDivElement>(null);
-  if (!pages.length) return null;
   return (
     <Tabs
       value={shown}
@@ -59,7 +59,7 @@ export function ToolArtifact({
           <div ref={i === shown ? pageRef : undefined}>
             <ArtifactPageView
               page={page}
-              height={args.height}
+              height={height}
               folder={folder}
               editor={editor}
               codeThemes={codeThemes}
