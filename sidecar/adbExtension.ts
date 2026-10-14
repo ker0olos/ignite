@@ -88,6 +88,7 @@ export default function adbTools(pi: ExtensionAPI) {
       }),
       serial: Serial,
     }),
+    executionMode: "sequential",
     async execute(_id, { args, serial }, signal, _onUpdate, ctx) {
       const never = adbNeverExits(args);
       if (never) throw new Error(never);
