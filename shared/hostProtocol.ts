@@ -164,7 +164,14 @@ export type HostRequest =
    * A conversation's messages, read from its file (or its running session)
    * without starting it, so it shows while it starts.
    */
-  | { id: number; type: "read_session"; cwd: string; session: string }
+  | {
+      id: number;
+      type: "read_session";
+      cwd: string;
+      session: string;
+      /** Only about the last this many messages. */
+      tail?: number;
+    }
   | ({ id: number; type: "command_search" } & CommandSearch)
   /** What a saved conversation did: model, cost, files, cmem's summary… */
   | { id: number; type: "session_details"; cwd: string; session: string }

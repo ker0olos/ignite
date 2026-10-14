@@ -17,6 +17,13 @@ export function sessionFor(folder: string, workdir: string, id: string) {
   return SessionManager.create(workdir, dir, { id });
 }
 
+/** About the last `n` messages, never starting on a tool result cut off from its call. */
+export function lastMessages(messages: AgentMessage[], n: number) {
+  let from = Math.max(0, messages.length - n);
+  while (from > 0 && messages[from].role === "toolResult") from--;
+  return messages.slice(from);
+}
+
 /** pi's saved conversations, one file each under the agent dir's sessions/. */
 export const sessions: SessionStore = {
   create: () => randomUUID(),

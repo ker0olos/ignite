@@ -47,6 +47,7 @@ src/                     React frontend (almost all logic lives here)
     useAgentSession.ts   The folder's shown pi session: conversation, send/stop, trust, model and effort
     useSessionSwitch.ts  Showing and closing the shown folder's conversations
     useSessionCache.ts   Every open conversation shown so far, kept current by its events; the one each folder shows
+    useOlderRows.ts      A conversation draws its newest rows, older ones as the user scrolls up
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
     useCompact.ts        `/compact`: compacts the shown conversation
     useFork.ts           `/fork`: forks the shown conversation, shows the fork, sends it the text after `/fork`
