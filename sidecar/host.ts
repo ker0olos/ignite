@@ -43,7 +43,7 @@ import { backgroundOutput, stopBackground } from "./backgroundBash.ts";
 import { watchBackground } from "./hostWait.ts";
 import { skipWait } from "./skipWait.ts";
 import { describeSession } from "./describeSession.ts";
-import { lastMessages } from "./sessionStore.ts";
+import { messagesOf } from "./sessionStore.ts";
 import { listFiles } from "./fileIndex.ts";
 import { createSearch } from "./search.ts";
 import type { TrustStore } from "./trust.ts";
@@ -63,9 +63,6 @@ import {
 
 type IdRequest = Extract<HostRequest, { id: number }>;
 
-// A running conversation's own messages are newer than its file's.
-const messagesOf = async (ctx: HostContext, cwd: string, session: string) =>
-  ctx.agents.get(session)?.session?.messages ?? ctx.sessions.read(cwd, session);
 type Handler<K extends IdRequest["type"]> = (
   ctx: HostContext,
   request: Extract<IdRequest, { type: K }>,
@@ -96,10 +93,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     await closeConversation(ctx, r.cwd, r.session);
     if (r.session) await finishTask(ctx, r.cwd, r.session);
   },
-  read_session: async (ctx, r) => {
-    const messages = await messagesOf(ctx, r.cwd, r.session);
-    return r.tail ? lastMessages(messages, r.tail) : messages;
-  },
+  read_session: (ctx, r) => messagesOf(ctx, r.cwd, r.session, r.tail),
   command_search: (ctx, r) => ctx.search(r),
   session_details: async (ctx, r) => ({
     ...describeSession(await messagesOf(ctx, r.cwd, r.session), r.cwd),
