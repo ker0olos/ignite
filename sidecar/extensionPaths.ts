@@ -10,6 +10,7 @@ export const claudeBridge = sibling("pi-claude-bridge/src/index.ts");
 export const mcpExtension = sibling("./mcpExtension.ts");
 const exploring = sibling("./exploreExtension.ts");
 const webSearch = sibling("./webSearchExtension.ts");
+const waitFirst = sibling("./waitFirstExtension.ts");
 // Before approval, so a call a lesson blocks never asks.
 const lessons = sibling("./lessonExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
@@ -33,6 +34,7 @@ export const SESSION_EXTENSIONS = [
   sibling("./terminalExtension.ts"),
   sibling("./forkExtension.ts"),
   exploring,
+  waitFirst,
   lessons,
   sibling("./taskExtension.ts"),
   approval,
@@ -45,6 +47,7 @@ export const SUBAGENT_EXTENSIONS = [
   claudeBridge,
   webSearch,
   exploring,
+  waitFirst,
   lessons,
   approval,
 ];

@@ -135,6 +135,8 @@ function registerLooking(pi: ExtensionAPI, scope: Scope) {
       tab: TabParam,
       user_chrome: UserParam,
     }),
+    // A screenshot beside the click it should show waits for it.
+    executionMode: "sequential",
     async execute(_id, { expression, tab, user_chrome }) {
       const at = await scope.at(tab, user_chrome);
       return withTab(
@@ -162,6 +164,7 @@ function registerActing(pi: ExtensionAPI, scope: Scope) {
       ),
       user_chrome: UserParam,
     }),
+    executionMode: "sequential",
     async execute(_id, { url, tab, new_tab, user_chrome }) {
       if (new_tab) {
         const task = await scope.task();
@@ -215,6 +218,7 @@ function registerActing(pi: ExtensionAPI, scope: Scope) {
       browser: Type.Optional(Type.Boolean()),
       user_chrome: UserParam,
     }),
+    executionMode: "sequential",
     async execute(id, { method, params, tab, browser, user_chrome }) {
       const shown = async (result: unknown) =>
         text(show(await savedBlobs(result, method, params, id)));

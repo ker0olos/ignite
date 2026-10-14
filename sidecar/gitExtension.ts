@@ -233,6 +233,7 @@ export default function gitTools(pi: ExtensionAPI) {
       label: tool,
       description,
       parameters: tool === GIT_TOOL ? GitParams : Params,
+      executionMode: "sequential",
       async execute(toolCallId, params, signal, _onUpdate, ctx) {
         const { args } = params;
         const then = await pushAfter(params, ctx.cwd);
