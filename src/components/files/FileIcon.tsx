@@ -20,7 +20,7 @@ export function FileIcon({
   const image = icon && "image" in icon ? icon.image : undefined;
   const url = useIconUrl(image);
 
-  if (image) {
+  if (image && url !== null) {
     return url ? (
       <img src={url} alt="" draggable={false} className={className} />
     ) : (

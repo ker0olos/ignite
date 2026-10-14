@@ -181,3 +181,25 @@ describe("iconUrl", () => {
     expect(created[0].type).toBe("image/svg+xml");
   });
 });
+
+describe("iconUrlNow", () => {
+  it("has a bundled icon's URL, and a read one's, at once", async () => {
+    fake({ "/x/a.svg": "<svg/>" });
+    URL.createObjectURL = () => "blob:a";
+    expect(m.iconUrlNow("/icon-themes/jetbrains/a.svg")).toBe(
+      "/icon-themes/jetbrains/a.svg",
+    );
+    expect(m.iconUrlNow("/x/a.svg")).toBeUndefined();
+    await m.iconUrl("/x/a.svg");
+    expect(m.iconUrlNow("/x/a.svg")).toBe("blob:a");
+  });
+
+  it("tries a failed read again", async () => {
+    const tree: Record<string, string> = {};
+    fake(tree);
+    URL.createObjectURL = () => "blob:b";
+    await expect(m.iconUrl("/x/b.svg")).rejects.toThrow();
+    tree["/x/b.svg"] = "<svg/>";
+    expect(await m.iconUrl("/x/b.svg")).toBe("blob:b");
+  });
+});

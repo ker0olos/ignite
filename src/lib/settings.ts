@@ -9,7 +9,7 @@ import { parse, stringify } from "smol-toml";
 import type { ApprovalMode } from "../../shared/hostProtocol";
 import { APP_NAME } from "./app";
 import { SYSTEM_THEME } from "./codeThemes";
-import { MINIMAL_ICONS } from "./iconThemes";
+import { MINIMAL_ICONS } from "./iconResolve";
 
 /** Shape of ~/.<APP_NAME>/settings.toml (keys stay snake_case, as in TOML). */
 export type Settings = {

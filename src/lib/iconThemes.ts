@@ -16,9 +16,6 @@ import {
 } from "./iconResolve";
 import { basename, dirname } from "./paths";
 
-/** The app's own Lucide glyphs, the default `icon_theme`. */
-export const MINIMAL_ICONS = "minimal";
-
 /** Folder of VS Code icon theme extensions the user adds by hand, relative to home. */
 export const CUSTOM_ICON_THEMES_DIR = `.${APP_NAME}/icon-themes`;
 
@@ -79,10 +76,7 @@ async function scan(root: string, source: IconThemeInfo["source"]) {
 
 let discovered: Promise<IconThemeInfo[]> | null = null;
 
-/**
- * The bundled icon themes, then those installed in VS Code-family editors
- * and in the custom folder, each listed once. Cached; pass `refresh` to rescan the disk.
- */
+/** Bundled, editor-installed and custom icon themes, each once; cached unless `refresh`. */
 export function listIconThemes(refresh = false) {
   if (!discovered || refresh) {
     discovered = homeDir().then(async (home) => {
@@ -126,7 +120,9 @@ async function loadFonts(id: string, file: IconThemeFile, dir: string) {
 
 /** Loads an icon theme by id; rejects when it's no longer installed. */
 export async function loadIconTheme(id: string): Promise<IconTheme> {
-  const info = (await listIconThemes()).find((t) => t.id === id);
+  const info =
+    BUILT_IN_ICON_THEMES.find((t) => t.id === id) ??
+    (await listIconThemes()).find((t) => t.id === id);
   if (!info) throw new Error(`icon theme not found: ${id}`);
   const file = normalizeTheme(
     info.source === "Built-in"
@@ -160,15 +156,30 @@ const MIME: Record<string, string> = {
 };
 
 const urls = new Map<string, Promise<string>>();
+const ready = new Map<string, string>();
 
-/** An icon file as an object URL, read once per path; a bundled one's own URL. */
+/** An icon file's URL if it's at hand now: a bundled one's own, or one already read. */
+export function iconUrlNow(path: string) {
+  return path.startsWith(BUILT_IN_DIR) ? path : ready.get(path);
+}
+
+/** An icon file as an object URL, read once per path (a failed read is tried again next time). */
 export function iconUrl(path: string) {
-  if (path.startsWith(BUILT_IN_DIR)) return Promise.resolve(path);
+  const now = iconUrlNow(path);
+  if (now) return Promise.resolve(now);
   let url = urls.get(path);
   if (!url) {
     const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
-    url = readFile(path).then((bytes) =>
-      URL.createObjectURL(new Blob([bytes], { type: MIME[ext] })),
+    url = readFile(path).then(
+      (bytes) => {
+        const u = URL.createObjectURL(new Blob([bytes], { type: MIME[ext] }));
+        ready.set(path, u);
+        return u;
+      },
+      (e: unknown) => {
+        urls.delete(path);
+        throw e;
+      },
     );
     urls.set(path, url);
   }

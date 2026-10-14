@@ -14,6 +14,11 @@ function load(): string[] {
 
 let open: Set<string> | null = null;
 
+// Another window saved its folders: read them again next time.
+window.addEventListener("storage", (e) => {
+  if (e.key === KEY || e.key === null) open = null;
+});
+
 /** Whether the file tree last showed this folder open (every window and folder, across launches). */
 export function isFolderOpen(path: string) {
   open ??= new Set(load());
@@ -22,7 +27,8 @@ export function isFolderOpen(path: string) {
 
 /** Remembers a file tree folder opened or closed, keeping the newest 500 open ones. */
 export function setFolderOpen(path: string, isOpen: boolean) {
-  open ??= new Set(load());
+  // Read afresh, so another window's latest folders aren't written over.
+  open = new Set(load());
   open.delete(path);
   if (isOpen) open.add(path);
   try {

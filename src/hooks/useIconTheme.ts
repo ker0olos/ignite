@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { loadIconTheme, MINIMAL_ICONS, type IconTheme } from "@/lib/iconThemes";
+import { MINIMAL_ICONS } from "@/lib/iconResolve";
+import { loadIconTheme, type IconTheme } from "@/lib/iconThemes";
 
 type Snapshot = { theme: IconTheme | null; light: boolean };
 

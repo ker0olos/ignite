@@ -1,3 +1,6 @@
+/** The app's own Lucide glyphs, the default `icon_theme`. */
+export const MINIMAL_ICONS = "minimal";
+
 /** One icon of a VS Code file icon theme: an image file, or a glyph of one of its fonts. */
 export type IconDefinition = {
   iconPath?: string;
@@ -140,11 +143,7 @@ function fileIconId(maps: Associations[], name: string) {
   );
 }
 
-/**
- * The icon definition id a file or folder gets, in VS Code's order: name,
- * extension (longest first), language, then the default. Light mode tries
- * the theme's `light` overrides first at each step.
- */
+/** A file's or folder's icon id, in VS Code's order (name, extension, language, default), `light` first. */
 export function iconIdFor(
   theme: IconThemeFile,
   name: string,

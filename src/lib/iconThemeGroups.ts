@@ -1,4 +1,5 @@
-import { MINIMAL_ICONS, type IconThemeInfo } from "./iconThemes";
+import { MINIMAL_ICONS } from "./iconResolve";
+import type { IconThemeInfo } from "./iconThemes";
 
 const MINIMAL: IconThemeInfo = {
   id: MINIMAL_ICONS,
@@ -7,10 +8,7 @@ const MINIMAL: IconThemeInfo = {
   path: "",
 };
 
-/**
- * Icon themes by source, sorted by label, Minimal (the default) first among
- * the built-in ones; a saved one no longer installed shows under Missing.
- */
+/** Icon themes by source and label, Minimal first; a saved one that's gone under Missing. */
 export function iconThemeGroups(themes: IconThemeInfo[], selected: string) {
   const groups = (["Built-in", "Custom", "VS Code"] as const)
     .map((source) => ({
