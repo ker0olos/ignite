@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { artifactPages, embeddedPage, frameHeight } from "./artifact";
+import {
+  artifactPages,
+  draftArgs,
+  draftHtml,
+  embeddedPage,
+  frameHeight,
+  rowPages,
+} from "./artifact";
 
 describe("artifactPages", () => {
   it("reads each page as HTML or markdown, labelling untitled ones", () => {
@@ -85,5 +92,59 @@ describe("frameHeight", () => {
     expect(frameHeight(undefined)).toBe(360);
     expect(frameHeight(-5)).toBe(360);
     expect(frameHeight("tall")).toBe(360);
+  });
+});
+
+describe("draftArgs", () => {
+  it("reads the arguments written so far", () => {
+    expect(draftArgs('{"pages":[{"title":"A","html":"<div cla')).toEqual({
+      pages: [{ title: "A", html: "<div cla" }],
+    });
+  });
+
+  it("has none before the JSON starts", () => {
+    expect(draftArgs("")).toEqual({});
+    expect(draftArgs("4")).toEqual({});
+  });
+});
+
+describe("draftHtml", () => {
+  it("leaves out scripts, finished or not", () => {
+    expect(draftHtml("<p>a</p><script>go()</script><p>b</p><script>x(")).toBe(
+      "<p>a</p><p>b</p>",
+    );
+  });
+
+  it("drops a half-written tag at the end", () => {
+    expect(draftHtml('<p>a</p><div class="x')).toBe("<p>a</p>");
+  });
+});
+
+describe("rowPages", () => {
+  const call = (name = "show_artifact") => ({
+    name,
+    args: { pages: [{ title: "A", html: "<p>a</p><script>x()</script>" }] },
+  });
+
+  it("shows drafts while the call is written and checked", () => {
+    const draft = [
+      { title: "A", html: "<p>a</p>", libraries: [], draft: true },
+    ];
+    expect(rowPages(call(), undefined, true)).toEqual(draft);
+    expect(rowPages(call(), { status: "running" }, true)).toEqual(draft);
+  });
+
+  it("shows the whole page once it's done", () => {
+    expect(rowPages(call(), { status: "done" }, false)[0]).toMatchObject({
+      html: "<p>a</p><script>x()</script>",
+    });
+  });
+
+  it("shows nothing while it asks, after it fails, for other tools, or once a stopped run left it unrun", () => {
+    const waiting = { status: "running" as const, approval: {} };
+    expect(rowPages(call(), waiting, true)).toEqual([]);
+    expect(rowPages(call(), { status: "error" }, false)).toEqual([]);
+    expect(rowPages(call("bash"), { status: "done" }, false)).toEqual([]);
+    expect(rowPages(call(), undefined, false)).toEqual([]);
   });
 });

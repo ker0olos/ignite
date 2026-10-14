@@ -13,10 +13,11 @@ import { GH_TOOL, GIT_TOOL } from "../../../shared/git";
 import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL } from "../../../shared/subagents";
 import { TASK_ADD_TOOL, TASK_TOOL, readProposed } from "../../../shared/tasks";
-import { useContext } from "react";
+import { useContext, useMemo } from "react";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
 import { ShellEdits } from "@/components/conversation/ShellEdits";
 import {
+  RunningContext,
   SkipWaitContext,
   type ToolProps,
 } from "@/components/conversation/shared";
@@ -24,6 +25,8 @@ import { ToolArtifact } from "@/components/conversation/ToolArtifact";
 import { ToolHead } from "@/components/conversation/ToolHead";
 import { ToolOutcome } from "@/components/conversation/ToolOutcome";
 import { ToolRunOutcome } from "@/components/conversation/ToolRunOutcome";
+import { useStreamedCall } from "@/hooks/useStreamedCall";
+import { rowPages } from "@/lib/artifact";
 import { mcpCall } from "@/lib/mcpToolCall";
 import { readQuestions } from "@/lib/questions";
 import { canSkipWait, showsNothingYet } from "@/lib/toolRows";
@@ -40,8 +43,6 @@ function resultText(result: ToolResult | undefined) {
     .map((b) => b.text)
     .join("\n");
 }
-
-const ARTIFACT_TOOLS = new Set([ARTIFACT_TOOL, LEGACY_HTML_TOOL]);
 
 const TOOL_TITLES: Record<string, string> = {
   read: "Read",
@@ -127,9 +128,15 @@ export function ToolView({
   tools,
   onApprove,
 }: ToolProps) {
+  const shown = useStreamedCall(call);
   const mcp = mcpCall(call.name, call.arguments);
   const text = resultText(run?.result);
   const skip = useContext(SkipWaitContext);
+  const running = useContext(RunningContext);
+  const pages = useMemo(
+    () => rowPages({ name: call.name, args: shown.arguments }, run, running),
+    [call.name, shown.arguments, run, running],
+  );
   return (
     <div className="space-y-1">
       <ToolHead
@@ -141,34 +148,37 @@ export function ToolView({
             toolTitle(call)
           )
         }
-        arg={mcp ? "" : toolArg(call, folder)}
+        arg={mcp ? "" : toolArg(shown, folder)}
         folder={folder}
       />
-      {run &&
+      {pages.length > 0 ? (
+        <ToolOutcome>
+          <ToolArtifact
+            pages={pages}
+            height={shown.arguments.height}
+            folder={folder}
+            editor={editor}
+            codeThemes={codeThemes}
+          />
+        </ToolOutcome>
+      ) : (
+        run &&
         !showsNothingYet(call, run, text, !!skip && canSkipWait(call, run)) && (
           <ToolOutcome>
-            {ARTIFACT_TOOLS.has(call.name) && run.status === "done" ? (
-              <ToolArtifact
-                args={call.arguments}
-                folder={folder}
-                editor={editor}
-                codeThemes={codeThemes}
-              />
-            ) : (
-              <ToolRunOutcome
-                call={call}
-                run={run}
-                text={text}
-                editor={editor}
-                codeThemes={codeThemes}
-                folder={folder}
-                tools={tools}
-                onApprove={onApprove}
-              />
-            )}
+            <ToolRunOutcome
+              call={call}
+              run={run}
+              text={text}
+              editor={editor}
+              codeThemes={codeThemes}
+              folder={folder}
+              tools={tools}
+              onApprove={onApprove}
+            />
             <ShellEdits run={run} editor={editor} codeThemes={codeThemes} />
           </ToolOutcome>
-        )}
+        )
+      )}
     </div>
   );
 }

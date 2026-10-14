@@ -184,6 +184,39 @@ describe("applyEvent", () => {
       started,
     );
     expect(lastMessage(ended)).toMatchObject({ content: [call] });
+    expect(
+      (lastMessage(started) as AssistantMessage).content[0],
+    ).not.toHaveProperty("partialJson");
+  });
+
+  it("keeps an artifact call's JSON as it's written, until its end", () => {
+    const artifact = {
+      type: "toolCall" as const,
+      id: "a1",
+      name: "show_artifact",
+      arguments: { title: "X" },
+    };
+    const started = run([
+      { type: "message_start", message: assistant() },
+      update({
+        type: "toolcall_start",
+        contentIndex: 0,
+        id: "a1",
+        toolName: "show_artifact",
+      }),
+      update({ type: "toolcall_delta", contentIndex: 0, delta: '{"ti' }),
+      update({ type: "toolcall_delta", contentIndex: 0, delta: 'tle":"X' }),
+    ]);
+    expect(lastMessage(started)).toMatchObject({
+      content: [{ name: "show_artifact", partialJson: '{"title":"X' }],
+    });
+    const ended = run(
+      [update({ type: "toolcall_end", contentIndex: 0, toolCall: artifact })],
+      started,
+    );
+    expect(lastMessage(ended)).toEqual(
+      expect.objectContaining({ content: [artifact] }),
+    );
   });
 
   it("waits for a tool call's end when its start has no name", () => {

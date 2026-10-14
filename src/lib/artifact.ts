@@ -1,10 +1,19 @@
 import { CAPTURE_SCRIPTS } from "@/lib/artifactCapture";
-import { ARTIFACT_CSP } from "../../shared/agentTypes";
+import { parse as parsePartialJson } from "partial-json";
+import {
+  ARTIFACT_CSP,
+  ARTIFACT_TOOL,
+  LEGACY_HTML_TOOL,
+  type ToolCall,
+} from "../../shared/agentTypes";
 import { artifactLibraries, type Library } from "@/lib/artifactStyles";
+import type { ToolRun } from "@/lib/transcript";
 
 /** One page of an artifact: an HTML page (with the libraries it asked for) or markdown, under its tab label. */
 export type ArtifactPage = {
   title: string;
+  /** Still being written: its HTML has no scripts yet. */
+  draft?: boolean;
 } & ({ html: string; libraries: Library[] } | { markdown: string });
 
 /** The message a page sends when Esc is pressed in it. */
@@ -39,6 +48,49 @@ function readPage(page: unknown, i: number): ArtifactPage | undefined {
   if (typeof html === "string")
     return { title: label, html, libraries: artifactLibraries(fields) };
   return undefined;
+}
+
+/** A streamed call's arguments so far; partial strings, arrays and objects are cut where the JSON ends. */
+export function draftArgs(json: string): Record<string, unknown> {
+  try {
+    const args: unknown = parsePartialJson(json);
+    return args && typeof args === "object"
+      ? (args as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+/** A page still being written, safe to draw: no scripts (they run once it's whole) and no half-written tag at its end. */
+export function draftHtml(html: string): string {
+  return html
+    .replace(/<script\b[\s\S]*?(?:<\/script\s*>|$)/gi, "")
+    .replace(/<[^>]*$/, "");
+}
+
+const ARTIFACT_TOOLS = new Set([ARTIFACT_TOOL, LEGACY_HTML_TOOL]);
+
+/** The pages an artifact call's row shows: drafts until its check passes; none while it asks, after it failed, or once a stopped run left it unrun. */
+export function rowPages(
+  { name, args }: { name: string; args: ToolCall["arguments"] },
+  run: ToolRun | undefined,
+  running: boolean,
+): ArtifactPage[] {
+  if (
+    !ARTIFACT_TOOLS.has(name) ||
+    run?.approval ||
+    run?.status === "error" ||
+    (!run && !running)
+  )
+    return [];
+  const pages = artifactPages(args);
+  if (run?.status === "done") return pages;
+  return pages.map((page) =>
+    "html" in page
+      ? { ...page, html: draftHtml(page.html), draft: true }
+      : page,
+  );
 }
 
 /** An artifact call's pages; a show_html call (the tool's earlier form) is one HTML page. */
