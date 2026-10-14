@@ -797,6 +797,156 @@
   },
   "file_schema_light": {
    "iconPath": "./icons/file/schema.svg"
+  },
+  "file_ws_css": {
+   "iconPath": "./icons/file/css_dark.svg"
+  },
+  "file_ws_css_light": {
+   "iconPath": "./icons/file/css.svg"
+  },
+  "file_ws_graphql": {
+   "iconPath": "./icons/file/graphql_dark.svg"
+  },
+  "file_ws_graphql_light": {
+   "iconPath": "./icons/file/graphql.svg"
+  },
+  "file_ws_vue": {
+   "iconPath": "./icons/file/vue.svg"
+  },
+  "file_ws_vue_light": {
+   "iconPath": "./icons/file/vue.svg"
+  },
+  "file_ws_gradle": {
+   "iconPath": "./icons/file/gradle_dark.svg"
+  },
+  "file_ws_gradle_light": {
+   "iconPath": "./icons/file/gradle.svg"
+  },
+  "file_ws_bazel": {
+   "iconPath": "./icons/file/bazel_dark.svg"
+  },
+  "file_ws_bazel_light": {
+   "iconPath": "./icons/file/bazel.svg"
+  },
+  "file_ws_jsonschema": {
+   "iconPath": "./icons/file/jsonSchema_dark.svg"
+  },
+  "file_ws_jsonschema_light": {
+   "iconPath": "./icons/file/jsonSchema.svg"
+  },
+  "file_ws_patch": {
+   "iconPath": "./icons/file/patch_dark.svg"
+  },
+  "file_ws_patch_light": {
+   "iconPath": "./icons/file/patch.svg"
+  },
+  "file_ws_jsp": {
+   "iconPath": "./icons/file/jsp_dark.svg"
+  },
+  "file_ws_jsp_light": {
+   "iconPath": "./icons/file/jsp.svg"
+  },
+  "file_ws_jspx": {
+   "iconPath": "./icons/file/jspx_dark.svg"
+  },
+  "file_ws_jspx_light": {
+   "iconPath": "./icons/file/jspx.svg"
+  },
+  "file_ws_javaclass": {
+   "iconPath": "./icons/file/javaClass_dark.svg"
+  },
+  "file_ws_javaclass_light": {
+   "iconPath": "./icons/file/javaClass.svg"
+  },
+  "file_ws_idl": {
+   "iconPath": "./icons/file/idl_dark.svg"
+  },
+  "file_ws_idl_light": {
+   "iconPath": "./icons/file/idl.svg"
+  },
+  "file_ws_perl": {
+   "iconPath": "./icons/file/perl_dark.svg"
+  },
+  "file_ws_perl_light": {
+   "iconPath": "./icons/file/perl.svg"
+  },
+  "file_ws_rst": {
+   "iconPath": "./icons/file/rst_dark.svg"
+  },
+  "file_ws_rst_light": {
+   "iconPath": "./icons/file/rst.svg"
+  },
+  "file_ws_sourcemap": {
+   "iconPath": "./icons/file/sourceMap_dark.svg"
+  },
+  "file_ws_sourcemap_light": {
+   "iconPath": "./icons/file/sourceMap.svg"
+  },
+  "file_ws_xhtml": {
+   "iconPath": "./icons/file/xhtml_dark.svg"
+  },
+  "file_ws_xhtml_light": {
+   "iconPath": "./icons/file/xhtml.svg"
+  },
+  "file_ws_xsd": {
+   "iconPath": "./icons/file/xsd_dark.svg"
+  },
+  "file_ws_xsd_light": {
+   "iconPath": "./icons/file/xsd.svg"
+  },
+  "file_ws_wsdl": {
+   "iconPath": "./icons/file/wsdl_dark.svg"
+  },
+  "file_ws_wsdl_light": {
+   "iconPath": "./icons/file/wsdl.svg"
+  },
+  "file_ws_hprof": {
+   "iconPath": "./icons/file/hprof_dark.svg"
+  },
+  "file_ws_hprof_light": {
+   "iconPath": "./icons/file/hprof.svg"
+  },
+  "file_ws_jfr": {
+   "iconPath": "./icons/file/jfr_dark.svg"
+  },
+  "file_ws_jfr_light": {
+   "iconPath": "./icons/file/jfr.svg"
+  },
+  "file_ws_manifest": {
+   "iconPath": "./icons/file/manifest_dark.svg"
+  },
+  "file_ws_manifest_light": {
+   "iconPath": "./icons/file/manifest.svg"
+  },
+  "file_ws_microsoftwindows": {
+   "iconPath": "./icons/file/microsoftWindows_dark.svg"
+  },
+  "file_ws_microsoftwindows_light": {
+   "iconPath": "./icons/file/microsoftWindows.svg"
+  },
+  "file_ws_binarydata": {
+   "iconPath": "./icons/file/binaryData_dark.svg"
+  },
+  "file_ws_binarydata_light": {
+   "iconPath": "./icons/file/binaryData.svg"
+  },
+  "file_ws_ideamodule": {
+   "iconPath": "./icons/file/ideaModule_dark.svg"
+  },
+  "file_ws_ideamodule_light": {
+   "iconPath": "./icons/file/ideaModule.svg"
+  },
+  "file_ws_uiform": {
+   "iconPath": "./icons/file/uiForm_dark.svg"
+  },
+  "file_ws_uiform_light": {
+   "iconPath": "./icons/file/uiForm.svg"
+  },
+  "file_ws_aspectj": {
+   "iconPath": "./icons/file/aspectJ_dark.svg"
+  },
+  "file_ws_aspectj_light": {
+   "iconPath": "./icons/file/aspectJ.svg"
   }
  },
  "file": "file_text",
@@ -945,13 +1095,24 @@
   "main.go": "file_go_run",
   "conftest.py": "file_python_tests",
   "__init__.py": "file_python_console",
-  "Jenkinsfile": "file_jenkins"
+  "Jenkinsfile": "file_jenkins",
+  "build.gradle": "file_ws_gradle",
+  "settings.gradle": "file_ws_gradle",
+  "build.gradle.kts": "file_ws_gradle",
+  "settings.gradle.kts": "file_ws_gradle",
+  "gradle.properties": "file_ws_gradle",
+  "BUILD": "file_ws_bazel",
+  "BUILD.bazel": "file_ws_bazel",
+  "WORKSPACE": "file_ws_bazel",
+  "WORKSPACE.bazel": "file_ws_bazel",
+  "MODULE.bazel": "file_ws_bazel",
+  "MANIFEST.MF": "file_ws_manifest"
  },
  "fileExtensions": {
   "ml": "file_ml",
   "mli": "file_mli",
   "opam": "file_opam",
-  "css": "file_css",
+  "css": "file_ws_css",
   "dart": "file_dart",
   "erb": "file_erb",
   "scss": "file_scss",
@@ -975,7 +1136,7 @@
   "csv": "file_csv",
   "xlsx": "file_csv",
   "xls": "file_csv",
-  "vue": "file_vue",
+  "vue": "file_ws_vue",
   "png": "file_image",
   "webp": "file_image",
   "jpg": "file_image",
@@ -1075,8 +1236,8 @@
   "erl": "file_erlang",
   "lua": "file_lua",
   "hs": "file_haskell",
-  "graphql": "file_graphql",
-  "gql": "file_graphql",
+  "graphql": "file_ws_graphql",
+  "gql": "file_ws_graphql",
   "test.ts": "file_test_ts",
   "test.tsx": "file_test_tsx",
   "test.jsx": "file_test_jsx",
@@ -1105,7 +1266,34 @@
   "gotmpl": "file_go_template",
   "groovy": "file_groovy",
   "bpmn": "file_schema",
-  "arb": "file_json"
+  "arb": "file_json",
+  "gradle": "file_ws_gradle",
+  "bzl": "file_ws_bazel",
+  "bazel": "file_ws_bazel",
+  "schema.json": "file_ws_jsonschema",
+  "patch": "file_ws_patch",
+  "diff": "file_ws_patch",
+  "jsp": "file_ws_jsp",
+  "jspx": "file_ws_jspx",
+  "class": "file_ws_javaclass",
+  "idl": "file_ws_idl",
+  "pl": "file_ws_perl",
+  "pm": "file_ws_perl",
+  "rst": "file_ws_rst",
+  "map": "file_ws_sourcemap",
+  "xhtml": "file_ws_xhtml",
+  "xsd": "file_ws_xsd",
+  "wsdl": "file_ws_wsdl",
+  "hprof": "file_ws_hprof",
+  "jfr": "file_ws_jfr",
+  "mf": "file_ws_manifest",
+  "cmd": "file_ws_microsoftwindows",
+  "msi": "file_ws_microsoftwindows",
+  "bin": "file_ws_binarydata",
+  "dat": "file_ws_binarydata",
+  "iml": "file_ws_ideamodule",
+  "form": "file_ws_uiform",
+  "aj": "file_ws_aspectj"
  },
  "light": {
   "file": "file_text_light",
@@ -1254,14 +1442,25 @@
    "main.go": "file_go_run_light",
    "conftest.py": "file_python_tests_light",
    "__init__.py": "file_python_console_light",
-   "Jenkinsfile": "file_jenkins"
+   "Jenkinsfile": "file_jenkins",
+   "build.gradle": "file_ws_gradle_light",
+   "settings.gradle": "file_ws_gradle_light",
+   "build.gradle.kts": "file_ws_gradle_light",
+   "settings.gradle.kts": "file_ws_gradle_light",
+   "gradle.properties": "file_ws_gradle_light",
+   "BUILD": "file_ws_bazel_light",
+   "BUILD.bazel": "file_ws_bazel_light",
+   "WORKSPACE": "file_ws_bazel_light",
+   "WORKSPACE.bazel": "file_ws_bazel_light",
+   "MODULE.bazel": "file_ws_bazel_light",
+   "MANIFEST.MF": "file_ws_manifest_light"
   },
   "fileExtensions": {
    "ml": "file_ml_light",
    "mli": "file_mli_light",
    "opam": "file_opam_light",
    "dart": "file_dart_light",
-   "css": "file_css_light",
+   "css": "file_ws_css_light",
    "scss": "file_scss_light",
    "erb": "file_erb_light",
    "sass": "file_scss_light",
@@ -1284,7 +1483,7 @@
    "csv": "file_csv_light",
    "xlsx": "file_csv_light",
    "xls": "file_csv_light",
-   "vue": "file_vue_light",
+   "vue": "file_ws_vue_light",
    "png": "file_image_light",
    "webp": "file_image_light",
    "jpg": "file_image_light",
@@ -1384,8 +1583,8 @@
    "erl": "file_erlang_light",
    "lua": "file_lua_light",
    "hs": "file_haskell_light",
-   "graphql": "file_graphql_light",
-   "gql": "file_graphql_light",
+   "graphql": "file_ws_graphql_light",
+   "gql": "file_ws_graphql_light",
    "test.ts": "file_test_ts_light",
    "test.tsx": "file_test_tsx_light",
    "test.jsx": "file_test_jsx_light",
@@ -1414,7 +1613,34 @@
    "gotmpl": "file_go_template_light",
    "groovy": "file_groovy_light",
    "bpmn": "file_schema_light",
-   "arb": "file_json_light"
+   "arb": "file_json_light",
+   "gradle": "file_ws_gradle_light",
+   "bzl": "file_ws_bazel_light",
+   "bazel": "file_ws_bazel_light",
+   "schema.json": "file_ws_jsonschema_light",
+   "patch": "file_ws_patch_light",
+   "diff": "file_ws_patch_light",
+   "jsp": "file_ws_jsp_light",
+   "jspx": "file_ws_jspx_light",
+   "class": "file_ws_javaclass_light",
+   "idl": "file_ws_idl_light",
+   "pl": "file_ws_perl_light",
+   "pm": "file_ws_perl_light",
+   "rst": "file_ws_rst_light",
+   "map": "file_ws_sourcemap_light",
+   "xhtml": "file_ws_xhtml_light",
+   "xsd": "file_ws_xsd_light",
+   "wsdl": "file_ws_wsdl_light",
+   "hprof": "file_ws_hprof_light",
+   "jfr": "file_ws_jfr_light",
+   "mf": "file_ws_manifest_light",
+   "cmd": "file_ws_microsoftwindows_light",
+   "msi": "file_ws_microsoftwindows_light",
+   "bin": "file_ws_binarydata_light",
+   "dat": "file_ws_binarydata_light",
+   "iml": "file_ws_ideamodule_light",
+   "form": "file_ws_uiform_light",
+   "aj": "file_ws_aspectj_light"
   }
  }
 }
