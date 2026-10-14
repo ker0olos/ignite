@@ -4,6 +4,7 @@ import { RowBoundary } from "@/components/conversation/RowBoundary";
 import { RowView } from "@/components/conversation/RowView";
 import { RunIndicator } from "@/components/conversation/RunIndicator";
 import { WaitingCallsContext, useWaitingOrder } from "@/hooks/useWaitingPlace";
+import { useOlderRows } from "@/hooks/useOlderRows";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { workingLine, writingText } from "@/lib/runStep";
 import { shownItems } from "@/lib/routedMessage";
@@ -48,6 +49,7 @@ export function Conversation({
   );
   const working = workingLine(transcript, folder, showThinking, waitingOnFork);
   const rows = toRows(items, transcript.tools);
+  const { start, topRef } = useOlderRows(scrollRef, rows.length, shown);
 
   return (
     <WaitingCallsContext.Provider value={waiting}>
@@ -55,8 +57,9 @@ export function Conversation({
         ref={contentRef}
         className="always-bounce mx-auto select-text max-w-3xl space-y-4 px-4 py-6 text-[13px]"
       >
-        {rows.map((row, i) => (
-          <RowBoundary key={i} resetOn={row}>
+        {start > 0 && <div ref={topRef} />}
+        {rows.slice(start).map((row, j) => (
+          <RowBoundary key={start + j} resetOn={row}>
             <RowView
               row={row}
               tools={transcript.tools}
@@ -65,7 +68,7 @@ export function Conversation({
               codeThemes={codeThemes}
               stickyUserMessages={stickyUserMessages}
               onApprove={onApprove}
-              last={i === rows.length - 1}
+              last={start + j === rows.length - 1}
             />
           </RowBoundary>
         ))}

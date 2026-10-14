@@ -1,7 +1,18 @@
-import { useCallback, useRef } from "react";
+import { startTransition, useCallback, useRef } from "react";
 import type { AgentMessage } from "../../shared/agentTypes";
 import type { OpenedSession } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
+
+const PREVIEW = 40;
+
+/** `put` as a transition, so drawing a long conversation never freezes the preview shown meanwhile. */
+function later<A extends unknown[]>(put: (...a: A) => boolean, ...a: A) {
+  let ok = true;
+  startTransition(() => {
+    ok = put(...a);
+  });
+  return ok;
+}
 
 /** The conversation to show once `closing` closes: its right-hand neighbour, else its left. */
 export function nextShown(open: string[], closing: string): string | null {
@@ -52,14 +63,14 @@ export function useSessionSwitch({
         session,
         known,
       });
-      if (!still() || put(cwd, s)) return;
+      if (!still() || later(put, cwd, s)) return;
       // Forgotten while it opened: its messages are needed after all.
       const again = await host.request({
         type: "open_session",
         cwd,
         session: s!.session,
       });
-      if (still()) put(cwd, again);
+      if (still()) later(put, cwd, again);
     },
     [host, put],
   );
@@ -68,22 +79,18 @@ export function useSessionSwitch({
     async (cwd: string, session: string) => {
       if (!host) return;
       wanted.current = session;
-      let started = false;
       const still = () => wanted.current === session;
       setError(null);
       const known = reshow(cwd, session);
+      // Only its end, quick to send and draw; opening blocks the sidecar while its session starts.
       if (!known) {
-        void host
-          .request({ type: "read_session", cwd, session })
-          .then((m) => still() && !started && preview(cwd, session, m))
-          .catch(() => {});
+        const m = await host
+          .request({ type: "read_session", cwd, session, tail: PREVIEW })
+          .catch(() => null);
+        if (!still()) return;
+        if (m) preview(cwd, session, m);
       }
-      // Its answer ends the preview, shown or not.
-      const answered = () => {
-        started = true;
-        return still();
-      };
-      await open(cwd, answered, session, known ? session : undefined).catch(
+      await open(cwd, still, session, known ? session : undefined).catch(
         (e: Error) => still() && setError(e.message),
       );
     },

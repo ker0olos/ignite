@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import { typedSkill } from "../shared/skills.ts";
-import type { SessionStore } from "./hostTypes.ts";
+import type { HostContext, SessionStore } from "./hostTypes.ts";
 import { sessionSummary } from "./cmem.ts";
 import { savedBranch } from "./worktrees.ts";
 
@@ -16,6 +16,26 @@ export function sessionFor(folder: string, workdir: string, id: string) {
   const dir = SessionManager.create(folder).getSessionDir();
   return SessionManager.create(workdir, dir, { id });
 }
+
+/** About the last `n` messages (all by default), never starting on a tool result cut off from its call. */
+export function lastMessages(messages: AgentMessage[], n = Infinity) {
+  let from = Math.max(0, messages.length - n);
+  while (from > 0 && messages[from].role === "toolResult") from--;
+  return messages.slice(from);
+}
+
+/** A conversation's messages (its last `tail`); a running one's own are newer than its file's. */
+export const messagesOf = async (
+  ctx: HostContext,
+  cwd: string,
+  session: string,
+  tail?: number,
+) =>
+  lastMessages(
+    ctx.agents.get(session)?.session?.messages ??
+      (await ctx.sessions.read(cwd, session)),
+    tail,
+  );
 
 /** pi's saved conversations, one file each under the agent dir's sessions/. */
 export const sessions: SessionStore = {

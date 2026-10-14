@@ -579,6 +579,7 @@ describe("several conversations in a folder", () => {
       if (fail && r.type !== "open_session") throw new Error("Disk full");
       if (r.type === "new_session") return { ...STATE, session: "s2" };
       if (r.type === "close_session") return undefined;
+      if (r.type === "read_session") return [hello];
       return { ...STATE, session: r.session ?? "s1", messages: [hello] };
     });
     const hook = renderHook(() => useAgentSession(host, "/work", null));
@@ -818,6 +819,9 @@ describe("reopening a conversation", () => {
     const { result } = renderHook(() => useAgentSession(host, "/work", null));
     await waitFor(() => expect(result.current.session).toBe("s1"));
     act(() => void result.current.show("a"));
+    await waitFor(() =>
+      expect(text(result.current.transcript)).toContain("saved a"),
+    );
     act(() => void result.current.show("b"));
     await waitFor(() =>
       expect(text(result.current.transcript)).toContain("saved b"),

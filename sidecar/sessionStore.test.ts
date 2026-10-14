@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { sessionFor, sessions } from "./sessionStore.ts";
+import type { AgentMessage } from "../shared/agentTypes.ts";
+import { lastMessages, sessionFor, sessions } from "./sessionStore.ts";
 
 let agentDir: string;
 const cwd = "/work";
@@ -67,6 +68,16 @@ describe("sessions", () => {
     const read = await sessions.read(cwd, "first");
     expect(read.map((m) => m.role)).toEqual(["user", "assistant"]);
     expect(await sessions.read(cwd, "missing")).toEqual([]);
+  });
+
+  it("keeps the last messages, from a tool result's call", () => {
+    const m = (role: string) => ({ role }) as AgentMessage;
+    const all = ["user", "assistant", "toolResult", "toolResult", "user"].map(
+      m,
+    );
+    expect(lastMessages(all, 2)).toEqual(all.slice(1));
+    expect(lastMessages(all, 1)).toEqual([all[4]]);
+    expect(lastMessages(all, 9)).toEqual(all);
   });
 
   it("lists conversations with messages, newest first", async () => {
