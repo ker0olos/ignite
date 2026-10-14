@@ -4,13 +4,8 @@ import type { HostClient } from "@/lib/piHost";
 import { useComposerActions } from "@/hooks/useComposerActions";
 import { useDraftState } from "@/hooks/useDraftState";
 import { useForkWait } from "@/hooks/useForkWait";
-import type { AgentMessage } from "../../shared/agentTypes";
-import {
-  toEntry,
-  toStarting,
-  useSessionCache,
-  view,
-} from "@/hooks/useSessionCache";
+import { useSessionCache } from "@/hooks/useSessionCache";
+import { view } from "@/lib/sessionEntry";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
 import { useSessionSwitch } from "@/hooks/useSessionSwitch";
 
@@ -25,29 +20,22 @@ export function useAgentSession(
   folder: string | null,
   statuses: ProviderStatus[] | null,
 ) {
-  const { current, opened, shownRef, synced, put, patch, setState, update } =
-    useSessionCache(host, folder);
+  const cache = useSessionCache(host, folder);
+  const { current, opened, show: putIn, setState, knownIn } = cache;
+  const { shownNow, apply, setTrust: trustFolder } = cache;
   const [error, setError] = useState<string | null>(null);
   // What a folder about to be selected shows instead of its last conversation:
   // a new one, or the one picked in the sidebar.
   const showIn = useRef<{ folder: string; target: string | null } | null>(null);
   const [fresh, setFresh] = useState(0);
 
-  const putIn = useCallback(
-    (cwd: string, s: OpenedSession | null) =>
-      host && put(toEntry(host, cwd, s)),
-    [host, put],
-  );
-  const preview = useCallback(
-    (cwd: string, session: string, messages: AgentMessage[]) =>
-      host && put(toStarting(host, cwd, session, messages)),
-    [host, put],
-  );
-  const { reveal, show, close } = useSessionSwitch({
+  const { open, reveal, show, close } = useSessionSwitch({
     host,
     folder,
     put: putIn,
-    preview,
+    preview: cache.preview,
+    reshow: cache.reshow,
+    drop: cache.drop,
     setError,
   });
 
@@ -59,18 +47,16 @@ export function useAgentSession(
     if (pick?.target) void reveal(folder, pick.target);
     else if (pick) putIn(folder, null);
     else {
-      host
-        .request({ type: "open_session", cwd: folder })
-        .then((s) => live && putIn(folder, s))
-        .catch((e: Error) => live && setError(e.message));
+      open(folder, () => live, undefined, knownIn(folder)).catch(
+        (e: Error) => live && setError(e.message),
+      );
     }
     return () => {
       live = false;
-      synced.current = null;
       // An error belongs to the folder it happened in.
       setError(null);
     };
-  }, [host, folder, putIn, reveal, synced]);
+  }, [host, folder, putIn, open, reveal, knownIn]);
 
   const shown = current?.session ?? null;
 
@@ -86,7 +72,8 @@ export function useAgentSession(
     };
   }, [opened, shown, statuses, setState]);
 
-  const answer = useSessionEvents(opened, shownRef, update, setError, setState);
+  // On the host, not the shown conversation: kept ones miss no event while none shows.
+  const answer = useSessionEvents(host, shownNow, apply, setError, setState);
   const skipWait = useCallback(
     async (toolCallId: string) =>
       !!opened &&
@@ -99,13 +86,12 @@ export function useAgentSession(
   const setTrust = useCallback(
     async (trusted: boolean) => {
       if (!opened || !folder) return;
-      const trust = trusted ? "trusted" : "untrusted";
-      patch((o) => ({ ...o, trust }));
+      trustFolder(folder, trusted ? "trusted" : "untrusted");
       await opened
         .request({ type: "set_trust", cwd: folder, trusted })
         .catch((e: Error) => setError(e.message));
     },
-    [opened, folder, patch],
+    [opened, folder, trustFolder],
   );
 
   const putOpened = useCallback(
@@ -139,6 +125,8 @@ export function useAgentSession(
     unqueue: actions.unqueue,
     /** The shown conversation's id; the folder may have others open. */
     session: shown,
+    /** Recently shown conversations (any folder), kept rendered so showing one again is instant. */
+    kept: cache.kept,
     ...choices(actions),
     /**
      * Shows one of the conversations of `cwd` (the shown folder by default),

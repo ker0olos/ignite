@@ -1,6 +1,6 @@
 import type { AgentMessage, AssistantMessage } from "../../shared/agentTypes";
 import { stepOf } from "../../shared/steps";
-import type { ToolRun, Transcript } from "@/lib/transcript";
+import type { Item, ToolRun, Transcript } from "@/lib/transcript";
 
 /** The current run's latest assistant message: none before the last user message counts. */
 function runReply(messages: AgentMessage[]): AssistantMessage | undefined {
@@ -85,4 +85,14 @@ function runLine(
     since,
     thought: withThought ? latestThought(messages) : undefined,
   };
+}
+
+/** Whether the last item is the reply's text being written, which shows the run itself. */
+export function writingText(last: Item | undefined): boolean {
+  if (last?.kind !== "message" || last.message.role !== "assistant")
+    return false;
+  const message = last.message as AssistantMessage;
+  return (
+    message.stopReason === "pending" && message.content.at(-1)?.type === "text"
+  );
 }

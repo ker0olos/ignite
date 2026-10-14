@@ -22,7 +22,7 @@ src/                     React frontend (almost all logic lives here)
                          MCP sign-in warning banner
     files/               Lazy directory tree, read-only syntax-highlighted file view
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
-    agent/               Conversation area wiring, task composer, model/effort/approval menus, git status, trust prompt
+    agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer, model/effort/approval menus, git status, trust prompt
     conversation/        Transcript rendering: messages, tool rows (with approve/deny, or the
                          agent's questions) and their pieces; WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
@@ -46,7 +46,7 @@ src/                     React frontend (almost all logic lives here)
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
     useAgentSession.ts   The folder's shown pi session: conversation, send/stop, trust, model and effort
     useSessionSwitch.ts  Showing and closing the shown folder's conversations
-    useSessionCache.ts   Each folder's last known conversation, or none; which one events apply to
+    useSessionCache.ts   Every open conversation shown so far, kept current by its events; the one each folder shows
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
     useCompact.ts        `/compact`: compacts the shown conversation
     useFork.ts           `/fork`: forks the shown conversation, shows the fork, sends it the text after `/fork`
@@ -115,6 +115,7 @@ src/                     React frontend (almost all logic lives here)
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     gitStatus.ts         Which of a conversation's repositories the composer shows, and their pull requests' state
     transcript.ts        Rebuilds the conversation from pi's session events
+    sessionEntry.ts      A conversation as the app keeps it, built from what opening it returned
     routedMessage.ts     The first message while the router reads it, shown until pi adds it
     compaction.ts        Compaction in the conversation: running, then its summary; saved summaries
     toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands, parses edit diffs

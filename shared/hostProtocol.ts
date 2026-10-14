@@ -104,8 +104,8 @@ export type OpenedSession = SessionState & {
   /** Where its agent works: its own git worktree, or the folder itself. */
   workdir: string;
   trust: ProjectTrust;
-  /** The conversation so far, when an earlier session is continued. */
-  messages: AgentMessage[];
+  /** The conversation so far; left out when the app already follows it (`known`). */
+  messages?: AgentMessage[];
   /** Whether pi is still working on it, or the router on its first message. */
   running: boolean;
   /** The first message the router is still reading, not yet in `messages`. */
@@ -145,7 +145,14 @@ export type HostRequest =
    * Without `session`: the folder's last shown open one, else null (showing a
    * folder never starts a conversation).
    */
-  | { id: number; type: "open_session"; cwd: string; session?: string }
+  /** `known`: a conversation whose events the app has followed since it opened, so its messages aren't sent again. */
+  | {
+      id: number;
+      type: "open_session";
+      cwd: string;
+      session?: string;
+      known?: string;
+    }
   /** Starts another conversation in the folder and shows it: empty, or a copy of one (see ForkSession). */
   | { id: number; type: "new_session"; cwd: string; fork?: ForkSession }
   /**

@@ -1160,8 +1160,13 @@ describe("sessions", () => {
     sent.splice(0);
     a.emit({ type: "agent_start" });
     b.emit({ type: "agent_start" });
-    // Only the shown one's events reach the app; both report working.
+    // Each one's events reach the app, tagged with it; both report working.
     expect(sent.filter((m) => m.type === "session_event")).toEqual([
+      {
+        type: "session_event",
+        session: "/work:saved",
+        event: { type: "agent_start" },
+      },
       {
         type: "session_event",
         session: "new1",
@@ -1612,7 +1617,7 @@ describe("sessions", () => {
     expect(a.reload).toHaveBeenCalledOnce();
   });
 
-  it("doesn't forward a hidden folder's events", async () => {
+  it("forwards a hidden folder's events, so the app keeps it current", async () => {
     const first = fakeSession();
     const sessions = [first, fakeSession()];
     const { request, sent } = setup(fakeRuntime().runtime, async () =>
@@ -1631,7 +1636,49 @@ describe("sessions", () => {
       session: "/b:saved",
     });
     first.emit({ type: "agent_start" });
+    expect(sent).toContainEqual({
+      type: "session_event",
+      session: "/a:saved",
+      event: { type: "agent_start" },
+    });
+  });
+
+  it("leaves out the messages of a conversation the app follows", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime);
+    const reply = () => responses().at(-1);
+    const open = (id: number, known?: string) =>
+      request({
+        id,
+        type: "open_session",
+        cwd: "/a",
+        session: "/a:saved",
+        known,
+      });
+    await open(1, "/a:saved");
+    expect(reply()).toHaveProperty("data.messages");
+    await open(2, "/a:saved");
+    expect(reply()).not.toHaveProperty("data.messages");
+    await open(3);
+    expect(reply()).toHaveProperty("data.messages");
+  });
+
+  it("sends the messages again after a reload, and a hidden one's events only then", async () => {
+    const session = fakeSession();
+    const { request, responses, sent } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    const open = { type: "open_session", cwd: "/a", session: "/a:saved" };
+    await request({ id: 1, ...open } as never);
+    await request({ id: 2, type: "set_trust", cwd: "/a", trusted: true });
+    await request({ id: 3, type: "open_session", cwd: "/b" });
+    sent.splice(0);
+    session.emit({ type: "agent_start" });
     expect(sent.some((m) => m.type === "session_event")).toBe(false);
+    await request({ id: 4, ...open, known: "/a:saved" } as never);
+    expect(responses().at(-1)).toHaveProperty("data.messages");
+    session.emit({ type: "agent_start" });
+    expect(sent.some((m) => m.type === "session_event")).toBe(true);
   });
 
   it("sends a prompt without waiting for the run", async () => {
@@ -2367,7 +2414,7 @@ describe("tool approval", () => {
     expect(answer).not.toHaveBeenCalled();
   });
 
-  it("keeps a hidden folder's question until it's shown again", async () => {
+  it("passes on a hidden folder's question, and keeps it until answered", async () => {
     const { reopen, request, sent, responses } = await opened();
     const askWork = reopen();
     await request({
@@ -2379,9 +2426,11 @@ describe("tool approval", () => {
     sent.splice(0);
     const answer = vi.fn();
     askWork({ request: { toolCallId: "t1", reason: "Deletes files" }, answer });
-    expect(sent).not.toContainEqual(
-      expect.objectContaining({ type: "approval_request" }),
-    );
+    expect(sent).toContainEqual({
+      type: "approval_request",
+      session: "/work:saved",
+      request: { toolCallId: "t1", reason: "Deletes files" },
+    });
     expect(sent).toContainEqual({
       type: "agents",
       agents: [

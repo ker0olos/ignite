@@ -14,8 +14,8 @@ import { titleOf } from "../shared/conversations.ts";
 import { autonomous } from "../shared/tasks.ts";
 import { pushProjects } from "./hostProjects.ts";
 import {
-  isShown,
   target,
+  tellsApp,
   type Agent,
   type HostContext,
   type Session,
@@ -90,7 +90,7 @@ function picked(s: Session, chose: boolean): RouterPick {
 }
 
 const tell = (ctx: HostContext, agent: Agent, event: SessionEvent) => {
-  if (isShown(ctx, agent)) {
+  if (tellsApp(ctx, agent)) {
     ctx.send({ type: "session_event", session: agent.id, event });
   }
 };

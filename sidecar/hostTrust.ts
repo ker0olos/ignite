@@ -1,4 +1,4 @@
-import type { HostContext } from "./hostTypes.ts";
+import { reload, type HostContext } from "./hostTypes.ts";
 
 /**
  * Saves whether the folder is trusted. Trusting an open folder reloads its
@@ -16,7 +16,7 @@ export async function setTrust(
     if (agent.cwd !== cwd || !s) continue;
     s.settingsManager.setProjectTrusted(true);
     if (s.isStreaming) agent.reloadWhenSettled = true;
-    else await s.reload();
+    else await reload(agent);
   }
   return undefined;
 }

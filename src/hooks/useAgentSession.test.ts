@@ -352,13 +352,18 @@ describe("useAgentSession", () => {
       expect(result.current.transcript).toBeNull();
       rerender({ folder: "/work" });
       expect(result.current.transcript?.items).toHaveLength(1);
-      // Events before the sidecar answers may still belong to the last folder.
+      // Followed while hidden, so its messages aren't asked for again.
+      expect(host.request).toHaveBeenLastCalledWith({
+        type: "open_session",
+        cwd: "/work",
+        known: "s1",
+      });
       host.emit({
         type: "session_event",
         session: "s1",
         event: { type: "agent_start" },
       });
-      expect(result.current.transcript?.running).toBe(false);
+      expect(result.current.transcript?.running).toBe(true);
       act(() => answer({ ...STATE, messages: [hello, hello] }));
       await waitFor(() =>
         expect(result.current.transcript?.items).toHaveLength(2),
@@ -598,7 +603,9 @@ describe("several conversations in a folder", () => {
       type: "open_session",
       cwd: "/work",
       session: "s1",
+      known: "s1",
     });
+    expect(types(host)).not.toContain("read_session");
     expect(result.current.transcript?.items).toHaveLength(1);
   });
 

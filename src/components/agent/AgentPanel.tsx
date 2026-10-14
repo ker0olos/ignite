@@ -1,13 +1,8 @@
-import { useRef } from "react";
 import { Composer } from "@/components/agent/Composer";
 import { ConversationSkeleton } from "@/components/agent/ConversationSkeleton";
 import { EmptyConversation } from "@/components/agent/EmptyConversation";
 import { TrustPrompt } from "@/components/agent/TrustPrompt";
-import { Conversation } from "@/components/conversation/Conversation";
-import {
-  ContinueContext,
-  SkipWaitContext,
-} from "@/components/conversation/shared";
+import { ConversationPane } from "@/components/agent/ConversationPane";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { shownItems } from "@/lib/routedMessage";
@@ -16,6 +11,9 @@ import type { Settings } from "@/lib/settings";
 import type { Approval, ModelRouter } from "@/components/agent/Composer";
 
 type Session = ReturnType<typeof useAgentSession>;
+
+// A hidden conversation sends nothing; the same function keeps it from re-rendering.
+const idle = () => {};
 
 /** Conversation area and task composer. */
 export function AgentPanel({
@@ -43,43 +41,45 @@ export function AgentPanel({
   modelRouter: ModelRouter;
 }) {
   const { state, transcript } = session;
-  const mainRef = useRef<HTMLElement>(null);
   const running = !!transcript?.running;
   // A folder with no conversation looks like a new one; sending starts it.
   const loading = !state && !session.error && !session.none;
+  // A reopened conversation reads while its session still starts.
+  const panes = session.kept.filter((o) => shownItems(o.transcript).length);
+  const covered = panes.some((o) => o.session === session.session);
 
   return (
     <>
-      <main
-        ref={mainRef}
-        className="min-h-0 flex-1 overscroll-contain overflow-y-auto"
-      >
-        {/* A reopened conversation reads while its session still starts. */}
-        {transcript && shownItems(transcript).length > 0 ? (
-          <SkipWaitContext.Provider value={session.skipWait}>
-            <ContinueContext.Provider
-              value={running ? null : () => void session.send("Continue")}
-            >
-              <Conversation
-                key={`${folder}\n${session.session ?? ""}`}
-                transcript={transcript}
-                folder={folder}
-                editor={editor}
-                codeThemes={codeThemes}
-                showThinking={showThinking}
-                stickyUserMessages={stickyUserMessages}
-                scrollRef={mainRef}
-                onApprove={session.answer}
-                waitingOnFork={session.waitingOnFork}
-              />
-            </ContinueContext.Provider>
-          </SkipWaitContext.Provider>
-        ) : loading ? (
-          <ConversationSkeleton />
-        ) : (
-          <EmptyConversation folder={folder} />
+      <div className="relative min-h-0 flex-1">
+        {panes.map((o) => {
+          const shown = o.session === session.session;
+          return (
+            <ConversationPane
+              key={o.session}
+              transcript={o.transcript}
+              folder={o.folder}
+              shown={shown}
+              send={shown ? session.send : idle}
+              skipWait={session.skipWait}
+              onApprove={session.answer}
+              waitingOnFork={shown && session.waitingOnFork}
+              editor={editor}
+              codeThemes={codeThemes}
+              showThinking={showThinking}
+              stickyUserMessages={stickyUserMessages}
+            />
+          );
+        })}
+        {!covered && (
+          <main className="absolute inset-0 overscroll-contain overflow-y-auto">
+            {loading ? (
+              <ConversationSkeleton />
+            ) : (
+              <EmptyConversation folder={folder} />
+            )}
+          </main>
         )}
-      </main>
+      </div>
       {session.trust === "ask" && (
         <TrustPrompt onAnswer={(trusted) => void session.setTrust(trusted)} />
       )}

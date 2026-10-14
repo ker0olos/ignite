@@ -1,12 +1,11 @@
 import { type RefObject, useRef } from "react";
-import type { AssistantMessage } from "../../../shared/agentTypes";
 import type { Editor, ToolProps } from "@/components/conversation/shared";
 import { RowBoundary } from "@/components/conversation/RowBoundary";
 import { RowView } from "@/components/conversation/RowView";
 import { RunIndicator } from "@/components/conversation/RunIndicator";
 import { WaitingCallsContext, useWaitingOrder } from "@/hooks/useWaitingPlace";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
-import { workingLine } from "@/lib/runStep";
+import { workingLine, writingText } from "@/lib/runStep";
 import { shownItems } from "@/lib/routedMessage";
 import type { Transcript } from "@/lib/transcript";
 import { toRows, waitingCalls } from "@/lib/toolRows";
@@ -23,8 +22,11 @@ export function Conversation({
   scrollRef,
   onApprove,
   waitingOnFork,
+  shown,
 }: {
   transcript: Transcript;
+  /** Hidden, kept rendered: its waiting calls don't take the keyboard. */
+  shown: boolean;
   /** A fork of it is open: the working line says so while it waits. */
   waitingOnFork?: boolean;
   showThinking: boolean;
@@ -39,15 +41,10 @@ export function Conversation({
   const items = shownItems(transcript);
   const last = items.at(-1);
   useStickToBottom(scrollRef, contentRef, last);
-  const lastMessage =
-    last?.kind === "message" ? (last.message as AssistantMessage) : null;
-  const lastIsStreamingText =
-    lastMessage?.role === "assistant" &&
-    lastMessage.stopReason === "pending" &&
-    lastMessage.content.at(-1)?.type === "text";
 
   const waiting = useWaitingOrder(
     waitingCalls(transcript.items, transcript.tools),
+    shown,
   );
   const working = workingLine(transcript, folder, showThinking, waitingOnFork);
   const rows = toRows(items, transcript.tools);
@@ -72,7 +69,8 @@ export function Conversation({
             />
           </RowBoundary>
         ))}
-        {working && !lastIsStreamingText && (
+        {/* Hidden, its spinner and clock would tick for no one. */}
+        {working && shown && !writingText(last) && (
           <RunIndicator
             state={waiting.length === 0 ? "working" : "waiting"}
             step={working.step}

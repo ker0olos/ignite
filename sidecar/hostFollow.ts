@@ -2,15 +2,15 @@ import type { SessionEvent } from "../shared/agentTypes.ts";
 import { titleOf } from "../shared/conversations.ts";
 import { followSubagents } from "./hostChildren.ts";
 import { pushProjects, trackRun } from "./hostProjects.ts";
-import { isShown, type Agent, type HostContext } from "./hostTypes.ts";
+import { reload, tellsApp, type Agent, type HostContext } from "./hostTypes.ts";
 import { delivered } from "./queuedImages.ts";
 import { trackToolRun } from "./toolRuns.ts";
 import { describeError, toWireEvent } from "./wire.ts";
 
-// Only the shown conversation's events reach the app; the rest keep running unseen.
+// The app keeps each conversation it opened current, so showing it again needs nothing from here.
 /** Follows one of `agent`'s session events. */
 export function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
-  if (isShown(ctx, agent)) {
+  if (tellsApp(ctx, agent)) {
     ctx.send({
       type: "session_event",
       session: agent.id,
@@ -34,18 +34,17 @@ function settle(ctx: HostContext, agent: Agent) {
   if (!agent.session?.pendingMessageCount) agent.queuedImages.clear();
   if (!agent.reloadWhenSettled) return;
   agent.reloadWhenSettled = false;
-  agent.session?.reload().catch(reportTo(ctx, agent));
+  reload(agent).catch(reportTo(ctx, agent));
 }
 
-/** Shows a run's failure, if its conversation is the one shown. */
+/** Shows a run's failure in its conversation, if the app follows it. */
 export function reportTo(ctx: HostContext, agent: Agent) {
   return (error: unknown) => {
-    if (isShown(ctx, agent)) {
-      ctx.send({
-        type: "session_error",
-        session: agent.id,
-        error: describeError(error),
-      });
-    }
+    if (!tellsApp(ctx, agent)) return;
+    ctx.send({
+      type: "session_error",
+      session: agent.id,
+      error: describeError(error),
+    });
   };
 }

@@ -1,12 +1,12 @@
 import type { QuestionAnswer } from "../shared/questions.ts";
 import type { ApprovalAsk } from "./approvalExtension.ts";
-import { isShown, type Agent, type HostContext } from "./hostTypes.ts";
+import { tellsApp, type Agent, type HostContext } from "./hostTypes.ts";
 import { pushProjects } from "./hostProjects.ts";
 
-/** Keeps a tool call's question, and passes it on if its conversation is shown. */
+/** Keeps a tool call's question, and passes it on if the app follows its conversation. */
 export function askApproval(ctx: HostContext, agent: Agent, ask: ApprovalAsk) {
   agent.approvals.set(ask.request.toolCallId, ask);
-  if (isShown(ctx, agent)) {
+  if (tellsApp(ctx, agent)) {
     ctx.send({
       type: "approval_request",
       session: agent.id,

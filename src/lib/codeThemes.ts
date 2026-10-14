@@ -24,15 +24,18 @@ export const DEFAULT_CODE_THEMES: CodeThemes = {
   dark: "github-dark",
 };
 
+const themed = new Map<string, CodeThemes>();
+
 /**
  * The themes to highlight with for a Settings theme value. "system" pairs the
  * defaults so the code switches with macOS; any other theme is used as-is,
  * since it also sets the appearance.
  */
 export function codeThemesFor(theme: string): CodeThemes {
-  return theme === SYSTEM_THEME
-    ? DEFAULT_CODE_THEMES
-    : { light: theme, dark: theme };
+  if (theme === SYSTEM_THEME) return DEFAULT_CODE_THEMES;
+  // The same object each time, so kept conversations don't re-render for nothing.
+  if (!themed.has(theme)) themed.set(theme, { light: theme, dark: theme });
+  return themed.get(theme)!;
 }
 
 /** Every theme bundled with Shiki; any of them works without files. */
