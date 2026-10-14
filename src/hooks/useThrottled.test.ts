@@ -19,4 +19,17 @@ describe("useThrottled", () => {
     act(() => vi.advanceTimersByTime(200));
     expect(result.current).toBe("c");
   });
+
+  it("keeps updating when changes come faster than its timer gets to run", () => {
+    const { result, rerender } = renderHook(
+      ({ value }) => useThrottled(value, 300),
+      { initialProps: { value: 0 } },
+    );
+    // The clock moves but no timer runs, as when events keep the webview busy.
+    for (let i = 1; i <= 100; i++) {
+      vi.setSystemTime(Date.now() + 10);
+      rerender({ value: i });
+    }
+    expect(result.current).toBeGreaterThanOrEqual(90);
+  });
 });

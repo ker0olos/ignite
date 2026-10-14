@@ -23,6 +23,8 @@ export type Opened = {
   state: SessionState | null;
   trust: ProjectTrust | null;
   transcript: Transcript;
+  /** Drawn from its saved messages, until opening it returns. */
+  preview?: true;
 };
 
 /** A folder showing no conversation, until the user starts or picks one. */
@@ -45,6 +47,7 @@ export const toStarting = (
   state: null,
   trust: null,
   transcript: fromHistory(messages, false),
+  preview: true,
 });
 
 /**

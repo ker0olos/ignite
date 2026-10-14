@@ -76,6 +76,10 @@ describe("useSessionCache", () => {
     expect(result.current.reshow("/a", "s1")).toBe(false);
     expect(result.current.reshow("/a", "s9")).toBe(false);
     expect(result.current.knownIn("/a")).toBeUndefined();
+    // Its state can arrive before opening returns; it still shows its saved end only.
+    act(() => result.current.setState(reply("s1"), "s1"));
+    expect(result.current.reshow("/a", "s1")).toBe(false);
+    expect(result.current.kept[0].preview).toBe(true);
     act(() => void result.current.show("/a", reply("s1")));
     expect(result.current.knownIn("/a")).toBe("s1");
   });
