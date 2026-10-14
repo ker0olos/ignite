@@ -1645,6 +1645,7 @@ describe("sessions", () => {
 
   it("leaves out the messages of a conversation the app follows", async () => {
     const { request, responses } = setup(fakeRuntime().runtime);
+    const reply = () => responses().at(-1);
     const open = (id: number, known?: string) =>
       request({
         id,
@@ -1654,11 +1655,11 @@ describe("sessions", () => {
         known,
       });
     await open(1, "/a:saved");
-    expect(responses().at(-1)?.data).toHaveProperty("messages");
+    expect(reply()).toHaveProperty("data.messages");
     await open(2, "/a:saved");
-    expect(responses().at(-1)?.data).not.toHaveProperty("messages");
+    expect(reply()).not.toHaveProperty("data.messages");
     await open(3);
-    expect(responses().at(-1)?.data).toHaveProperty("messages");
+    expect(reply()).toHaveProperty("data.messages");
   });
 
   it("sends the messages again after a reload, and a hidden one's events only then", async () => {
@@ -1675,7 +1676,7 @@ describe("sessions", () => {
     session.emit({ type: "agent_start" });
     expect(sent.some((m) => m.type === "session_event")).toBe(false);
     await request({ id: 4, ...open, known: "/a:saved" } as never);
-    expect(responses().at(-1)?.data).toHaveProperty("messages");
+    expect(responses().at(-1)).toHaveProperty("data.messages");
     session.emit({ type: "agent_start" });
     expect(sent.some((m) => m.type === "session_event")).toBe(true);
   });
