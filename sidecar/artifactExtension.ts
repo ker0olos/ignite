@@ -3,6 +3,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { ARTIFACT_TOOL } from "../shared/agentTypes.ts";
 import { pageErrors } from "./artifactCheck.ts";
+import { ARTIFACT_GUIDE } from "./artifactGuide.ts";
 
 type Page = { title: string; html?: string; markdown?: string };
 
@@ -58,7 +59,8 @@ export default function showArtifact(pi: ExtensionAPI) {
       'Icons need no setup on any HTML page: `<span class="i-lucide-house"></span>` (any Lucide icon) and ' +
       '`<span class="i-simple-icons-github"></span>` (brand logos from Simple Icons) draw inline at 1em in the text color; ' +
       "size them with font-size or `size-6`. Material Symbols come from Google Fonts like any font " +
-      '(`family=Material+Symbols+Rounded`, then `<span class="material-symbols-rounded">settings</span>`).',
+      '(`family=Material+Symbols+Rounded`, then `<span class="material-symbols-rounded">settings</span>`).\n\n' +
+      ARTIFACT_GUIDE,
     promptSnippet: `${ARTIFACT_TOOL}: show HTML or markdown pages (mockups, designs, reports) in the conversation`,
     parameters: Type.Object({
       title: Type.String({ description: "A short name for the artifact." }),

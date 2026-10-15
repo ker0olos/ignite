@@ -1,5 +1,19 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
-import { brokenPages, emptyPages } from "./artifactExtension.ts";
+import showArtifact, { brokenPages, emptyPages } from "./artifactExtension.ts";
+import { ARTIFACT_GUIDE } from "./artifactGuide.ts";
+
+describe("showArtifact", () => {
+  it("ends the tool's description with the UI/UX guide", () => {
+    let description = "";
+    showArtifact({
+      registerTool: (tool: { description: string }) => {
+        description = tool.description;
+      },
+    } as unknown as ExtensionAPI);
+    expect(description.endsWith(`\n\n${ARTIFACT_GUIDE}`)).toBe(true);
+  });
+});
 
 describe("emptyPages", () => {
   it("accepts pages that each have html or markdown", () => {

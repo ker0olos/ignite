@@ -186,7 +186,13 @@ describe("sidecar process", () => {
       cwd: home,
       session: first.session,
     });
-    expect(await answer(7)).toMatchObject({ model: "gpt-4.1", files: [] });
+    expect(await answer(7)).toMatchObject({
+      recent: [
+        { role: "user", text: "hello" },
+        { role: "assistant", text: "hi" },
+      ],
+      subtasks: [],
+    });
     sidecar.send({
       id: 4,
       type: "command_search",
