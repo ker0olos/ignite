@@ -28,33 +28,72 @@ function suggestionsFor(
   return [...kinds, ...named];
 }
 
-/**
- * What the command center finds for `query`: conversations and files from
- * the sidecar (asked as typing pauses), folders here, and completions for an
- * `@` token. A kind filter shows more of that kind.
- */
-export function useCommandSearch(
-  host: HostClient | null,
-  query: string,
-  folders: string[],
-) {
+// Outlives the command center, which mounts afresh on each open, so it opens
+// on the last results while they refresh.
+const cache = new Map<string, Found>();
+const CACHED = 20;
+
+function remember(found: Found) {
+  cache.delete(found.key);
+  cache.set(found.key, found);
+  if (cache.size > CACHED) cache.delete(cache.keys().next().value!);
+}
+
+/** What `query` searches for, and its key. */
+function searchFor(query: string, folders: string[]) {
   const parsed = parseQuery(query, folders);
   const wants = (k: ResultKind) => !parsed.kinds || parsed.kinds.includes(k);
   const limit = parsed.kinds ? 50 : 6;
   const scope = parsed.folder ? [parsed.folder] : folders;
   const kinds = (["conversation", "file"] as const).filter(wants);
   const key = JSON.stringify([parsed.text, scope, kinds, limit]);
-  const [found, setFound] = useState<Found | null>(null);
+  return { parsed, wants, limit, scope, key };
+}
+
+/** The sidecar's conversations and files for `key`, remembered; when it fails, what was last found, else none. */
+async function fetchFound(host: HostClient, key: string): Promise<Found> {
+  const [text, folders, kinds, limit] = JSON.parse(key);
+  try {
+    const r = await host.request({
+      type: "command_search",
+      text,
+      folders,
+      kinds,
+      limit,
+    });
+    const found = { key, ...r };
+    remember(found);
+    return found;
+  } catch {
+    return cache.get(key) ?? { key, conversations: [], files: [] };
+  }
+}
+
+/** Runs the command center's opening search ahead of time, so its first open shows results at once. */
+export const prefetchCommandSearch = (host: HostClient, folders: string[]) =>
+  fetchFound(host, searchFor("", folders).key);
+
+/**
+ * What the command center finds for `query`: conversations and files from
+ * the sidecar (asked as typing pauses; meanwhile what it last found for the
+ * same search), folders here, and completions for an `@` token. A kind
+ * filter shows more of that kind.
+ */
+export function useCommandSearch(
+  host: HostClient | null,
+  query: string,
+  folders: string[],
+) {
+  const { parsed, wants, limit, scope, key } = searchFor(query, folders);
+  const [fetched, setFetched] = useState<Found | null>(null);
+  const found = fetched?.key === key ? fetched : (cache.get(key) ?? fetched);
 
   useEffect(() => {
     if (!host) return;
-    const [text, folders, kinds, limit] = JSON.parse(key);
-    const timer = setTimeout(() => {
-      host
-        .request({ type: "command_search", text, folders, kinds, limit })
-        .then((r) => setFound({ key, ...r }))
-        .catch(() => setFound({ key, conversations: [], files: [] }));
-    }, DEBOUNCE_MS);
+    const timer = setTimeout(
+      () => void fetchFound(host, key).then(setFetched),
+      DEBOUNCE_MS,
+    );
     return () => clearTimeout(timer);
   }, [host, key]);
 
@@ -74,7 +113,7 @@ export function useCommandSearch(
     conversations: found?.conversations ?? [],
     files: found?.files ?? [],
     folders: folderHits,
-    /** The shown results are for an older query. */
-    loading: found?.key !== key,
+    /** The shown results are for an older query, or remembered and not yet refreshed. */
+    loading: fetched?.key !== key,
   };
 }

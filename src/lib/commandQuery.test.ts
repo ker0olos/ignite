@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  byFolder,
   completed,
   firstPick,
   parseQuery,
@@ -138,5 +139,22 @@ describe("completed", () => {
   it("replaces the token being typed and leaves room for the next", () => {
     expect(completed("sentry @mo", "@motr")).toBe("sentry @motr ");
     expect(completed("", "@files")).toBe("@files ");
+  });
+});
+
+describe("byFolder", () => {
+  it("groups by folder in the order each first ranks, keeping each one's place", () => {
+    const hits = [
+      { folder: "/b", id: "1" },
+      { folder: "/a", id: "2" },
+      { folder: "/b", id: "3" },
+    ];
+    expect(
+      byFolder(hits).map((g) => [g.folder, g.items.map((i) => i.index)]),
+    ).toEqual([
+      ["/b", [0, 2]],
+      ["/a", [1]],
+    ]);
+    expect(byFolder([])).toEqual([]);
   });
 });

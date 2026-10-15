@@ -1,5 +1,5 @@
 import type { AgentStatus } from "../../shared/hostProtocol";
-import type { SavedSession, SessionDetails } from "../../shared/conversations";
+import type { RecentMessage } from "../../shared/conversations";
 import { normalizedTags, type ConversationTags } from "./conversationTags";
 import type { ConversationOrder } from "./settings";
 
@@ -110,22 +110,17 @@ export function orderedRows(
   return order === "newest_first" ? [...rows].reverse() : rows;
 }
 
-const MONEY = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
+/** `n` things, singular or plural: "1 tool", "4 tools". */
+export const counted = (n: number, one: string) =>
+  `${n} ${one}${n === 1 ? "" : "s"}`;
 
-/** A saved conversation's facts in one line: model, size, cost and branch, as far as they're known. */
-export function detailsLine(
-  saved: Pick<SavedSession, "messageCount">,
-  details: SessionDetails,
+/** What a reply did besides writing, as its preview notes it: "Ran 4 tools · edited 2 files". */
+export function replyNote(
+  reply: Extract<RecentMessage, { role: "assistant" }>,
 ) {
   return [
-    details.model,
-    `${saved.messageCount} messages`,
-    details.toolCalls ? `${details.toolCalls} tool calls` : null,
-    details.cost ? MONEY.format(details.cost) : null,
-    details.branch,
+    reply.tools && `Ran ${counted(reply.tools, "tool")}`,
+    reply.edits && `edited ${counted(reply.edits, "file")}`,
   ]
     .filter(Boolean)
     .join(" · ");

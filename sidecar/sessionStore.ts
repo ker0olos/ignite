@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "../shared/agentTypes.ts";
+import { describeSession } from "../shared/describeSession.ts";
 import { typedSkill } from "../shared/skills.ts";
 import type { HostContext, SessionStore } from "./hostTypes.ts";
-import { sessionSummary } from "./cmem.ts";
-import { savedBranch } from "./worktrees.ts";
 
 /**
  * Opens `folder`'s saved conversation `id`, or starts one with that id, for
@@ -37,16 +36,25 @@ export const messagesOf = async (
     tail,
   );
 
+/** What a conversation was doing, for the command center: its latest messages and plan. */
+export async function sessionDetails(
+  ctx: HostContext,
+  cwd: string,
+  session: string,
+) {
+  const [messages, tasks] = await Promise.all([
+    messagesOf(ctx, cwd, session),
+    ctx.tasks.list(cwd).catch(() => []),
+  ]);
+  const details = describeSession(messages);
+  // Compaction drops the messages that laid out the plan; its task keeps it.
+  const task = tasks.find((t) => t.session === session);
+  return task ? { ...details, subtasks: task.subtasks } : details;
+}
+
 /** pi's saved conversations, one file each under the agent dir's sessions/. */
 export const sessions: SessionStore = {
   create: () => randomUUID(),
-  extras: async (cwd, id) => {
-    const [branch, summary] = await Promise.all([
-      savedBranch(cwd, id).catch(() => undefined),
-      sessionSummary(cwd, id),
-    ]);
-    return { ...(branch && { branch }), ...(summary && { summary }) };
-  },
   read: async (cwd, id) => {
     const saved = SessionManager.findById(cwd, id);
     if (!saved) return [];

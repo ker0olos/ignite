@@ -1,7 +1,7 @@
 /** A folder's saved conversations, as the command center finds, lists and describes them. */
 import type { AgentMessage, UserMessage } from "./agentTypes.ts";
-import type { SessionSummary } from "./memory.ts";
 import { typedSkill } from "./skills.ts";
+import type { Subtask } from "./tasks.ts";
 
 /** A conversation pi saved for a folder. */
 export type SavedSession = {
@@ -13,21 +13,16 @@ export type SavedSession = {
   messageCount: number;
 };
 
-/** What a saved conversation did, for the history search. */
+/** A message as the command center previews it; a reply is the agent's whole run, its text the last it wrote. */
+export type RecentMessage =
+  | { role: "user"; text: string }
+  | { role: "assistant"; text: string; tools: number; edits: number };
+
+/** What a saved conversation was doing, for the command center's preview. */
 export type SessionDetails = {
-  /** The model of its last reply. */
-  model?: string;
-  /** Its last reply, shortened. */
-  lastReply?: string;
-  /** Files it edited or wrote, the latest first. */
-  files: string[];
-  toolCalls: number;
-  /** In dollars, when the provider reports it. */
-  cost?: number;
-  /** The branch its worktree was on. */
-  branch?: string;
-  /** cmem's summary of its latest run, when cmem recorded it. */
-  summary?: SessionSummary;
+  recent: RecentMessage[];
+  /** Its latest plan; none before one. */
+  subtasks: Subtask[];
 };
 
 /** A saved conversation the command center found, in `folder`. */

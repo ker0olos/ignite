@@ -3,7 +3,7 @@ import type {
   ApprovalRequest,
   SessionState,
 } from "../../shared/hostProtocol";
-import type { Task, TaskImage, TodoItem } from "../../shared/tasks";
+import type { Subtask, Task, TaskImage, TodoItem } from "../../shared/tasks";
 import { toImage } from "@/lib/images";
 
 /** Where a task stands: not started, the agent on it, waiting on the user, its pull request declined, its work to review, or done. */
@@ -163,4 +163,21 @@ export function ago(time: number, now = Date.now()) {
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
+}
+
+/** Up to `count` subtasks around where the work is (the last done one, then the open ones), and how many done and open ones that leaves out. */
+export function peekSubtasks(subtasks: Subtask[], count = 3) {
+  const open = subtasks.findIndex((s) => s.status !== "done");
+  const from =
+    open < 0
+      ? Math.max(0, subtasks.length - count)
+      : Math.max(0, Math.min(open - 1, subtasks.length - count));
+  const shown = subtasks.slice(from, from + count);
+  const done = (list: Subtask[]) =>
+    list.filter((s) => s.status === "done").length;
+  return {
+    shown,
+    moreDone: done(subtasks) - done(shown),
+    moreOpen: subtasks.length - done(subtasks) - (shown.length - done(shown)),
+  };
 }

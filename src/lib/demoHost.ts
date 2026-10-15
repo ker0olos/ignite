@@ -13,6 +13,7 @@ import type {
   CommandSearch,
   CommandSearchResult,
 } from "../../shared/conversations";
+import { describeSession } from "../../shared/describeSession";
 import type {
   HostMessage,
   HostRequest,
@@ -112,6 +113,9 @@ const opened = (
   approvals: c?.approvals ?? [],
   queue: queueOf(c),
 });
+
+const detailsOf = (c?: DemoConversation) =>
+  c ? describeSession(c.messages) : null;
 
 /** A host that shows the demo's conversations, with `tempo` the demo folder. */
 export function createDemoHost(tempo: string, pace = 30): HostClient {
@@ -214,8 +218,7 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
     open_session: open,
     new_session: () => opened(`demo-${++made}`, undefined),
     read_session: (r: { session: string }) => find(r.session)?.messages ?? [],
-    session_details: (r: { session: string }) =>
-      find(r.session)?.details ?? null,
+    session_details: (r: { session: string }) => detailsOf(find(r.session)),
     session_state: () => DEMO_STATE,
     draft_state: () => DEMO_STATE,
     set_model: () => DEMO_STATE,

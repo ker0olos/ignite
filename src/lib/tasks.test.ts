@@ -7,6 +7,7 @@ import {
   choicesOf,
   openTodos,
   pageOf,
+  peekSubtasks,
   prLabel,
   taskFromDraft,
   taskImages,
@@ -262,5 +263,31 @@ describe("workingLine", () => {
 describe("taskStatus after a failed start", () => {
   it("is todo again when the task has an error and no conversation", () => {
     expect(taskStatus({ ...task, error: "No model" })).toBe("todo");
+  });
+});
+
+describe("peekSubtasks", () => {
+  const plan = (statuses: string) =>
+    [...statuses].map((c, i) => ({
+      title: `s${i}`,
+      status: ({ d: "done", w: "working", t: "todo" } as const)[
+        c as "d" | "w" | "t"
+      ],
+    }));
+  const titles = (statuses: string) => {
+    const { shown, moreDone, moreOpen } = peekSubtasks(plan(statuses));
+    return [shown.map((s) => s.title).join(" "), moreDone, moreOpen];
+  };
+
+  it("shows the last done one, then the open ones", () => {
+    expect(titles("dddwt")).toEqual(["s2 s3 s4", 2, 0]);
+    expect(titles("ddwtt")).toEqual(["s1 s2 s3", 1, 1]);
+    expect(titles("dwttttt")).toEqual(["s0 s1 s2", 0, 4]);
+  });
+
+  it("starts at the first when nothing is done, and ends at the last when all are", () => {
+    expect(titles("wttt")).toEqual(["s0 s1 s2", 0, 1]);
+    expect(titles("dddd")).toEqual(["s1 s2 s3", 1, 0]);
+    expect(titles("")).toEqual(["", 0, 0]);
   });
 });

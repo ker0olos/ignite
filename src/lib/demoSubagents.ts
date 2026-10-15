@@ -150,5 +150,4 @@ export const checkConversation = (
   working: SAVE_AGENT,
   progress: SAVE_PROGRESS,
   children: CHECK_CHILDREN,
-  details: { model: "claude-opus-5-5", files: [], toolCalls: 6, cost: 0.15 },
 });
