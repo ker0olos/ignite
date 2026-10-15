@@ -27,7 +27,6 @@ export function useAgentSession(
   // What a folder about to be selected shows instead of its last conversation:
   // a new one, or the one picked in the sidebar.
   const showIn = useRef<{ folder: string; target: string | null } | null>(null);
-  const [fresh, setFresh] = useState(0);
 
   const { open, reveal, show, close } = useSessionSwitch({
     host,
@@ -141,12 +140,9 @@ export function useAgentSession(
      * starts with its first message; another folder shows it once selected.
      */
     create: (cwd = folder) => {
-      setFresh((n) => n + 1);
       if (cwd !== folder && cwd) showIn.current = { folder: cwd, target: null };
       else if (cwd) putIn(cwd, null);
     },
-    /** Counts new conversations asked for, so the composer can take focus for each. */
-    fresh,
     /** Closes a conversation (it stays saved); `open` is the folder's open ones, in order. */
     close: (session: string, open: string[]) => close(session, shown, open),
     /** Approves or denies a tool call that waits for the user. */

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Kbd } from "@/components/agent/Kbd";
 import { Textarea } from "@/components/ui/textarea";
-import { approvalHints, shortcut } from "@/lib/approvalKeys";
+import { shortcut } from "@/lib/approvalKeys";
 import { cn } from "@/lib/utils";
 
-/** The box for an answer of the user's own; with the shortcuts, ⌘N reaches it and ⌘↩ sends from it. */
+/** The box for an answer of the user's own; with the shortcuts, ⌘N reaches it and ↩ sends from it. */
 export function QuestionOwnAnswer({
   value,
   picked,
@@ -17,7 +17,7 @@ export function QuestionOwnAnswer({
   onChange: (value: string) => void;
 }) {
   const [focused, setFocused] = useState(false);
-  const hint = focused ? approvalHints().approve : shortcut("N");
+  const hint = focused ? "↩" : shortcut("N");
   return (
     <div className="relative">
       <Textarea

@@ -5,6 +5,15 @@
 @custom-variant dark (&:is(.dark *));
 @custom-variant glass (&:is(.glass [data-glass] *));
 
+@theme {
+  --animate-caret: caret 1s steps(1) infinite;
+  @keyframes caret {
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: system-ui, -apple-system, sans-serif;

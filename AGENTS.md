@@ -65,7 +65,7 @@ src/                     React frontend (almost all logic lives here)
     useFileExists.ts     Whether a path exists, checked once; inline code links only to ones that do
     useXterm.ts          An xterm fitted to its element and themed like the app (read-only and interactive views)
     useTerminalSession.ts A terminal view's connection to the host: snapshot, live output, keystrokes
-    useTerminalShortcut.ts ⌘1 / Ctrl+1 opens a terminal tab; returns run-in-terminal
+    useTerminalShortcut.ts ⌘J or ⌘1 (Ctrl+J / Ctrl+1) opens a terminal tab; returns run-in-terminal
     useRunInTerminal.ts  Run-in-terminal for assistant shell code blocks' Run button
     useStreamedCall.ts   An artifact call's arguments while it's written, read a few times a second (useThrottled.ts)
     useDraftFrame.ts     Posts a draft artifact page into its frame, which updates it in place
@@ -75,7 +75,7 @@ src/                     React frontend (almost all logic lives here)
     useGitRepoDetails.ts A repository's uncommitted files and unpushed commits, while its composer popover is open
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
-    useQuestionKeys.ts   The agent's questions from the keyboard: ↑/↓ between answers, ⌘N own answer, ⌘↩ on, ⌘⌫ skip
+    useQuestionKeys.ts   The agent's questions from the keyboard: ↑/↓ between answers, ⌘N own answer, ⌘↩ on (↩ in its text boxes, where ⌘↩ is a new line), ⌘⌫ skip
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useSkills.ts         The app's skills and plugins, and other apps' to import, while Settings is open
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
@@ -95,6 +95,7 @@ src/                     React frontend (almost all logic lives here)
                          useMarkupView.ts zooming and panning it
     useSpinnerFrame.ts   The working line's braille spinner frame (still under reduced motion); useNow.ts ticks its elapsed time
     useComposerImages.ts The composer's attached images, and marked-up ones added to it
+    useComposerFocus.ts  Five times a second, the composer takes focus unless a text field, open menu or dialog, or selection has the user
     useComposerHistory.ts ↑ at the composer's start / ↓ at its end step through sent messages (all folders)
     useImageTarget.ts    The showing input (conversation, task sheet) marked-up images are added to
   lib/
@@ -609,7 +610,7 @@ also feeds a headless xterm, so agents read the rendered screen, not escape
 codes: before each run, what the folder's terminals printed since that
 conversation last looked is added as a hidden message (like Claude Code's
 `!`), and `terminal_read` reads them on demand. Agents can't type into them.
-⌘1 (Ctrl+1) opens a new one as a tab beside the conversation. While a
+⌘J or ⌘1 (Ctrl+J or Ctrl+1) opens a new one as a tab beside the conversation. While a
 command runs in it, its tab and sidebar row are named by that command line
 (the terminal's foreground process, read with `ps` after output; not on
 Windows), and "Terminal" at the prompt. Closing the

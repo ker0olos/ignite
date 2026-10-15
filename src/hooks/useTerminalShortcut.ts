@@ -6,7 +6,7 @@ import type { HostClient } from "@/lib/piHost";
 import { terminalInput } from "@/lib/runCommand";
 
 /**
- * ⌘1 (Ctrl+1, with or without Shift) opens a new terminal tab in the folder
+ * ⌘J or ⌘1 (or Ctrl, with or without Shift) opens a new terminal tab in the folder
  * while the conversation shows, with or without a conversation yet. Returns a
  * function that opens one and runs a command in it, or null with no sidecar.
  */
@@ -38,7 +38,8 @@ export function useTerminalShortcut(
     if (!host || view !== "conversation") return;
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
-      if (e.code !== "Digit1") return;
+      // J by its letter, so any layout's J; 1 by its key, since Shift turns it into "!".
+      if (e.key.toLowerCase() !== "j" && e.code !== "Digit1") return;
       e.preventDefault();
       openTerminal();
     };
