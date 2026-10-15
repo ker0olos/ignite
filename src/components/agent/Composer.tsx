@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { QueuedMessage } from "../../../shared/queue";
 import type { ApprovalMode } from "../../../shared/hostProtocol";
 import { ComposerAddMenu } from "@/components/agent/ComposerAddMenu";
@@ -10,6 +10,7 @@ import { MentionMenu } from "@/components/agent/MentionMenu";
 import { QueuedMessages } from "@/components/agent/QueuedMessages";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import { useGitStatus } from "@/hooks/useGitStatus";
+import { useComposerFocus } from "@/hooks/useComposerFocus";
 import { useComposerHistory } from "@/hooks/useComposerHistory";
 import { useComposerImages } from "@/hooks/useComposerImages";
 import { useMentions } from "@/hooks/useMentions";
@@ -65,11 +66,7 @@ export function Composer({
     images: images.length,
   });
   const history = useComposerHistory(text, setText, input);
-
-  // A new conversation is ready to type in.
-  useEffect(() => {
-    if (session.fresh) input.current?.focus();
-  }, [session.fresh]);
+  useComposerFocus(input);
 
   const queued = session.transcript?.queued ?? [];
   const sendable = canSend(
