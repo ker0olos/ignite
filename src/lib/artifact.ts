@@ -22,13 +22,33 @@ export const ESCAPE_MESSAGE = "ignite-escape";
 // Keys pressed in the frame never reach the app, so the expanded view couldn't close on Esc.
 const ESCAPE_SCRIPT = `<script>addEventListener("keydown", (e) => e.key === "Escape" && parent.postMessage({ type: "${ESCAPE_MESSAGE}" }, "*"));</script>`;
 
+// A page with no background of its own draws on white, as in a browser; the frame itself stays clear,
+// since white behind it bleeds through the edges of a dark page. Drafts call it again after each swap.
+const BACKDROP_SCRIPT = `<script>function igniteBackdrop() {
+  document.getElementById("ignite-backdrop")?.remove();
+  const clear = (el) => !el || (getComputedStyle(el).backgroundColor === "rgba(0, 0, 0, 0)" && getComputedStyle(el).backgroundImage === "none");
+  if (!clear(document.documentElement) || !clear(document.body)) return;
+  const style = Object.assign(document.createElement("style"), { id: "ignite-backdrop", textContent: "html{background:#fff}" });
+  document.head.prepend(style);
+}
+addEventListener("DOMContentLoaded", igniteBackdrop);</script>`;
+
+// Before the page's CSS, so its own scrollbar styles win. Gray reads on light and dark pages.
+const SCROLLBAR_CSS =
+  "::-webkit-scrollbar{width:7px;height:7px;background:transparent}::-webkit-scrollbar-thumb{background:rgb(128 128 128/.4) padding-box;border:2px solid transparent;border-radius:4px}::-webkit-scrollbar-corner{background:transparent}";
+
 /** An HTML page with the policy, capture scripts and library CSS first, after any doctype so it stays in standards mode. */
 export function embeddedPage(html: string, css = ""): string {
-  const styles = css && `<style>${css}</style>`;
+  const styles = `<style>${SCROLLBAR_CSS}${css}</style>`;
   return html.replace(
     /^\s*(<!doctype[^>]*>)?/i,
     (doctype) =>
-      doctype + ARTIFACT_CSP + CAPTURE_SCRIPTS + ESCAPE_SCRIPT + styles,
+      doctype +
+      ARTIFACT_CSP +
+      CAPTURE_SCRIPTS +
+      ESCAPE_SCRIPT +
+      BACKDROP_SCRIPT +
+      styles,
   );
 }
 
