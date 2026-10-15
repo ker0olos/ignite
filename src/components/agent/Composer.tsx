@@ -34,7 +34,6 @@ export function Composer({
   host,
   folder,
   session,
-  loading,
   running,
   approval,
   modelRouter,
@@ -43,7 +42,6 @@ export function Composer({
   host: HostClient | null;
   folder: string;
   session: Session;
-  loading: boolean;
   running: boolean;
   approval: Approval;
   modelRouter: ModelRouter;
@@ -138,7 +136,6 @@ export function Composer({
           />
           <ComposerToolbar
             session={session}
-            loading={loading}
             running={running}
             canSend={sendable}
             approval={approval}
