@@ -34,6 +34,9 @@ export default defineConfig(() => ({
     __HEALTH_FILE__: JSON.stringify(process.env.IGNITE_HEALTH_FILE || null),
   },
 
+  // Serves the app as a few bundles, not ~1,000 modules one request at a time (7s to start).
+  experimental: { bundledDev: true },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

@@ -1,10 +1,7 @@
 import "./lib/remoteFirst";
-import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App";
 import { fitToScreenAndShow, isWindows } from "./lib/window";
-import "./index.css";
 
+// Shown before the app's modules load, so the window opens at once.
 fitToScreenAndShow();
 if (isWindows()) {
   document.documentElement.classList.add("windows");
@@ -17,6 +14,13 @@ document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
   }
 });
+
+const [React, ReactDOM, { default: App }] = await Promise.all([
+  import("react"),
+  import("react-dom/client"),
+  import("./App"),
+  import("./index.css"),
+]);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

@@ -7,6 +7,80 @@
   </head>
 
   <body>
+    <!-- The workspace's outline while the app loads; App removes it once it renders. -->
+    <div id="boot">
+      <style>
+        #boot {
+          --bg: #fff;
+          --side: #f6f8fa;
+          --line: #d1d9e0;
+          --bar: #e6eaef;
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          display: flex;
+          background: var(--bg);
+        }
+        @media (prefers-color-scheme: dark) {
+          #boot {
+            --bg: #0d1117;
+            --side: #151b23;
+            --line: #262c36;
+            --bar: #21262d;
+          }
+        }
+        #boot aside {
+          width: 240px;
+          flex-shrink: 0;
+          padding: 64px 12px 0;
+          background: var(--side);
+          border-right: 1px solid var(--line);
+        }
+        #boot main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          padding: 0 24px 20px;
+        }
+        #boot i {
+          display: block;
+          height: 12px;
+          margin: 0 0 16px 8px;
+          border-radius: 6px;
+          background: var(--bar);
+          animation: boot-pulse 1.4s ease-in-out infinite alternate;
+        }
+        #boot hr {
+          border: 0;
+          border-top: 1px solid var(--line);
+          margin: 8px 0 20px;
+        }
+        @keyframes boot-pulse {
+          to {
+            opacity: 0.5;
+          }
+        }
+        @media (max-width: 700px) {
+          #boot aside {
+            display: none;
+          }
+        }
+      </style>
+      <aside>
+        <i style="width: 40%"></i><i style="width: 45%"></i>
+        <hr />
+        <i style="width: 55%"></i><i style="width: 70%"></i
+        ><i style="width: 62%"></i>
+        <hr />
+        <i style="width: 35%"></i><i style="width: 50%"></i
+        ><i style="width: 42%"></i>
+      </aside>
+      <main>
+        <hr />
+        <i style="width: 30%"></i><i style="width: 20%"></i>
+      </main>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

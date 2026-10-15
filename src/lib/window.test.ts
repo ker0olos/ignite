@@ -9,6 +9,9 @@ import {
   setGlass,
   setGlassTheme,
 } from "./window";
+import { isRemote } from "./remote";
+
+vi.mock("./remote", () => ({ isRemote: vi.fn(() => false) }));
 
 type Call = { cmd: string; args: Record<string, unknown> };
 
@@ -101,6 +104,7 @@ describe("setGlass", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(isRemote).mockReturnValue(false);
     document.documentElement.classList.remove("glass");
   });
 
@@ -112,6 +116,16 @@ describe("setGlass", () => {
       "plugin:liquid-glass|set_liquid_glass_effect",
     );
     expect(glazed()).toBe(true);
+  });
+
+  it("never glazes a browser on a Mac (remote access), nor the desktop window from it", async () => {
+    as(mac);
+    vi.mocked(isRemote).mockReturnValue(true);
+    const calls = fakeWindow(null);
+    await setGlass(true);
+    await setGlassTheme("dark");
+    expect(calls).toEqual([]);
+    expect(glazed()).toBe(false);
   });
 
   it("leaves the page opaque when the window can't be glazed", async () => {

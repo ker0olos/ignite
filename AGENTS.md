@@ -81,6 +81,7 @@ src/                     React frontend (almost all logic lives here)
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
     useAbout.ts          The commit the app runs from; Check for updates, reloading every window
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
+    useOpenedOnce.ts     Mounts a lazy dialog (Settings, command center) on first open; loads its code soon after startup
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
     useIconTheme.ts      The loaded icon theme every FileIcon draws with, and light or dark; useIconUrl.ts its images
     useRemoteAccess.ts   Main window: starts the remote access server, runs browsers' allowed Tauri calls

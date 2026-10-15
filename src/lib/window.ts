@@ -7,6 +7,7 @@ import {
 } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { APP_TITLE } from "./app";
+import { isRemote } from "./remote";
 
 /** True in the Windows build, where the title and menu bars are native. */
 export const isWindows = () => navigator.userAgent.includes("Windows");
@@ -25,7 +26,8 @@ let glassWanted = false;
  * show, only while the glass is there.
  */
 export async function setGlass(on: boolean) {
-  if (!isMac()) return;
+  // A browser on a Mac (remote access) has no window glass behind the page.
+  if (!isMac() || isRemote()) return;
   glassWanted = on;
   if (!on) document.documentElement.classList.remove("glass");
   await invoke("plugin:liquid-glass|set_liquid_glass_effect", {
@@ -38,7 +40,7 @@ export async function setGlass(on: boolean) {
 
 /** Gives the glass the page's light or dark (null follows macOS); it takes it from the window. */
 export async function setGlassTheme(theme: "light" | "dark" | null) {
-  if (isMac()) await getCurrentWindow().setTheme(theme);
+  if (isMac() && !isRemote()) await getCurrentWindow().setTheme(theme);
 }
 
 // ponytail: 160pt gutter for Stage Manager's strip, macOS exposes no API for its width

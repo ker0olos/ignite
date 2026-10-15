@@ -1,10 +1,16 @@
-import { SettingsDialog } from "@/components/settings/SettingsDialog";
+import { lazy, Suspense } from "react";
 import type { useConnectScreen } from "@/hooks/useConnectScreen";
 import type { useMcpServers } from "@/hooks/useMcpServers";
 import type { useProviders } from "@/hooks/useProviders";
 import type { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import type { Settings } from "@/lib/settings";
+import { useOpenedOnce } from "@/hooks/useOpenedOnce";
 import type { RemoteStatus } from "../../../shared/remote";
+
+const load = () => import("@/components/settings/SettingsDialog");
+const SettingsDialog = lazy(() =>
+  load().then((m) => ({ default: m.SettingsDialog })),
+);
 
 /** The Settings dialog, wired to the app's state. */
 export function AppSettingsDialog({
@@ -26,26 +32,29 @@ export function AppSettingsDialog({
   connectScreen: ReturnType<typeof useConnectScreen>;
   remote: RemoteStatus | null;
 }) {
+  if (!useOpenedOnce(dialog.open, load)) return null;
   return (
-    <SettingsDialog
-      key={dialog.section}
-      initialSection={dialog.section}
-      open={dialog.open}
-      onOpenChange={dialog.setOpen}
-      settings={settings}
-      onChange={onChange}
-      providers={providers.statuses}
-      providersError={providers.hostError}
-      mcp={mcp}
-      skills={dialog.skills}
-      memory={dialog.memory}
-      about={dialog.about}
-      folder={folder}
-      remote={remote}
-      onManageProviders={() => {
-        dialog.setOpen(false);
-        connectScreen.show();
-      }}
-    />
+    <Suspense>
+      <SettingsDialog
+        key={dialog.section}
+        initialSection={dialog.section}
+        open={dialog.open}
+        onOpenChange={dialog.setOpen}
+        settings={settings}
+        onChange={onChange}
+        providers={providers.statuses}
+        providersError={providers.hostError}
+        mcp={mcp}
+        skills={dialog.skills}
+        memory={dialog.memory}
+        about={dialog.about}
+        folder={folder}
+        remote={remote}
+        onManageProviders={() => {
+          dialog.setOpen(false);
+          connectScreen.show();
+        }}
+      />
+    </Suspense>
   );
 }
