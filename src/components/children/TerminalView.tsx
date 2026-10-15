@@ -3,6 +3,7 @@ import { useTerminalSession } from "@/hooks/useTerminalSession";
 import { useXterm } from "@/hooks/useXterm";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
+import { editingKey } from "@/lib/terminalKeys";
 
 const INTERACTIVE = { cursorBlink: true };
 
@@ -31,6 +32,18 @@ export function TerminalView({
   useTerminalSession(host, terminal, term);
 
   useEffect(() => term?.focus(), [term]);
+
+  useEffect(
+    () =>
+      term?.attachCustomKeyEventHandler((e) => {
+        const sequence = editingKey(e);
+        if (sequence === undefined) return true;
+        e.preventDefault();
+        if (e.type === "keydown") term.input(sequence);
+        return false;
+      }),
+    [term],
+  );
 
   return (
     <div className="terminal-surface min-h-0 flex-1 px-5 py-4">
