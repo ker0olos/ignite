@@ -33,7 +33,7 @@ once. Made for macOS; and others.
   the conversation or a task to show the agent what you mean.
 - When a decision is open, the agent asks you, with a few options and what
   each one costs. Pick one, write your own answer, or leave it to the agent.
-- ⌘1 opens a terminal beside the conversation. Agents read what it printed,
+- ⌘J (or ⌘1) opens a terminal beside the conversation. Agents read what it printed,
   and shell code in a reply runs there with one click.
 - Type `/` for the project's skills and `@` for files, terminals and attached
   images.

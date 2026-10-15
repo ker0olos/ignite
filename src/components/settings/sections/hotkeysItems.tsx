@@ -32,8 +32,12 @@ export function hotkeysItems(): Item[] {
       section: "Keyboard Shortcuts",
       title: "Open terminal",
       description: "Open a terminal tab in the current folder.",
-      hint: shortcut("1"),
-      keywords: "hotkeys shortcuts keybindings command 1 terminal shell",
+      hint: (
+        <>
+          {shortcut("J")} or {shortcut("1")}
+        </>
+      ),
+      keywords: "hotkeys shortcuts keybindings command j 1 terminal shell",
     },
     {
       section: "Keyboard Shortcuts",

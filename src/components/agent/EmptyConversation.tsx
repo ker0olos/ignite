@@ -6,7 +6,7 @@ const MOD = isMac() ? "⌘" : "Ctrl+";
 const SHORTCUTS = [
   ["Search everything", "K"],
   ["Open a file", "P"],
-  ["New terminal", "1"],
+  ["New terminal", "J"],
 ] as const;
 
 /** The empty area doubles as the title bar, so it drags the window. */

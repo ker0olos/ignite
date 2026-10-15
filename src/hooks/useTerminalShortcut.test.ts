@@ -6,7 +6,8 @@ import { useTerminalShortcut } from "./useTerminalShortcut";
 
 const press = (init: KeyboardEventInit) => {
   const e = new KeyboardEvent("keydown", {
-    code: "Digit1",
+    code: "KeyJ",
+    key: "j",
     cancelable: true,
     ...init,
   });
@@ -31,7 +32,7 @@ function setup(view: "conversation" | "tasks" = "conversation") {
 }
 
 describe("useTerminalShortcut", () => {
-  it("opens a terminal tab on ⌘1, also with Shift or Ctrl", async () => {
+  it("opens a terminal tab on ⌘J or ⌘1, also with Shift or Ctrl", async () => {
     const { request, open } = setup();
     const e = press({ metaKey: true });
     expect(e.defaultPrevented).toBe(true);
@@ -47,14 +48,18 @@ describe("useTerminalShortcut", () => {
     );
     press({ metaKey: true, shiftKey: true });
     press({ ctrlKey: true });
-    await waitFor(() => expect(open).toHaveBeenCalledTimes(3));
+    press({ metaKey: true, code: "Digit1", key: "1" });
+    // Dvorak: J is on another key.
+    press({ metaKey: true, code: "KeyC", key: "j" });
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(5));
   });
 
-  it("ignores other keys, Alt, and a bare 1", () => {
+  it("ignores other keys, Alt, and a bare J", () => {
     const { request } = setup();
     press({});
     press({ metaKey: true, altKey: true });
-    press({ metaKey: true, code: "Digit2" });
+    press({ metaKey: true, code: "Backquote", key: "`" });
+    press({ metaKey: true, code: "KeyJ", key: "h" });
     expect(request).not.toHaveBeenCalled();
   });
 
