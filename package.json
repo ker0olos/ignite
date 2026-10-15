@@ -10,14 +10,16 @@
     "tauri": "node scripts/tauri.mjs",
     "demo": "IGNITE_DEMO=1 node scripts/tauri.mjs dev",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.sidecar.json",
-    "lint": "oxlint --deny-warnings && eslint . && knip && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "lint": "npm run lint:js && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
     "format": "prettier --write . && cargo fmt --manifest-path src-tauri/Cargo.toml",
-    "format:check": "prettier --check . && cargo fmt --manifest-path src-tauri/Cargo.toml --check",
+    "format:check": "prettier --check --cache . && cargo fmt --manifest-path src-tauri/Cargo.toml --check",
     "test": "vitest run && cargo test --manifest-path src-tauri/Cargo.toml",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "setup": "bash launcher/setup.sh",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "prepare": "git config core.hooksPath .githooks",
+    "lint:js": "oxlint --deny-warnings && eslint . --cache --cache-location node_modules/.cache/eslint/ && knip"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.284",

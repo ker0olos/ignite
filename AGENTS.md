@@ -888,6 +888,9 @@ Without the variable nothing changes.
   `demo/tempo`.
 - Verify before finishing any change: `npm run check` (tsc, ESLint, clippy,
   Prettier, rustfmt, Vitest, cargo test). CI runs the same steps.
+- Commits run `.githooks/pre-commit` (`lint:js`: oxlint, ESLint, knip; and the
+  format check), which `npm install` turns on through `prepare`. Clippy is left
+  to CI. `--no-verify` skips it.
 - Tests only: `npm run test`; watch mode: `npm run test:watch`
 - Find untested branches: `npm run coverage`
 - Auto-format: `npm run format`

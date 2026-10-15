@@ -1,0 +1,4 @@
+#!/bin/sh
+# Catches what CI's lint and format steps would fail on, minus Clippy (slow, Rust rarely changes).
+# `git commit --no-verify` skips it.
+npm run --silent lint:js && npm run --silent format:check
