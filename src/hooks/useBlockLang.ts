@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { looksLikeShell } from "@/lib/shellDetect";
 
 // Markdown remounts its code blocks on each render, so answers outlive them.
 // ponytail: grows with every untagged block seen; an LRU if that ever matters.
@@ -15,10 +14,13 @@ export function useBlockLang(
   useEffect(() => {
     if (lang !== undefined) return;
     let cancelled = false;
-    looksLikeShell(code).then((yes) => {
-      known.set(code, yes);
-      if (!cancelled) setShell(yes);
-    });
+    // tree-sitter loads with the first untagged block, not with the app.
+    import("@/lib/shellDetect")
+      .then((m) => m.looksLikeShell(code))
+      .then((yes) => {
+        known.set(code, yes);
+        if (!cancelled) setShell(yes);
+      });
     return () => {
       cancelled = true;
     };

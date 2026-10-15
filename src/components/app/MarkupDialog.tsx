@@ -1,9 +1,15 @@
-import { useState, type ReactNode } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import type { ImageContent } from "../../../shared/agentTypes";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DiscardMarkupDialog } from "@/components/app/DiscardMarkupDialog";
-import { MarkupEditor } from "@/components/app/MarkupEditor";
 import { useImageTarget } from "@/hooks/useImageTarget";
+
+// Konva and its React renderer load only once markup opens, not with the app.
+const MarkupEditor = lazy(() =>
+  import("@/components/app/MarkupEditor").then((m) => ({
+    default: m.MarkupEditor,
+  })),
+);
 
 /**
  * The markup editor over the whole window. The result goes to `onEdit`, else
@@ -49,19 +55,21 @@ export function MarkupDialog({
         className="top-0 left-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col items-center gap-3 overflow-hidden rounded-none bg-transparent p-4 pb-[max(1rem,env(safe-area-inset-bottom))] ring-0 sm:max-w-none sm:p-6"
       >
         <DialogTitle className="sr-only">{name}</DialogTitle>
-        <MarkupEditor
-          image={image}
-          name={name}
-          doneLabel={onEdit ? "Save" : target?.label}
-          paused={confirming}
-          onDirty={setDirty}
-          onDismiss={() => openChange(false)}
-          onCancel={close}
-          onSave={(marked) => {
-            save?.(marked);
-            close();
-          }}
-        />
+        <Suspense>
+          <MarkupEditor
+            image={image}
+            name={name}
+            doneLabel={onEdit ? "Save" : target?.label}
+            paused={confirming}
+            onDirty={setDirty}
+            onDismiss={() => openChange(false)}
+            onCancel={close}
+            onSave={(marked) => {
+              save?.(marked);
+              close();
+            }}
+          />
+        </Suspense>
         <DiscardMarkupDialog
           open={confirming}
           onOpenChange={setConfirming}

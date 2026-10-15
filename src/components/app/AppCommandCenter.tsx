@@ -1,10 +1,16 @@
 import type { AgentStatus } from "../../../shared/hostProtocol";
-import { CommandCenter } from "@/components/command/CommandCenter";
+import { lazy, Suspense } from "react";
 import type { useCommandCenter } from "@/hooks/useCommandCenter";
 import type { Conversations } from "@/hooks/useConversations";
 import { codeThemesFor } from "@/lib/codeThemes";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
+import { useOpenedOnce } from "@/hooks/useOpenedOnce";
+
+const load = () => import("@/components/command/CommandCenter");
+const CommandCenter = lazy(() =>
+  load().then((m) => ({ default: m.CommandCenter })),
+);
 
 /** ⌘K's command center, wired to the app: picking opens the conversation, file or folder. */
 export function AppCommandCenter({
@@ -28,25 +34,28 @@ export function AppCommandCenter({
   openFile: (folder: string, path: string) => void;
   openFolder: (folder: string) => void;
 }) {
+  if (!useOpenedOnce(command.open, load)) return null;
   return (
-    <CommandCenter
-      key={command.opening}
-      open={command.open}
-      onOpenChange={command.setOpen}
-      initialQuery={command.query}
-      host={host}
-      folders={folders}
-      home={home}
-      rows={rows}
-      details={conversations.details}
-      themes={codeThemesFor(settings.theme)}
-      editor={settings.editor}
-      preview={command.preview}
-      actions={{
-        onConversation: (folder, id) => conversations.show(folder, id),
-        onFile: openFile,
-        onFolder: openFolder,
-      }}
-    />
+    <Suspense>
+      <CommandCenter
+        key={command.opening}
+        open={command.open}
+        onOpenChange={command.setOpen}
+        initialQuery={command.query}
+        host={host}
+        folders={folders}
+        home={home}
+        rows={rows}
+        details={conversations.details}
+        themes={codeThemesFor(settings.theme)}
+        editor={settings.editor}
+        preview={command.preview}
+        actions={{
+          onConversation: (folder, id) => conversations.show(folder, id),
+          onFile: openFile,
+          onFolder: openFolder,
+        }}
+      />
+    </Suspense>
   );
 }

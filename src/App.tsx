@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { AppCommandCenter } from "@/components/app/AppCommandCenter";
 import { AppSettingsDialog } from "@/components/app/AppSettingsDialog";
 import { AppWorkspace } from "@/components/app/AppWorkspace";
@@ -81,6 +82,10 @@ export default function App() {
     active: tabs.active,
     closeTab: tabs.close,
   });
+
+  useEffect(() => {
+    if (loaded) document.getElementById("boot")?.remove();
+  }, [loaded]);
 
   if (!loaded) return null;
 
