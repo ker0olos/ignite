@@ -8,82 +8,85 @@
 
   <body>
     <div id="root"></div>
-    <!-- The workspace's outline while the app loads, hidden once React draws into #root. -->
+    <!-- A composer while the app loads, hidden once React draws into #root. -->
     <div id="boot">
       <style>
         #boot {
           --bg: #fff;
-          --side: #f6f8fa;
-          --line: #d1d9e0;
-          --bar: #e6eaef;
+          --fg: #57606a;
+          --hi: #1f2328;
+          --line: #d0d7de;
           position: fixed;
           inset: 0;
           z-index: 50;
           display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 16px;
           background: var(--bg);
+          color: var(--fg);
+          font:
+            14px -apple-system,
+            system-ui,
+            sans-serif;
         }
         @media (prefers-color-scheme: dark) {
           #boot {
-            --bg: #0d1117;
-            --side: #151b23;
-            --line: #262c36;
-            --bar: #21262d;
+            --bg: #000;
+            --fg: #8b949e;
+            --hi: #e6edf3;
+            --line: #30363d;
           }
         }
-        #boot aside {
-          width: 240px;
-          flex-shrink: 0;
-          padding: 64px 12px 0;
-          background: var(--side);
-          border-right: 1px solid var(--line);
+        #boot div {
+          width: 340px;
+          border-top: 1px solid var(--line);
+          padding: 14px 2px 0;
         }
-        #boot main {
-          flex: 1;
+        #boot b {
+          display: inline-block;
+          width: 2px;
+          height: 1.15em;
+          margin-left: 1px;
+          vertical-align: -0.2em;
+          background: var(--hi);
+          animation: boot-blink 1s steps(1) infinite;
+        }
+        #boot p {
           display: flex;
-          flex-direction: column;
-          justify-content: flex-end;
-          padding: 0 24px 20px;
+          align-items: center;
+          gap: 14px;
+          margin: 10px 0 0;
+          font-size: 12px;
         }
         #boot i {
-          display: block;
-          height: 12px;
-          margin: 0 0 16px 8px;
-          border-radius: 6px;
-          background: var(--bar);
-          animation: boot-pulse 1.4s ease-in-out infinite alternate;
+          width: 44px;
+          height: 10px;
+          border-radius: 5px;
+          background: var(--line);
+          animation: boot-pulse 1.4s ease-in-out infinite;
         }
-        #boot hr {
-          border: 0;
-          border-top: 1px solid var(--line);
-          margin: 8px 0 20px;
+        #boot i + i {
+          width: 28px;
         }
         #root:not(:empty) + #boot {
           display: none;
         }
-        @keyframes boot-pulse {
-          to {
-            opacity: 0.5;
+        @keyframes boot-blink {
+          50% {
+            opacity: 0;
           }
         }
-        @media (max-width: 700px) {
-          #boot aside {
-            display: none;
+        @keyframes boot-pulse {
+          50% {
+            opacity: 0.3;
           }
         }
       </style>
-      <aside>
-        <i style="width: 40%"></i><i style="width: 45%"></i>
-        <hr />
-        <i style="width: 55%"></i><i style="width: 70%"></i
-        ><i style="width: 62%"></i>
-        <hr />
-        <i style="width: 35%"></i><i style="width: 50%"></i
-        ><i style="width: 42%"></i>
-      </aside>
-      <main>
-        <hr />
-        <i style="width: 30%"></i><i style="width: 20%"></i>
-      </main>
+      <div>
+        Hang tight<b></b>
+        <p><span>+</span><i></i><i></i></p>
+      </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

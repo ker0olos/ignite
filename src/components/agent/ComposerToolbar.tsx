@@ -16,7 +16,6 @@ const QUEUE =
 /** The composer's right-hand controls: model/effort menus, status, and send/stop. */
 export function ComposerToolbar({
   session,
-  loading,
   running,
   canSend,
   approval,
@@ -25,7 +24,6 @@ export function ComposerToolbar({
   onStop,
 }: {
   session: Session;
-  loading: boolean;
   running: boolean;
   canSend: boolean;
   approval: Approval;
@@ -36,7 +34,8 @@ export function ComposerToolbar({
 }) {
   return (
     <>
-      {loading && (
+      {/* Until the menus can draw: a new conversation's models arrive after it shows. */}
+      {!session.state && !session.error && (
         <>
           <Skeleton className="h-3 w-14" />
           <Skeleton className="h-3 w-8" />

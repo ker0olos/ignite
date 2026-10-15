@@ -88,7 +88,6 @@ export function AgentPanel({
         host={host}
         folder={folder}
         session={session}
-        loading={loading}
         running={running}
         approval={approval}
         modelRouter={modelRouter}
