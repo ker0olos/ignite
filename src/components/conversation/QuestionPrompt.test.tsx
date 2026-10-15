@@ -111,6 +111,10 @@ it("answers from the keyboard when it has the shortcuts", () => {
   fireEvent.change(note, { target: { value: "fast" } });
   note.focus();
   fireEvent.keyDown(note, { key: "Enter", ctrlKey: true });
+  expect(screen.getByText("1/2")).toBeTruthy();
+  expect((note as HTMLTextAreaElement).value).toBe("fast\n");
+  fireEvent.change(note, { target: { value: "fast" } });
+  fireEvent.keyDown(note, { key: "Enter" });
   expect(screen.getByText("2/2")).toBeTruthy();
   expect(document.activeElement).toBe(
     screen.getByRole("checkbox", { name: "macOS" }),
@@ -118,8 +122,9 @@ it("answers from the keyboard when it has the shortcuts", () => {
   fireEvent.keyDown(window, { key: "n", ctrlKey: true });
   const own = screen.getByLabelText("Your own answer");
   expect(document.activeElement).toBe(own);
-  expect(own.parentElement!.textContent).toContain("Ctrl+↩");
-  fireEvent.keyDown(own, { key: "Enter", ctrlKey: true });
+  expect(own.parentElement!.textContent).toContain("↩");
+  expect(own.parentElement!.textContent).not.toContain("Ctrl+↩");
+  fireEvent.keyDown(own, { key: "Enter" });
   expect(onAnswer).toHaveBeenCalledWith(true, [
     {
       question: "Where should settings live?",
