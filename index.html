@@ -7,7 +7,8 @@
   </head>
 
   <body>
-    <!-- The workspace's outline while the app loads; App removes it once it renders. -->
+    <div id="root"></div>
+    <!-- The workspace's outline while the app loads, hidden once React draws into #root. -->
     <div id="boot">
       <style>
         #boot {
@@ -56,6 +57,9 @@
           border-top: 1px solid var(--line);
           margin: 8px 0 20px;
         }
+        #root:not(:empty) + #boot {
+          display: none;
+        }
         @keyframes boot-pulse {
           to {
             opacity: 0.5;
@@ -81,7 +85,6 @@
         <i style="width: 30%"></i><i style="width: 20%"></i>
       </main>
     </div>
-    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
