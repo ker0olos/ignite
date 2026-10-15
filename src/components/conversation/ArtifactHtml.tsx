@@ -26,7 +26,7 @@ export function ArtifactHtml({
   const page = useEmbeddedPage(html, libraries);
   const [frameRef, onLoad] = useDraftFrame(draft ? page : undefined);
   const style = fill ? undefined : { height: frameHeight(height) };
-  const className = cn("w-full rounded-lg border bg-white", fill && "h-full");
+  const className = cn("w-full rounded-lg border", fill && "h-full");
   if (page === undefined && !draft)
     return <div data-artifact-loading style={style} className={className} />;
   return (
@@ -37,7 +37,6 @@ export function ArtifactHtml({
       srcDoc={draft ? DRAFT_SHELL : page}
       sandbox="allow-scripts"
       style={style}
-      // A page with no background of its own draws on white, as in a browser.
       className={className}
     />
   );

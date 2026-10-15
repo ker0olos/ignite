@@ -54,7 +54,7 @@ describe("embeddedPage", () => {
 
   it("adds the libraries' CSS before the page's own", () => {
     expect(embeddedPage("<p>hi</p>", ".x{}")).toMatch(
-      /<\/script><style>\.x\{\}<\/style><p>hi<\/p>$/,
+      /<\/script><style>[^<]*\.x\{\}<\/style><p>hi<\/p>$/,
     );
   });
 

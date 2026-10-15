@@ -26,6 +26,7 @@ const RECEIVER = `<script>addEventListener("message", (e) => {
   for (const { name, value } of next.documentElement.attributes)
     root.setAttribute(name, value);
   document.body.replaceWith(document.importNode(next.body, true));
+  igniteBackdrop();
 });</script>`;
 
 /** The page a draft's frame loads once; each draft is then posted into it. */
