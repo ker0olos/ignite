@@ -44,7 +44,8 @@ export default function showArtifact(pi: ExtensionAPI) {
     label: "Artifact",
     description:
       "Show the user an artifact in the conversation: a mockup, design options, an interactive demo, a chart, a report. " +
-      "Give several pages to show alternatives or screens side by side; the user switches between them as tabs. " +
+      "Give each alternative or screen its own page; the user switches between them as tabs. " +
+      "A page is about 730px wide: never lay several options out as columns or a sideways-scrolling row on one page. " +
       "Each page is either `markdown` (rendered like your replies) or `html`, a self-contained page " +
       "in a sandboxed frame: scripts on, no access to the app and no network, so nothing loads from a URL " +
       'but Google Fonts (`<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">`). ' +

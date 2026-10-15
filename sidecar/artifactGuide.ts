@@ -9,11 +9,12 @@ Design rules for every mockup, design and demo you show.
 - Each option is a different idea, not the same layout recolored. When the user asks for more, go further and be bolder, not more of the same.
 - After a rejection, show concrete options rather than one more guess. Never make a subjective visual call for the user, or undo a pick they made.
 - For a UX question (discoverability, conversion, tap targets), note what established guidance (Nielsen Norman, Material, Apple HIG) says beside each option.
+- Once the options are shown, ask which one the user wants with \`ask_user\` (when you have it), one answer per option by its name, and wait for the pick.
 - After a pick, iterate on that one; drop the losing options. Mockups are for ideas: once one is agreed, the real thing gets built, not more mockups.
 - Check your page before showing it: every state it claims works, and nothing covers anything it shouldn't (a class clash painting a box over an image).
 - Draw the states that matter at real size (empty, loading, filled, hover/selected, error), in light and dark (\`prefers-color-scheme\`, or a toggle setting \`data-theme\`). Test small things (icons, badges) at the size they really appear.
 - Use realistic content (real names, numbers, paths, long titles), never lorem ipsum or a too-clean demo. Sample images vary (poses, angles, backgrounds) and never look broken.
-- Give the board room: large cells, nothing crammed, and the page fits its frame without sideways scrolling.
+- Give the board room: one option per page, drawn at its real size, nothing crammed, and the page fits its frame (about 730px wide) without sideways scrolling. Comparing a detail across options, stack them vertically, never in narrow columns.
 
 ### Fit the product
 
