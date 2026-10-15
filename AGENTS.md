@@ -285,6 +285,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   imageExtension.ts      show_image: shows the user an image file from any path in its tool row
                          and, in a task's conversation, on the task's card
   artifactExtension.ts   show_artifact: HTML (sandboxed iframe) or markdown pages in its tool row, as tabs
+  artifactGuide.ts       UI/UX rules for HTML pages, part of show_artifact's description
   artifactCheck.ts       Loads its HTML pages in the app's headless Chrome first; errors go back to the agent
   gitExtension.ts        git and gh tools: run outside the sandbox, ask for themselves, redirect bash's
   gitPush.ts             The git tool's `push: true`: a commit that pushes its branch in the same call
