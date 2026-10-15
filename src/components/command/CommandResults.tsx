@@ -1,13 +1,14 @@
-import { Folder, Hash, MessageSquare } from "lucide-react";
+import { Folder, Hash } from "lucide-react";
 import type { ConversationHit, FileHit } from "../../../shared/conversations";
 import {
   CommandGroup,
   CommandItem,
   CommandShortcut,
 } from "@/components/ui/command";
+import { ConversationGroup } from "@/components/command/ConversationGroup";
 import { FileResult } from "@/components/command/FileResult";
 import { Highlight } from "@/components/command/Highlight";
-import { timeAgo } from "@/lib/memory";
+import { byFolder } from "@/lib/commandQuery";
 import { basename, dirname, tildify } from "@/lib/paths";
 
 const ITEM = "gap-3 rounded-lg px-3 py-2 text-[14px]";
@@ -52,33 +53,15 @@ export function CommandResults({
           ))}
         </CommandGroup>
       )}
-      {conversations.length > 0 && (
-        <CommandGroup heading="Conversations">
-          {conversations.map((c, i) => (
-            <CommandItem
-              key={`${c.folder}\0${c.id}`}
-              value={`c${i}`}
-              onSelect={onChoose}
-              className={ITEM}
-            >
-              <MessageSquare className="text-muted-foreground" />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate">
-                  <Highlight text={c.title} query={query} fuzzy />
-                </span>
-                {c.snippet && (
-                  <span className="truncate text-xs text-muted-foreground">
-                    <Highlight text={c.snippet} query={query} />
-                  </span>
-                )}
-              </span>
-              <CommandShortcut className="shrink-0 text-[13px] tracking-normal">
-                {basename(c.folder)} · {timeAgo(c.modified)}
-              </CommandShortcut>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      )}
+      {byFolder(conversations).map((g) => (
+        <ConversationGroup
+          key={g.folder}
+          {...g}
+          home={home}
+          query={query}
+          onChoose={onChoose}
+        />
+      ))}
       {files.length > 0 && (
         <CommandGroup heading="Files">
           {files.map((f, i) => (

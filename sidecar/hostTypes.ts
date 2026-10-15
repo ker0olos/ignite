@@ -8,7 +8,7 @@ import type {
   HostMessage,
 } from "../shared/hostProtocol.ts";
 import type { SubagentStatus } from "../shared/agentStatus.ts";
-import type { SavedSession, SessionDetails } from "../shared/conversations.ts";
+import type { SavedSession } from "../shared/conversations.ts";
 import type {
   AgentMessage,
   ImageContent,
@@ -157,11 +157,6 @@ export type SessionStore = {
   list(cwd: string): Promise<(SavedSession & { text: string })[]>;
   /** A saved conversation's messages; none if it has no file yet. */
   read(cwd: string, id: string): Promise<AgentMessage[]>;
-  /** What's known of it beyond its messages: its branch, cmem's summary. */
-  extras(
-    cwd: string,
-    id: string,
-  ): Promise<Pick<SessionDetails, "branch" | "summary">>;
 };
 
 /**

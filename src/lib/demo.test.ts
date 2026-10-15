@@ -176,7 +176,7 @@ describe("the demo host", () => {
     ).not.toHaveLength(0);
     expect(
       await host.request({ type: "session_details", ...read }),
-    ).toMatchObject({ toolCalls: 3 });
+    ).toMatchObject({ recent: [{ role: "user" }, { role: "assistant" }] });
     expect(
       await host.request({ type: "session_details", cwd: TEMPO, session: "x" }),
     ).toBeNull();

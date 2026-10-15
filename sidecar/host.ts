@@ -42,8 +42,7 @@ import {
 import { backgroundOutput, stopBackground } from "./backgroundBash.ts";
 import { watchBackground } from "./hostWait.ts";
 import { skipWait } from "./skipWait.ts";
-import { describeSession } from "./describeSession.ts";
-import { messagesOf } from "./sessionStore.ts";
+import { messagesOf, sessionDetails } from "./sessionStore.ts";
 import { listFiles } from "./fileIndex.ts";
 import { createSearch } from "./search.ts";
 import type { TrustStore } from "./trust.ts";
@@ -95,10 +94,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   },
   read_session: (ctx, r) => messagesOf(ctx, r.cwd, r.session, r.tail),
   command_search: (ctx, r) => ctx.search(r),
-  session_details: async (ctx, r) => ({
-    ...describeSession(await messagesOf(ctx, r.cwd, r.session), r.cwd),
-    ...(await ctx.sessions.extras(r.cwd, r.session)),
-  }),
+  session_details: (ctx, r) => sessionDetails(ctx, r.cwd, r.session),
   session_state: async (ctx, r) =>
     sessionState(ctx, await current(ctx, r.session)),
   // ponytail: the draft is shared by every folder, so a folder's own .pi skills only show once its conversation starts.

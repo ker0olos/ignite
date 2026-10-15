@@ -1,16 +1,20 @@
 import type { AgentStatus } from "../../../shared/hostProtocol";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import type { useCommandCenter } from "@/hooks/useCommandCenter";
 import type { Conversations } from "@/hooks/useConversations";
 import { codeThemesFor } from "@/lib/codeThemes";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
+import { prefetchCommandSearch } from "@/hooks/useCommandSearch";
+import { prefetchDetails } from "@/hooks/useDetailsCache";
 import { useOpenedOnce } from "@/hooks/useOpenedOnce";
 
 const load = () => import("@/components/command/CommandCenter");
 const CommandCenter = lazy(() =>
   load().then((m) => ({ default: m.CommandCenter })),
 );
+
+const PREFETCH_MS = 2000;
 
 /** ⌘K's command center, wired to the app: picking opens the conversation, file or folder. */
 export function AppCommandCenter({
@@ -34,6 +38,17 @@ export function AppCommandCenter({
   openFile: (folder: string, path: string) => void;
   openFolder: (folder: string) => void;
 }) {
+  const { details } = conversations;
+  useEffect(() => {
+    if (!host) return;
+    const id = setTimeout(async () => {
+      const first = (await prefetchCommandSearch(host, folders))
+        .conversations[0];
+      if (first) prefetchDetails(details, first.folder, first.id);
+    }, PREFETCH_MS);
+    return () => clearTimeout(id);
+  }, [host, folders, details]);
+
   if (!useOpenedOnce(command.open, load)) return null;
   return (
     <Suspense>
@@ -46,7 +61,7 @@ export function AppCommandCenter({
         folders={folders}
         home={home}
         rows={rows}
-        details={conversations.details}
+        details={details}
         themes={codeThemesFor(settings.theme)}
         editor={settings.editor}
         preview={command.preview}

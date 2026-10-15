@@ -264,7 +264,6 @@ function fakeSessions(saved: Awaited<ReturnType<SessionStore["list"]>> = []) {
   return {
     create: () => `new${++next}`,
     list: vi.fn(async () => saved),
-    extras: vi.fn(async () => ({ branch: "feat/x" })),
     read: vi.fn(async (): Promise<AgentMessage[]> => [
       { role: "user", content: "from the file", timestamp: 1 },
     ]),
@@ -1361,7 +1360,7 @@ describe("sessions", () => {
     expect(session.prompt).not.toHaveBeenCalled();
   });
 
-  it("tells what a saved conversation did, with what's known beyond its file", async () => {
+  it("tells what a saved conversation was doing", async () => {
     const { request, responses } = setup(fakeRuntime().runtime);
     await request({
       id: 1,
@@ -1371,8 +1370,33 @@ describe("sessions", () => {
     });
     expect(responses()[0]).toMatchObject({
       ok: true,
-      data: { files: [], toolCalls: 0, branch: "feat/x" },
+      data: {
+        recent: [{ role: "user", text: "from the file" }],
+        subtasks: [],
+      },
     });
+  });
+
+  it("takes a conversation's plan from its task, which compaction keeps", async () => {
+    const { request, responses, tasks } = setup(fakeRuntime().runtime);
+    const subtasks = [{ title: "Plan", status: "done" as const }];
+    await tasks.save("/work", {
+      id: "t1",
+      title: "Fix it",
+      notes: "",
+      images: [],
+      subtasks,
+      created: 1,
+      updated: 1,
+      session: "s",
+    });
+    await request({
+      id: 1,
+      type: "session_details",
+      cwd: "/work",
+      session: "s",
+    });
+    expect(responses()[0]).toMatchObject({ data: { subtasks } });
   });
 
   it("shows a folder with no open conversation without starting one", async () => {

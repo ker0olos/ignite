@@ -120,3 +120,14 @@ export function pickOf(
       return null;
   }
 }
+
+/** Found conversations by folder, in the order each folder first ranks; each keeps its place in `conversations` (its value). */
+export function byFolder<T extends { folder: string }>(conversations: T[]) {
+  const groups = new Map<string, { hit: T; index: number }[]>();
+  conversations.forEach((hit, index) => {
+    const group = groups.get(hit.folder) ?? [];
+    group.push({ hit, index });
+    groups.set(hit.folder, group);
+  });
+  return [...groups].map(([folder, items]) => ({ folder, items }));
+}

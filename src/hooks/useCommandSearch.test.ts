@@ -125,4 +125,34 @@ describe("useCommandSearch", () => {
     expect(result.current.loading).toBe(false);
     vi.useRealTimers();
   });
+
+  it("opens again on what it last found, still loading, and keeps it if refreshing fails", async () => {
+    vi.useFakeTimers();
+    const hit = {
+      folder: "/p/motr",
+      id: "c1",
+      title: "Cached",
+      modified: 1,
+      messageCount: 2,
+    };
+    const { host } = setup(
+      async () => ({ conversations: [hit], files: [] }) as never,
+    );
+    const first = renderHook(() => useCommandSearch(host, "cached", FOLDERS));
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    first.unmount();
+
+    const { host: failing } = setup(async () => {
+      throw new Error("gone");
+    });
+    const { result } = renderHook(() =>
+      useCommandSearch(failing, "cached", FOLDERS),
+    );
+    expect(result.current.conversations).toEqual([hit]);
+    expect(result.current.loading).toBe(true);
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(result.current.conversations).toEqual([hit]);
+    expect(result.current.loading).toBe(false);
+    vi.useRealTimers();
+  });
 });

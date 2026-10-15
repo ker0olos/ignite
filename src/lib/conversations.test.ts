@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  detailsLine,
   orderedRows,
+  replyNote,
   rowsOf,
   withRunning,
   without,
@@ -146,24 +146,13 @@ describe("orderedRows", () => {
   });
 });
 
-describe("detailsLine", () => {
-  const saved = {
-    id: "a",
-    title: "t",
-    modified: 1,
-    messageCount: 4,
-    open: false,
-  };
-  it("lists what's known, leaving out what isn't", () => {
-    expect(
-      detailsLine(saved, {
-        model: "gpt-5",
-        files: [],
-        toolCalls: 3,
-        cost: 0.25,
-        branch: "feat/x",
-      }),
-    ).toBe("gpt-5 · 4 messages · 3 tool calls · $0.25 · feat/x");
-    expect(detailsLine(saved, { files: [], toolCalls: 0 })).toBe("4 messages");
+describe("replyNote", () => {
+  const reply = (tools: number, edits: number) =>
+    ({ role: "assistant", text: "", tools, edits }) as const;
+  it("counts tools and edited files, leaving out none", () => {
+    expect(replyNote(reply(4, 2))).toBe("Ran 4 tools · edited 2 files");
+    expect(replyNote(reply(1, 0))).toBe("Ran 1 tool");
+    expect(replyNote(reply(0, 1))).toBe("edited 1 file");
+    expect(replyNote(reply(0, 0))).toBe("");
   });
 });
