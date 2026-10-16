@@ -195,6 +195,30 @@ describe("tool_call", () => {
     expect(await result).toEqual({ block: true, reason: DENIED });
   });
 
+  it("lets the session's loaded skills be read without asking, through symlinks too", async () => {
+    const real = join(home, "dotfiles", "pg");
+    await mkdir(real, { recursive: true });
+    await mkdir(join(home, "skills"));
+    await symlink(real, join(home, "skills", "pg"));
+    const { asks, call, handlers } = load();
+    const skill = join(home, "skills", "pg", "SKILL.md");
+    const before = call("read", { path: skill });
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    asks[0].answer(true);
+    await before;
+    await handlers.get("before_agent_start")!(
+      {
+        systemPrompt: "",
+        systemPromptOptions: {
+          skills: [{ baseDir: join(home, "skills", "pg") }],
+        },
+      },
+      { sessionManager: { getSessionId: () => "s1" } },
+    );
+    expect(await call("read", { path: skill })).toBeUndefined();
+    expect(asks).toHaveLength(1);
+  });
+
   it("tells the model the host's reason for denying the call", async () => {
     const { asks, call } = load();
     const result = call("read", { path: "~/.ssh/config" });
@@ -426,7 +450,7 @@ describe("the sandbox in Auto", () => {
     const { handlers } = load();
     const start = (session: string) =>
       handlers.get("before_agent_start")!(
-        { systemPrompt: "base" },
+        { systemPrompt: "base", systemPromptOptions: { skills: [] } },
         { sessionManager: { getSessionId: () => session } },
       ) as Promise<{ systemPrompt: string } | undefined>;
     expect(await start("a")).toBeUndefined();

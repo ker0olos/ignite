@@ -90,18 +90,23 @@ export async function realPath(path: string): Promise<string> {
 // judged by where their path really leads. Shell commands are judged by
 // their text, against the folder as pi names it.
 // ponytail: on Windows, junctions aren't followed; paths are only compared.
-async function judged(input: Record<string, unknown>, cwd: string) {
+async function judged(
+  input: Record<string, unknown>,
+  cwd: string,
+  readable: string[],
+) {
   const windows = process.platform === "win32";
   if (windows || typeof input.path !== "string") {
     return {
       input,
-      place: { cwd, home: homedir(), temp: [tmpdir()], windows },
+      place: { cwd, home: homedir(), temp: [tmpdir()], readable, windows },
     };
   }
   const place = {
     cwd: await realPath(cwd),
     home: await realPath(homedir()),
     temp: [...new Set(await Promise.all([tmpdir(), "/tmp"].map(realPath)))],
+    readable,
   };
   const real = (p: string) => realPath(resolvePath(p, place));
   const [path, ...also] = await Promise.all(filePaths(input).map(real));
@@ -202,6 +207,9 @@ export default function approval(pi: ExtensionAPI) {
     return runOutside(event.toolCallId, { ...event.input, command }, ctx);
   }
 
+  // The folders of the skills the session loaded, which its read-only file tools may read.
+  let skills: Promise<string[]> = Promise.resolve([]);
+
   /** Why the call waits for the user, or null to let it run. */
   async function needed(
     event: ToolCallEvent,
@@ -209,7 +217,7 @@ export default function approval(pi: ExtensionAPI) {
     mode: ApprovalGate,
     box: Sandbox | undefined,
   ) {
-    const { input, place } = await judged(event.input, ctx.cwd);
+    const { input, place } = await judged(event.input, ctx.cwd, await skills);
     return approvalFor(mode, event.toolName, input, place, {
       parse: await bashParser,
       sandboxed: !!box,
@@ -253,6 +261,9 @@ export default function approval(pi: ExtensionAPI) {
     return commands.length ? `\n\n${outsideGuidance(commands)}` : "";
   };
   pi.on("before_agent_start", async (event, ctx) => {
+    skills = Promise.all(
+      event.systemPromptOptions.skills.map((s) => realPath(s.baseDir)),
+    );
     const session = ctx.sessionManager.getSessionId();
     if (!guidance.has(session)) guidance.set(session, guidanceFor());
     const extra = await guidance.get(session)!;

@@ -232,6 +232,41 @@ describe("approvalFor", () => {
     ).toEqual({ reason: "Outside the folder: /private/tmpx/p" });
   });
 
+  it("lets read-only file tools read skills in Auto, but not change them", () => {
+    const withSkills = {
+      ...place,
+      readable: ["/Users/me/.ignite/pi/skills/x"],
+    };
+    const skill = "/Users/me/.ignite/pi/skills/x/SKILL.md";
+    const outside = {
+      reason: "Outside the folder: ~/.ignite/pi/skills/x/SKILL.md",
+    };
+    for (const tool of ["read", "grep", "find", "ls", "outline"]) {
+      expect(approvalFor("auto", tool, { path: skill }, withSkills)).toBeNull();
+    }
+    for (const tool of ["edit", "write"]) {
+      expect(approvalFor("auto", tool, { path: skill }, withSkills)).toEqual(
+        outside,
+      );
+    }
+    expect(
+      approvalFor(
+        "auto",
+        "read",
+        { path: skill, also: [{ path: "/Users/me/.ssh/id_rsa" }] },
+        withSkills,
+      ),
+    ).toEqual({ reason: "Outside the folder: ~/.ssh/id_rsa" });
+    expect(
+      approvalFor(
+        "auto",
+        "read",
+        { path: "/Users/me/.ignite/pi/skills/y/SKILL.md" },
+        withSkills,
+      ),
+    ).toEqual({ reason: "Outside the folder: ~/.ignite/pi/skills/y/SKILL.md" });
+  });
+
   it("leaves paths to the sandbox when commands run in it, but not dangers", () => {
     const sandboxed = { sandboxed: true };
     const bash = (command: string) =>

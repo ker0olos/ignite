@@ -19,12 +19,14 @@ export type ApprovalGate = ApprovalMode | "full";
 
 /**
  * Where the session runs; all absolute. `temp`: folders file tools may also
- * use, as the sandbox lets bash. `windows`: they are Windows paths.
+ * use, as the sandbox lets bash. `readable`: folders they may only read
+ * (skills). `windows`: they are Windows paths.
  */
 export type Place = {
   cwd: string;
   home: string;
   temp?: string[];
+  readable?: string[];
   windows?: boolean;
 };
 
@@ -33,15 +35,8 @@ export const WINDOWS_SHELL = "Shell commands aren't sandboxed on Windows";
 const SHELL_TOOLS = new Set(["bash", "powershell"]);
 
 // Built-in tools whose `path` argument names what they read or change.
-const FILE_TOOLS = new Set([
-  "read",
-  "edit",
-  "write",
-  "grep",
-  "find",
-  "ls",
-  "outline",
-]);
+const READ_TOOLS = new Set(["read", "grep", "find", "ls", "outline"]);
+const FILE_TOOLS = new Set([...READ_TOOLS, "edit", "write"]);
 // Devices every shell script uses; they hold no files.
 const HARMLESS = /^\/dev\/(?:null|zero|stdin|stdout|stderr|tty|fd\/\d+)$/;
 
@@ -125,11 +120,17 @@ export const outsideReason = (path: string, place: Place) =>
   `Outside the folder: ${tildify(path, resolvePath(place.home, place))}`;
 
 /** Why a file tool call needs approval under Auto, or null when it may run. */
-function fileReason(path: string, place: Place): string | null {
+function fileReason(
+  path: string,
+  place: Place,
+  readOnly: boolean,
+): string | null {
   const resolved = resolvePath(path, place);
-  const folders = [place.cwd, ...(place.temp ?? [])].map((folder) =>
-    resolvePath(folder, place),
-  );
+  const folders = [
+    place.cwd,
+    ...(place.temp ?? []),
+    ...(readOnly ? (place.readable ?? []) : []),
+  ].map((folder) => resolvePath(folder, place));
   const inside = folders.some((folder) => isInside(resolved, folder));
   return inside ? null : outsideReason(resolved, place);
 }
@@ -169,9 +170,13 @@ function bashReason(
 }
 
 /** Why the first of `paths` outside the folder needs approval, or null when none is. */
-function firstReason(paths: string[], place: Place): string | null {
+function firstReason(
+  paths: string[],
+  place: Place,
+  readOnly = false,
+): string | null {
   for (const path of paths) {
-    const reason = fileReason(path, place);
+    const reason = fileReason(path, place, readOnly);
     if (reason) return reason;
   }
   return null;
@@ -195,7 +200,7 @@ function autoReason(
   }
   if (place.windows && SHELL_TOOLS.has(toolName)) return WINDOWS_SHELL;
   if (FILE_TOOLS.has(toolName) && typeof input.path === "string") {
-    return firstReason(filePaths(input), place);
+    return firstReason(filePaths(input), place, READ_TOOLS.has(toolName));
   }
   if (toolName === ADB_TOOL && Array.isArray(input.args)) {
     return adbReason(input.args, place);
