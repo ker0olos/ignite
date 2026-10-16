@@ -22,6 +22,7 @@ import ask, {
 import { APP_NAME } from "../src/lib/app.ts";
 
 const WROTE = "The user wrote instead.";
+const IMAGE = { type: "image" as const, data: "AA==", mimeType: "image/png" };
 
 let home: string;
 beforeEach(async () => {
@@ -54,17 +55,23 @@ describe("askEnabled", () => {
 });
 
 describe("replyText", () => {
-  it("lists each answer, with notes, and what was left to the agent", () => {
+  it("lists each answer, with its note, images, and what was left to the agent", () => {
     expect(
       replyText(true, [
         {
           question: "Where?",
-          choices: [{ answer: "SQLite", note: "fast" }, { answer: "Postgres" }],
+          choices: ["SQLite", "Postgres"],
+          note: "fast",
+          images: [IMAGE, IMAGE],
         },
+        { question: "Why?", choices: [], images: [IMAGE] },
         { question: "How?", choices: [] },
       ]),
     ).toBe(
-      "Q: Where?\nA: SQLite\n   Note: fast\nA: Postgres\n\n" +
+      "Q: Where?\nA: SQLite\nA: Postgres\nNote: fast\n" +
+        "Images: attached images 1-2 below are this answer's @image1-@image2.\n\n" +
+        "Q: Why?\nA: (see the attached images)\n" +
+        "Image: attached image 3 below is this answer's @image1.\n\n" +
         "Q: How?\nA: (left to you; decide it)",
     );
   });
@@ -204,10 +211,26 @@ describe("ask_user", () => {
     const result = run();
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     expect(asks[0].request).toEqual({ toolCallId: "t1" });
+    asks[0].answer(true, [{ question: "Where?", choices: ["SQLite"] }]);
+    const done = await result;
+    expect(text(done)).toBe("Q: Where?\nA: SQLite");
+    expect(done.details).toEqual({
+      answers: [{ question: "Where?", choices: ["SQLite"] }],
+    });
+  });
+
+  it("passes the answers' images to the model and counts them in its details", async () => {
+    const { asks, run } = load();
+    const result = run();
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
     asks[0].answer(true, [
-      { question: "Where?", choices: [{ answer: "SQLite" }] },
+      { question: "Where?", choices: ["Here"], images: [IMAGE] },
     ]);
-    expect(text(await result)).toBe("Q: Where?\nA: SQLite");
+    const done = await result;
+    expect(done.content.slice(1)).toEqual([IMAGE]);
+    expect(done.details).toEqual({
+      answers: [{ question: "Where?", choices: ["Here"], images: 1 }],
+    });
   });
 
   it("leaves the decision to the agent when the run is stopped", async () => {

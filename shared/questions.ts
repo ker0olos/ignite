@@ -1,4 +1,5 @@
 /** ask_user: questions the agent asks the user, and their answers. */
+import type { ImageContent } from "./agentTypes.ts";
 
 /** The tool the agent asks the user questions with; it waits like an approval. */
 export const ASK_TOOL = "ask_user";
@@ -12,8 +13,18 @@ export type Question = {
   multiSelect?: boolean;
 };
 
-/** The user's reply to one question: picked labels or their own text, each with a note. */
+/** The user's reply to one question: picked labels (or their own text when none), a note beside picks, images. */
 export type QuestionAnswer = {
   question: string;
-  choices: { answer: string; note?: string }[];
+  choices: string[];
+  note?: string;
+  images?: ImageContent[];
 };
+
+/** An answer as ask_user's result details keep it: its images counted, not stored twice. */
+export type AnsweredQuestion = Omit<QuestionAnswer, "images"> & {
+  images?: number;
+};
+
+/** ask_user's result details; none when the user left the questions to the agent. */
+export type AskDetails = { answers: AnsweredQuestion[] };

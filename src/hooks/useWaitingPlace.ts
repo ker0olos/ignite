@@ -10,17 +10,11 @@ export function useWaitingPlace(toolCallId: string) {
   return { place: queue.indexOf(toolCallId), count: queue.length };
 }
 
-const NONE: string[] = [];
-
-/**
- * The waiting calls in the order they began to wait, the same array until
- * that changes; none while the conversation is hidden, so none takes the keyboard.
- */
-export function useWaitingOrder(waiting: string[], shown = true): string[] {
+/** The waiting calls in the order they began to wait, the same array until that changes. */
+export function useWaitingOrder(waiting: string[]): string[] {
   const [order, setOrder] = useState<string[]>([]);
   const next = inArrivalOrder(order, waiting);
   const same = next.join() === order.join();
   if (!same) setOrder(next);
-  if (!shown) return NONE;
   return same ? order : next;
 }

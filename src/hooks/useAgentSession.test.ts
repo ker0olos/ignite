@@ -187,7 +187,7 @@ describe("useAgentSession", () => {
       session: "s1",
       request: { toolCallId: "q1" },
     });
-    const answers = [{ question: "Where?", choices: [{ answer: "SQLite" }] }];
+    const answers = [{ question: "Where?", choices: ["SQLite"] }];
     act(() => result.current.answer("q1", true, answers));
     expect(result.current.transcript?.tools.q1.approval).toBeUndefined();
     expect(host.send).toHaveBeenCalledWith({

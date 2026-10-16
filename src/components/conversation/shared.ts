@@ -32,6 +32,9 @@ export const SkipWaitContext = createContext<
 /** Whether the conversation runs, so a call it never ran (the run was stopped) shows as left. */
 export const RunningContext = createContext(false);
 
+/** Which of the composer's questions shows, for its call's "Asking you" line. */
+export const AskingStepContext = createContext(0);
+
 /** Sends "Continue" after a failed run; null while one runs, or where nothing can send. */
 export const ContinueContext = createContext<(() => void) | null>(null);
 
