@@ -2,6 +2,7 @@ import { FolderOpen } from "lucide-react";
 import { Kbd } from "@/components/agent/Kbd";
 import { RecentRow } from "@/components/app/RecentRow";
 import { APP_TITLE } from "@/lib/app";
+import { shortcut } from "@/lib/approvalKeys";
 
 const MAX_RECENT = 8;
 
@@ -40,7 +41,7 @@ export function Welcome({
         >
           <FolderOpen className="size-4 text-muted-foreground" />
           Open Folder
-          <Kbd className="ml-auto">⌘O</Kbd>
+          <Kbd className="ml-auto">{shortcut("O")}</Kbd>
         </button>
         {folders.length > 0 && (
           <>

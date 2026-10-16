@@ -5,11 +5,12 @@ type Key = {
   key: string;
   shiftKey: boolean;
   metaKey: boolean;
+  ctrlKey: boolean;
   isComposing: boolean;
 };
 
 /**
- * What a key in the composer does: esc stops a run; with nothing typed, ⇧⌘↵
+ * What a key in the composer does: esc stops a run; with nothing typed, ⇧⌘↵ (⇧Ctrl↵ off macOS)
  * sends the first queued message now; ↵ sends (queued mid-run).
  */
 export function composerKey(
@@ -22,7 +23,7 @@ export function composerKey(
 ): "stop" | "now" | "send" | null {
   if (e.key === "Escape") return running ? "stop" : null;
   if (e.key !== "Enter" || e.isComposing) return null;
-  return e.shiftKey ? sendNow(e.metaKey, empty && queued) : "send";
+  return e.shiftKey ? sendNow(e.metaKey || e.ctrlKey, empty && queued) : "send";
 }
 
 // ⇧↵ alone is a new line.

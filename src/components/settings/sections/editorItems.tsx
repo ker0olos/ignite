@@ -15,9 +15,7 @@ import {
   MIN_TEXT_SIZE,
   type Settings,
 } from "@/lib/settings";
-import { isWindows } from "@/lib/window";
-
-const MOD = isWindows() ? "Ctrl" : "⌘";
+import { shortcut } from "@/lib/approvalKeys";
 
 const TEXT_SIZES = Array.from(
   { length: MAX_TEXT_SIZE - MIN_TEXT_SIZE + 1 },
@@ -77,7 +75,7 @@ export function editorItems({
       description: "Your messages and the agent's replies.",
       hint: (
         <>
-          <Kbd>{MOD} +</Kbd> <Kbd>{MOD} −</Kbd>
+          <Kbd>{shortcut("+")}</Kbd> <Kbd>{shortcut("−")}</Kbd>
         </>
       ),
       keywords: "font zoom bigger smaller conversation chat",

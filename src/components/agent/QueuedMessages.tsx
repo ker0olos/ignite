@@ -2,6 +2,7 @@ import { ArrowUp, Pencil, X } from "lucide-react";
 import type { QueuedMessage, Unqueue } from "../../../shared/queue";
 import { typedSkill } from "../../../shared/skills";
 import { Kbd } from "@/components/agent/Kbd";
+import { isMac } from "@/lib/window";
 import type { Queued } from "@/lib/queue";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +61,7 @@ export function QueuedMessages({
               onClick={() => void unqueue(q, "now")}
             >
               <ArrowUp className="size-3.5" />
-              <Kbd>⇧⌘↵</Kbd>
+              <Kbd>{isMac() ? "⇧⌘↵" : "Ctrl+Shift+↵"}</Kbd>
             </button>
           ) : (
             <button

@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isMac } from "@/lib/window";
 
 /** Previous and next change buttons for a diff, as in VS Code. */
 export function ChangeNav({ onStep }: { onStep: (step: 1 | -1) => void }) {
@@ -8,7 +9,7 @@ export function ChangeNav({ onStep }: { onStep: (step: 1 | -1) => void }) {
       <Button
         size="icon-xs"
         variant="ghost"
-        title="Previous Change (⇧⌥F5)"
+        title={`Previous Change (${isMac() ? "⇧⌥F5" : "Shift+Alt+F5"})`}
         aria-label="Previous change"
         onClick={() => onStep(-1)}
       >
@@ -17,7 +18,7 @@ export function ChangeNav({ onStep }: { onStep: (step: 1 | -1) => void }) {
       <Button
         size="icon-xs"
         variant="ghost"
-        title="Next Change (⌥F5)"
+        title={`Next Change (${isMac() ? "⌥F5" : "Alt+F5"})`}
         aria-label="Next change"
         onClick={() => onStep(1)}
       >
