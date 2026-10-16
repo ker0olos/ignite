@@ -82,9 +82,15 @@ function load(first: Task | null, active = ["read", "ask_user"]) {
     if (ask.kind === "add") mine = ask.tasks[0];
     ask.reply(mine);
   });
-  const start = (prompt = "do it") =>
+  // `custom`: a run a custom message started (a background command's exit), not the user.
+  const start = (prompt = "do it", custom = false) =>
     handlers.get("before_agent_start")!({
-      prompt,
+      ...(custom
+        ? {
+            messageType: "custom",
+            message: { customType: "wake", content: prompt },
+          }
+        : { messageType: "user", prompt }),
       systemPrompt: `Base\n\n${ASKING}\n\n${COMMAND_GUIDANCE}`,
     }) as Promise<{ systemPrompt: string } | undefined>;
   const run = (params: object) =>
@@ -243,6 +249,9 @@ describe("agent_end", () => {
     await end("stop");
     expect(sent).toHaveLength(1);
     await start(WRAP_UP);
+    await end("stop");
+    expect(sent).toHaveLength(1);
+    await start("npm test exited", true);
     await end("stop");
     expect(sent).toHaveLength(1);
     await start("something else");

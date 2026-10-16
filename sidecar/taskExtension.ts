@@ -7,7 +7,10 @@
  * own: no ask_user, and its chrome_* tools drive the app's own Chrome
  * (chromeExtension.ts). Loaded after askExtension, whose guidance it replaces.
  */
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  BeforeAgentStartEvent,
+  ExtensionAPI,
+} from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { IMAGE_TOOL } from "../shared/agentTypes.ts";
 import { ASK_TOOL } from "../shared/questions.ts";
@@ -91,6 +94,10 @@ Tasks hold every plan and to-do list: don't write a plan, design or to-do file, 
 /** The plan so far, added to an interactive conversation's prompt each run so it picks up where it left off. */
 export const planReminder = (task: Task): string =>
   `### The plan so far\n${progressText(task)}`;
+
+/** Whether the user started the run, not the wrap-up message or a custom one (a background command's exit). */
+const userWrote = (event: BeforeAgentStartEvent) =>
+  event.messageType === "user" && event.prompt !== WRAP_UP;
 
 export const WRAP_UP = `Wrap up the task: set every finished subtask to "done" with ${TASK_TOOL}, then commit on a branch, push, and open a pull request. If the folder can't take one, leave the changes uncommitted and say why.`;
 
@@ -211,7 +218,7 @@ export default function tasks(pi: ExtensionAPI) {
     known = Promise.resolve(knownOf(task));
     // Its task deleted from the list, it joins again when it next plans.
     if (!task) joining = null;
-    if (event.prompt !== WRAP_UP) nudged = false;
+    if (userWrote(event)) nudged = false;
     const alone = autonomous(task);
     const others = pi
       .getActiveTools()

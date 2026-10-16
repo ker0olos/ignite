@@ -86,7 +86,11 @@ it("records the session and adds recalled context to the prompt", async () => {
   await running();
   on("session_start");
   expect(
-    await on("before_agent_start", { prompt: "fix it", systemPrompt: "base" }),
+    await on("before_agent_start", {
+      messageType: "user",
+      prompt: "fix it",
+      systemPrompt: "base",
+    }),
   ).toEqual({ systemPrompt: "base\n\n# recent context" });
   expect(called("/api/context/inject")[0][0]).toBe(
     "http://127.0.0.1:37701/api/context/inject?projects=app",
@@ -140,12 +144,44 @@ it.each([
 it("recalls once per session", async () => {
   await running();
   on("session_start");
-  await on("before_agent_start", { prompt: "a", systemPrompt: "base" });
-  await on("before_agent_start", { prompt: "b", systemPrompt: "base" });
+  await on("before_agent_start", {
+    messageType: "user",
+    prompt: "a",
+    systemPrompt: "base",
+  });
+  await on("before_agent_start", {
+    messageType: "user",
+    prompt: "b",
+    systemPrompt: "base",
+  });
   expect(called("/api/context/inject")).toHaveLength(1);
   on("session_start");
-  await on("before_agent_start", { prompt: "c", systemPrompt: "base" });
+  await on("before_agent_start", {
+    messageType: "user",
+    prompt: "c",
+    systemPrompt: "base",
+  });
   expect(called("/api/context/inject")).toHaveLength(2);
+});
+
+it("records a run a custom message started with that message's text", async () => {
+  await running();
+  on("session_start");
+  for (const content of [
+    "npm test exited 0",
+    [{ type: "text", text: "report" }],
+  ]) {
+    await on("before_agent_start", {
+      messageType: "custom",
+      message: { customType: "wake", content },
+      systemPrompt: "base",
+    });
+  }
+  await vi.waitFor(() => expect(posted()).toHaveLength(2));
+  expect(posted().map(([, body]) => body.prompt)).toEqual([
+    "npm test exited 0",
+    "report",
+  ]);
 });
 
 it("leaves the prompt alone when nothing is recalled", async () => {
@@ -156,7 +192,11 @@ it("leaves the prompt alone when nothing is recalled", async () => {
       : new Response("", { status: 500 }),
   );
   expect(
-    await on("before_agent_start", { prompt: "hi", systemPrompt: "base" }),
+    await on("before_agent_start", {
+      messageType: "user",
+      prompt: "hi",
+      systemPrompt: "base",
+    }),
   ).toBeUndefined();
 });
 
@@ -166,7 +206,11 @@ it.each([
 ])("does nothing when %s", async (_, setUp) => {
   await setUp();
   expect(
-    await on("before_agent_start", { prompt: "hi", systemPrompt: "base" }),
+    await on("before_agent_start", {
+      messageType: "user",
+      prompt: "hi",
+      systemPrompt: "base",
+    }),
   ).toBeUndefined();
   on("tool_result", { content: [] });
   on("agent_end", { messages: [] });

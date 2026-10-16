@@ -5,6 +5,7 @@
  * off in Settings, a stopped worker or an excluded folder skip that run.
  */
 import type {
+  BeforeAgentStartEvent,
   ExtensionAPI,
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
@@ -27,6 +28,14 @@ export function lastAssistantText(messages: unknown[]): string {
     .at(-1);
   return last ? textOf(last.content as Content) : "";
 }
+
+/** What started the run: the user's prompt, or a custom message's text (a background command's exit, a fork's report). */
+const promptOf = (event: BeforeAgentStartEvent) =>
+  event.messageType === "user"
+    ? event.prompt
+    : typeof event.message.content === "string"
+      ? event.message.content
+      : textOf(event.message.content);
 
 /** `context` without cmem's work-state section, which would make it the agent's to-do list instead of tasks. */
 export const withoutWorkState = (context: string): string =>
@@ -72,7 +81,7 @@ export default function cmem(pi: ExtensionAPI) {
     context ??= (await recall(url, folder)).trim();
     initialized = post("/api/sessions/init", ctx, {
       project: projectOf(folder),
-      prompt: event.prompt,
+      prompt: promptOf(event),
     });
     if (context) {
       return { systemPrompt: `${event.systemPrompt}\n\n${context}` };
