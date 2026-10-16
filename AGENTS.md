@@ -357,7 +357,8 @@ src-tauri/               Rust shell: registers plugins, nothing else
   capabilities/          Permissions the frontend may use
   tests/config.rs        Guards on the config (write scope, hidden window)
 .github/workflows/ci.yml Build, typecheck, lint, format check, tests on macOS, for pull requests to main and pushes to it (main saves the Rust cache PRs restore)
-.github/dependabot.yml   Daily PRs for new pi and pi-claude-bridge versions (new models arrive through them)
+.github/dependabot.yml   Daily PRs for new pi and pi-claude-bridge versions (new models arrive through them),
+                         and sandbox-runtime's
 ```
 
 Two places hold persisted data:

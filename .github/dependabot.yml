@@ -8,9 +8,13 @@ updates:
     allow:
       - dependency-name: "@earendil-works/pi-coding-agent"
       - dependency-name: "pi-claude-bridge"
+      # The Windows sandbox is alpha; its fixes arrive here.
+      - dependency-name: "@anthropic-ai/sandbox-runtime"
     groups:
       pi:
         patterns: ["@earendil-works/pi-coding-agent", "pi-claude-bridge"]
+      sandbox-runtime:
+        patterns: ["@anthropic-ai/sandbox-runtime"]
     commit-message:
       prefix: build
       include: scope
