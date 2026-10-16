@@ -1,6 +1,7 @@
 import { memo, useRef } from "react";
 import { Conversation } from "@/components/conversation/Conversation";
 import {
+  AskingStepContext,
   ContinueContext,
   RunningContext,
   SkipWaitContext,
@@ -23,6 +24,8 @@ export const ConversationPane = memo(function ConversationPane({
   skipWait,
   onApprove,
   waitingOnFork,
+  waiting,
+  askingStep,
   editor,
   codeThemes,
   showThinking,
@@ -35,6 +38,10 @@ export const ConversationPane = memo(function ConversationPane({
   skipWait: (toolCallId: string) => Promise<boolean>;
   onApprove: ToolProps["onApprove"];
   waitingOnFork: boolean;
+  /** Its waiting calls in the order they began to wait; none while hidden. */
+  waiting: string[];
+  /** Which question of the composer's the user is on. */
+  askingStep: number;
   editor: Editor;
   codeThemes: CodeThemes;
   showThinking: boolean;
@@ -56,18 +63,21 @@ export const ConversationPane = memo(function ConversationPane({
           value={running ? null : () => void send("Continue")}
         >
           <RunningContext.Provider value={running}>
-            <Conversation
-              transcript={transcript}
-              folder={folder}
-              shown={shown}
-              editor={editor}
-              codeThemes={codeThemes}
-              showThinking={showThinking}
-              stickyUserMessages={stickyUserMessages}
-              scrollRef={ref}
-              onApprove={onApprove}
-              waitingOnFork={waitingOnFork}
-            />
+            <AskingStepContext.Provider value={askingStep}>
+              <Conversation
+                transcript={transcript}
+                folder={folder}
+                shown={shown}
+                editor={editor}
+                codeThemes={codeThemes}
+                showThinking={showThinking}
+                stickyUserMessages={stickyUserMessages}
+                scrollRef={ref}
+                waiting={waiting}
+                onApprove={onApprove}
+                waitingOnFork={waitingOnFork}
+              />
+            </AskingStepContext.Provider>
           </RunningContext.Provider>
         </ContinueContext.Provider>
       </SkipWaitContext.Provider>

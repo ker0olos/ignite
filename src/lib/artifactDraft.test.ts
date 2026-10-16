@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DRAFT_MESSAGE, DRAFT_SHELL } from "./artifactDraft";
 
-// The shell's receiver, run here as the frame runs it (jsdom's `parent` is the window itself).
+// Run here as the frame runs them (jsdom's `parent` is the window itself).
 function post(html: string, source: Window | null = window) {
   window.dispatchEvent(
     new MessageEvent("message", {
@@ -13,13 +13,11 @@ function post(html: string, source: Window | null = window) {
 
 describe("the draft frame's receiver", () => {
   beforeAll(() => {
+    // One script, since the receiver calls the backdrop script's function.
     const scripts = new DOMParser()
       .parseFromString(DRAFT_SHELL, "text/html")
       .querySelectorAll("script");
-    const receiver = [...scripts].find((s) =>
-      s.textContent?.includes(DRAFT_MESSAGE),
-    );
-    new Function(receiver?.textContent ?? "")();
+    new Function([...scripts].map((s) => s.textContent).join("\n"))();
   });
 
   beforeEach(() => {
@@ -36,7 +34,7 @@ describe("the draft frame's receiver", () => {
     );
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.head.innerHTML).toBe(
-      '<meta name="own"><style data-draft="">p{}</style>',
+      '<style id="ignite-backdrop">html{background:#fff}</style><meta name="own"><style data-draft="">p{}</style>',
     );
     expect(document.body.outerHTML).toBe(
       '<body class="b"><p>hi</p><img src="x"></body>',
@@ -44,13 +42,22 @@ describe("the draft frame's receiver", () => {
   });
 
   it("keeps the head's nodes when they didn't change, and swaps them when they did", () => {
+    const draftStyles = () => document.head.querySelectorAll("[data-draft]");
     post("<style>p{}</style><p>a</p>");
-    const style = document.head.querySelector("style");
+    const style = draftStyles()[0];
     post("<style>p{}</style><p>ab</p>");
-    expect(document.head.querySelector("style")).toBe(style);
+    expect(draftStyles()[0]).toBe(style);
     post("<style>q{}</style><p>abc</p>");
-    expect(document.head.querySelectorAll("style")).toHaveLength(1);
-    expect(document.head.querySelector("style")?.textContent).toBe("q{}");
+    expect(draftStyles()).toHaveLength(1);
+    expect(draftStyles()[0].textContent).toBe("q{}");
+  });
+
+  it("puts white behind a draft only while it has no background of its own", () => {
+    const backdrop = () => document.getElementById("ignite-backdrop");
+    post("<p>a</p>");
+    expect(backdrop()).not.toBeNull();
+    post("<body style='background-color: black'><p>a</p></body>");
+    expect(backdrop()).toBeNull();
   });
 
   it("drops <html> attributes a later draft no longer has", () => {

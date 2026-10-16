@@ -2324,9 +2324,7 @@ describe("tool approval", () => {
   it("passes ask_user's answers back with the reply", async () => {
     const { ask, request } = await opened();
     const answer = ask("t1");
-    const answers = [
-      { question: "Where?", choices: [{ answer: "SQLite", note: "x" }] },
-    ];
+    const answers = [{ question: "Where?", choices: ["SQLite"], note: "x" }];
     await request({
       type: "approval_answer",
       toolCallId: "t1",

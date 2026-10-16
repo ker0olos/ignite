@@ -12,7 +12,11 @@ import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { parse as parseToml } from "smol-toml";
 import { Type } from "typebox";
-import { ASK_TOOL, type QuestionAnswer } from "../shared/questions.ts";
+import {
+  ASK_TOOL,
+  type AskDetails,
+  type QuestionAnswer,
+} from "../shared/questions.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
 
@@ -87,19 +91,56 @@ export function replyText(
   answers: QuestionAnswer[] = [],
 ): string {
   if (!approved) return LEFT_TO_AGENT;
+  // Each answer's images are numbered from @image1, so say where they sit among all the attached ones.
+  let first = 1;
   return answers
-    .map(({ question, choices }) =>
-      [
-        `Q: ${question}`,
-        ...(choices.length
-          ? choices.flatMap(({ answer, note }) => [
-              `A: ${answer}`,
-              ...(note ? [`   Note: ${note}`] : []),
-            ])
-          : ["A: (left to you; decide it)"]),
-      ].join("\n"),
-    )
+    .map((answer) => {
+      const text = answerText(answer, first);
+      first += answer.images?.length ?? 0;
+      return text;
+    })
     .join("\n\n");
+}
+
+function answerText(
+  { question, choices, note, images }: QuestionAnswer,
+  first: number,
+) {
+  const count = images?.length ?? 0;
+  return [
+    `Q: ${question}`,
+    ...answerLines(choices, count),
+    ...(note ? [`Note: ${note}`] : []),
+    ...imageLines(count, first),
+  ].join("\n");
+}
+
+function answerLines(choices: string[], images: number) {
+  if (choices.length) return choices.map((c) => `A: ${c}`);
+  return [
+    images ? "A: (see the attached images)" : "A: (left to you; decide it)",
+  ];
+}
+
+function imageLines(count: number, first: number) {
+  if (count === 0) return [];
+  if (count === 1) {
+    return [`Image: attached image ${first} below is this answer's @image1.`];
+  }
+  const last = first + count - 1;
+  return [
+    `Images: attached images ${first}-${last} below are this answer's @image1-@image${count}.`,
+  ];
+}
+
+/** The result's details: the answers with their images counted. */
+export function askDetails(answers: QuestionAnswer[]): AskDetails {
+  return {
+    answers: answers.map(({ images, ...rest }) => ({
+      ...rest,
+      ...(images?.length && { images: images.length }),
+    })),
+  };
 }
 
 type Ended = {
@@ -160,7 +201,14 @@ export default function ask(pi: ExtensionAPI) {
         } satisfies ApprovalAsk);
       });
       const text = reply.reason ?? replyText(reply.approved, reply.answers);
-      return { content: [{ type: "text", text }], details: undefined };
+      const answered = reply.approved && !reply.reason && reply.answers;
+      if (!answered)
+        return { content: [{ type: "text", text }], details: undefined };
+      const images = answered.flatMap((a) => a.images ?? []);
+      return {
+        content: [{ type: "text" as const, text }, ...images],
+        details: askDetails(answered),
+      };
     },
   });
 

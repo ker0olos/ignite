@@ -13,7 +13,7 @@ type Session = ReturnType<typeof useAgentSession>;
 const QUEUE =
   "flex items-center gap-2 outline-none hover:opacity-80 focus-visible:underline";
 
-/** The composer's right-hand controls: model/effort menus, status, and send/stop. */
+/** The composer's right-hand controls: model/effort menus, status, and send/stop (or a question's buttons). */
 export function ComposerToolbar({
   session,
   running,
@@ -21,6 +21,7 @@ export function ComposerToolbar({
   approval,
   modelRouter,
   git,
+  question,
   onStop,
 }: {
   session: Session;
@@ -30,6 +31,8 @@ export function ComposerToolbar({
   modelRouter: ModelRouter;
   /** The conversation's repositories, after the approval menu. */
   git: ReactNode;
+  /** A question's buttons, in place of send, queue and stop. */
+  question?: ReactNode;
   onStop: () => void;
 }) {
   return (
@@ -49,26 +52,27 @@ export function ComposerToolbar({
           {session.error}
         </span>
       )}
-      {running ? (
-        <div className={ACTION}>
-          {canSend && (
-            <button type="submit" className={QUEUE}>
-              Queue <Kbd>↵</Kbd>
+      {question ??
+        (running ? (
+          <div className={ACTION}>
+            {canSend && (
+              <button type="submit" className={QUEUE}>
+                Queue <Kbd>↵</Kbd>
+              </button>
+            )}
+            <button type="button" className={QUEUE} onClick={onStop}>
+              Stop <Kbd>esc</Kbd>
             </button>
-          )}
-          <button type="button" className={QUEUE} onClick={onStop}>
-            Stop <Kbd>esc</Kbd>
+          </div>
+        ) : (
+          <button
+            type="submit"
+            className={cn(ACTION, !canSend && "invisible")}
+            disabled={!canSend}
+          >
+            Send <Kbd>↵</Kbd>
           </button>
-        </div>
-      ) : (
-        <button
-          type="submit"
-          className={cn(ACTION, !canSend && "invisible")}
-          disabled={!canSend}
-        >
-          Send <Kbd>↵</Kbd>
-        </button>
-      )}
+        ))}
     </>
   );
 }

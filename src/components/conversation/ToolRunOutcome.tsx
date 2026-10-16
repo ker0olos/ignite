@@ -1,11 +1,14 @@
+import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL, readSubagent } from "../../../shared/subagents";
 import { readPlan } from "../../../shared/tasks";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
 import { PlanCard } from "@/components/conversation/PlanCard";
+import { QuestionAnswers } from "@/components/conversation/QuestionAnswers";
 import type { ToolProps } from "@/components/conversation/shared";
 import { SubagentSummary } from "@/components/conversation/SubagentSummary";
 import { ToolBody } from "@/components/conversation/ToolBody";
 import { WaitingPrompt } from "@/components/conversation/WaitingPrompt";
+import { readAnswered } from "@/lib/questions";
 import type { ToolRun } from "@/lib/transcript";
 
 /** A subagent call's details; null while it hasn't started, undefined for other calls or one that reported nothing. */
@@ -13,6 +16,10 @@ function subagentOf(call: ToolProps["call"], run: ToolRun) {
   if (call.name !== SUBAGENT_TOOL) return undefined;
   const details = readSubagent(run.result?.details);
   return details ?? (run.status === "running" ? null : undefined);
+}
+
+function answersOf(call: ToolProps["call"], run: ToolRun) {
+  return call.name === ASK_TOOL ? readAnswered(run.result?.details) : undefined;
 }
 
 /** What a started call shows: an approval prompt or questions, its error, or its output. */
@@ -42,6 +49,8 @@ export function ToolRunOutcome({
   }
   const plan = readPlan(run.result);
   if (plan) return <PlanCard subtasks={plan} />;
+  const answered = answersOf(call, run);
+  if (answered) return <QuestionAnswers answers={answered} />;
   const subagent = subagentOf(call, run);
   if (subagent !== undefined) {
     return (

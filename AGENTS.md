@@ -22,9 +22,9 @@ src/                     React frontend (almost all logic lives here)
                          MCP sign-in warning banner
     files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
-    agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer, model/effort/approval menus, git status, trust prompt
-    conversation/        Transcript rendering: messages, tool rows (with approve/deny, or the
-                         agent's questions) and their pieces; WorkingLine is the run's spinner, step and time,
+    agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
+                         (which also answers the agent's questions), model/effort/approval menus, git status, trust prompt
+    conversation/        Transcript rendering: messages, tool rows (with approve/deny) and their pieces; WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              Recent cmem observations for the Memory settings
@@ -75,7 +75,9 @@ src/                     React frontend (almost all logic lives here)
     useGitRepoDetails.ts A repository's uncommitted files and unpushed commits, while its composer popover is open
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
-    useQuestionKeys.ts   The agent's questions from the keyboard: ↑/↓ between answers, ⌘N own answer, ⌘↩ on (↩ in its text boxes, where ⌘↩ is a new line), ⌘⌫ skip
+    useQuestionDeck.ts   The agent's waiting questions the composer answers: step, each one's picks, text and images
+    useComposerQuestionKeys.ts Their keys: ⌥1…⌥9 pick from anywhere, ↑/↓ between options and the text, Space picks, ↵ or ⌘↩ on, ⌘N the text, ⌘⌫ skip
+    useComposerDraft.ts  The composer's text and images: the question's while one shows, else the message's
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useSkills.ts         The app's skills and plugins, and other apps' to import, while Settings is open
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
@@ -149,7 +151,7 @@ src/                     React frontend (almost all logic lives here)
     demoTempoWork.ts     Tempo's other conversations: a commit awaiting review, one still working
     demoGit.ts           Unified diffs and commit reviews for the demo
     demoQuestions.ts     The demo's second project, waiting on the agent's questions
-    questions.ts         ask_user answers being picked: options, own answer, per-option notes
+    questions.ts         ask_user answers being picked: options, a note or own answer, the call the composer answers
     tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
     runStep.ts           What a running conversation is doing now (its step, start time, elapsed text)
     runCommand.ts        Which code blocks Run offers for, and a block as terminal keystrokes
@@ -476,9 +478,13 @@ folder denies what's waiting. A hidden folder's question waits until it's
 shown again. When several calls wait, only the first shows its prompt (with
 how many more wait behind it); the rest show their place in line and open
 in turn, so nothing waits off screen. The `ask_user` tool (`sidecar/askExtension.ts`) uses the same
-channel: its call waits as an approval, the row shows its questions, and
-`approval_answer` carries the answers (declining leaves the choice to the
-agent). The approval gate never asks about `ask_user` itself. **Manual** asks for every tool call (built-in,
+channel: its call waits as an approval and, once first in line, its questions
+take over the composer (`useQuestionDeck`, `ComposerQuestion`): options above
+the text box, whose text and images are a note on the picks, or the user's own
+answer when none is picked, with mentions, images and paste as usual. Its row
+says "Asking you · 1 of 2", and once answered lists the answers (from the
+result's `details`). `approval_answer` carries the answers (declining leaves
+the choice to the agent). The approval gate never asks about `ask_user` itself. **Manual** asks for every tool call (built-in,
 MCP, everything); approved commands run as is. **Auto** asks for bash
 commands on the denylist in `lib/dangerousCommands.ts`, for file tools
 whose resolved path (symlinks followed) is outside the open folder, and for

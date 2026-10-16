@@ -1,15 +1,16 @@
-import { useState, type RefObject } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { ImageContent } from "../../shared/agentTypes";
 import { useProvideImageTarget } from "@/hooks/useImageTarget";
 import { insertImageTags } from "@/lib/mentions";
 
-/** The composer's attached images, pasted ones tagged at the caret, and the target marked-up images are added to (focusing `input`). */
+/** The composer's attached images (the message's, or a question's), pasted ones tagged at the caret, and the target marked-up images are added to (focusing `input`). */
 export function useComposerImages(
   input: RefObject<HTMLTextAreaElement | null>,
   text: string,
   setText: (text: string) => void,
+  images: ImageContent[],
+  setImages: Dispatch<SetStateAction<ImageContent[]>>,
 ) {
-  const [images, setImages] = useState<ImageContent[]>([]);
   const attach = (added: ImageContent[]) =>
     setImages((current) => [...current, ...added]);
   useProvideImageTarget("Add to conversation", (image) => {
@@ -34,5 +35,5 @@ export function useComposerImages(
       input.current?.setSelectionRange(tagged.caret, tagged.caret),
     );
   };
-  return { images, setImages, attach, remove, replace, paste };
+  return { attach, remove, replace, paste };
 }
