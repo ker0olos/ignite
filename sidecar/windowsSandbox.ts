@@ -63,6 +63,9 @@ export function folderGrant(
   };
 }
 
+const took = (step: string, started: number) =>
+  process.stderr.write(`pi-host: ${step} took ${Date.now() - started}ms\n`);
+
 const quote = (arg: string) => `'${arg.replace(/'/g, `'\\''`)}'`;
 
 /** srt-win's argv as a Git Bash line, MSYS path conversion off so arguments arrive as written. */
@@ -88,7 +91,9 @@ async function sandboxUser() {
 /** Starts the Windows sandbox, its proxy in this process; throws when it can't (UAC declined). */
 // ponytail: every command runs as the same srt-sandbox user and grants last until the sidecar ends, so a command can write in any folder a command ran in before; per-exec denies would block those folders' own running commands.
 export async function createWindowsSandbox(home = homedir()): Promise<Sandbox> {
+  let started = Date.now();
   const { sid, srtWin } = await sandboxUser();
+  took("sandbox user", started);
   const scratch = join(tmpdir(), `${APP_NAME}-scratchpad`);
   mkdirSync(scratch, { recursive: true });
   // ponytail: always-allowed paths apply from the next start; hosts apply at once.
@@ -101,7 +106,9 @@ export async function createWindowsSandbox(home = homedir()): Promise<Sandbox> {
     ...config,
     network: { ...network, filterRequest },
   });
+  started = Date.now();
   await SandboxManager.initialize(withNetwork(config.network), hostReachable);
+  took("sandbox start", started);
   const granted = new Set<string>();
   const bash = getShellConfig().shell;
   return {
@@ -114,6 +121,7 @@ export async function createWindowsSandbox(home = homedir()): Promise<Sandbox> {
       SandboxManager.updateConfig(withNetwork(network));
       // ponytail: srt-win's ACL calls are sync, so a folder's first command blocks the sidecar while its grant spreads.
       if (!granted.has(cwd)) {
+        const started = Date.now();
         const { write, read, denyWrite } = folderGrant(cwd);
         grantWindowsAcl({ sandboxUserSid: sid, srtWin, write, read });
         if (denyWrite.length) {
@@ -125,6 +133,7 @@ export async function createWindowsSandbox(home = homedir()): Promise<Sandbox> {
           });
         }
         granted.add(cwd);
+        took(`sandbox grant of ${cwd}`, started);
       }
       const { argv } = await SandboxManager.wrapWithSandboxArgv(
         `set -o pipefail; ${command}`,
