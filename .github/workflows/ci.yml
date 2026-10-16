@@ -47,5 +47,22 @@ jobs:
       - name: Format check (Prettier + rustfmt)
         run: npm run format:check
 
-      - name: Tests (Vitest + cargo test)
-        run: npm run test
+      - name: cargo test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  vitest:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx vitest run --shard=${{ matrix.shard }}/3
