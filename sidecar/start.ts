@@ -36,7 +36,7 @@ import { createLineSplitter } from "./lines.ts";
 import { findImports } from "./mcpCatalog.ts";
 import { PRESETS } from "./mcpPresets.ts";
 import { createMcpStore, MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";
-import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
+import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import { SUBAGENT_EVENT, type SubagentAsk } from "./subagentExtension.ts";
 import { createKeepAwake } from "./keepAwake.ts";
 import { createTrustStore } from "./trust.ts";

@@ -14,6 +14,7 @@ import type {
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import { WROTE_INSTEAD } from "./hostApproval.ts";
+import { forgetWaiting, markWaiting, unmarkWaiting } from "./waitingCalls.ts";
 import { createHost } from "./host.ts";
 import { skippable } from "./skipWait.ts";
 import { createTaskStore } from "./taskStore.ts";
@@ -46,6 +47,13 @@ vi.mock("./gitStatus.ts", async (original) => ({
 vi.mock("./router.ts", async (original) => ({
   ...(await original<typeof import("./router.ts")>()),
   modelRouterOn: vi.fn(async () => true),
+}));
+// The real one writes to pi's folder in the user's home.
+vi.mock("./waitingCalls.ts", () => ({
+  readWaiting: vi.fn(() => ({})),
+  markWaiting: vi.fn(),
+  unmarkWaiting: vi.fn(),
+  forgetWaiting: vi.fn(),
 }));
 
 type Interaction = Parameters<Runtime["login"]>[2];
@@ -121,10 +129,15 @@ function fakeSession() {
     },
     sessionManager: {
       appendMessage: vi.fn(() => "entry"),
-      getBranch: (): unknown[] => [],
+      getBranch: (): ReturnType<Session["sessionManager"]["getBranch"]> => [],
+      branch: vi.fn(),
+      resetLeaf: vi.fn(),
+      getSessionId: () => "s1",
+      getLeafId: (): string | null => null,
       appendCustomEntry: vi.fn(() => "entry"),
       getSessionName: (): string | undefined => undefined,
     },
+    refreshContext: vi.fn(),
     sendCustomMessage: vi.fn(async () => {}),
     isStreaming: false,
     listeners: new Set<(e: SessionEvent) => void>(),
@@ -2225,6 +2238,40 @@ describe("workspaces", () => {
     expect(workspaces.close).toHaveBeenLastCalledWith("/other", "new2");
   });
 
+  it("sends a message written before a cut-off run resumes in its place", async () => {
+    const session = fakeSession();
+    session.messages.push(
+      { role: "user", content: "hi", timestamp: 1 },
+      {
+        role: "assistant",
+        content: [{ type: "toolCall", id: "t1", name: "bash", arguments: {} }],
+        provider: "anthropic",
+        model: "opus",
+        stopReason: "toolUse",
+        timestamp: 2,
+      },
+    );
+    let settle = () => {};
+    const { request, workspaces } = withWorktrees(async () => session);
+    workspaces.open.mockImplementation(async () => ({
+      dir: "/wt/a",
+      ready: new Promise<void>((resolve) => (settle = resolve)),
+    }));
+    await request({
+      id: 1,
+      type: "open_session",
+      cwd: "/work",
+      session: "/work:saved",
+    });
+    const sending = request({ id: 2, type: "prompt", text: "do this" });
+    settle();
+    await sending;
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(session.prompt.mock.calls.map(([text]) => text)).toEqual([
+      "do this",
+    ]);
+  });
+
   it("removes the workspace of a session that failed to open", async () => {
     const { request, responses, workspaces } = withWorktrees(async () => {
       throw new Error("No model.");
@@ -2319,6 +2366,44 @@ describe("tool approval", () => {
       approved: false,
     });
     expect(answer).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the conversation's own waiting calls on disk until they settle", async () => {
+    const { ask, request, reopen, session } = await opened();
+    vi.mocked(markWaiting).mockClear();
+    ask("t1");
+    session.emit({
+      type: "tool_execution_start",
+      toolCallId: "t2",
+      toolName: "bash",
+      args: {},
+    } as SessionEvent);
+    reopen()({
+      request: { toolCallId: "t2" },
+      answer: vi.fn(),
+      wait: "before",
+    });
+    ask("sub", undefined, false);
+    expect(vi.mocked(markWaiting).mock.calls).toEqual([
+      ["/work:saved", "t1", "asking"],
+      ["/work:saved", "t2", "before"],
+    ]);
+    await request({
+      type: "approval_answer",
+      toolCallId: "t1",
+      approved: true,
+    });
+    expect(unmarkWaiting).toHaveBeenCalledWith("/work:saved", "t1");
+    await request({ id: 2, type: "abort" });
+    expect(forgetWaiting).toHaveBeenCalledWith("/work:saved");
+  });
+
+  it("leaves waiting calls unanswered on quit, to ask again on the next launch", async () => {
+    const { ask, host, session } = await opened();
+    const answer = ask("t1");
+    await host.shutdown();
+    expect(session.dispose).toHaveBeenCalled();
+    expect(answer).not.toHaveBeenCalled();
   });
 
   it("passes ask_user's answers back with the reply", async () => {

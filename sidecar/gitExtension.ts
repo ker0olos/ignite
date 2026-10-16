@@ -17,11 +17,8 @@ import {
   splitGit,
   taskRunsAlone,
 } from "../src/lib/gitPolicy.ts";
-import {
-  APPROVAL_EVENT,
-  DENIED,
-  type ApprovalAsk,
-} from "./approvalExtension.ts";
+import { DENIED } from "./approvalExtension.ts";
+import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import { approvalMode } from "./approvalSettings.ts";
 import { loadBashParser } from "./bashParser.ts";
 import { refuseMerged } from "./gitMerged.ts";

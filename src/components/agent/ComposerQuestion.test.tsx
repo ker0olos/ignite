@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { askCall } from "@/test/askCall";
 import { QuestionHarness } from "@/test/QuestionHarness";
@@ -113,4 +113,22 @@ it("starts a new call afresh", () => {
   );
   expect(screen.getByText("1/2")).toBeTruthy();
   expect(radio(/JSON file/).getAttribute("aria-checked")).toBe("false");
+});
+
+it("shows a half-answered question as it was after a reload, until it's answered", () => {
+  const { unmount } = render(
+    <QuestionHarness call={askCall("q1", questions)} onApprove={vi.fn()} />,
+  );
+  fireEvent.click(radio(/JSON file/));
+  click("Next");
+  fireEvent.change(box(), { target: { value: "Windows" } });
+  unmount();
+  const onApprove = show();
+  expect(screen.getByText("2/2")).toBeTruthy();
+  expect(box().value).toBe("Windows");
+  click("Send answers");
+  expect(onApprove.mock.calls[0][2][0].choices).toEqual(["JSON file"]);
+  cleanup();
+  show();
+  expect(screen.getByText("1/2")).toBeTruthy();
 });

@@ -5,7 +5,7 @@ import {
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
-import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
+import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import { DECLINED_ADD, registerTaskAdd } from "./taskAddTool.ts";
 import { TASK_EVENT, type TaskAsk } from "./taskExtension.ts";
 

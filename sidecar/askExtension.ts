@@ -18,7 +18,7 @@ import {
   type QuestionAnswer,
 } from "../shared/questions.ts";
 import { APP_NAME } from "../src/lib/app.ts";
-import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
+import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 
 export const ASKING = `## Deciding with the user
 The user wants to be part of every decision. Whenever the request leaves something open (an approach, a design, a library, a data shape, names others will see, scope, a trade-off, or which of several ways to carry out a task), ask with the ${ASK_TOOL} tool before you commit, instead of choosing yourself.

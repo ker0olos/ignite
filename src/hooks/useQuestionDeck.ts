@@ -1,4 +1,4 @@
-import { useState, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import type { ToolCall } from "../../shared/agentTypes";
 import type { ToolProps } from "@/components/conversation/shared";
 import { useWaitingOrder } from "@/hooks/useWaitingPlace";
@@ -9,10 +9,14 @@ import {
   toAnswers,
   toggle,
 } from "@/lib/questions";
+import {
+  type Deck,
+  flushDecks,
+  loadDeck,
+  saveDeck,
+} from "@/lib/questionDrafts";
 import { waitingCalls } from "@/lib/toolRows";
 import type { Transcript } from "@/lib/transcript";
-
-type Deck = { step: number; drafts: Draft[] };
 
 const NONE: string[] = [];
 const FRESH: Deck = { step: 0, drafts: [] };
@@ -33,15 +37,29 @@ export function useQuestionDeck(
   onApprove: ToolProps["onApprove"],
 ) {
   const [decks, setDecks] = useState<Record<string, Deck>>({});
-  if (!call) return null;
-  const id = call.id;
-  const { step, drafts } = decks[id] ?? FRESH;
+  // A reload or closed window writes what's still waiting to be saved.
+  useEffect(() => {
+    window.addEventListener("pagehide", flushDecks);
+    return () => {
+      window.removeEventListener("pagehide", flushDecks);
+      flushDecks();
+    };
+  }, []);
+  const id = call?.id;
+  const loaded = useMemo(() => (id ? loadDeck(id) : undefined), [id]);
+  if (!call || !id) return null;
+  const saved = () => decks[id] ?? loaded ?? FRESH;
+  const { step, drafts } = saved();
   const questions = readQuestions(call.arguments);
   const question = questions[step];
   if (!question) return null;
   const last = step >= questions.length - 1;
   const update = (fn: (d: Deck) => Deck) =>
-    setDecks((all) => ({ ...all, [id]: fn(all[id] ?? FRESH) }));
+    setDecks((all) => {
+      const deck = fn(all[id] ?? saved());
+      saveDeck(id, deck);
+      return { ...all, [id]: deck };
+    });
   const change = (fn: (d: Draft) => Draft) =>
     update((d) => {
       const next = [...d.drafts];
@@ -49,6 +67,15 @@ export function useQuestionDeck(
       return { ...d, drafts: next };
     });
   const to = (at: number) => update((d) => ({ ...d, step: at }));
+  const answer: ToolProps["onApprove"] = (...args) => {
+    setDecks((all) => {
+      const rest = { ...all };
+      delete rest[id];
+      return rest;
+    });
+    saveDeck(id, null);
+    onApprove(...args);
+  };
 
   return {
     id,
@@ -71,7 +98,7 @@ export function useQuestionDeck(
       change((d) => toggle(d, label, !!question.multiSelect)),
     back: step > 0 ? () => to(step - 1) : undefined,
     next: () =>
-      last ? onApprove(id, true, toAnswers(questions, drafts)) : to(step + 1),
-    skip: () => onApprove(id, false),
+      last ? answer(id, true, toAnswers(questions, drafts)) : to(step + 1),
+    skip: () => answer(id, false),
   };
 }

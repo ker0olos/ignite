@@ -8,7 +8,7 @@ import {
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
+import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import ask, {
   ASKING,
   ASK_NUDGE,

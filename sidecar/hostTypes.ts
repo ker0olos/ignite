@@ -16,7 +16,8 @@ import type {
   ToolResultMessage,
   UserMessage,
 } from "../shared/agentTypes.ts";
-import type { ApprovalAsk } from "./approvalExtension.ts";
+import type { ApprovalAsk } from "./approvalAsk.ts";
+import type { Resume } from "./hostResume.ts";
 import type { ClaudeCode } from "./claudeCode.ts";
 import type { McpStore } from "./mcpConfig.ts";
 import type { ImportSource } from "./mcpCatalog.ts";
@@ -81,10 +82,26 @@ export type Session = {
     state: { messages: AgentMessage[]; streamingMessage?: AgentMessage };
     /** Swapped while `/compact` runs, to read the summary's progress. */
     streamFunction: StreamFn;
+    /** Runs the extensions' `tool_call` handlers; wrapped while a cut-off run resumes. */
+    beforeToolCall?: (
+      context: { toolCall: { id: string } },
+      signal?: AbortSignal,
+    ) => Promise<{ block?: boolean; reason?: string } | undefined>;
   };
+  /** Rebuilds `messages` from the session file's current branch. */
+  refreshContext(): void;
   readonly sessionManager: {
     appendMessage(message: ToolResultMessage): string;
-    getBranch(): unknown[];
+    getBranch(): {
+      type: string;
+      parentId: string | null;
+      message?: { role: string };
+    }[];
+    /** Moves the leaf back to entry `id`; what's appended next starts a new branch. */
+    branch(id: string): void;
+    resetLeaf(): void;
+    getSessionId(): string;
+    getLeafId(): string | null;
     appendCustomEntry(customType: string): string;
     /** Set for a fork, which would otherwise take its original's title. */
     getSessionName(): string | undefined;
@@ -182,6 +199,8 @@ export type Agent = {
    * without an event (resuming a cut-off run, a reload).
    */
   followed?: boolean;
+  /** A cut-off run waiting to resume (hostResume.ts) until its first message is sent or it begins. */
+  resume?: Resume;
   /** Between agent_start and agent_settled. */
   running: boolean;
   /** The user picked its model, so Model Router is off for it. */

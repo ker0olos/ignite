@@ -76,6 +76,7 @@ src/                     React frontend (almost all logic lives here)
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useQuestionDeck.ts   The agent's waiting questions the composer answers: step, each one's picks, text and images
+                         (lib/questionDrafts.ts keeps them in localStorage until answered, so a reload shows them as left)
     useComposerQuestionKeys.ts Their keys: ⌥1…⌥9 pick from anywhere, ↑/↓ between options and the text, Space picks, ↵ or ⌘↩ on, ⌘N the text, ⌘⌫ skip
     useComposerDraft.ts  The composer's text and images: the question's while one shows, else the message's
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
@@ -151,6 +152,7 @@ src/                     React frontend (almost all logic lives here)
     demoTempoWork.ts     Tempo's other conversations: a commit awaiting review, one still working
     demoGit.ts           Unified diffs and commit reviews for the demo
     demoQuestions.ts     The demo's second project, waiting on the agent's questions
+    questionDrafts.ts    ask_user drafts in localStorage, one key per call, saved as typing pauses, a week at most
     questions.ts         ask_user answers being picked: options, a note or own answer, the call the composer answers
     tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
     runStep.ts           What a running conversation is doing now (its step, start time, elapsed text)
@@ -186,7 +188,11 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostAuth.ts            Provider sign-in (status, interaction, login)
   hostSession.ts         Open conversations, several per folder, kept running while hidden (sessionState, setModel, open, close, prompt)
   hostProjects.ts        Tells the app which open conversations are working or waiting (pushProjects)
-  hostResume.ts          Resumes a run a reload or quit cut off: pending calls marked not run, agent continues
+  hostResume.ts          Resumes a run a reload or quit cut off: calls that may have run marked interrupted;
+                         a call that waited on the user runs again, asking as before; agent continues
+  resumeReplay.ts        Runs a cut-off message again: the model's answer replayed, finished or run calls blocked
+  waitingCalls.ts        Each conversation's calls waiting on the user, and when (before running, asking, after a
+                         sandboxed run), on disk (~/.ignite/pi/waiting)
   toolRuns.ts            Running tool calls' latest progress, so a conversation shown again catches up on them
   sessionStore.ts        pi's saved conversations per folder: the latest, new ids, the list
   search.ts              command_search: each folder's conversations and files, cached, ranked by shared/commandSearch.ts
@@ -210,6 +216,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   forkExtension.ts       Adds the notes waiting for a conversation (its forks' reports) to its next run
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
+  approvalAsk.ts         The channel calls wait on the user through (pi event bus to the host)
   toolReason.ts          `reason` on bash and MCP tools: the agent's why, shown on the approval prompt
   bashParser.ts          Parses bash (tree-sitter) into pipelines for the approval rules
   sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts

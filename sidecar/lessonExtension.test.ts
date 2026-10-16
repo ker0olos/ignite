@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { beforeEach, expect, it } from "vitest";
-import type { ApprovalAsk } from "./approvalExtension.ts";
+import type { ApprovalAsk } from "./approvalAsk.ts";
 import lessons, { LESSON_GUIDANCE } from "./lessonExtension.ts";
 import { addLesson, readLessons } from "./lessons.ts";
 
