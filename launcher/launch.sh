@@ -85,7 +85,7 @@ start_app() {
   [ -e src-tauri/target/debug/ignite ] ||
     notify "Setting up. The first start takes a few minutes."
   # Built before the clock starts: a first build takes minutes.
-  (cd src-tauri && cargo build) || return 1
+  (cd src-tauri && cargo build --features no-console) || return 1
   export IGNITE_MODS="$1" IGNITE_HEALTH_FILE="$state/healthy"
   node node_modules/vite/bin/vite.js &
   local vite=$!

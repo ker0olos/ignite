@@ -71,7 +71,7 @@ function StartApp($withMods) {
   if (-not (Test-Path $exe)) { Notify "Setting up. The first start takes a few minutes." }
   # Built before the clock starts: a first build takes minutes.
   Push-Location src-tauri
-  $built = Run cargo build
+  $built = Run cargo build --features no-console
   Pop-Location
   if (-not $built) { return $false }
   $env:IGNITE_MODS = $withMods
