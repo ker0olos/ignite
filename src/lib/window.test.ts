@@ -7,7 +7,7 @@ import {
   fitToScreenAndShow,
   openNewWindow,
   setGlass,
-  setGlassTheme,
+  setWindowTheme,
 } from "./window";
 import { isRemote } from "./remote";
 
@@ -123,7 +123,7 @@ describe("setGlass", () => {
     vi.mocked(isRemote).mockReturnValue(true);
     const calls = fakeWindow(null);
     await setGlass(true);
-    await setGlassTheme("dark");
+    await setWindowTheme("dark");
     expect(calls).toEqual([]);
     expect(glazed()).toBe(false);
   });
@@ -165,21 +165,24 @@ describe("setGlass", () => {
   });
 });
 
-describe("setGlassTheme", () => {
+describe("setWindowTheme", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("sets the window's appearance on macOS", async () => {
-    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Macintosh");
-    const calls = fakeWindow(null);
-    await setGlassTheme("dark");
-    expect(calls).toMatchObject([
-      { cmd: "plugin:window|set_theme", args: { value: "dark" } },
-    ]);
-  });
+  it.each(["Macintosh", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"])(
+    "sets the window's appearance on %s",
+    async (agent) => {
+      vi.spyOn(navigator, "userAgent", "get").mockReturnValue(agent);
+      const calls = fakeWindow(null);
+      await setWindowTheme("dark");
+      expect(calls).toMatchObject([
+        { cmd: "plugin:window|set_theme", args: { value: "dark" } },
+      ]);
+    },
+  );
 
   it("leaves other platforms' windows alone", async () => {
     const calls = fakeWindow(null);
-    await setGlassTheme("dark");
+    await setWindowTheme("dark");
     expect(calls).toEqual([]);
   });
 });

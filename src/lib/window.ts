@@ -38,9 +38,10 @@ export async function setGlass(on: boolean) {
   if (glassWanted) document.documentElement.classList.add("glass");
 }
 
-/** Gives the glass the page's light or dark (null follows macOS); it takes it from the window. */
-export async function setGlassTheme(theme: "light" | "dark" | null) {
-  if (isMac() && !isRemote()) await getCurrentWindow().setTheme(theme);
+/** Gives the window the page's light or dark (null follows the OS): macOS's glass, Windows' title and menu bars. */
+export async function setWindowTheme(theme: "light" | "dark" | null) {
+  if ((isMac() || isWindows()) && !isRemote())
+    await getCurrentWindow().setTheme(theme);
 }
 
 // ponytail: 160pt gutter for Stage Manager's strip, macOS exposes no API for its width

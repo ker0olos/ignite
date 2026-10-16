@@ -4,7 +4,7 @@ import { DEMO_FOLDER } from "@/lib/demo";
 import { useApplyIconTheme } from "@/hooks/useIconTheme";
 import { importTheme, themeKind } from "@/lib/codeThemeLoad";
 import { applyPalettes, loadPalettes } from "@/lib/themePalette";
-import { setGlass, setGlassTheme } from "@/lib/window";
+import { setGlass, setWindowTheme } from "@/lib/window";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -55,7 +55,7 @@ export function useSettings(demo = !!DEMO_FOLDER) {
       if (cancelled) return;
       kind = k;
       apply();
-      setGlassTheme(k).catch(() => {});
+      setWindowTheme(k).catch(() => {});
     });
     loadPalettes(codeThemesFor(theme)).then((palettes) => {
       if (!cancelled) applyPalettes(palettes);
