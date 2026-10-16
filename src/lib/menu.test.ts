@@ -57,24 +57,6 @@ describe("setAppMenu", () => {
     await setAppMenu(handlers([]));
     expect(calls[calls.length - 1]).toBe("plugin:menu|set_as_app_menu");
   });
-
-  it("gives the window its own menu bar on Windows", async () => {
-    const calls: string[] = [];
-    mockWindows("main");
-    mockIPC((cmd) => {
-      calls.push(cmd);
-      return cmd === "plugin:menu|new" ? [1, "menu"] : null;
-    });
-    const ua = vi
-      .spyOn(navigator, "userAgent", "get")
-      .mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-    try {
-      await setAppMenu(handlers([]));
-    } finally {
-      ua.mockRestore();
-    }
-    expect(calls.at(-1)).toBe("plugin:menu|set_as_window_menu");
-  });
 });
 
 describe("menuItems", () => {
@@ -130,8 +112,15 @@ describe("menuItems", () => {
   });
 
   it("keeps the predefined full screen item on macOS", () => {
-    const view = find(build(handlers([])), "View");
-    expect(view?.items?.map((i) => i.item)).toContain("Fullscreen");
+    const ua = vi
+      .spyOn(navigator, "userAgent", "get")
+      .mockReturnValue("Macintosh");
+    try {
+      const view = find(build(handlers([])), "View");
+      expect(view?.items?.map((i) => i.item)).toContain("Fullscreen");
+    } finally {
+      ua.mockRestore();
+    }
   });
 
   it("toggles full screen itself on Windows, where the predefined item does nothing", async () => {

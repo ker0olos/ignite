@@ -16,6 +16,7 @@ describe("composerKey", () => {
     key: k,
     shiftKey: false,
     metaKey: false,
+    ctrlKey: false,
     isComposing: false,
     ...mods,
   });
@@ -29,6 +30,9 @@ describe("composerKey", () => {
   it("sends the first queued message now with ⇧⌘↵ and nothing typed", () => {
     const now = key("Enter", { metaKey: true, shiftKey: true });
     expect(composerKey(now, at)).toBe("now");
+    expect(
+      composerKey(key("Enter", { ctrlKey: true, shiftKey: true }), at),
+    ).toBe("now");
     expect(composerKey(now, { ...at, empty: false })).toBeNull();
     expect(composerKey(now, { ...at, queued: false })).toBeNull();
   });

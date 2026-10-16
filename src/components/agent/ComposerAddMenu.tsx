@@ -10,9 +10,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
+import { shortcut } from "@/lib/approvalKeys";
 import { pickImages } from "@/lib/images";
 import { cn } from "@/lib/utils";
-import { isWindows } from "@/lib/window";
 
 /** The composer's + menu: a whiteboard (also ⌘N), images to attach, and forking the conversation. */
 export function ComposerAddMenu({
@@ -31,7 +31,7 @@ export function ComposerAddMenu({
       label: "Whiteboard",
       icon: PenLine,
       description: "A blank page to draw on",
-      shortcut: isWindows() ? "Ctrl+N" : "⌘N",
+      shortcut: shortcut("N"),
       onClick: open,
     },
     {

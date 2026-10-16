@@ -1,8 +1,14 @@
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { useAppMenu } from "./useAppMenu";
+
+// The native menu bar is macOS's; Windows' and Linux's are tested below.
+beforeEach(() => {
+  vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Macintosh");
+});
+afterEach(() => vi.restoreAllMocks());
 
 const { setAppMenu, confirmBeforeClose, confirmQuit } = vi.hoisted(() => ({
   setAppMenu: vi.fn(),
@@ -10,7 +16,10 @@ const { setAppMenu, confirmBeforeClose, confirmQuit } = vi.hoisted(() => ({
   confirmQuit: vi.fn(),
 }));
 
-vi.mock("@/lib/menu", () => ({ setAppMenu }));
+vi.mock("@/lib/menu", async (orig) => ({
+  ...(await orig<typeof import("@/lib/menu")>()),
+  setAppMenu,
+}));
 vi.mock("@/lib/lifecycle", () => ({ confirmBeforeClose, confirmQuit }));
 
 type Call = { cmd: string; args: Record<string, unknown> };
@@ -209,21 +218,38 @@ describe("useAppMenu", () => {
     );
   });
 
-  it("on Windows, sets the window's own menu once, whatever the focus", async () => {
-    const ua = vi
-      .spyOn(navigator, "userAgent", "get")
-      .mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-    try {
-      const { home } = await setup({}, { focused: false, mockEvents: true });
-      await latestHandlers(home);
-      const before = setAppMenu.mock.calls.length;
+  describe("on Windows", () => {
+    const WIN = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
+    const key = (init: KeyboardEventInit) =>
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { cancelable: true, ...init }),
+      );
 
-      await act(() => emit("tauri://focus"));
-      await act(() => emit("tauri://blur"));
+    it("sets no menu bar, but returns the entries", async () => {
+      const ua = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(WIN);
+      try {
+        const { result } = await setup({}, { focused: true });
+        expect(setAppMenu).not.toHaveBeenCalled();
+        expect(
+          result.current.menu.map((e) => typeof e !== "string" && e.label),
+        ).toEqual(["Ignite", "File", "View"]);
+      } finally {
+        ua.mockRestore();
+      }
+    });
 
-      expect(setAppMenu.mock.calls.length).toBe(before);
-    } finally {
-      ua.mockRestore();
-    }
+    it("runs the entry whose shortcut was pressed", async () => {
+      const ua = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(WIN);
+      try {
+        const openSettings = vi.fn();
+        await setup({ openSettings });
+        key({ key: ",", ctrlKey: true });
+        expect(openSettings).toHaveBeenCalledOnce();
+        key({ key: ",", ctrlKey: true, shiftKey: true });
+        expect(openSettings).toHaveBeenCalledOnce();
+      } finally {
+        ua.mockRestore();
+      }
+    });
   });
 });

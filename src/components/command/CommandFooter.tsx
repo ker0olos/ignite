@@ -1,4 +1,5 @@
 import { Kbd } from "@/components/agent/Kbd";
+import { shortcut } from "@/lib/approvalKeys";
 
 /** The command center's key hints. */
 export function CommandFooter() {
@@ -11,7 +12,7 @@ export function CommandFooter() {
         <Kbd>↵</Kbd> to open
       </span>
       <span>
-        <Kbd>⌘K</Kbd> or <Kbd>esc</Kbd> to close
+        <Kbd>{shortcut("K")}</Kbd> or <Kbd>esc</Kbd> to close
       </span>
     </div>
   );

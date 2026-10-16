@@ -8,7 +8,7 @@ import {
 import type { AppVersion } from "../../shared/hostProtocol";
 import { aboutPanel } from "./about";
 import { APP_TITLE } from "./app";
-import { isWindows, openNewWindow, toggleFullscreen } from "./window";
+import { isMac, openNewWindow, toggleFullscreen } from "./window";
 
 export type MenuHandlers = {
   /** The commit the app runs from, for the About panel; null until known. */
@@ -27,12 +27,12 @@ export type MenuHandlers = {
 };
 
 /**
- * Installs the menu bar. On macOS it is app-wide, so the focused window calls
- * this to own the handlers; on Windows it belongs to this window.
+ * Installs the macOS menu bar. It is app-wide, so the focused window calls
+ * this to own the handlers. Windows and Linux show the same items in-app instead.
  */
 export async function setAppMenu(handlers: MenuHandlers) {
   const menu = await Menu.new({ items: await held(menuItems(handlers)) });
-  await (isWindows() ? menu.setAsWindowMenu() : menu.setAsAppMenu());
+  await menu.setAsAppMenu();
 }
 
 type ItemOption = NonNullable<MenuOptions["items"]>[number];
@@ -153,13 +153,13 @@ export function menuItems({
           action: () => location.reload(),
         },
         { item: "Separator" },
-        isWindows()
-          ? {
+        isMac()
+          ? { item: "Fullscreen" }
+          : {
               text: "Toggle Full Screen",
               accelerator: "F11",
               action: () => void toggleFullscreen(),
-            }
-          : { item: "Fullscreen" },
+            },
       ],
     },
     {

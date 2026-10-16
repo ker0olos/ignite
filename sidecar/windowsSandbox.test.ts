@@ -43,7 +43,6 @@ describe("windowsConfig", () => {
     allowed,
     ["C:\\Users\\Me\\nvm"],
     "C:\\Temp\\ignite-scratchpad",
-    (path) => path.endsWith(".ssh"),
   );
 
   it("grants the scratchpads, per-user tools and what's always allowed", () => {
@@ -57,8 +56,8 @@ describe("windowsConfig", () => {
     ]);
   });
 
-  it("denies only credentials that exist, which srt-win would otherwise create", () => {
-    expect(config.filesystem.denyRead).toEqual(["/home/me/.ssh"]);
+  it("leaves credentials to the profile's ACL, denying nothing at start", () => {
+    expect(config.filesystem.denyRead).toEqual([]);
   });
 
   it("keeps the network rules of the other platforms", () => {
@@ -74,6 +73,7 @@ describe("folderGrant", () => {
     expect(folderGrant("C:\\app")).toEqual({
       write: ["C:\\app"],
       read: [],
+      denyRead: [],
       denyWrite: [],
     });
   });
@@ -83,11 +83,23 @@ describe("folderGrant", () => {
       allow: ["/repo/.git/worktrees/s1", "/repo/.git/objects"],
       deny: ["/wt/s1/.git", "/repo/.git/worktrees/s1/config.worktree"],
     };
-    expect(folderGrant("/wt/s1", (p) => p.endsWith(".git"))).toEqual({
+    const exists = (p: string) => p.endsWith(".git");
+    expect(folderGrant("/wt/s1", "/home/me", exists)).toEqual({
       write: ["/wt/s1", "/repo/.git/worktrees/s1", "/repo/.git/objects"],
       read: ["/repo/.git"],
+      denyRead: [],
       denyWrite: ["/wt/s1/.git"],
     });
+  });
+
+  it("denies the credentials that exist when the folder holds the home folder", () => {
+    git.access = { allow: [], deny: [] };
+    const exists = (p: string) => p.endsWith(".ssh");
+    const denied = (cwd: string) =>
+      folderGrant(cwd, "/home/me", exists).denyRead;
+    expect(denied("/home")).toEqual(["/home/me/.ssh"]);
+    expect(denied("/home/me")).toEqual(["/home/me/.ssh"]);
+    expect(denied("/home/me/app")).toEqual([]);
   });
 });
 

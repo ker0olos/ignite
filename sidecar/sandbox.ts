@@ -69,9 +69,13 @@ const CREDENTIALS = [
 const RUNS_ANYTHING =
   /^(?:(?:ba|z|da|k|c|tc|fi)?sh|env|sudo|doas|xargs|nohup|nice|time|timeout|watch|script|exec|command|eval|source|make|find|(?:g|m|n)?awk|ssh|docker|podman|kubectl|osascript|open|(?:node|deno|bun|python|ruby|perl|php|lua|java|pip|go)[\d.]*|npm|npx|pnpm|pnpx|yarn|bunx|tsx|ts-node|uv|uvx|cargo|rustc|gcc|clang|cat|cp|mv|ln|dd|tar|zip|unzip|rsync|scp|curl|wget|nc|head|tail|less|more|grep|rg|sed|base64|xxd|od|strings|security)$/;
 
+/** The credentials sandboxed commands can't read, under `home`. */
+export const credentialPaths = (home: string) =>
+  CREDENTIALS.map((p) => join(home, p));
+
 /** Whether `path` is one of the credentials sandboxed commands can't read. */
 export function isCredential(path: string, home: string): boolean {
-  return CREDENTIALS.map((p) => join(home, p)).some(
+  return credentialPaths(home).some(
     (p) => path === p || path.startsWith(p + "/"),
   );
 }
@@ -132,7 +136,7 @@ export function sandboxConfig(
       tlsTerminate: { excludeDomains: listed },
     },
     filesystem: {
-      denyRead: CREDENTIALS.map((p) => join(home, p)),
+      denyRead: credentialPaths(home),
       allowRead: allowed.read,
       allowWrite: [
         ...inFolder,

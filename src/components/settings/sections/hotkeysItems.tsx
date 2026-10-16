@@ -1,14 +1,8 @@
 import type { Item } from "@/components/settings/sections";
 import { Kbd } from "@/components/agent/Kbd";
-import { isWindows } from "@/lib/window";
+import { shortcut as keys } from "@/lib/approvalKeys";
 
-const MOD = isWindows() ? "Ctrl" : "⌘";
-
-const shortcut = (key: string) => (
-  <>
-    <Kbd>{MOD}</Kbd> <Kbd>{key}</Kbd>
-  </>
-);
+const shortcut = (key: string) => <Kbd>{keys(key)}</Kbd>;
 
 /** Reference rows for app-wide keyboard shortcuts. */
 export function hotkeysItems(): Item[] {

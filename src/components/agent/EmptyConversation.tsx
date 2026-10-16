@@ -1,8 +1,7 @@
 import { Kbd } from "@/components/agent/Kbd";
 import { basename } from "@/lib/paths";
-import { isMac } from "@/lib/window";
+import { shortcut } from "@/lib/approvalKeys";
 
-const MOD = isMac() ? "⌘" : "Ctrl+";
 const SHORTCUTS = [
   ["Search everything", "K"],
   ["Open a file", "P"],
@@ -37,10 +36,7 @@ export function EmptyConversation({ folder }: { folder: string }) {
         {SHORTCUTS.map(([label, key]) => (
           <li key={key} className="flex items-center justify-between">
             {label}
-            <Kbd>
-              {MOD}
-              {key}
-            </Kbd>
+            <Kbd>{shortcut(key)}</Kbd>
           </li>
         ))}
       </ul>

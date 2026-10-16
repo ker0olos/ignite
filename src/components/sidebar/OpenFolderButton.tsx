@@ -1,5 +1,6 @@
 import { FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { shortcut } from "@/lib/approvalKeys";
 
 /** Opens a folder from the sidebar's title strip. */
 export function OpenFolderButton({ onClick }: { onClick: () => void }) {
@@ -9,7 +10,7 @@ export function OpenFolderButton({ onClick }: { onClick: () => void }) {
       size="icon-sm"
       onClick={onClick}
       aria-label="Open Folder"
-      title="Open Folder (⌘O)"
+      title={`Open Folder (${shortcut("O")})`}
     >
       <FolderPlus />
     </Button>

@@ -4,9 +4,10 @@ import type { AppVersion } from "../../shared/hostProtocol";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { useFolders } from "@/hooks/useFolders";
 import { confirmBeforeClose, confirmQuit } from "@/lib/lifecycle";
-import { setAppMenu } from "@/lib/menu";
+import { menuItems, setAppMenu, type MenuHandlers } from "@/lib/menu";
 import { tildify } from "@/lib/paths";
-import { isWindows } from "@/lib/window";
+import { isMac } from "@/lib/window";
+import { entryForKey, inAppMenuEntries, type MenuEntry } from "@/lib/inAppMenu";
 
 const win = getCurrentWindow();
 
@@ -18,7 +19,8 @@ type Folders = Pick<
 /**
  * Tracks this window's home directory and focus, and rewires the macOS app
  * menu (app-wide) to this window's handlers whenever it gains focus. On
- * Windows each window has its own menu bar, set once.
+ * Windows and Linux there is no menu bar: it returns the same items as
+ * `menu`, and their shortcuts are handled here.
  */
 export function useAppMenu({
   loaded,
@@ -56,8 +58,7 @@ export function useAppMenu({
     };
   }, []);
 
-  // Rebuilding the menu redraws the Windows menu bar, so actions read the
-  // latest handlers here and the menu is rebuilt only when what it shows changes.
+  // Actions read the latest handlers here, so the menu is rebuilt only when what it shows changes.
   const latest = useRef({
     openFolder,
     addFolder,
@@ -81,11 +82,10 @@ export function useAppMenu({
     };
   });
 
-  const ownsMenu = focused || isWindows();
-  useEffect(() => {
-    if (!loaded || !ownsMenu) return;
+  const inApp = !isMac();
+  const handlers = (): MenuHandlers => {
     const h = () => latest.current;
-    setAppMenu({
+    return {
       version,
       checkForUpdates: () => h().checkForUpdates(),
       folders,
@@ -102,8 +102,29 @@ export function useAppMenu({
       },
       closeWindow: () => win.close(),
       quit: confirmQuit,
-    });
-  }, [loaded, ownsMenu, folders, home, version]);
+    };
+  };
 
-  return { home };
+  const [menu, setMenu] = useState<MenuEntry[]>([]);
+  useEffect(() => {
+    if (!loaded) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (inApp) setMenu(inAppMenuEntries(menuItems(handlers())));
+    else if (focused) setAppMenu(handlers());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, inApp, focused, folders, home, version]);
+
+  useEffect(() => {
+    if (!menu.length) return;
+    const onKey = (e: KeyboardEvent) => {
+      const action = entryForKey(menu, e);
+      if (!action) return;
+      e.preventDefault();
+      action();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menu]);
+
+  return { home, menu };
 }
