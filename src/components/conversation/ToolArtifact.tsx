@@ -6,6 +6,7 @@ import type { Editor } from "@/components/conversation/shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ArtifactPage } from "@/lib/artifact";
 import type { CodeThemes } from "@/lib/codeThemes";
+import { cn } from "@/lib/utils";
 
 /** show_artifact's pages, as tabs when there are several, and Mark up for the shown one. */
 export function ToolArtifact({
@@ -23,17 +24,27 @@ export function ToolArtifact({
 }) {
   const [shown, setShown] = useState(0);
   const pageRef = useRef<HTMLDivElement>(null);
+  const tabbed = pages.length > 1;
   return (
     <Tabs
       value={shown}
       onValueChange={(value) => setShown(value as number)}
-      className="mt-1 gap-1"
+      className={cn("mt-1", tabbed ? "gap-0" : "gap-1")}
     >
-      <div className="flex items-center gap-2">
-        {pages.length > 1 && (
-          <TabsList className="max-w-full justify-start overflow-x-auto">
+      <div
+        className={cn(
+          "flex items-center gap-2",
+          tabbed && "rounded-t-lg border border-b-0 bg-muted px-1.5 py-1",
+        )}
+      >
+        {tabbed && (
+          <TabsList className="h-auto max-w-full justify-start gap-1 overflow-x-auto bg-transparent p-0">
             {pages.map((page, i) => (
-              <TabsTrigger key={i} value={i} className="flex-none text-[13px]">
+              <TabsTrigger
+                key={i}
+                value={i}
+                className="flex-none px-3 py-1 text-[13px] data-active:border-border data-active:bg-background data-active:shadow-sm dark:data-active:bg-background"
+              >
                 {page.title}
               </TabsTrigger>
             ))}
@@ -56,7 +67,10 @@ export function ToolArtifact({
       </div>
       {pages.map((page, i) => (
         <TabsContent key={i} value={i} keepMounted>
-          <div ref={i === shown ? pageRef : undefined}>
+          <div
+            ref={i === shown ? pageRef : undefined}
+            className={cn(tabbed && "*:rounded-t-none")}
+          >
             <ArtifactPageView
               page={page}
               height={height}
