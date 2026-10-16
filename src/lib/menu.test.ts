@@ -112,8 +112,15 @@ describe("menuItems", () => {
   });
 
   it("keeps the predefined full screen item on macOS", () => {
-    const view = find(build(handlers([])), "View");
-    expect(view?.items?.map((i) => i.item)).toContain("Fullscreen");
+    const ua = vi
+      .spyOn(navigator, "userAgent", "get")
+      .mockReturnValue("Macintosh");
+    try {
+      const view = find(build(handlers([])), "View");
+      expect(view?.items?.map((i) => i.item)).toContain("Fullscreen");
+    } finally {
+      ua.mockRestore();
+    }
   });
 
   it("toggles full screen itself on Windows, where the predefined item does nothing", async () => {

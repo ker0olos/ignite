@@ -3,9 +3,9 @@ import { menuItems, type MenuHandlers } from "./menu";
 import {
   entryForKey,
   matchesAccelerator,
-  windowsMenuEntries,
+  inAppMenuEntries,
   type MenuEntry,
-} from "./windowsMenu";
+} from "./inAppMenu";
 
 function handlers(folders: string[]): MenuHandlers {
   return {
@@ -25,7 +25,7 @@ function handlers(folders: string[]): MenuHandlers {
 }
 
 const build = (folders: string[] = []) =>
-  windowsMenuEntries(menuItems(handlers(folders)));
+  inAppMenuEntries(menuItems(handlers(folders)));
 const labelOf = (e: MenuEntry) => (e === "separator" ? e : e.label);
 const sub = (entries: MenuEntry[], label: string) => {
   const e = entries.find((x) => x !== "separator" && x.label === label);
@@ -35,7 +35,7 @@ const press = (init: KeyboardEventInit) => new KeyboardEvent("keydown", init);
 const matches = (init: KeyboardEventInit, accelerator: string) =>
   matchesAccelerator(press(init), accelerator);
 
-describe("windowsMenuEntries", () => {
+describe("inAppMenuEntries", () => {
   it("keeps the app menu, File and View, and drops Edit and the empty Window menu", () => {
     expect(build().map(labelOf)).toEqual(["Ignite", "File", "View"]);
   });
@@ -51,21 +51,12 @@ describe("windowsMenuEntries", () => {
     ]);
   });
 
-  it("formats shortcuts as Windows text", () => {
+  it("formats shortcuts with Ctrl, and keeps the full screen toggle", () => {
     const file = sub(build(), "File")?.items ?? [];
     expect(sub(file, "New Window")).toMatchObject({ shortcut: "Ctrl+Shift+N" });
     expect(sub(file, "Close Tab")).toMatchObject({ shortcut: "Ctrl+W" });
-    const ua = vi
-      .spyOn(navigator, "userAgent", "get")
-      .mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-    try {
-      const view = sub(build(), "View")?.items ?? [];
-      expect(sub(view, "Toggle Full Screen")).toMatchObject({
-        shortcut: "F11",
-      });
-    } finally {
-      ua.mockRestore();
-    }
+    const view = sub(build(), "View")?.items ?? [];
+    expect(sub(view, "Toggle Full Screen")).toMatchObject({ shortcut: "F11" });
   });
 
   it("keeps Open Recent's folders and Clear", () => {
@@ -104,7 +95,7 @@ describe("entryForKey", () => {
   it("finds an action inside a submenu and skips disabled entries", () => {
     const h = handlers([]);
     entryForKey(
-      windowsMenuEntries(menuItems(h)),
+      inAppMenuEntries(menuItems(h)),
       press({ key: "q", ctrlKey: true }),
     )?.();
     expect(h.quit).toHaveBeenCalledOnce();

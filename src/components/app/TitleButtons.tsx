@@ -1,8 +1,8 @@
 import { AppMenuButton } from "@/components/app/AppMenuButton";
 import { SettingsButton } from "@/components/app/SettingsButton";
-import type { MenuEntry } from "@/lib/windowsMenu";
+import type { MenuEntry } from "@/lib/inAppMenu";
 
-/** The title strip's buttons: the in-app menu (Windows only, else no entries) and Settings. */
+/** The title strip's buttons: the in-app menu (no entries on macOS) and Settings. */
 export function TitleButtons({
   menu,
   onSettings,

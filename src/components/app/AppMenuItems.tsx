@@ -6,7 +6,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { MenuEntry } from "@/lib/windowsMenu";
+import type { MenuEntry } from "@/lib/inAppMenu";
 
 /** Renders menu entries, submenus included, as dropdown items. */
 export function AppMenuItems({ entries }: { entries: MenuEntry[] }) {

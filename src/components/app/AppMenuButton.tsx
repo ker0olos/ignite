@@ -6,9 +6,9 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { MenuEntry } from "@/lib/windowsMenu";
+import type { MenuEntry } from "@/lib/inAppMenu";
 
-/** The menu bar's items as a dropdown, on Windows; sits beside Settings. */
+/** The menu bar's items as a dropdown, on Windows and Linux; sits beside Settings. */
 export function AppMenuButton({ entries }: { entries: MenuEntry[] }) {
   return (
     <DropdownMenu>

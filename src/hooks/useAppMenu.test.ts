@@ -1,8 +1,14 @@
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { useAppMenu } from "./useAppMenu";
+
+// The native menu bar is macOS's; Windows' and Linux's are tested below.
+beforeEach(() => {
+  vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Macintosh");
+});
+afterEach(() => vi.restoreAllMocks());
 
 const { setAppMenu, confirmBeforeClose, confirmQuit } = vi.hoisted(() => ({
   setAppMenu: vi.fn(),

@@ -6,12 +6,8 @@ import type { useFolders } from "@/hooks/useFolders";
 import { confirmBeforeClose, confirmQuit } from "@/lib/lifecycle";
 import { menuItems, setAppMenu, type MenuHandlers } from "@/lib/menu";
 import { tildify } from "@/lib/paths";
-import { isWindows } from "@/lib/window";
-import {
-  entryForKey,
-  windowsMenuEntries,
-  type MenuEntry,
-} from "@/lib/windowsMenu";
+import { isMac } from "@/lib/window";
+import { entryForKey, inAppMenuEntries, type MenuEntry } from "@/lib/inAppMenu";
 
 const win = getCurrentWindow();
 
@@ -23,8 +19,8 @@ type Folders = Pick<
 /**
  * Tracks this window's home directory and focus, and rewires the macOS app
  * menu (app-wide) to this window's handlers whenever it gains focus. On
- * Windows there is no menu bar: it returns the same items as `menu`, and
- * their shortcuts are handled here.
+ * Windows and Linux there is no menu bar: it returns the same items as
+ * `menu`, and their shortcuts are handled here.
  */
 export function useAppMenu({
   loaded,
@@ -62,8 +58,7 @@ export function useAppMenu({
     };
   }, []);
 
-  // Rebuilding the menu redraws the Windows menu bar, so actions read the
-  // latest handlers here and the menu is rebuilt only when what it shows changes.
+  // Actions read the latest handlers here, so the menu is rebuilt only when what it shows changes.
   const latest = useRef({
     openFolder,
     addFolder,
@@ -87,7 +82,7 @@ export function useAppMenu({
     };
   });
 
-  const windows = isWindows();
+  const inApp = !isMac();
   const handlers = (): MenuHandlers => {
     const h = () => latest.current;
     return {
@@ -114,10 +109,10 @@ export function useAppMenu({
   useEffect(() => {
     if (!loaded) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (windows) setMenu(windowsMenuEntries(menuItems(handlers())));
+    if (inApp) setMenu(inAppMenuEntries(menuItems(handlers())));
     else if (focused) setAppMenu(handlers());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, windows, focused, folders, home, version]);
+  }, [loaded, inApp, focused, folders, home, version]);
 
   useEffect(() => {
     if (!menu.length) return;

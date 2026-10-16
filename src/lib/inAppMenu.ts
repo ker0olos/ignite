@@ -48,7 +48,7 @@ function convert(items: Source[]): MenuEntry[] {
 }
 
 /** The menu bar's items as a tree for the in-app menu; predefined items are left out. */
-export function windowsMenuEntries(
+export function inAppMenuEntries(
   items: ReturnType<typeof menuItems>,
 ): MenuEntry[] {
   return convert(items as Source[]);

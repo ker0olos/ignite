@@ -123,7 +123,7 @@ src/                     React frontend (almost all logic lives here)
     iconThemeGroups.ts   Icon themes grouped for the picker
     openFolders.ts       The file tree's open folders, remembered (localStorage, newest 500)
     menu.ts              macOS menu bar
-    windowsMenu.ts       On Windows the same items as an in-app menu (AppMenuButton), and its shortcuts' key matching
+    inAppMenu.ts         On Windows and Linux the same items as an in-app menu (AppMenuButton), and its shortcuts' key matching
     lifecycle.ts         Confirm before quitting or closing a window
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
