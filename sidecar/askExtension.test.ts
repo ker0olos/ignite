@@ -101,9 +101,15 @@ function load(active = ["read", "bash"]) {
   events.on(APPROVAL_EVENT, (data) => void asks.push(data as ApprovalAsk));
   const run = (signal?: AbortSignal) =>
     tool!.execute("t1", { questions: [] }, signal, undefined, {} as never);
-  const start = (prompt = "Hi") =>
+  // `custom`: a run a custom message started (the nudge itself), not the user.
+  const start = (prompt = "Hi", custom = false) =>
     handlers.get("before_agent_start")!({
-      prompt,
+      ...(custom
+        ? {
+            messageType: "custom",
+            message: { customType: "ask-nudge", content: prompt },
+          }
+        : { messageType: "user", prompt }),
       systemPrompt: "Base",
     }) as Promise<{ systemPrompt: string }>;
   return { asks, run, start, end, sent, active: () => active };
@@ -184,7 +190,7 @@ describe("agent_end", () => {
     const { start, end, sent } = load();
     await start();
     await end([reply("Push?")]);
-    await start(ASK_NUDGE);
+    await start(ASK_NUDGE, true);
     await end([reply("Push?")]);
     expect(sent).toEqual([ASK_NUDGE]);
     await start("next");

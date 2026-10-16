@@ -223,7 +223,8 @@ export default function ask(pi: ExtensionAPI) {
   });
 
   pi.on("before_agent_start", async (event) => {
-    if (event.prompt.trim() && event.prompt !== ASK_NUDGE) nudged = false;
+    // The nudge itself starts a run as a custom message, not the user's.
+    if (event.messageType === "user" && event.prompt.trim()) nudged = false;
     const asking = await askEnabled();
     const others = pi.getActiveTools().filter((name) => name !== ASK_TOOL);
     pi.setActiveTools(asking ? [...others, ASK_TOOL] : others);

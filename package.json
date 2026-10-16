@@ -105,6 +105,6 @@
     "vitest": "^5.0.2"
   },
   "overrides": {
-    "@earendil-works/pi-ai": "1.1.0"
+    "@earendil-works/pi-ai": "1.2.0"
   }
 }
