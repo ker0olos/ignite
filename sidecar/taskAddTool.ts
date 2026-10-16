@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { TASK_ADD_TOOL, proposedTask, type Task } from "../shared/tasks.ts";
-import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalExtension.ts";
+import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import { TASK_EVENT, type TaskAsk } from "./taskExtension.ts";
 
 export const DECLINED_ADD =

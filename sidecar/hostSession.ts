@@ -15,14 +15,19 @@ import {
   type McpStatusSnapshot,
   type Session,
 } from "./hostTypes.ts";
-import type { ApprovalAsk } from "./approvalExtension.ts";
+import type { ApprovalAsk } from "./approvalAsk.ts";
 import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
-import { askApproval, denyAll, waitsOnUser } from "./hostApproval.ts";
+import {
+  askApproval,
+  denyAll,
+  waitsOnUser,
+  WROTE_INSTEAD,
+} from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { subagentsIn } from "./hostChildren.ts";
 import { firstTitle } from "../shared/conversations.ts";
 import { pushProjects, refuseWhileForked } from "./hostProjects.ts";
-import { resume } from "./hostResume.ts";
+import { INTERRUPTED, prepareResume } from "./hostResume.ts";
 import { rememberImages } from "./queuedImages.ts";
 import { routeMessage } from "./hostRoute.ts";
 import { follow, reportTo } from "./hostFollow.ts";
@@ -100,11 +105,16 @@ export async function open(
   const s = await agent.opening;
   // After the reply, so the app is following the session when the run starts;
   // and like a prompt, once the worktree's ignored files are in.
-  if (!started) {
-    setTimeout(() => {
-      const changed = () => (agent.followed = false);
-      agent.ready.then(() => resume(s, changed)).catch(reportTo(ctx, agent));
-    });
+  const resume = started ? null : prepareResume(s);
+  if (resume) {
+    agent.resume = resume;
+    const failed = async (error: unknown) => {
+      await resume.cancel(INTERRUPTED);
+      throw error;
+    };
+    setTimeout(() =>
+      agent.ready.then(resume.begin, failed).catch(reportTo(ctx, agent)),
+    );
   }
   // Servers now have a status, even before the adapter reports any.
   if (isShown(ctx, agent)) await pushMcpServers(ctx);
@@ -224,9 +234,10 @@ export async function close(ctx: HostContext, cwd: string, id?: string) {
   await Promise.all(closing.map((a) => end(ctx, a)));
 }
 
-async function end(ctx: HostContext, agent: Agent) {
+async function end(ctx: HostContext, agent: Agent, quitting = false) {
   ctx.agents.delete(agent.id);
-  denyAll(ctx, agent);
+  // Quitting leaves them waiting, to ask again on the next launch (hostResume.ts).
+  if (!quitting) denyAll(ctx, agent);
   agent.routing?.controller.abort();
   pushProjects(ctx);
   const s = await agent.opening.catch(() => null);
@@ -241,7 +252,17 @@ async function end(ctx: HostContext, agent: Agent) {
 
 /** Ends every conversation, as the app quits. */
 export async function closeAll(ctx: HostContext) {
-  await Promise.all([...ctx.agents.values()].map((a) => end(ctx, a)));
+  await Promise.all([...ctx.agents.values()].map((a) => end(ctx, a, true)));
+}
+
+/** A message written before a cut-off run resumed goes first; one written after waits until that run has started. */
+async function settleResume(agent: Agent) {
+  const { resume } = agent;
+  if (!resume) return;
+  agent.resume = undefined;
+  // The app holds the rewound conversation; reopening sends it the restored one.
+  if (await resume.cancel(WROTE_INSTEAD)) agent.followed = false;
+  else await resume.started;
 }
 
 // pi's prompt() resolves when the whole run ends; the app follows the run
@@ -258,6 +279,7 @@ export async function prompt(
   const agent = target(ctx, session);
   refuseWhileForked(ctx, session);
   const s = await current(ctx, session);
+  await settleResume(agent!);
   await agent!.ready;
   if (s.isStreaming) rememberImages(agent!, text, images);
   // A message sent mid-run steers the run; a conversation's first one may be routed.

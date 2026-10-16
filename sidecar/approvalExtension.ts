@@ -16,10 +16,10 @@ import {
   type ToolCallEvent,
   type ToolResultEvent,
 } from "@earendil-works/pi-coding-agent";
-import type { ApprovalRequest } from "../shared/hostProtocol.ts";
 import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
 import { LESSON_ADD_TOOL, LESSON_REMOVE_TOOL } from "../shared/lessons.ts";
-import { ASK_TOOL, type QuestionAnswer } from "../shared/questions.ts";
+import { ASK_TOOL } from "../shared/questions.ts";
+import { askUser } from "./approvalAsk.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
 import {
   approvalFor,
@@ -63,23 +63,6 @@ const bashParser = loadBashParser().catch((error: unknown) => {
   process.stderr.write(`pi-host: bash parser unavailable: ${error}\n`);
   return undefined;
 });
-/** pi event bus channel carrying an ApprovalAsk to the host. */
-export const APPROVAL_EVENT = "app/approval";
-
-/** An approval question on the event bus; `answer` settles it. */
-export type ApprovalAsk = {
-  request: ApprovalRequest;
-  /** `always`: the user also allowed the request's `allow` from now on; `reason`: what the model is told in place of the tool's own denial. */
-  answer(
-    approved: boolean,
-    answers?: QuestionAnswer[],
-    always?: boolean,
-    reason?: string,
-  ): void;
-  /** Called when the user declined it, not when a stop, close or message denied it. */
-  declined?(): void;
-};
-
 export const DENIED = "The user denied this tool call.";
 export const DECLINED_OUTSIDE =
   "The sandbox blocked this command, and the user declined to run it outside the sandbox.";
@@ -175,21 +158,6 @@ export default function approval(pi: ExtensionAPI) {
   type Run = { command: string; box: Sandbox; locked: boolean };
   const sandboxed = new Map<string, Run>();
 
-  const ask = (request: ApprovalRequest, ctx: ExtensionContext) =>
-    new Promise<{ approved: boolean; always?: boolean; reason?: string }>(
-      (resolve) => {
-        // Stopping the run denies it.
-        ctx.signal?.addEventListener("abort", () =>
-          resolve({ approved: false }),
-        );
-        pi.events.emit(APPROVAL_EVENT, {
-          request,
-          answer: (approved, _answers, always, reason) =>
-            resolve({ approved, always, reason }),
-        } satisfies ApprovalAsk);
-      },
-    );
-
   /** Asks to run a blocked command outside, offering to always allow what it hit. */
   async function askOutside(
     event: ToolResultEvent,
@@ -202,13 +170,15 @@ export default function approval(pi: ExtensionAPI) {
     const unplanned = locked && unplannedWrite(explained, folders);
     if (unplanned) return unplanned;
     const rule = await ruleFor(explained, command);
-    const { approved, always, reason } = await ask(
+    const { approved, always, reason } = await askUser(
+      pi,
       {
         toolCallId: event.toolCallId,
         reason: blockedReason(what),
         ...(rule && { allow: allowLabel(rule) }),
       },
-      ctx,
+      ctx.signal,
+      "ran",
     );
     if (!approved) {
       return {
@@ -256,7 +226,12 @@ export default function approval(pi: ExtensionAPI) {
     const wait = await needed(event, ctx, mode, box);
     if (wait) {
       const request = { toolCallId: event.toolCallId, ...wait };
-      const { approved, reason } = await ask(request, ctx);
+      const { approved, reason } = await askUser(
+        pi,
+        request,
+        ctx.signal,
+        "before",
+      );
       if (!approved) return { block: true, reason: reason ?? DENIED };
       // An approved command runs as is, outside the sandbox.
       return;

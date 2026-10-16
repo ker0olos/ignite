@@ -1,11 +1,14 @@
 import type { QuestionAnswer } from "../shared/questions.ts";
-import type { ApprovalAsk } from "./approvalExtension.ts";
+import type { ApprovalAsk } from "./approvalAsk.ts";
 import { tellsApp, type Agent, type HostContext } from "./hostTypes.ts";
 import { pushProjects } from "./hostProjects.ts";
+import { forgetWaiting, markWaiting, unmarkWaiting } from "./waitingCalls.ts";
 
 /** Keeps a tool call's question, and passes it on if the app follows its conversation. */
 export function askApproval(ctx: HostContext, agent: Agent, ask: ApprovalAsk) {
-  agent.approvals.set(ask.request.toolCallId, ask);
+  const id = ask.request.toolCallId;
+  agent.approvals.set(id, ask);
+  if (own(agent, id)) markWaiting(agent.id, id, ask.wait ?? "asking");
   if (tellsApp(ctx, agent)) {
     ctx.send({
       type: "approval_request",
@@ -28,6 +31,7 @@ export function answerApproval(
     const ask = agent.approvals.get(toolCallId);
     if (!ask) continue;
     agent.approvals.delete(toolCallId);
+    unmarkWaiting(agent.id, toolCallId);
     if (!approved) ask.declined?.();
     ask.answer(approved, answers, always);
     pushProjects(ctx);
@@ -57,5 +61,6 @@ export function denyAll(ctx: HostContext, agent: Agent, wrote = false) {
     ),
   );
   agent.approvals.clear();
+  forgetWaiting(agent.id);
   pushProjects(ctx);
 }

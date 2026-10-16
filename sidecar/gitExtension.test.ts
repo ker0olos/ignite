@@ -10,11 +10,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task, TaskUpdate } from "../shared/tasks.ts";
 import { APP_NAME } from "../src/lib/app.ts";
-import {
-  APPROVAL_EVENT,
-  DENIED,
-  type ApprovalAsk,
-} from "./approvalExtension.ts";
+import { DENIED } from "./approvalExtension.ts";
+import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import gitTools, {
   PR_DECLINED,
   USE_TOOLS,

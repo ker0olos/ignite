@@ -15,12 +15,11 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import approval, {
-  APPROVAL_EVENT,
   DECLINED_OUTSIDE,
   DENIED,
   realPath,
-  type ApprovalAsk,
 } from "./approvalExtension.ts";
+import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import { approvalMode } from "./approvalSettings.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { allowAlways, loadAllowed } from "./sandboxAllow.ts";
