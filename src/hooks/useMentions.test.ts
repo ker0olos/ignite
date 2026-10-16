@@ -122,6 +122,41 @@ describe("useMentions", () => {
     });
   });
 
+  it("keeps the last files while a longer query is asked, not for a new @", async () => {
+    let answer: (value: unknown) => void = () => {};
+    const request = vi.fn((r: { type: string; text?: string }) => {
+      if (r.type === "terminal_list") return Promise.resolve([]);
+      if (r.text === "s") {
+        return Promise.resolve({
+          conversations: [],
+          files: [{ folder: "/p", path: "src/a.ts" }],
+        });
+      }
+      return new Promise((resolve) => (answer = resolve));
+    });
+    const host = { request } as unknown as HostClient;
+    const { result, rerender } = setup("@s", host);
+    const inserts = () => result.current.options.map((o) => o.insert);
+    await waitFor(() => expect(inserts()).toContain("@src/a.ts"));
+    rerender({ text: "@sr" });
+    await waitFor(() =>
+      expect(request).toHaveBeenCalledWith(
+        expect.objectContaining({ text: "sr" }),
+      ),
+    );
+    expect(inserts()).toContain("@src/a.ts");
+    act(() =>
+      answer({
+        conversations: [],
+        files: [{ folder: "/p", path: "src/b.ts" }],
+      }),
+    );
+    await waitFor(() => expect(inserts()).toContain("@src/b.ts"));
+    expect(inserts()).not.toContain("@src/a.ts");
+    rerender({ text: "@sr @" });
+    expect(inserts()).not.toContain("@src/b.ts");
+  });
+
   it("shows none of the host's answers when it fails", async () => {
     const request = vi.fn(async () => {
       throw new Error("down");

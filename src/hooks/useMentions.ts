@@ -12,7 +12,7 @@ import {
 
 const DEBOUNCE_MS = 100;
 
-/** The folder's terminals, and files matching the `@` being typed (asked as typing pauses). */
+/** The folder's terminals, and files matching the `@` being typed (asked as typing pauses; the last ones show meanwhile). */
 function useMentionSources(
   host: HostClient | null,
   folder: string,
@@ -20,11 +20,17 @@ function useMentionSources(
 ) {
   const at = mention?.trigger === "@";
   const key = at ? JSON.stringify([folder, mention.query]) : null;
-  const [found, setFound] = useState<{ key: string; files: FileHit[] }>();
+  // The `@` being typed, whatever its query: its earlier results stand in until the new ones come.
+  const place = at ? `${folder}:${mention.start}` : null;
+  const [found, setFound] = useState<{
+    key: string;
+    place: string;
+    files: FileHit[];
+  }>();
   const [terminals, setTerminals] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!host || !key) return;
+    if (!host || !key || !place) return;
     const [folder, query] = JSON.parse(key);
     const timer = setTimeout(() => {
       host
@@ -35,11 +41,11 @@ function useMentionSources(
           kinds: ["file"],
           limit: 8,
         })
-        .then((r) => setFound({ key, files: r.files }))
-        .catch(() => setFound({ key, files: [] }));
+        .then((r) => setFound({ key, place, files: r.files }))
+        .catch(() => setFound({ key, place, files: [] }));
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [host, key]);
+  }, [host, key, place]);
 
   useEffect(() => {
     if (!host || !at) return;
@@ -49,7 +55,7 @@ function useMentionSources(
       .catch(() => setTerminals([]));
   }, [host, at, folder]);
 
-  return { terminals, files: found?.key === key ? found.files : [] };
+  return { terminals, files: found?.place === place ? found.files : [] };
 }
 
 /**
