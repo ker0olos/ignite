@@ -62,9 +62,10 @@ once. Made for macOS; and others.
 
 ## Install
 
-Needs macOS, [Node.js](https://nodejs.org) 22.18 or newer,
-[Rust](https://rustup.rs) and the Xcode Command Line Tools
-(`xcode-select --install`).
+Needs [Node.js](https://nodejs.org) 22.18 or newer and
+[Rust](https://rustup.rs). On macOS, also the Xcode Command Line Tools
+(`xcode-select --install`); on Linux and Windows,
+[Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```sh
 git clone https://github.com/ker0olos/ignite.git
@@ -73,15 +74,14 @@ npm install
 npm run setup
 ```
 
-Ignite is now in `~/Applications`. It updates itself each time it opens,
-and goes back to the last working version if an update fails to start.
+Ignite is now in `~/Applications` on macOS, your app menu on Linux, or the
+Start Menu on Windows. It updates itself each time it opens, and goes back
+to the last working version if an update fails to start.
 
-On Linux and Windows, install Node.js, Rust and
-[Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/), then run
-it with `npm install` and `npm run tauri dev`. Linux sandboxes commands with
-[bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`). On Windows
-Auto asks before every shell command, unless Settings → Agent → Sandbox on
-Windows (alpha) is on. Worktrees clone
+Linux sandboxes commands with
+[bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`). Windows, setup
+offers to sandbox them too (alpha, one admin prompt the first time); without
+it, Auto asks before every shell command. Settings → Agent switches it. Worktrees clone
 copy-on-write on Btrfs and XFS; elsewhere agents install and build their own
 dependencies.
 

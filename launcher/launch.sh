@@ -30,11 +30,23 @@ main() {
   fi
   notify "Ignite didn't start with your changes, so they're off for now."
   start_app "" && return
-  osascript -e 'display alert "Ignite couldn’t start" message "The log is in ~/.ignite/launch/log."'
+  alert "Ignite couldn’t start. The log is in ~/.ignite/launch/log."
 }
 
 notify() {
-  osascript -e "display notification \"$1\" with title \"Ignite\""
+  if [ "$(uname -s)" = Darwin ]; then
+    osascript -e "display notification \"$1\" with title \"Ignite\""
+  else
+    notify-send Ignite "$1" 2>/dev/null
+  fi
+}
+
+alert() {
+  if [ "$(uname -s)" = Darwin ]; then
+    osascript -e "display alert \"$1\""
+  else
+    notify-send -u critical Ignite "$1" 2>/dev/null
+  fi
 }
 
 # Moves to the latest upstream code, unless that exact version already failed.
@@ -81,7 +93,12 @@ start_app() {
     kill "$vite"
     return 1
   fi
-  (cd src-tauri && exec ./dev-runner.sh run) &
+  # On macOS through a minimal .app bundle, so Stage Manager shows its icon.
+  if [ "$(uname -s)" = Darwin ]; then
+    (cd src-tauri && exec ./dev-runner.sh run) &
+  else
+    (cd src-tauri && exec ./target/debug/ignite) &
+  fi
   local pid=$!
   if ! wait_for 60 "[ -f '$state/healthy' ]" "$pid"; then
     kill "$pid" "$vite"

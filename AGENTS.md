@@ -342,9 +342,11 @@ shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
 launcher/                How users run the app (not maintainers; see README)
-  setup.sh               `npm run setup`: makes ~/Applications/Ignite.app
-  launch.sh              What that app runs: update, start with ~/.ignite/mods,
+  setup.mjs              `npm run setup`: setup.ps1 on Windows (first offering the sandbox), else setup.sh
+  setup.sh               Makes ~/Applications/Ignite.app (macOS) or an app menu entry (Linux)
+  launch.sh              What that launcher runs: update, start with ~/.ignite/mods,
                          fall back to the last good version, then to no mods
+  setup.ps1, launch.ps1  The same on Windows, in PowerShell: a Start Menu shortcut, and what it runs
 .todo                    Planned work
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
@@ -431,8 +433,9 @@ Two places hold persisted data:
 - **Approval settings** (`[approval]`): `mode`, `"auto"` (default) or
   `"manual"`, set from the composer. `full_access` (off by default, Settings →
   Agent) makes Auto ask for nothing and drops the sandbox: every tool call,
-  git and gh included, runs as is. `windows_sandbox` (off, Windows only)
-  sandboxes bash there instead of asking for each command. The sidecar reads
+  git and gh included, runs as is. `windows_sandbox` (off, Windows only;
+  `npm run setup` offers to turn it on) sandboxes bash there instead of asking
+  for each command. The sidecar reads
   them on every tool call (`sidecar/approvalSettings.ts`).
 - **Pane sizes** in the webview's `localStorage` (react-resizable-panels).
 - **File tree's open folders** in the webview's `localStorage`
@@ -538,7 +541,8 @@ sandboxed bash can, and each conversation is told of its own scratchpad
 sandbox can't start, Auto instead asks for bash commands naming absolute, `~`
 or `..` paths outside the folder. On Windows (a denylist written for Unix)
 Auto asks for every bash and PowerShell command, unless `[approval]
-windows_sandbox` is on (off by default, Settings → Agent, Windows only):
+windows_sandbox` is on (off by default, Settings → Agent, Windows only;
+`npm run setup` explains it and offers to turn it on):
 then bash runs in sandbox-runtime's Windows sandbox (alpha,
 `sidecar/windowsSandbox.ts`), set up with one UAC prompt by the first command
 after it's turned on (turning it off and on again retries a declined one). Commands run as its `srt-sandbox` user, which can open
@@ -887,6 +891,7 @@ Without the variable nothing changes.
   it that way; anything it imports statically can't be modded.
 - Load sibling files through `import.meta.resolve`, not `import.meta.dirname`,
   so they are still found when the importing file is a mod.
+- `launch.sh` and `launch.ps1` do the same steps; change both together.
 - The launcher counts a start as good once `reportHealthy()` (`lib/health.ts`)
   writes `IGNITE_HEALTH_FILE`, after the sidecar answers. Keep that call on
   the startup path, or every update looks broken and gets rolled back.
