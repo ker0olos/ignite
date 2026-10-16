@@ -13,9 +13,14 @@ import {
 import { getShellConfig } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
-import { refusedRequest, sandboxConfig, type Sandbox } from "./sandbox.ts";
+import {
+  credentialPaths,
+  refusedRequest,
+  sandboxConfig,
+  type Sandbox,
+} from "./sandbox.ts";
 import { allowedFile, loadAllowed, type Allowed } from "./sandboxAllow.ts";
 import { hostReachable, readsOnly } from "./sandboxNetwork.ts";
 import { gitAccess } from "./worktreeGit.ts";
@@ -33,7 +38,6 @@ export function windowsConfig(
   allowed: Allowed,
   tools: string[],
   scratch: string,
-  exists: (path: string) => boolean = existsSync,
 ): SandboxRuntimeConfig {
   const base = sandboxConfig(tmpdir(), home, allowed);
   return {
@@ -41,24 +45,36 @@ export function windowsConfig(
     filesystem: {
       allowWrite: [scratch, ...allowed.write],
       allowRead: [...tools, ...allowed.read],
-      // srt-win creates a missing path to deny it.
-      denyRead: base.filesystem.denyRead.filter(exists),
+      // The profile's ACL already keeps srt-sandbox out of home; stamping these at start timed out (60s).
+      denyRead: [],
       denyWrite: [],
     },
     windows: { srtWin: { path: VENDORED_SRT_WIN_EXE } },
   };
 }
 
-/** A folder's grant: write it and its worktree's git files, read the repository's, keep its pointers (gitAccess). */
+const inside = (dir: string, path: string) => {
+  const rel = relative(dir, path);
+  return !rel.startsWith("..") && !isAbsolute(rel);
+};
+
+/**
+ * A folder's grant: write it and its worktree's git files, read the repository's, keep its pointers (gitAccess),
+ * and deny the credentials when it holds the home folder, whose own ACL then no longer keeps them out.
+ */
 export function folderGrant(
   cwd: string,
+  home = homedir(),
   exists: (path: string) => boolean = existsSync,
 ) {
   const git = gitAccess(cwd);
   const objects = git.allow[1];
+  // srt-win creates a missing path to deny it.
+  const credentials = inside(cwd, home) ? credentialPaths(home) : [];
   return {
     write: [cwd, ...git.allow],
     read: objects ? [dirname(objects)] : [],
+    denyRead: credentials.filter(exists),
     denyWrite: git.deny.filter(exists),
   };
 }
@@ -122,13 +138,13 @@ export async function createWindowsSandbox(home = homedir()): Promise<Sandbox> {
       // ponytail: srt-win's ACL calls are sync, so a folder's first command blocks the sidecar while its grant spreads.
       if (!granted.has(cwd)) {
         const started = Date.now();
-        const { write, read, denyWrite } = folderGrant(cwd);
+        const { write, read, denyRead, denyWrite } = folderGrant(cwd, home);
         grantWindowsAcl({ sandboxUserSid: sid, srtWin, write, read });
-        if (denyWrite.length) {
+        if (denyRead.length || denyWrite.length) {
           stampWindowsAcl({
             sandboxUserSid: sid,
             srtWin,
-            denyRead: [],
+            denyRead,
             denyWrite,
           });
         }
