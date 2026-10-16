@@ -8,16 +8,18 @@ describe("AppMenuButton", () => {
     render(
       <AppMenuButton
         entries={[
-          { label: "Settings", shortcut: "Ctrl+,", action },
+          { label: "Open Folder", shortcut: "Ctrl+O", action },
+          { label: "Settings", shortcut: "Ctrl+,", action: vi.fn() },
           "separator",
           { label: "Open Recent", items: [{ label: "Clear", enabled: false }] },
         ]}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Menu" }));
-    expect(await screen.findByText("Ctrl+,")).toBeTruthy();
+    expect(await screen.findByText("Ctrl+O")).toBeTruthy();
     expect(screen.getByText("Open Recent")).toBeTruthy();
-    fireEvent.click(screen.getByText("Settings"));
+    expect(screen.queryByText("Settings")).toBeNull();
+    fireEvent.click(screen.getByText("Open Folder"));
     expect(action).toHaveBeenCalledOnce();
   });
 });

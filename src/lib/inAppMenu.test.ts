@@ -4,6 +4,7 @@ import {
   entryForKey,
   matchesAccelerator,
   inAppMenuEntries,
+  listedEntries,
   type MenuEntry,
 } from "./inAppMenu";
 
@@ -65,6 +66,17 @@ describe("inAppMenuEntries", () => {
       "label:/a",
       "separator",
       "Clear Recently Opened",
+    ]);
+  });
+});
+
+describe("listedEntries", () => {
+  it("leaves out Settings, which has its own button, and the separator it leaves", () => {
+    const app = sub(listedEntries(build()), "Ignite")?.items ?? [];
+    expect(app.map(labelOf)).toEqual([
+      "Check for Updates…",
+      "separator",
+      "Quit Ignite",
     ]);
   });
 });

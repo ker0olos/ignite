@@ -6,7 +6,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { MenuEntry } from "@/lib/inAppMenu";
+import { listedEntries, type MenuEntry } from "@/lib/inAppMenu";
 
 /** The menu bar's items as a dropdown, on Windows and Linux; sits beside Settings. */
 export function AppMenuButton({ entries }: { entries: MenuEntry[] }) {
@@ -18,7 +18,7 @@ export function AppMenuButton({ entries }: { entries: MenuEntry[] }) {
         <Menu />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <AppMenuItems entries={entries} />
+        <AppMenuItems entries={listedEntries(entries)} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

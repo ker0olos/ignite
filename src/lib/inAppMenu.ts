@@ -54,6 +54,20 @@ export function inAppMenuEntries(
   return convert(items as Source[]);
 }
 
+// Its own button sits beside the menu's; the shortcut still works.
+const BESIDE = new Set(["Settings"]);
+
+/** The entries the dropdown lists: all but those with a button beside it. */
+export function listedEntries(entries: MenuEntry[]): MenuEntry[] {
+  return tidy(
+    entries.flatMap((e): MenuEntry[] => {
+      if (e === "separator") return [e];
+      if (BESIDE.has(e.label)) return [];
+      return e.items ? [{ ...e, items: listedEntries(e.items) }] : [e];
+    }),
+  );
+}
+
 /** Whether a key press is the accelerator (`CmdOrCtrl+Shift+W`, `F11`), with exactly its modifiers. */
 export function matchesAccelerator(e: KeyboardEvent, accelerator: string) {
   const parts = accelerator.split("+");
