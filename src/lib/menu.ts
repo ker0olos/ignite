@@ -27,12 +27,12 @@ export type MenuHandlers = {
 };
 
 /**
- * Installs the menu bar. On macOS it is app-wide, so the focused window calls
- * this to own the handlers; on Windows it belongs to this window.
+ * Installs the macOS menu bar. It is app-wide, so the focused window calls
+ * this to own the handlers. Windows shows the same items in-app instead.
  */
 export async function setAppMenu(handlers: MenuHandlers) {
   const menu = await Menu.new({ items: await held(menuItems(handlers)) });
-  await (isWindows() ? menu.setAsWindowMenu() : menu.setAsAppMenu());
+  await menu.setAsAppMenu();
 }
 
 type ItemOption = NonNullable<MenuOptions["items"]>[number];

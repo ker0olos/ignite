@@ -1,7 +1,7 @@
 import { AppCommandCenter } from "@/components/app/AppCommandCenter";
 import { AppSettingsDialog } from "@/components/app/AppSettingsDialog";
 import { AppWorkspace } from "@/components/app/AppWorkspace";
-import { SettingsButton } from "@/components/app/SettingsButton";
+import { TitleButtons } from "@/components/app/TitleButtons";
 import { WelcomeScreen } from "@/components/app/WelcomeScreen";
 import { ConnectProviders } from "@/components/providers/ConnectProviders";
 import { useFolderDrop } from "@/hooks/useFolderDrop";
@@ -68,7 +68,7 @@ export default function App() {
   const dialog = useSettingsDialog(providers.host, current);
   const openSettings = dialog.show;
 
-  const { home } = useAppMenu({
+  const { home, menu } = useAppMenu({
     loaded,
     folders,
     openFolder,
@@ -84,7 +84,9 @@ export default function App() {
 
   if (!loaded) return null;
 
-  const settingsButton = <SettingsButton onClick={() => openSettings()} />;
+  const settingsButton = (
+    <TitleButtons menu={menu} onSettings={() => openSettings()} />
+  );
 
   return (
     <div
