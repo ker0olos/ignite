@@ -35,8 +35,14 @@ function Serving {
 # Resets only a checkout with no local edits or commits, so a working clone is left alone.
 function MoveTo($commit) {
   $before = git rev-parse HEAD
-  if (-not (Run git diff --quiet HEAD)) { return $false }
-  if (-not (Run git merge-base --is-ancestor HEAD origin/main)) { return $false }
+  if (-not (Run git diff --quiet HEAD)) {
+    Log "Not updating: local changes in $((git diff --name-only HEAD) -join ', ')"
+    return $false
+  }
+  if (-not (Run git merge-base --is-ancestor HEAD origin/main)) {
+    Log "Not updating: HEAD has commits origin/main doesn't"
+    return $false
+  }
   Run git reset -q --hard $commit | Out-Null
   # Quoted: PowerShell would take a bare -- for itself.
   if (-not (Run git diff --quiet $before $commit '--' package-lock.json)) {
@@ -47,9 +53,12 @@ function MoveTo($commit) {
 
 # Moves to the latest upstream code, unless that exact version already failed.
 function Update {
-  if (-not (Run git fetch -q origin main)) { return }
+  if (-not (Run git fetch -q origin main)) { Log "Not updating: fetch failed"; return }
   $latest = git rev-parse origin/main
-  if ($latest -eq (Get-Content (Join-Path $state "bad") -ErrorAction SilentlyContinue)) { return }
+  if ($latest -eq (Get-Content (Join-Path $state "bad") -ErrorAction SilentlyContinue)) {
+    Log "Not updating: $latest failed to start before"
+    return
+  }
   MoveTo $latest | Out-Null
 }
 

@@ -51,10 +51,13 @@ alert() {
 
 # Moves to the latest upstream code, unless that exact version already failed.
 update() {
-  git fetch -q origin main || return 0
+  git fetch -q origin main || { echo "Not updating: fetch failed"; return 0; }
   local latest
   latest=$(git rev-parse origin/main)
-  [ "$latest" = "$(cat "$state/bad" 2>/dev/null)" ] && return 0
+  if [ "$latest" = "$(cat "$state/bad" 2>/dev/null)" ]; then
+    echo "Not updating: $latest failed to start before"
+    return 0
+  fi
   move_to "$latest"
 }
 
@@ -62,7 +65,14 @@ update() {
 move_to() {
   local before
   before=$(git rev-parse HEAD)
-  git diff --quiet HEAD && git merge-base --is-ancestor HEAD origin/main || return 1
+  if ! git diff --quiet HEAD; then
+    echo "Not updating: local changes in $(git diff --name-only HEAD | paste -sd, -)"
+    return 1
+  fi
+  if ! git merge-base --is-ancestor HEAD origin/main; then
+    echo "Not updating: HEAD has commits origin/main doesn't"
+    return 1
+  fi
   git reset -q --hard "$1"
   git diff --quiet "$before" "$1" -- package-lock.json ||
     npm ci --no-audit --no-fund
