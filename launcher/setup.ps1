@@ -7,7 +7,8 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
   Write-Error "Ignite needs Rust: https://rustup.rs"
 }
 # Mods need Node's registerHooks, and the sidecar runs TypeScript directly.
-node -e 'const [a, b] = process.versions.node.split(".").map(Number);
+# No double quotes in the script: Windows PowerShell strips them from native arguments.
+node -e 'const [a, b] = process.versions.node.split(/\./).map(Number);
   process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)'
 if ($LASTEXITCODE -ne 0) { Write-Error "Ignite needs Node.js 22.18 or newer." }
 
