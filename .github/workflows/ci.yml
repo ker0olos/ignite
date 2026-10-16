@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  js:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +21,24 @@ jobs:
         with:
           node-version: 24
           cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint (oxlint, ESLint, knip)
+        run: npm run lint:js
+
+      - name: Format check (Prettier)
+        run: npx prettier --check .
+
+  rust:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -33,19 +51,31 @@ jobs:
           workspaces: src-tauri
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
+      # tauri::generate_context! needs dist/ to exist; the js job builds the real one.
+      - run: mkdir dist
+
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+      - name: rustfmt
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      - name: cargo test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  vitest:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
       - run: npm ci
 
-      # tauri::generate_context! needs dist/ to exist before Rust compiles.
-      - run: npm run build
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint (ESLint + Clippy)
-        run: npm run lint
-
-      - name: Format check (Prettier + rustfmt)
-        run: npm run format:check
-
-      - name: Tests (Vitest + cargo test)
-        run: npm run test
+      - run: npx vitest run --shard=${{ matrix.shard }}/3
