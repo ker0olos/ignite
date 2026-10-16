@@ -7,12 +7,17 @@ A desktop app for running AI coding agents on your projects, several at
 once. Made for macOS; and others.
 
 <p align="center">
-  <img src="docs/conversation.png" alt="An agent that added dark mode opening its pull request, with its commit and the four files it changes, and one file's diff open beside the conversation; the sidebar shows the project's other conversations, one waiting for review and one still working" width="32%">
-  <img src="docs/tasks.png" alt="The Tasks view: one task's pull request was declined, one is in progress with a screenshot attached, its subtasks and the file it's editing, one waits for approval of its pull request, two are still to do, and dark mode is done as pull request 12" width="32%">
-  <img src="docs/markup.png" alt="A screenshot the agent took of a timer app, open full size with an arrow drawn to the time and two lines under it; below it, the markup toolbar with pen, highlighter, arrow, box, ellipse and text, ink colours and sizes, and Add to chat" width="32%">
+  <img src="docs/conversation.png" alt="Ignite, an AI coding agent app: an agent that added dark mode pushes its commit and opens a GitHub pull request, its four changed files listed with their line counts, and one file's diff open beside the conversation" width="32%">
+  <img src="docs/tasks.png" alt="The Tasks view: one task needs you, one runs on its own with an annotated screenshot attached, its subtasks checked off as it edits src/timer.ts, three are up next and three are done" width="32%">
+  <img src="docs/markup.png" alt="Drawing on a screenshot of a timer app: a dashed ellipse around 25:00 and the note 'was 11:32!', with the markup toolbar's pen, highlighter, arrow, box, ellipse, text, colours and Add to new task" width="32%">
 </p>
 <p align="center">
-  <img src="docs/questions.png" alt="The agent asking how people should sign in, with three options and their trade-offs, one question of three, while the conversation shows it's waiting for you" width="32%">
+  <img src="docs/questions.png" alt="The agent asking how people should sign in, in the composer: three options with their trade-offs and ⌥1 to ⌥3 shortcuts, a box to write your own answer, and Let the agent decide" width="32%">
+  <img src="docs/subagents.png" alt="Two subagents checking a recipes API in parallel while npm run dev runs as a background command, its live output open in a tab beside the conversation" width="32%">
+  <img src="docs/artifact.png" alt="The agent showing a screenshot of the timer app in dark mode and a live, clickable preview page of both colour palettes inside the conversation" width="32%">
+</p>
+<p align="center">
+  <img src="docs/mcp.png" alt="Open GitHub issues fetched through the GitHub MCP server, shown as a table, and three of them proposed as tasks waiting for approval" width="32%">
   <img src="docs/settings.png" alt="Ignite settings on the Providers section, with Claude and ChatGPT connected through their subscriptions" width="32%">
 </p>
 
@@ -33,6 +38,10 @@ once. Made for macOS; and others.
   the conversation or a task to show the agent what you mean.
 - When a decision is open, the agent asks you, with a few options and what
   each one costs. Pick one, write your own answer, or leave it to the agent.
+- Agents hand parts of the work to subagents running in parallel, and keep
+  dev servers and watchers running in the background, their output a tab away.
+- Agents show you screenshots and live, clickable pages right in the
+  conversation, and you can draw on either.
 - ⌘J (or ⌘1) opens a terminal beside the conversation. Agents read what it printed,
   and shell code in a reply runs there with one click.
 - Type `/` for the project's skills and `@` for files, terminals and attached
