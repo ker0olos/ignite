@@ -13,6 +13,7 @@ Add-Type -AssemblyName System.Windows.Forms
 function Log($text) { Add-Content $log $text }
 
 function Notify($text) {
+  Log $text
   $n = New-Object System.Windows.Forms.NotifyIcon
   $n.Icon = [System.Drawing.SystemIcons]::Information
   $n.Visible = $true
@@ -32,34 +33,49 @@ function Serving {
   } catch { return $false }
 }
 
+# A native command's output, errors included, as one short line; $LASTEXITCODE says how it went.
+function Output($exe) {
+  $text = ((& $exe @args 2>&1) | ForEach-Object { "$_" }) -join " "
+  Log $text
+  if ($text.Length -gt 200) { $text.Substring(0, 200) } else { $text }
+}
+
 # Resets only a checkout with no local edits or commits, so a working clone is left alone.
-function MoveTo($commit) {
+function MoveTo($commit, $message) {
   $before = git rev-parse HEAD
+  # npm and cargo rewrite these themselves; they aren't the user's edits.
+  # Quoted: PowerShell would take a bare -- for itself.
+  Run git checkout -q '--' package-lock.json src-tauri/Cargo.lock | Out-Null
   if (-not (Run git diff --quiet HEAD)) {
-    Log "Not updating: local changes in $((git diff --name-only HEAD) -join ', ')"
+    Notify "Couldn't update: local changes in $((git diff --name-only HEAD) -join ', ')"
     return $false
   }
   if (-not (Run git merge-base --is-ancestor HEAD origin/main)) {
-    Log "Not updating: HEAD has commits origin/main doesn't"
+    Notify "Couldn't update: this copy has commits that aren't on main."
     return $false
   }
-  Run git reset -q --hard $commit | Out-Null
-  # Quoted: PowerShell would take a bare -- for itself.
+  if ($message) { Notify $message }
+  $err = Output git reset -q --hard $commit
+  if ($LASTEXITCODE -ne 0) { Notify "Couldn't update: $err"; return $false }
   if (-not (Run git diff --quiet $before $commit '--' package-lock.json)) {
-    Run npm.cmd ci --no-audit --no-fund | Out-Null
+    if (-not (Run npm.cmd ci --no-audit --no-fund)) {
+      Notify "Couldn't install the update's packages. The log is in ~\.ignite\launch\log."
+    }
   }
   return $true
 }
 
 # Moves to the latest upstream code, unless that exact version already failed.
 function Update {
-  if (-not (Run git fetch -q origin main)) { Log "Not updating: fetch failed"; return }
+  $err = Output git fetch -q origin main
+  if ($LASTEXITCODE -ne 0) { Notify "Couldn't check for updates: $err"; return }
   $latest = git rev-parse origin/main
+  if ($latest -eq (git rev-parse HEAD)) { return }
   if ($latest -eq (Get-Content (Join-Path $state "bad") -ErrorAction SilentlyContinue)) {
-    Log "Not updating: $latest failed to start before"
+    Notify "Skipping the latest update: it didn't start last time."
     return
   }
-  MoveTo $latest | Out-Null
+  MoveTo $latest "Installing an update. Ignite will open in a moment." | Out-Null
 }
 
 # Polls a condition once a second; gives up early if the given process ends.
