@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import type { AppVersion } from "../shared/hostProtocol.ts";
 import { APPS } from "./appBuild.ts";
 import { readState, stageUpdate, writeState } from "./appVersions.ts";
+import { pnpmInstall } from "./pnpm.ts";
 
 const run = promisify(execFile);
 
@@ -32,9 +33,6 @@ export async function appVersion(root = appRoot()): Promise<AppVersion> {
   return { sha, date, subject: subject.join("\n") };
 }
 
-const npmCi = (root: string) =>
-  run("npm", ["ci", "--no-audit", "--no-fund"], { cwd: root }).then(() => {});
-
 /** Whether `root` is a version the launcher built, not a clone run with `tauri dev`. */
 const isVersion = (root: string, apps: string) =>
   relative(apps, dirname(root)) === "";
@@ -56,7 +54,7 @@ async function stagedUpdate(root: string, stage: typeof stageUpdate) {
  */
 export async function appUpdate(
   root = appRoot(),
-  install = npmCi,
+  install = pnpmInstall,
   stage = stageUpdate,
   apps = APPS,
 ): Promise<{ updated: boolean; ready?: boolean; warning?: string }> {
@@ -71,7 +69,7 @@ export async function appUpdate(
     before,
     after,
     "--",
-    "package-lock.json",
+    "pnpm-lock.yaml",
   ]);
   if (changed) await install(root);
   return { updated: true };

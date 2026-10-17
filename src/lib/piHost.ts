@@ -99,7 +99,7 @@ export function createHostClient(transport: Transport): HostClient {
  * allows this exact command (see src-tauri/tests/config.rs).
  */
 export async function spawnSidecar(): Promise<Transport> {
-  // ponytail: relies on `node` being on PATH, true when started with `npm run tauri dev`
+  // ponytail: relies on `node` being on PATH, true when started with `pnpm run tauri dev`
   const command = Command.create("pi-host", [__PI_HOST_PATH__]);
   const lineListeners: ((line: string) => void)[] = [];
   let onClose: (reason: string) => void = () => {};

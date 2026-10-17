@@ -1,17 +1,17 @@
-// `npm run setup`: builds the app, then adds its launcher with setup.ps1 on
-// Windows (which may have no bash), setup.sh elsewhere.
+// `npm run setup`: installs the packages with pnpm, builds the app, then adds
+// its launcher with setup.ps1 on Windows (which may have no bash), setup.sh elsewhere.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { parse, stringify } from "smol-toml";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 /** Turns on `[approval] windows_sandbox` in settings.toml, keeping the rest. */
-function enableWindowsSandbox() {
+async function enableWindowsSandbox() {
+  const { parse, stringify } = await import("smol-toml");
   const file = join(homedir(), ".ignite", "settings.toml");
   let settings = {};
   try {
@@ -32,7 +32,7 @@ Setting it up needs admin rights once, to create a Windows user for Ignite.
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const answer = await rl.question("Turn on the sandbox? [Y/n] ");
   rl.close();
-  if (!/^n/i.test(answer.trim())) enableWindowsSandbox();
+  if (!/^n/i.test(answer.trim())) await enableWindowsSandbox();
 }
 
 function fail(message) {
@@ -44,6 +44,12 @@ function fail(message) {
 const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 22 || (major === 22 && minor < 18))
   fail("Ignite needs Node.js 22.18 or newer.");
+// Everything after this imports the packages.
+console.log("Installing packages…");
+const { pnpmInstall } = await import("../sidecar/pnpm.ts");
+await pnpmInstall(dirname(here)).catch((error) =>
+  fail(`Couldn't install the packages:\n${error.message}`),
+);
 // CI builds the binary for these machines; elsewhere it's built here, with Rust.
 const { ASSETS } = await import("../sidecar/appBinary.ts");
 if (
@@ -62,9 +68,7 @@ async function firstBuild() {
   const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: clone })
     .stdout.toString()
     .trim();
-  console.log(
-    "Setting up Ignite. Without a prebuilt binary this takes a few minutes.",
-  );
+  console.log("Setting up Ignite…");
   try {
     await buildVersion(clone, head, clone, mods);
   } catch (error) {

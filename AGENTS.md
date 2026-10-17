@@ -4,7 +4,7 @@ Guidance for contributors and AI coding agents working in this repo.
 Tauri 2 + React 19 + TypeScript + Tailwind v4 + shadcn/ui. Early prototype:
 the UI shell works (folders, file tree, file viewer, settings, multi-window)
 and the composer runs pi on the open folder, showing its conversation. For now it is run from source with
-`npm run tauri dev`, not shipped as a built app; prioritise dev-mode behaviour
+`pnpm run tauri dev`, not shipped as a built app; prioritise dev-mode behaviour
 over release builds.
 
 ## Structure
@@ -154,7 +154,7 @@ src/                     React frontend (almost all logic lives here)
     gitDiff.ts           Unified diffs into diff lines; stepping through their changes
     diffTabs.ts          Diff tabs beside file tabs (encoded ids, labels), reading a git review
     dangerousCommands.ts Regex denylist of risky shell commands that Auto still asks about
-    demo.ts              Demo mode (`npm run demo`): its folders, host, sidebar rows, scripted typing
+    demo.ts              Demo mode (`pnpm run demo`): its folders, host, sidebar rows, scripted typing
     demoHost.ts          The demo's stand-in for the sidecar: scripted answers and replies, nothing runs
     demoAnswers.ts       The demo's providers, MCP servers, memory, version and files
     demoConversations.ts Every demo conversation (open and saved), with details and git diffs
@@ -268,9 +268,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   wire.ts                Session event wire form (toWireEvent, describeError)
   claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
   appUpdate.ts           The app's own commit, and updating it: a launcher version stages the next one,
-                         a clone pulls (`git pull --ff-only`, `npm ci` if the lockfile changed)
+                         a clone pulls (`git pull --ff-only`, `pnpm install` if the lockfile changed)
   appBuild.ts            Launcher versions (~/.ignite/app/<commit>, worktrees of the user's clone): building one
-                         (release binary, packages cloned copy-on-write, a frontend per set of mods)
+                         (release binary, packages linked from pnpm's store, a frontend per set of mods)
+  pnpm.ts                Installs packages with the pnpm package.json pins, installed with npm to ~/.ignite/pnpm if missing
   appBinary.ts           A version's binary from CI's release for its src-tauri/ tree: refused when its
                          attestation shows binary.yml didn't build it from main, used with a warning
                          when GitHub or Sigstore can't be reached to check
@@ -334,7 +335,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   remoteServer.ts        Its HTTP server: proxies the UI from Vite, WebSocket; its links (network, Tailscale)
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
 public/icon-themes/      Bundled icon themes (VS Code format), served as-is
-demo/tempo/, demo/pantry/ Sample projects `npm run demo` opens (not built or tested here)
+demo/tempo/, demo/pantry/ Sample projects `pnpm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/auth.ts           A provider sign-in's prompts and events as they cross the wire
@@ -362,7 +363,7 @@ shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
 launcher/                How users run the app (not maintainers; see README)
-  setup.mjs              `npm run setup`: builds the app, then setup.ps1 on Windows (first offering
+  setup.mjs              `npm run setup`: installs the packages (pnpm), builds the app, then setup.ps1 on Windows (first offering
                          the sandbox), else setup.sh
   setup.sh               Makes ~/Applications/Ignite.app (macOS) or an app menu entry (Linux)
   setup.ps1              The same on Windows: a Start Menu shortcut
@@ -375,7 +376,7 @@ src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
   dev-runner.sh          Runs `tauri dev` from a .app so Stage Manager shows the icon
   tauri.macos.conf.json  macOS-only config (the runner above); merged over tauri.conf.json
-  icons/icon.svg         App icon source; after editing run `npx tauri icon src-tauri/icons/icon.svg`
+  icons/icon.svg         App icon source; after editing run `pnpm exec tauri icon src-tauri/icons/icon.svg`
                          and delete the android/, ios/ and 64x64.png it also writes
   capabilities/          Permissions the frontend may use
   tests/config.rs        Guards on the config (write scope, hidden window)
@@ -921,7 +922,7 @@ has none of its own; token refreshes are written back to that file.
 ## Users and mods
 
 Users run the app through `launcher/` (README "Install"), and maintainers run
-`npm run tauri dev`. For users, `IGNITE_MODS` points at `~/.ignite/mods`:
+`pnpm run tauri dev`. For users, `IGNITE_MODS` points at `~/.ignite/mods`:
 a file there replaces the file at the same path under `src/`, `sidecar/` or
 `shared/` (Vite through `shared/modsVitePlugin.ts`, Node through
 `sidecar/modsHooks.ts`), so their changes never conflict with upstream.
@@ -947,31 +948,31 @@ Without the variable nothing changes.
 
 ## Commands
 
-- Dev app: `npm run tauri dev` (frontend hot-reloads; `src-tauri/` changes relaunch)
-- Demo for screenshots: `npm run demo` opens `demo/tempo` and `demo/pantry`
+- Dev app: `pnpm run tauri dev` (frontend hot-reloads; `src-tauri/` changes relaunch)
+- Demo for screenshots: `pnpm run demo` opens `demo/tempo` and `demo/pantry`
   with the sidecar replaced by a scripted host (`lib/demoHost.ts`): made-up
   providers, models, conversations, search and git reviews. The composer types
   a fixed prompt whatever the keys, and sending gets a fixed reply. Nothing
   runs or is saved, so clearing sessions or app state never loses it.
   `demoConversations.test.ts` keeps its diffs in line with the files in
   `demo/tempo`.
-- Verify before finishing any change: `npm run check` (tsc, ESLint, clippy,
+- Verify before finishing any change: `pnpm run check` (tsc, ESLint, clippy,
   Prettier, rustfmt, Vitest, cargo test). CI runs the same steps.
 - Commits run `.githooks/pre-commit` (`lint:js`: oxlint, ESLint, knip; and the
-  format check), which `npm install` turns on through `prepare`. Clippy is left
+  format check), which `pnpm install` turns on through `prepare`. Clippy is left
   to CI. `--no-verify` skips it.
-- Tests only: `npm run test`; watch mode: `npm run test:watch`
-- Find untested branches: `npm run coverage`
-- Auto-format: `npm run format`
-- Add a UI primitive: `npx shadcn@latest add <name>`
-- Add a Tauri plugin: `npm run tauri add <plugin>` (wires npm, Cargo, `lib.rs` and a default permission)
+- Tests only: `pnpm run test`; watch mode: `pnpm run test:watch`
+- Find untested branches: `pnpm run coverage`
+- Auto-format: `pnpm run format`
+- Add a UI primitive: `pnpm dlx shadcn@latest add <name>`
+- Add a Tauri plugin: `pnpm run tauri add <plugin>` (wires the package, Cargo, `lib.rs` and a default permission)
 
 ## Testing
 
 - **What to test:** any logic with branches or failure paths, especially code
   that talks to Tauri. Every `if`/`else`, fallback and error path should have a
   test that would fail if it broke. There is no coverage percentage target;
-  use `npm run coverage` to spot branches nothing reaches.
+  use `pnpm run coverage` to spot branches nothing reaches.
 - **Where logic goes:** keep it out of components. Put it in `lib/` (plain
   functions) or `hooks/`, where it can be tested without rendering UI.
 - **Faking Tauri:** tests run in jsdom with `@tauri-apps/api/mocks`.
@@ -1002,16 +1003,16 @@ Without the variable nothing changes.
   passes props; it never inlines a child's markup. No private helper
   components either: every component gets its own file. New features follow
   this from the start.
-- **No dead code:** knip (`knip.json`, part of `npm run lint`) fails on
+- **No dead code:** knip (`knip.json`, part of `pnpm run lint`) fails on
   unused files, exports and dependencies. Export only what another file
   uses; a file loaded by path (like the sidecar's extensions) is listed
   there as an entry.
-- **Size limits are enforced** by oxlint (`.oxlintrc.json`, part of `npm run
+- **Size limits are enforced** by oxlint (`.oxlintrc.json`, part of `pnpm run
 lint`): one component per file, files ≤250 lines, functions ≤120 lines,
   complexity ≤10, nesting ≤4. Split code instead of raising a limit or adding
   to the exemption list.
 - **Menus are shadcn.** Every menu, picker and dropdown uses a shadcn component
-  (`Select`, `DropdownMenu`, …; add missing ones with `npx shadcn@latest add`).
+  (`Select`, `DropdownMenu`, …; add missing ones with `pnpm dlx shadcn@latest add`).
   Never a native `<select>` or a hand-rolled popup.
 - **Styling:** Tailwind v4 with shadcn tokens (`bg-background`, `text-muted-foreground`,
   `bg-sidebar`, …). No hard-coded colors. Interface text is 13px (`text-[13px]`)
@@ -1036,7 +1037,7 @@ lint`): one component per file, files ≤250 lines, functions ≤120 lines,
 The name is a placeholder. To rename:
 
 1. Change `APP_NAME` in `src/lib/app.ts`.
-2. Run `npm run test`. `src/lib/app.test.ts` fails for each file that still
+2. Run `pnpm run test`. `src/lib/app.test.ts` fails for each file that still
    has the old name: `package.json`, `src-tauri/Cargo.toml`,
    `src-tauri/tauri.conf.json` (product name, identifier, window title),
    `index.html`, and the settings folder in `src-tauri/capabilities/default.json`.

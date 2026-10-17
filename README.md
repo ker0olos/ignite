@@ -72,11 +72,11 @@ checks its build attestation; elsewhere it builds it, which needs
 ```sh
 git clone https://github.com/ker0olos/ignite.git
 cd ignite
-npm install
 npm run setup
 ```
 
-Setup prepares Ignite once, then puts it in `~/Applications`
+Setup installs Ignite's packages with [pnpm](https://pnpm.io) (installing pnpm
+for Ignite alone if needed, no admin rights), prepares Ignite once, then puts it in `~/Applications`
 on macOS, your app menu on Linux, or the Start Menu on Windows. It opens at
 once, builds updates in the background and asks you to restart for them, and
 goes back to the last working version if an update fails to start.
@@ -97,6 +97,6 @@ update, and if one breaks something, Ignite still opens and tells you.
 
 ## Develop
 
-`npm install`, then `npm run tauri dev`, which never updates itself and
-ignores `~/.ignite/mods`. `npm run demo` opens two sample projects with
+`pnpm install`, then `pnpm run tauri dev`, which never updates itself and
+ignores `~/.ignite/mods`. `pnpm run demo` opens two sample projects with
 scripted conversations and tasks; no agent runs and nothing is saved.

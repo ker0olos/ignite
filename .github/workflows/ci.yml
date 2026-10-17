@@ -17,23 +17,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The version is package.json's packageManager.
+      - uses: pnpm/action-setup@v6
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
-      - run: npm run build
+      - run: pnpm run build
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Lint (oxlint, ESLint, knip)
-        run: npm run lint:js
+        run: pnpm run lint:js
 
       - name: Format check (Prettier)
-        run: npx prettier --check .
+        run: pnpm exec prettier --check .
 
   rust:
     runs-on: macos-latest
@@ -71,11 +74,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The version is package.json's packageManager.
+      - uses: pnpm/action-setup@v6
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
-      - run: npx vitest run --shard=${{ matrix.shard }}/3
+      - run: pnpm exec vitest run --shard=${{ matrix.shard }}/3
