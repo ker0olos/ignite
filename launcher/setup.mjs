@@ -44,8 +44,12 @@ function fail(message) {
 const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 22 || (major === 22 && minor < 18))
   fail("Ignite needs Node.js 22.18 or newer.");
-if (spawnSync("cargo", ["--version"]).status !== 0)
-  fail("Ignite needs Rust: https://rustup.rs");
+// CI's binary is verified with gh; without it, the binary is built with Rust.
+const works = (cmd, args) => spawnSync(cmd, args).status === 0;
+if (!works("gh", ["auth", "status"]) && !works("cargo", ["--version"]))
+  fail(
+    "Ignite needs the GitHub CLI signed in (gh auth login) to use its prebuilt binary, or Rust to build one: https://rustup.rs",
+  );
 
 /** Builds this checkout's commit now, so the first start opens at once. */
 async function firstBuild() {
@@ -57,7 +61,9 @@ async function firstBuild() {
   const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: clone })
     .stdout.toString()
     .trim();
-  console.log("Building Ignite. The first build takes a few minutes.");
+  console.log(
+    "Setting up Ignite. Without a prebuilt binary this takes a few minutes.",
+  );
   try {
     await buildVersion(clone, head, clone, mods);
   } catch (error) {

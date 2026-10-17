@@ -264,6 +264,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          a clone pulls (`git pull --ff-only`, `npm ci` if the lockfile changed)
   appBuild.ts            Launcher versions (~/.ignite/app/<commit>, worktrees of the user's clone): building one
                          (release binary, packages cloned copy-on-write, a frontend per set of mods)
+  appBinary.ts           A version's binary from CI's release for its src-tauri/ tree, kept once
+                         `gh attestation verify` proves this repository's workflow built it
   appVersions.ts         The launcher's state (good, bad, next, restart), staging an update, pruning versions
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
@@ -369,6 +371,8 @@ src-tauri/               Rust shell: registers plugins, nothing else
   capabilities/          Permissions the frontend may use
   tests/config.rs        Guards on the config (write scope, hidden window)
 .github/workflows/ci.yml Build, typecheck, lint, format check, tests on macOS, for pull requests to main and pushes to it (main saves the Rust cache PRs restore)
+.github/workflows/binary.yml Builds and attests the binary per platform once per src-tauri/ tree,
+                         as pre-release `bin-<tree hash>` (sidecar/appBinary.ts downloads it)
 .github/dependabot.yml   Daily PRs for new pi and pi-claude-bridge versions (new models arrive through them),
                          and sandbox-runtime's
 ```
@@ -910,7 +914,8 @@ Without the variable nothing changes.
   mods (`vite build`, a few seconds, once per set of mods). When a mod changes
   it serves Vite instead, and the page reloads onto it
   (`lib/liveReload.ts`), so mods hot-reload as in dev. The binary is rebuilt
-  only when `src-tauri/` changed. Updates are built beside the running
+  only when `src-tauri/` changed, and then downloaded from CI's release when
+  `gh attestation verify` passes, else built locally. Updates are built beside the running
   version, never in place: a running sidecar loads extensions from its files.
 - The launcher counts a start as good once `reportHealthy()` (`lib/health.ts`)
   writes `IGNITE_HEALTH_FILE`, after the sidecar answers. Keep that call on

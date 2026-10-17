@@ -12,6 +12,7 @@ import {
   removeVersion,
   versionDir,
 } from "./appBuild.ts";
+import { awaitingCI } from "./appBinary.ts";
 import { git } from "./worktreeGit.ts";
 
 type StateName = "good" | "bad" | "next" | "restart";
@@ -88,7 +89,8 @@ async function moveClone(clone: string, sha: string) {
 /**
  * Fetches main and builds it beside the running version `root` (a launcher
  * version's folder), with `mods`. The commit to restart into once one is
- * ready, else null: nothing new, not ahead of it, or it already failed to start.
+ * ready, else null: nothing new, not ahead of it, it already failed to
+ * start, or CI is still building its binary.
  */
 export async function stageUpdate(
   root: string,
@@ -104,6 +106,7 @@ export async function stageUpdate(
     .then(() => true)
     .catch(() => false);
   if (!ahead) return null;
+  if (await awaitingCI(clone, root, latest)) return null;
   await withLock(() => buildVersion(clone, latest, root, mods));
   await moveClone(clone, latest).catch(() => {});
   await writeState("next", latest);
