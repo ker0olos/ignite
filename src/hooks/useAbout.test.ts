@@ -1,6 +1,7 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
+import type { HostMessage } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
 import { useAbout } from "./useAbout";
 
@@ -11,14 +12,20 @@ const VERSION = {
 };
 
 function fakeHost(answer: (type: string) => Promise<unknown>) {
+  const listeners: ((m: HostMessage) => void)[] = [];
   return {
     request: vi.fn((r: { type: string }) =>
       answer(r.type),
     ) as unknown as HostClient["request"],
     send: vi.fn(),
-    subscribe: () => () => {},
+    subscribe: (cb: (m: HostMessage) => void) => {
+      listeners.push(cb);
+      return () => {};
+    },
     close: vi.fn(),
-  } satisfies HostClient;
+    /** Pushes a message from the sidecar. */
+    push: (m: HostMessage) => listeners.forEach((cb) => cb(m)),
+  } satisfies HostClient & { push: unknown };
 }
 
 beforeEach(() => {
@@ -72,6 +79,29 @@ it("says so when there's nothing new, without reloading", async () => {
   await act(() => result.current.check());
   expect(result.current.update).toBe("up-to-date");
   expect(reload).not.toHaveBeenCalled();
+});
+
+it("says it's installing once the sidecar builds the update it found", async () => {
+  let finish: (v: unknown) => void = () => {};
+  const host = fakeHost((type) =>
+    type === "app_update"
+      ? new Promise((resolve) => (finish = resolve))
+      : Promise.resolve(VERSION),
+  );
+  const { result } = renderHook(() => useAbout(host, true, vi.fn(), false));
+  await waitFor(() => expect(result.current.version).toEqual(VERSION));
+  let done: Promise<void> = Promise.resolve();
+  act(() => {
+    done = result.current.check();
+  });
+  expect(result.current.update).toBe("checking");
+  act(() => host.push({ type: "app_update_installing" }));
+  expect(result.current.update).toBe("installing");
+  await act(async () => {
+    finish({ updated: false, ready: true });
+    await done;
+  });
+  expect(result.current.update).toBe("ready");
 });
 
 it("reloads the windows after an update", async () => {

@@ -65,26 +65,26 @@ describe("appVersion", () => {
 describe("appUpdate", () => {
   it("says so when it's already up to date", async () => {
     const install = vi.fn(async () => {});
-    expect(await appUpdate(app, install)).toEqual({ updated: false });
+    expect(await appUpdate({ root: app, install })).toEqual({ updated: false });
     expect(install).not.toHaveBeenCalled();
   });
 
   it("pulls new commits, installing only when the lockfile changed", async () => {
     const install = vi.fn(async () => {});
     await commit(origin, "README.md", "hello\n", "Second");
-    expect(await appUpdate(app, install)).toEqual({ updated: true });
+    expect(await appUpdate({ root: app, install })).toEqual({ updated: true });
     expect((await appVersion(app)).subject).toBe("Second");
     expect(install).not.toHaveBeenCalled();
 
     await commit(origin, "pnpm-lock.yaml", "{}\n", "Bump deps");
-    expect(await appUpdate(app, install)).toEqual({ updated: true });
+    expect(await appUpdate({ root: app, install })).toEqual({ updated: true });
     expect(install).toHaveBeenCalledWith(app);
   });
 
   it("fails with git's reason instead of merging over local commits", async () => {
     await commit(origin, "README.md", "theirs\n", "Upstream");
     await commit(app, "notes.md", "mine\n", "Local");
-    await expect(appUpdate(app)).rejects.toThrow(/fast-forward/i);
+    await expect(appUpdate({ root: app })).rejects.toThrow(/fast-forward/i);
     expect((await appVersion(app)).subject).toBe("Local");
   });
 });
@@ -93,10 +93,16 @@ describe("appUpdate in a launcher version", () => {
   it("builds the latest beside it and says it's ready", async () => {
     const stage = vi.fn(async () => "b".repeat(40));
     const root = join(dir, "apps", "a".repeat(40));
-    const result = await appUpdate(root, vi.fn(), stage, join(dir, "apps"));
+    const result = await appUpdate({
+      root,
+      install: vi.fn(),
+      stage,
+      apps: join(dir, "apps"),
+    });
     expect(stage).toHaveBeenCalledWith(
       root,
       expect.any(String),
+      expect.any(Function),
       expect.any(Function),
     );
     expect(result).toEqual({ updated: false, ready: true });
@@ -106,7 +112,14 @@ describe("appUpdate in a launcher version", () => {
     const sha = "a".repeat(40);
     const stage = vi.fn(async () => sha);
     const root = join(dir, "apps", sha);
-    expect(await appUpdate(root, vi.fn(), stage, join(dir, "apps"))).toEqual({
+    expect(
+      await appUpdate({
+        root,
+        install: vi.fn(),
+        stage,
+        apps: join(dir, "apps"),
+      }),
+    ).toEqual({
       updated: false,
       ready: false,
     });
@@ -120,7 +133,14 @@ describe("appUpdate's warning", () => {
       return "b".repeat(40);
     });
     const root = join(dir, "apps", "a".repeat(40));
-    expect(await appUpdate(root, vi.fn(), stage, join(dir, "apps"))).toEqual({
+    expect(
+      await appUpdate({
+        root,
+        install: vi.fn(),
+        stage,
+        apps: join(dir, "apps"),
+      }),
+    ).toEqual({
       updated: false,
       ready: true,
       warning: "Using CI's binary unverified: offline.",

@@ -3,7 +3,13 @@ import { timeAgo } from "./memory";
 
 /** Where an update check is: `ready` waits for a restart; an error carries the reason. */
 export type UpdateState =
-  "idle" | "checking" | "up-to-date" | "updated" | "ready" | { error: string };
+  | "idle"
+  | "checking"
+  | "installing"
+  | "up-to-date"
+  | "updated"
+  | "ready"
+  | { error: string };
 
 const shortSha = (sha: string) => sha.slice(0, 7);
 
@@ -48,6 +54,8 @@ export function updateButton(state: UpdateState) {
   switch (state) {
     case "checking":
       return { label: "Checking for updates", spinning: true, disabled: true };
+    case "installing":
+      return { label: "Installing update…", spinning: true, disabled: true };
     case "updated":
       return { label: "Reloading", spinning: true, disabled: true };
     case "ready":

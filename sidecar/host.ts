@@ -180,7 +180,10 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   terminal_list: (_ctx, r) => terminalsIn(r.cwd),
   terminal_snapshot: (_ctx, r) => terminalSnapshot(r.terminal),
   app_version: () => appVersion(),
-  app_update: () => appUpdate(),
+  app_update: (ctx) =>
+    appUpdate({
+      installing: () => ctx.send({ type: "app_update_installing" }),
+    }),
   app_restart: () => appRestart(),
 };
 

@@ -37,28 +37,36 @@ export async function appVersion(root = appRoot()): Promise<AppVersion> {
 const isVersion = (root: string, apps: string) =>
   relative(apps, dirname(root)) === "";
 
-async function stagedUpdate(root: string, stage: typeof stageUpdate) {
+async function stagedUpdate(
+  root: string,
+  stage: typeof stageUpdate,
+  installing: () => void,
+) {
   let warning: string | undefined;
+  const warn = (text: string) => {
+    warning = text;
+  };
+  const mods = process.env.IGNITE_MODS ?? "";
   const staged =
-    (await stage(root, process.env.IGNITE_MODS ?? "", (text) => {
-      warning = text;
-    })) ?? (await readState("next"));
+    (await stage(root, mods, warn, installing)) ?? (await readState("next"));
   const ready = !!staged && staged !== basename(root);
   return { updated: false, ready, ...(warning && { warning }) };
 }
 
 /**
- * Run from the launcher, builds the latest code to run on the next start;
- * `ready` once one waits. Otherwise pulls it (fast-forward only, so local
- * work is never merged over) and reinstalls dependencies when the lockfile changed.
+ * Run from the launcher, builds the latest code to run on the next start
+ * (`installing` once it has found one); `ready` once one waits. Otherwise pulls
+ * it (fast-forward only, so local work is never merged over) and reinstalls
+ * dependencies when the lockfile changed.
  */
-export async function appUpdate(
+export async function appUpdate({
   root = appRoot(),
   install = (dir: string) => linkPackages(dir, { keepOwn: true }),
   stage = stageUpdate,
   apps = APPS,
-): Promise<{ updated: boolean; ready?: boolean; warning?: string }> {
-  if (isVersion(root, apps)) return stagedUpdate(root, stage);
+  installing = () => {},
+} = {}): Promise<{ updated: boolean; ready?: boolean; warning?: string }> {
+  if (isVersion(root, apps)) return stagedUpdate(root, stage, installing);
   const before = await git(root, ["rev-parse", "HEAD"]);
   await git(root, ["pull", "--ff-only", "--quiet"]);
   const after = await git(root, ["rev-parse", "HEAD"]);

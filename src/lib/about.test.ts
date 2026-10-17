@@ -62,6 +62,11 @@ describe("updateButton", () => {
       spinning: true,
       disabled: true,
     });
+    expect(updateButton("installing")).toEqual({
+      label: "Installing update…",
+      spinning: true,
+      disabled: true,
+    });
     expect(updateButton("up-to-date")).toEqual({
       label: "Up to date",
       spinning: false,

@@ -41,6 +41,15 @@ export function useAbout(
     };
   }, [reload]);
 
+  // The sidecar found an update and builds it; the check's answer comes once it's ready.
+  useEffect(
+    () =>
+      host?.subscribe((m) => {
+        if (m.type === "app_update_installing") setUpdate("installing");
+      }),
+    [host],
+  );
+
   useEffect(() => {
     if (!host) return;
     let live = true;
@@ -52,7 +61,12 @@ export function useAbout(
         setError(null);
         // A finished check's result is from the last time Settings was open.
         setUpdate((u) =>
-          u === "checking" || u === "updated" || u === "ready" ? u : "idle",
+          u === "checking" ||
+          u === "installing" ||
+          u === "updated" ||
+          u === "ready"
+            ? u
+            : "idle",
         );
       })
       .catch((e: Error) => live && setError(e.message));
