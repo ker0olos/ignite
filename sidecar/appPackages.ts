@@ -33,7 +33,8 @@ const ctxOf = ({ home = HOME, step = () => {} }: Options): Ctx => ({
   step,
 });
 
-async function pinned(dir: string) {
+/** The pnpm version `dir`'s package.json pins (packageManager). */
+export async function pinned(dir: string) {
   const { packageManager = "" } = JSON.parse(
     await readFile(join(dir, "package.json"), "utf8"),
   );
@@ -77,7 +78,8 @@ const storeDir = (home: string) => join(home, "pnpm-store");
 export const pnpmInstall = (dir: string, options: Options = {}) =>
   pnpm(dir, dir, INSTALL, ctxOf(options));
 
-async function lockHash(dir: string) {
+/** Names the shared install of `dir`'s lockfile (~/.ignite/packages/<hash>). */
+export async function lockHash(dir: string) {
   const hash = createHash("sha256");
   for (const file of INPUTS) hash.update(await readFile(join(dir, file)));
   return hash.digest("hex").slice(0, 16);

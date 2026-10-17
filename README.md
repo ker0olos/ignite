@@ -82,7 +82,8 @@ once, builds updates in the background and asks you to restart for them, and
 goes back to the last working version if an update fails to start. It shows
 each step as it goes and keeps everything in `~/.ignite/launch/setup.log`;
 `npm run setup -- --verbose` also prints each tool's output, and running setup
-again picks up where it stopped.
+again picks up where it stopped. `npm run setup -- --check` reports what's set
+up and what takes space in `~/.ignite`, changing nothing.
 
 Linux sandboxes commands with
 [bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`). Windows, setup

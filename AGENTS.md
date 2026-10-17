@@ -276,6 +276,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   attestation.ts         That check without gh: GitHub's attestation API, Sigstore's signature check
   appRun.ts              Runs the build tools (pnpm, npm, Vite, cargo), their output in the error, setup's log, or
                          the terminal (--verbose); setup's timed steps
+  appDoctor.ts           `npm run setup -- --check`: Node, git, pnpm, the packages, the version, the launcher, and
+                         what takes space in ~/.ignite; reads only, so it runs before the packages are in
   appLauncher.ts         The launcher setup adds: ~/Applications/Ignite.app, a Linux menu entry or a Start Menu
                          shortcut, each running launch.mjs with setup's PATH
   appSetup.ts            Setup's steps that need the packages: the Windows sandbox setting, whether Rust is needed
@@ -366,7 +368,8 @@ shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
 launcher/                How users run the app (not maintainers; see README)
   setup.mjs              `npm run setup`, on every platform: the packages, the Windows sandbox offer, the first
-                         build, the launcher; timed steps on screen, everything in ~/.ignite/launch/setup.log
+                         build, the launcher; timed steps on screen, everything in ~/.ignite/launch/setup.log;
+                         `--check` reports instead and changes nothing (sidecar/appDoctor.ts)
   launch.mjs             What they run: starts the newest built version with ~/.ignite/mods at once,
                          falls back to the last good version, then to no mods; again on restart
   serve.mjs              Serves its built frontend on :1420, or Vite (proxied) once a mod changes

@@ -12,7 +12,7 @@ import {
   removeVersion,
   versionDir,
 } from "./appBuild.ts";
-import { awaitingCI } from "./appBinary.ts";
+import { ASSETS, awaitingCI } from "./appBinary.ts";
 import { linkPackages, prunePackages } from "./appPackages.ts";
 import { git } from "./worktreeGit.ts";
 
@@ -124,10 +124,18 @@ const versions = async () =>
 
 /**
  * Removes versions other than `keep`, and unfinished ones no process is still
- * building, then the packages no version or the clone uses any more.
+ * building, then the packages no version or the clone uses any more. Where CI
+ * builds this machine's binary (`prebuilt`), Cargo's builds go too: a 1.5 GB
+ * cache from when it was built here, which only a failed CI build needs again.
  */
-export async function pruneVersions(clone: string, keep: string[]) {
+export async function pruneVersions(
+  clone: string,
+  keep: string[],
+  prebuilt = !!ASSETS[`${process.platform}-${process.arch}`],
+) {
   const busy = await building();
+  if (prebuilt && !busy)
+    await rm(join(APPS, "target"), { recursive: true, force: true });
   for (const name of await versions()) {
     if (keep.includes(name)) continue;
     if (busy && !isBuilt(versionDir(name))) continue;
