@@ -79,7 +79,10 @@ Setup installs Ignite's packages with [pnpm](https://pnpm.io) (installing pnpm
 for Ignite alone if needed, no admin rights), prepares Ignite once, then puts it in `~/Applications`
 on macOS, your app menu on Linux, or the Start Menu on Windows. It opens at
 once, builds updates in the background and asks you to restart for them, and
-goes back to the last working version if an update fails to start.
+goes back to the last working version if an update fails to start. It shows
+each step as it goes and keeps everything in `~/.ignite/launch/setup.log`;
+`npm run setup -- --verbose` also prints each tool's output, and running setup
+again picks up where it stopped.
 
 Linux sandboxes commands with
 [bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`). Windows, setup

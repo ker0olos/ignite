@@ -16,5 +16,5 @@
   ],
   "ignore": ["src/components/ui/**", "sidecar/types/**"],
   "ignoreDependencies": ["pi-claude-bridge", "tree-sitter-.*"],
-  "ignoreBinaries": ["caffeinate", "osascript"]
+  "ignoreBinaries": ["caffeinate", "osascript", "update-desktop-database"]
 }

@@ -1,108 +1,89 @@
-// `npm run setup`: installs the packages with pnpm, builds the app, then adds
-// its launcher with setup.ps1 on Windows (which may have no bash), setup.sh elsewhere.
+// `npm run setup`: installs the packages, builds the app and adds its launcher
+// (sidecar/appLauncher.ts), on every platform. Safe to run again; it picks up
+// where it stopped. `npm run setup -- --verbose` also shows each tool's output.
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
-const here = dirname(fileURLToPath(import.meta.url));
-// `npm run setup -- --verbose` also shows each tool's own output as it runs.
-const verbose = process.argv.includes("--verbose");
-if (verbose) process.env.IGNITE_VERBOSE = "1";
-const started = Date.now();
-/** Prints what setup does now, after the time it has taken so far. */
-function step(text) {
-  const s = Math.round((Date.now() - started) / 1000);
-  console.log(
-    `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}  ${text}`,
+// Before any TypeScript loads: older Nodes can't run it (nor mods' registerHooks).
+const [major, minor] = process.versions.node.split(".").map(Number);
+if (major < 22 || (major === 22 && minor < 18)) {
+  console.error(
+    `Ignite needs Node.js 22.18 or newer (this is ${process.versions.node}).`,
   );
+  process.exit(1);
 }
 
-/** Turns on `[approval] windows_sandbox` in settings.toml, keeping the rest. */
-async function enableWindowsSandbox() {
-  const { parse, stringify } = await import("smol-toml");
-  const file = join(homedir(), ".ignite", "settings.toml");
-  let settings = {};
-  try {
-    settings = parse(readFileSync(file, "utf8"));
-  } catch {
-    // No settings yet: the app fills in the rest.
-  }
-  settings.approval = { ...settings.approval, windows_sandbox: true };
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, stringify(settings));
+const { APP_NAME, APP_TITLE } = await import("../src/lib/app.ts");
+const { stepper } = await import("../sidecar/appRun.ts");
+
+const clone = dirname(dirname(fileURLToPath(import.meta.url)));
+const home = homedir();
+const log = join(home, `.${APP_NAME}`, "launch", "setup.log");
+const step = stepper(log);
+// Each run's log starts afresh; the tools' output joins it (sidecar/appRun.ts).
+writeFileSync(
+  log,
+  `${APP_TITLE} setup, ${new Date().toISOString()}, Node ${process.version}, ${process.platform}-${process.arch}\n`,
+);
+process.env.IGNITE_TOOL_LOG = log;
+if (process.argv.includes("--verbose")) process.env.IGNITE_VERBOSE = "1";
+else console.log("(npm run setup -- --verbose shows each tool's output too)");
+
+function fail(what, error) {
+  step(`${what}:\n${error?.message ?? error}`);
+  console.error(`\nThe full log is ${log}`);
+  process.exit(1);
 }
 
-async function offerWindowsSandbox() {
+// Everything after this imports the packages: installed once, for the clone and the version setup builds.
+const { linkPackages } = await import("../sidecar/appPackages.ts");
+await linkPackages(clone, { keepOwn: true, step }).catch((error) =>
+  fail("Couldn't install the packages", error),
+);
+
+const { buildsBinary, enableWindowsSandbox } =
+  await import("../sidecar/appSetup.ts");
+if (buildsBinary() && spawnSync("cargo", ["--version"]).status !== 0)
+  fail(
+    "No prebuilt binary for this machine",
+    "it needs Rust: https://rustup.rs",
+  );
+
+if (process.platform === "win32") {
   console.log(`
 The sandbox is recommended: Auto mode needs it to run commands without asking.
-Setting it up needs admin rights once, to create a Windows user for Ignite.
+Setting it up needs admin rights once, to create a Windows user for ${APP_TITLE}.
 `);
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const answer = await rl.question("Turn on the sandbox? [Y/n] ");
   rl.close();
-  if (!/^n/i.test(answer.trim())) await enableWindowsSandbox();
+  if (!/^n/i.test(answer.trim())) await enableWindowsSandbox(home);
 }
 
-function fail(message) {
-  console.error(message);
-  process.exit(1);
-}
-
-// Mods need Node's registerHooks, and the sidecar runs TypeScript directly.
-const [major, minor] = process.versions.node.split(".").map(Number);
-if (major < 22 || (major === 22 && minor < 18))
-  fail("Ignite needs Node.js 22.18 or newer.");
-if (!verbose)
-  console.log("(npm run setup -- --verbose shows each tool's output too)");
-// Everything after this imports the packages, installed once for the clone and the version setup builds.
-const { linkPackages } = await import("../sidecar/appPackages.ts");
-await linkPackages(dirname(here), { keepOwn: true, step }).catch((error) =>
-  fail(`Couldn't install the packages:\n${error.message}`),
+// Built now, so the first start opens at once.
+const { buildVersion, LAUNCH } = await import("../sidecar/appBuild.ts");
+const { writeState } = await import("../sidecar/appVersions.ts");
+// The launcher watches it for mods, so it's there from the start.
+const mods = join(dirname(LAUNCH), "mods");
+mkdirSync(mods, { recursive: true });
+const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: clone })
+  .stdout.toString()
+  .trim();
+await buildVersion(clone, head, clone, mods, console.warn, step).catch(
+  (error) => fail(`Couldn't build ${APP_TITLE}`, error),
 );
-// CI builds the binary for these machines; elsewhere it's built here, with Rust.
-const { ASSETS } = await import("../sidecar/appBinary.ts");
-if (
-  !ASSETS[`${process.platform}-${process.arch}`] &&
-  spawnSync("cargo", ["--version"]).status !== 0
-)
-  fail("Ignite needs Rust on this machine: https://rustup.rs");
+await writeState("next", head);
 
-/** Builds this checkout's commit now, so the first start opens at once. */
-async function firstBuild() {
-  const { buildVersion, LAUNCH } = await import("../sidecar/appBuild.ts");
-  const { writeState } = await import("../sidecar/appVersions.ts");
-  const clone = dirname(here);
-  const mods = join(dirname(LAUNCH), "mods");
-  mkdirSync(mods, { recursive: true });
-  const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: clone })
-    .stdout.toString()
-    .trim();
-  try {
-    await buildVersion(clone, head, clone, mods, console.warn, step);
-  } catch (error) {
-    fail(`Couldn't build Ignite:\n${error.message}`);
-  }
-  await writeState("next", head);
-}
-
-const windows = process.platform === "win32";
-if (windows) await offerWindowsSandbox();
-await firstBuild();
-step("Adding Ignite's launcher…");
-const { status } = windows
-  ? spawnSync(
-      "powershell.exe",
-      [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        join(here, "setup.ps1"),
-      ],
-      { stdio: "inherit" },
-    )
-  : spawnSync("bash", [join(here, "setup.sh")], { stdio: "inherit" });
-process.exit(status ?? 1);
+step(`Adding ${APP_TITLE}'s launcher…`);
+const { addLauncher, userData } = await import("../sidecar/appLauncher.ts");
+const where = await addLauncher({
+  clone,
+  home,
+  path: process.env.PATH ?? "",
+  data: userData(process.platform, home, process.env),
+}).catch((error) => fail("Couldn't add the launcher", error));
+step(`${where} Opening it now.`);

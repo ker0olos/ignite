@@ -274,6 +274,11 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          attestation shows binary.yml didn't build it from main, used with a warning
                          when GitHub or Sigstore can't be reached to check
   attestation.ts         That check without gh: GitHub's attestation API, Sigstore's signature check
+  appRun.ts              Runs the build tools (pnpm, npm, Vite, cargo), their output in the error, setup's log, or
+                         the terminal (--verbose); setup's timed steps
+  appLauncher.ts         The launcher setup adds: ~/Applications/Ignite.app, a Linux menu entry or a Start Menu
+                         shortcut, each running launch.mjs with setup's PATH
+  appSetup.ts            Setup's steps that need the packages: the Windows sandbox setting, whether Rust is needed
   appVersions.ts         The launcher's state (good, bad, next, restart), staging an update, pruning versions
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
@@ -360,10 +365,8 @@ shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
 launcher/                How users run the app (not maintainers; see README)
-  setup.mjs              `npm run setup`: installs the packages (pnpm), builds the app, then setup.ps1 on Windows (first offering
-                         the sandbox), else setup.sh
-  setup.sh               Makes ~/Applications/Ignite.app (macOS) or an app menu entry (Linux)
-  setup.ps1              The same on Windows: a Start Menu shortcut
+  setup.mjs              `npm run setup`, on every platform: the packages, the Windows sandbox offer, the first
+                         build, the launcher; timed steps on screen, everything in ~/.ignite/launch/setup.log
   launch.mjs             What they run: starts the newest built version with ~/.ignite/mods at once,
                          falls back to the last good version, then to no mods; again on restart
   serve.mjs              Serves its built frontend on :1420, or Vite (proxied) once a mod changes
