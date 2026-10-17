@@ -37,6 +37,36 @@ export const defaultTools = [
   "ls",
 ];
 
+type Tools = Pick<
+  AgentSession,
+  | "getActiveToolNames"
+  | "getAllTools"
+  | "getToolDefinition"
+  | "setActiveToolsByName"
+>;
+
+/**
+ * Activates what pi left out reopening a conversation with only the tools its
+ * transcript last declared: the default tools, and extension tools that would
+ * be active on registration (web_search after signing in, a new MCP server's,
+ * an update's). Our extensions still switch their own before each run.
+ */
+export function activateCurrentTools(session: Tools) {
+  const active = session.getActiveToolNames();
+  const missing = session.getAllTools().filter((tool) => {
+    if (active.includes(tool.name)) return false;
+    if (tool.sourceInfo.path.startsWith("builtin:"))
+      return defaultTools.includes(tool.name);
+    const declared =
+      tool.exposure === "direct" || tool.exposure === "model-only";
+    return (
+      declared && session.getToolDefinition(tool.name)?.defaultActive !== false
+    );
+  });
+  if (missing.length)
+    session.setActiveToolsByName([...active, ...missing.map((t) => t.name)]);
+}
+
 // Every session registers its own pi-claude-bridge; in one shared runtime the
 // last registration would take every session's Claude calls.
 /**
