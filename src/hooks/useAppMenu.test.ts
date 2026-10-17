@@ -232,7 +232,7 @@ describe("useAppMenu", () => {
         expect(setAppMenu).not.toHaveBeenCalled();
         expect(
           result.current.menu.map((e) => typeof e !== "string" && e.label),
-        ).toEqual(["Ignite", "File", "View"]);
+        ).toEqual(["File", "View", "Ignite"]);
       } finally {
         ua.mockRestore();
       }
