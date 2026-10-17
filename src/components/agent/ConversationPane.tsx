@@ -54,7 +54,8 @@ export const ConversationPane = memo(function ConversationPane({
       ref={ref}
       inert={!shown}
       className={cn(
-        "absolute inset-0 overscroll-contain overflow-y-auto",
+        // useStickToBottom keeps the place; the browser's anchoring would move it on a resize.
+        "absolute inset-0 overscroll-contain overflow-y-auto [overflow-anchor:none]",
         !shown && "invisible",
       )}
     >

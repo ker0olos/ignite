@@ -30,6 +30,8 @@ function setup() {
   });
   Object.defineProperty(el, "scrollHeight", { get: () => height });
   Object.defineProperty(el, "clientHeight", { get: () => 200 });
+  let width = 800;
+  Object.defineProperty(el, "clientWidth", { get: () => width });
   const scroll = (top: number) => {
     el.scrollTop = top;
     el.dispatchEvent(new Event("scroll"));
@@ -55,7 +57,26 @@ function setup() {
         message: { role: "user", content: "hi", timestamp: 0 },
       },
     });
-  return { el, scroll, grow, shrink, send, stuck: result.current };
+  const narrow = (to: number, by: number) => {
+    width = to;
+    grow(by);
+  };
+  // Reflowed and clamped, its scroll event arriving before the ResizeObserver.
+  const widen = (to: number, by: number) => {
+    width = to;
+    height -= by;
+    scroll(top);
+  };
+  return {
+    el,
+    scroll,
+    grow,
+    shrink,
+    send,
+    narrow,
+    widen,
+    stuck: result.current,
+  };
 }
 
 describe("useStickToBottom", () => {
@@ -97,6 +118,29 @@ describe("useStickToBottom", () => {
     send();
     grow(50);
     expect(el.scrollTop).toBe(850);
+  });
+
+  it("keeps the place in view when narrowing reflows the text", () => {
+    const { el, scroll, narrow } = setup();
+    scroll(400); // middle at 500 of 1000
+    narrow(400, 1000);
+    expect(el.scrollTop).toBe(900); // middle at 1000 of 2000
+  });
+
+  it("keeps the place when widening clamps the scroll to the bottom first", () => {
+    const { el, scroll, narrow, widen, stuck } = setup();
+    narrow(400, 1000);
+    scroll(1500); // middle at 1600 of 2000
+    widen(800, 1000); // clamped to 800, the bottom
+    expect(el.scrollTop).toBe(700); // middle at 800 of 1000
+    expect(stuck.current).toBe(false);
+  });
+
+  it("leaves the place alone when content grows at the same width", () => {
+    const { el, scroll, grow } = setup();
+    scroll(400);
+    grow(1000);
+    expect(el.scrollTop).toBe(400);
   });
 
   it("keeps following when content shrinks and clamps the scroll", () => {
