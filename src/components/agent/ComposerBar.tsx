@@ -35,7 +35,7 @@ export function ComposerBar({
 }) {
   const repos = useGitStatus(host, gitStatus ? session.session : null);
   return (
-    <div className="flex h-6 items-center gap-3.5 px-0.5 max-sm:h-10">
+    <div className="flex h-6 items-center gap-3.5 px-0.5 whitespace-nowrap max-sm:h-10">
       <ComposerAddMenu
         onAttach={onAttach}
         canFork={!session.none && !running}
