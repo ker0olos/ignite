@@ -66,6 +66,7 @@
     "remark-gfm": "^4.0.1",
     "shadcn": "^4.21.0",
     "shiki": "^4.4.3",
+    "sigstore": "5.0.0",
     "simple-icons": "^16.32.0",
     "smol-toml": "^1.9.0",
     "tree-sitter-bash": "^0.25.1",

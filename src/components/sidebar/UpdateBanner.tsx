@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 /** Says a built update waits for a restart; dismissing hides it until the next launch. */
 export function UpdateBanner({
   ready,
+  warning,
   onRestart,
 }: {
   ready: boolean;
+  warning: string | null;
   onRestart: () => Promise<void>;
 }) {
   const [dismissed, setDismissed] = useState(false);
@@ -21,6 +23,9 @@ export function UpdateBanner({
         <p className="text-xs text-muted-foreground">
           Restart to run the new version.
         </p>
+        {warning && (
+          <p className="mt-1 text-xs text-muted-foreground">{warning}</p>
+        )}
         <Button
           variant="outline"
           size="sm"

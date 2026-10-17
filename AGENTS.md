@@ -264,8 +264,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          a clone pulls (`git pull --ff-only`, `npm ci` if the lockfile changed)
   appBuild.ts            Launcher versions (~/.ignite/app/<commit>, worktrees of the user's clone): building one
                          (release binary, packages cloned copy-on-write, a frontend per set of mods)
-  appBinary.ts           A version's binary from CI's release for its src-tauri/ tree, kept once
-                         `gh attestation verify` proves this repository's workflow built it
+  appBinary.ts           A version's binary from CI's release for its src-tauri/ tree: refused when its
+                         attestation shows binary.yml didn't build it from main, used with a warning
+                         when GitHub or Sigstore can't be reached to check
+  attestation.ts         That check without gh: GitHub's attestation API, Sigstore's signature check
   appVersions.ts         The launcher's state (good, bad, next, restart), staging an update, pruning versions
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
@@ -915,7 +917,8 @@ Without the variable nothing changes.
   it serves Vite instead, and the page reloads onto it
   (`lib/liveReload.ts`), so mods hot-reload as in dev. The binary is rebuilt
   only when `src-tauri/` changed, and then downloaded from CI's release when
-  `gh attestation verify` passes, else built locally. Updates are built beside the running
+  its build attestation checks out (`sidecar/attestation.ts`, no `gh` needed;
+  when the check can't run it's used with a warning), else built locally. Updates are built beside the running
   version, never in place: a running sidecar loads extensions from its files.
 - The launcher counts a start as good once `reportHealthy()` (`lib/health.ts`)
   writes `IGNITE_HEALTH_FILE`, after the sidecar answers. Keep that call on

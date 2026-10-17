@@ -8,6 +8,7 @@ const about = (over: Partial<Parameters<typeof aboutItems>[0]["about"]>) => ({
   version: null,
   error: null,
   update: "idle" as UpdateState,
+  warning: null,
   check: vi.fn(),
   restart: vi.fn(),
   ...over,

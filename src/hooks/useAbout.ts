@@ -31,6 +31,7 @@ export function useAbout(
   const [version, setVersion] = useState<AppVersion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [update, setUpdate] = useState<UpdateState>("idle");
+  const [warning, setWarning] = useState<string | null>(null);
   const checking = useRef(false);
 
   useEffect(() => {
@@ -66,7 +67,9 @@ export function useAbout(
     checking.current = true;
     setUpdate((u) => (u === "ready" ? u : "checking"));
     try {
-      const { updated, ready } = await host.request({ type: "app_update" });
+      const result = await host.request({ type: "app_update" });
+      const { updated, ready } = result;
+      if (result.warning) setWarning(result.warning);
       setUpdate(ready ? "ready" : updated ? "updated" : "up-to-date");
       if (updated) await emit(RELOAD);
     } catch (e) {
@@ -97,6 +100,8 @@ export function useAbout(
     version,
     error,
     update,
+    /** Why the ready update's binary couldn't be verified, if it couldn't. */
+    warning,
     /** Gets the latest code; reloads every window, or readies it for a restart. */
     check,
     /** Quits, and the launcher starts the built update. */

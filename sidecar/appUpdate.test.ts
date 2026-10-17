@@ -94,7 +94,11 @@ describe("appUpdate in a launcher version", () => {
     const stage = vi.fn(async () => "b".repeat(40));
     const root = join(dir, "apps", "a".repeat(40));
     const result = await appUpdate(root, vi.fn(), stage, join(dir, "apps"));
-    expect(stage).toHaveBeenCalledWith(root, expect.any(String));
+    expect(stage).toHaveBeenCalledWith(
+      root,
+      expect.any(String),
+      expect.any(Function),
+    );
     expect(result).toEqual({ updated: false, ready: true });
   });
 
@@ -105,6 +109,21 @@ describe("appUpdate in a launcher version", () => {
     expect(await appUpdate(root, vi.fn(), stage, join(dir, "apps"))).toEqual({
       updated: false,
       ready: false,
+    });
+  });
+});
+
+describe("appUpdate's warning", () => {
+  it("passes on why the staged update's binary wasn't verified", async () => {
+    const stage = vi.fn(async (_root, _mods, warn?: (t: string) => void) => {
+      warn?.("Using CI's binary unverified: offline.");
+      return "b".repeat(40);
+    });
+    const root = join(dir, "apps", "a".repeat(40));
+    expect(await appUpdate(root, vi.fn(), stage, join(dir, "apps"))).toEqual({
+      updated: false,
+      ready: true,
+      warning: "Using CI's binary unverified: offline.",
     });
   });
 });

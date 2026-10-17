@@ -134,6 +134,7 @@ export function AppWorkspace({
         <>
           <UpdateBanner
             ready={about.update === "ready"}
+            warning={about.warning}
             onRestart={about.restart}
           />
           <SignInBanner
