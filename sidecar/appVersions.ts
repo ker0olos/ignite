@@ -88,7 +88,7 @@ async function moveClone(clone: string, sha: string) {
 /**
  * Fetches main and builds it beside the running version `root` (a launcher
  * version's folder), with `mods`. The commit to restart into once one is
- * ready, else null: nothing new, or the latest already failed to start.
+ * ready, else null: nothing new, not ahead of it, or it already failed to start.
  */
 export async function stageUpdate(
   root: string,
@@ -99,6 +99,11 @@ export async function stageUpdate(
   const latest = await git(clone, ["rev-parse", "origin/main"]);
   if (latest === (await git(root, ["rev-parse", "HEAD"]))) return null;
   if (latest === (await readState("bad"))) return null;
+  // Only forward: a version run from a branch ahead of main never goes back to it.
+  const ahead = await git(root, ["merge-base", "--is-ancestor", "HEAD", latest])
+    .then(() => true)
+    .catch(() => false);
+  if (!ahead) return null;
   await withLock(() => buildVersion(clone, latest, root, mods));
   await moveClone(clone, latest).catch(() => {});
   await writeState("next", latest);

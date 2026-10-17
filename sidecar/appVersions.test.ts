@@ -80,6 +80,15 @@ describe("stageUpdate", () => {
   });
 });
 
+describe("stageUpdate on a branch", () => {
+  it("never goes back to an older main", async () => {
+    const { stageUpdate } = await load();
+    await writeFile(join(clone, "README.md"), "ahead\n");
+    git(clone, "commit", "-qam", "Ahead of main");
+    expect(await stageUpdate(clone, "")).toBeNull();
+  });
+});
+
 describe("pruneVersions", () => {
   it("removes unfinished versions once no process builds them", async () => {
     const { pruneVersions, versionDir, APPS } = await load();
