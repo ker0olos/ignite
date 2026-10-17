@@ -84,14 +84,12 @@ export const BASH_STOP_TOOL = "bash_stop";
 /** The tool that has the conversation carry on once a background command exits. */
 export const BASH_WAIT_TOOL = "bash_wait";
 
-/** A result's images: its own, and show_image's (kept out of the model's context). */
+/** A result's images; show_image's original, not the resized copy the model got. */
 export function resultImages(result: ToolResult | undefined): ImageContent[] {
   if (!result) return [];
-  const own = result.content.filter(
-    (b): b is ImageContent => b.type === "image",
-  );
   const shown = (result.details as { image?: ImageContent } | undefined)?.image;
-  return shown?.type === "image" ? [...own, shown] : own;
+  if (shown?.type === "image") return [shown];
+  return result.content.filter((b): b is ImageContent => b.type === "image");
 }
 
 export type ToolResultMessage = ToolResult & {

@@ -2,7 +2,11 @@
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, extname, resolve } from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+  type ExtensionAPI,
+  formatDimensionNote,
+  resizeImage,
+} from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import {
   IMAGE_TOOL,
@@ -44,13 +48,29 @@ export function shownText(task: Task | null, image: ImageContent): string {
   return "Shown to the user in the conversation, but too big to add to the task. Save a smaller image (e.g. a viewport screenshot) to put it there.";
 }
 
+/** The image for the model to see too, within the provider's size limits; none for SVG. */
+export async function modelContent(
+  image: ImageContent,
+): Promise<(ImageContent | { type: "text"; text: string })[]> {
+  if (image.mimeType === "image/svg+xml") return [];
+  const bytes = Buffer.from(image.data, "base64");
+  const resized = await resizeImage(bytes, image.mimeType).catch(() => null);
+  if (!resized) return [];
+  const note = formatDimensionNote(resized);
+  return [
+    { type: "image", data: resized.data, mimeType: resized.mimeType },
+    ...(note ? [{ type: "text" as const, text: note }] : []),
+  ];
+}
+
 export default function showImage(pi: ExtensionAPI) {
   pi.registerTool({
     name: IMAGE_TOOL,
     label: "Show image",
     description:
       "Show the user an image file (png, jpg, gif, webp, svg) in the conversation. " +
-      "The path may be anywhere, e.g. a render or screenshot you saved in /tmp.",
+      "The path may be anywhere, e.g. a render or screenshot you saved in /tmp. " +
+      "You see the image too (not SVG), so there's no need to read it again.",
     promptSnippet: `${IMAGE_TOOL}: show the user an image file`,
     parameters: Type.Object({
       path: Type.String({ description: "The image file's path." }),
@@ -62,7 +82,10 @@ export default function showImage(pi: ExtensionAPI) {
         image: { ...image, name: basename(path) },
       });
       return {
-        content: [{ type: "text", text: shownText(task, image) }],
+        content: [
+          { type: "text", text: shownText(task, image) },
+          ...(await modelContent(image)),
+        ],
         details: { image },
       };
     },

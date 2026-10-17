@@ -1,10 +1,11 @@
+import { readFileSync } from "node:fs";
 import { mkdtemp, truncate, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { resultImages } from "../shared/agentTypes.ts";
 import type { Task } from "../shared/tasks.ts";
-import { loadImage, shownText } from "./imageExtension.ts";
+import { loadImage, modelContent, shownText } from "./imageExtension.ts";
 
 describe("loadImage", async () => {
   const dir = await mkdtemp(join(tmpdir(), "show-image-"));
@@ -34,6 +35,25 @@ describe("loadImage", async () => {
   });
 });
 
+describe("modelContent", () => {
+  const png = readFileSync("src-tauri/icons/32x32.png").toString("base64");
+
+  it("gives the model the image, but not an SVG", async () => {
+    const image = { type: "image" as const, data: png, mimeType: "image/png" };
+    expect((await modelContent(image))[0]).toMatchObject({ type: "image" });
+    expect(await modelContent({ ...image, mimeType: "image/svg+xml" })).toEqual(
+      [],
+    );
+  });
+
+  it("gives nothing for bytes that aren't an image", async () => {
+    const junk = Buffer.from("not png").toString("base64");
+    expect(
+      await modelContent({ type: "image", data: junk, mimeType: "image/png" }),
+    ).toEqual([]);
+  });
+});
+
 describe("shownText", () => {
   const image = { type: "image" as const, data: "abc", mimeType: "image/png" };
   const task = (shown: string[]) =>
@@ -53,15 +73,13 @@ describe("shownText", () => {
 describe("resultImages", () => {
   const image = { type: "image" as const, data: "x", mimeType: "image/png" };
 
-  it("collects content images and show_image's detail", () => {
+  it("collects content images, or show_image's original in their place", () => {
     expect(resultImages(undefined)).toEqual([]);
     expect(resultImages({ content: [image] })).toEqual([image]);
-    expect(
-      resultImages({
-        content: [{ type: "text", text: "" }],
-        details: { image },
-      }),
-    ).toEqual([image]);
+    const resized = { ...image, data: "small" };
+    expect(resultImages({ content: [resized], details: { image } })).toEqual([
+      image,
+    ]);
     expect(resultImages({ content: [], details: { image: "no" } })).toEqual([]);
   });
 });
