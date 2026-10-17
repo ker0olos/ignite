@@ -102,6 +102,18 @@ async function fetchRelease(
   return response;
 }
 
+// A clone from before the repository was renamed has its old name, which GitHub
+// redirects; CI signs with the current one. The old one when GitHub can't say.
+async function currentName(repo: string, get: typeof fetch) {
+  const signal = AbortSignal.timeout(10_000);
+  const response = await get(`https://api.github.com/repos/${repo}`, {
+    signal,
+  }).catch(() => null);
+  if (!response?.ok) return repo;
+  const { full_name } = await response.json().catch(() => ({}));
+  return typeof full_name === "string" ? full_name : repo;
+}
+
 /** Downloads and verifies the binary for checkout `dir`'s src-tauri/ into `into`. */
 export async function downloadBinary(
   dir: string,
@@ -112,10 +124,10 @@ export async function downloadBinary(
   const from = await source(dir, asset);
   if ("why" in from) return from;
   const tree = await treeOf(dir, "HEAD");
-  const url = releaseUrl(from.repo, tree, from.asset);
-  const got = await fetchRelease(url, tree, get);
+  const repo = await currentName(from.repo, get);
+  const got = await fetchRelease(releaseUrl(repo, tree, from.asset), tree, get);
   if ("why" in got) return got;
-  return keepVerified(got, join(into, from.asset), from.repo, verify);
+  return keepVerified(got, join(into, from.asset), repo, verify);
 }
 
 /**

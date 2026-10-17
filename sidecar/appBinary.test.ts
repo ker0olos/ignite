@@ -75,6 +75,21 @@ describe("downloadBinary", () => {
     expect(await readFile(join(into(), "ignite-x"), "utf8")).toBe("binary");
   });
 
+  it("checks it against the repository's current name when it was renamed", async () => {
+    const get = vi.fn(async (url: string) =>
+      url.startsWith("https://api.github.com/")
+        ? Response.json({ full_name: "me/renamed" })
+        : new Response("binary"),
+    ) as unknown as typeof fetch;
+    const verify = vi.fn(async () => null);
+    await downloadBinary(repo, into(), { get, verify }, "ignite-x");
+    expect(get).toHaveBeenCalledWith(
+      "https://api.github.com/repos/me/app",
+      expect.anything(),
+    );
+    expect(verify).toHaveBeenCalledWith(join(into(), "ignite-x"), "me/renamed");
+  });
+
   it("keeps a binary it couldn't check, with a warning", async () => {
     const verify = vi.fn(async () => "GitHub couldn't be reached (offline)");
     const got = await downloadBinary(
