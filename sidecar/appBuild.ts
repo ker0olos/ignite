@@ -158,9 +158,10 @@ async function buildBinary(dir: string, why: string) {
 }
 
 /** The version's binary: CI's verified one for its src-tauri/, else built here. */
-async function makeBinary(dir: string) {
+async function makeBinary(dir: string, warn: (text: string) => void) {
   const downloads = join(buildDir(dir), "download");
   const got = await downloadBinary(dir, downloads);
+  if ("warning" in got && got.warning) warn(got.warning);
   await placeBinary(
     dir,
     "file" in got ? got.file : await buildBinary(dir, got.why),
@@ -216,6 +217,7 @@ export async function buildVersion(
   sha: string,
   from: string,
   mods: string,
+  warn: (text: string) => void = console.warn,
 ): Promise<string> {
   const dir = versionDir(sha);
   if (isBuilt(dir)) return dir;
@@ -227,7 +229,7 @@ export async function buildVersion(
     const binary = binaryOf(from);
     if (existsSync(binary) && (await sameRust(clone, from, sha)))
       await placeBinary(dir, binary);
-    else await makeBinary(dir);
+    else await makeBinary(dir, warn);
     await ensureDist(dir, mods);
   } catch (error) {
     await removeVersion(clone, dir);

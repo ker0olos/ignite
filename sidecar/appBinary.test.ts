@@ -34,7 +34,6 @@ const answer = (status: number, body = "binary") =>
   vi.fn(
     async () => new Response(status === 200 ? body : "", { status }),
   ) as unknown as typeof fetch;
-const ready = async () => null;
 const into = () => join(dir, "download");
 
 describe("ASSETS", () => {
@@ -64,13 +63,8 @@ describe("githubRepo", () => {
 describe("downloadBinary", () => {
   it("fetches the release for the src-tauri tree and keeps it once verified", async () => {
     const get = answer(200);
-    const verify = vi.fn(async () => {});
-    const got = await downloadBinary(
-      repo,
-      into(),
-      { get, ready, verify },
-      "ignite-x",
-    );
+    const verify = vi.fn(async () => null);
+    const got = await downloadBinary(repo, into(), { get, verify }, "ignite-x");
     const tree = git("rev-parse", "HEAD:src-tauri");
     expect(get).toHaveBeenCalledWith(
       `https://github.com/me/app/releases/download/bin-${tree}/ignite-x`,
@@ -81,14 +75,29 @@ describe("downloadBinary", () => {
     expect(await readFile(join(into(), "ignite-x"), "utf8")).toBe("binary");
   });
 
+  it("keeps a binary it couldn't check, with a warning", async () => {
+    const verify = vi.fn(async () => "GitHub couldn't be reached (offline)");
+    const got = await downloadBinary(
+      repo,
+      into(),
+      { get: answer(200), verify },
+      "ignite-x",
+    );
+    expect(got).toEqual({
+      file: join(into(), "ignite-x"),
+      warning:
+        "Using CI's binary unverified: GitHub couldn't be reached (offline).",
+    });
+  });
+
   it("throws away a binary that fails verification, saying why", async () => {
     const verify = vi.fn(async () => {
-      throw Object.assign(new Error("failed"), { stderr: "no attestations" });
+      throw new Error("no attestations");
     });
     const got = await downloadBinary(
       repo,
       into(),
-      { get: answer(200), ready, verify },
+      { get: answer(200), verify },
       "ignite-x",
     );
     expect(got).toEqual({
@@ -97,35 +106,23 @@ describe("downloadBinary", () => {
     expect(existsSync(join(into(), "ignite-x"))).toBe(false);
   });
 
-  it("downloads nothing when gh can't verify it", async () => {
-    const get = answer(200);
-    const got = await downloadBinary(
-      repo,
-      into(),
-      { get, ready: async () => "gh isn't signed in" },
-      "ignite-x",
-    );
-    expect(got).toEqual({ why: "gh isn't signed in" });
-    expect(get).not.toHaveBeenCalled();
-  });
-
   it("has none when the release is missing or unreachable", async () => {
     const offline = vi.fn(async () => {
       throw new Error("offline");
     }) as unknown as typeof fetch;
     for (const get of [answer(404), offline]) {
-      const got = await downloadBinary(repo, into(), { get, ready }, "x");
+      const got = await downloadBinary(repo, into(), { get }, "x");
       expect(got).toEqual({ why: "CI hasn't published one for this version" });
     }
   });
 
   it("has none for a machine CI doesn't build for, or a clone not on GitHub", async () => {
     const get = answer(200);
-    expect(await downloadBinary(repo, into(), { get, ready }, null)).toEqual({
+    expect(await downloadBinary(repo, into(), { get }, null)).toEqual({
       why: "CI builds no binary for this machine",
     });
     git("remote", "set-url", "origin", "https://gitlab.com/me/app.git");
-    expect(await downloadBinary(repo, into(), { get, ready }, "x")).toEqual({
+    expect(await downloadBinary(repo, into(), { get }, "x")).toEqual({
       why: "this clone's origin isn't on GitHub",
     });
     expect(get).not.toHaveBeenCalled();

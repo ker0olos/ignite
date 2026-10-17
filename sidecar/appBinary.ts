@@ -1,15 +1,14 @@
 /**
  * The app's binary from the GitHub release CI made for its src-tauri/ tree
- * (.github/workflows/binary.yml), used only once `gh attestation verify`
- * proves that workflow built it from main.
+ * (.github/workflows/binary.yml), refused when its attestation shows that
+ * workflow didn't build it from main (attestation.ts), used with a warning
+ * when GitHub or Sigstore can't be reached to check.
  */
-import { execFile } from "node:child_process";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { promisify } from "node:util";
+import { verifyAttestation } from "./attestation.ts";
 import { git, remoteName } from "./worktreeGit.ts";
 
-const exec = promisify(execFile);
 const WORKFLOW = ".github/workflows/binary.yml";
 // CI builds the four platforms in about 20 minutes; a release still missing later never comes.
 const CI_MINUTES = 60;
@@ -29,32 +28,8 @@ export function githubRepo(url: string): string | null {
   return host?.[1].toLowerCase() === "github.com" ? remoteName(url) : null;
 }
 
-/** Why `gh` can't verify attestations here, or null when it can. */
-async function ghReady(): Promise<string | null> {
-  try {
-    await exec("gh", ["auth", "status"], { timeout: 20_000 });
-    return null;
-  } catch (error) {
-    return (error as { code?: string }).code === "ENOENT"
-      ? "the GitHub CLI (gh) isn't installed"
-      : "the GitHub CLI isn't signed in (gh auth login)";
-  }
-}
-
-async function ghVerify(file: string, repo: string) {
-  await exec(
-    "gh",
-    [
-      "attestation",
-      "verify",
-      file,
-      ...["--repo", repo],
-      ...["--signer-workflow", `${repo}/${WORKFLOW}`],
-      ...["--source-ref", "refs/heads/main"],
-    ],
-    { timeout: 120_000 },
-  );
-}
+const attested = (file: string, repo: string) =>
+  verifyAttestation(file, repo, WORKFLOW);
 
 const originRepo = (repoDir: string) =>
   git(repoDir, ["remote", "get-url", "origin"])
@@ -67,39 +42,42 @@ const treeOf = (repoDir: string, rev: string) =>
 const releaseUrl = (repo: string, tree: string, asset: string) =>
   `https://github.com/${repo}/releases/download/bin-${tree}/${asset}`;
 
-/** A downloaded, verified binary, or why there's none and it must be built. */
-type Download = { file: string } | { why: string };
+/**
+ * A downloaded binary, verified unless `warning` says why it couldn't be; or
+ * why there's none and it must be built.
+ */
+type Download = { file: string; warning?: string } | { why: string };
 
 // The repository to download from, or why there's nothing to download.
 async function source(
   dir: string,
   asset: string | null,
-  ready: typeof ghReady,
 ): Promise<{ why: string } | { repo: string; asset: string }> {
   if (!asset) return { why: "CI builds no binary for this machine" };
   const repo = await originRepo(dir);
-  if (!repo) return { why: "this clone's origin isn't on GitHub" };
-  const unready = await ready();
-  return unready ? { why: unready } : { repo, asset };
+  return repo
+    ? { repo, asset }
+    : { why: "this clone's origin isn't on GitHub" };
 }
 
-// Keeps the downloaded file only if its attestation verifies.
+// Keeps the downloaded file unless its attestation check fails; one that can't run only warns.
 async function keepVerified(
   response: Response,
   file: string,
   repo: string,
-  verify: typeof ghVerify,
+  verify: typeof attested,
 ): Promise<Download> {
   await mkdir(dirname(file), { recursive: true });
   await writeFile(file, Buffer.from(await response.arrayBuffer()));
   await chmod(file, 0o755);
   try {
-    await verify(file, repo);
-    return { file };
+    const unchecked = await verify(file, repo);
+    if (!unchecked) return { file };
+    return { file, warning: `Using CI's binary unverified: ${unchecked}.` };
   } catch (error) {
     await rm(file, { force: true });
-    const { stderr } = error as { stderr?: string };
-    return { why: `its attestation didn't verify: ${stderr?.trim() || error}` };
+    const reason = error instanceof Error ? error.message : String(error);
+    return { why: `its attestation didn't verify: ${reason}` };
   }
 }
 
@@ -107,10 +85,10 @@ async function keepVerified(
 export async function downloadBinary(
   dir: string,
   into: string,
-  { get = fetch as typeof fetch, ready = ghReady, verify = ghVerify } = {},
+  { get = fetch as typeof fetch, verify = attested } = {},
   asset: string | null = here,
 ): Promise<Download> {
-  const from = await source(dir, asset, ready);
+  const from = await source(dir, asset);
   if ("why" in from) return from;
   const url = releaseUrl(from.repo, await treeOf(dir, "HEAD"), from.asset);
   const signal = AbortSignal.timeout(300_000);

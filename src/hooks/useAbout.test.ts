@@ -179,3 +179,14 @@ it("checks on its own when started by the launcher", async () => {
     vi.useRealTimers();
   }
 });
+
+it("keeps the warning of an update whose binary wasn't verified", async () => {
+  const host = fakeHost(async (type) =>
+    type === "app_update"
+      ? { updated: false, ready: true, warning: "unverified: offline" }
+      : VERSION,
+  );
+  const { result } = renderHook(() => useAbout(host, false, vi.fn(), false));
+  await act(() => result.current.check());
+  expect(result.current.warning).toBe("unverified: offline");
+});

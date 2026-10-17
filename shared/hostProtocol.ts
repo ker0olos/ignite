@@ -324,7 +324,8 @@ export type HostResponses = SkillResponses &
     git_repo_details: GitRepoDetails;
     git_discard: undefined;
     app_version: AppVersion;
-    app_update: { updated: boolean; ready?: boolean };
+    /** `warning`: the update's binary couldn't be verified (appBinary.ts). */
+    app_update: { updated: boolean; ready?: boolean; warning?: string };
     app_restart: undefined;
   };
 

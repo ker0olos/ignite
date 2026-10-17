@@ -62,10 +62,9 @@ once. Made for macOS; and others.
 
 ## Install
 
-Needs [Node.js](https://nodejs.org) 22.18 or newer, and the
-[GitHub CLI](https://cli.github.com) signed in (`gh auth login`), which checks
-that the app's prebuilt binary was built by this repository's CI. Without it,
-or on another platform, setup builds the binary itself, which needs
+Needs [Node.js](https://nodejs.org) 22.18 or newer. On macOS, Linux x64 and
+Windows x64, setup downloads the app's binary from this repository's CI and
+checks its build attestation; elsewhere it builds it, which needs
 [Rust](https://rustup.rs), on macOS the Xcode Command Line Tools
 (`xcode-select --install`), and on Linux and Windows
 [Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/).

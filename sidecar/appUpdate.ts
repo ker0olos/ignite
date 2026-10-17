@@ -40,10 +40,13 @@ const isVersion = (root: string, apps: string) =>
   relative(apps, dirname(root)) === "";
 
 async function stagedUpdate(root: string, stage: typeof stageUpdate) {
+  let warning: string | undefined;
   const staged =
-    (await stage(root, process.env.IGNITE_MODS ?? "")) ??
-    (await readState("next"));
-  return { updated: false, ready: !!staged && staged !== basename(root) };
+    (await stage(root, process.env.IGNITE_MODS ?? "", (text) => {
+      warning = text;
+    })) ?? (await readState("next"));
+  const ready = !!staged && staged !== basename(root);
+  return { updated: false, ready, ...(warning && { warning }) };
 }
 
 /**
@@ -56,7 +59,7 @@ export async function appUpdate(
   install = npmCi,
   stage = stageUpdate,
   apps = APPS,
-): Promise<{ updated: boolean; ready?: boolean }> {
+): Promise<{ updated: boolean; ready?: boolean; warning?: string }> {
   if (isVersion(root, apps)) return stagedUpdate(root, stage);
   const before = await git(root, ["rev-parse", "HEAD"]);
   await git(root, ["pull", "--ff-only", "--quiet"]);
