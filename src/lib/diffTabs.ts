@@ -64,6 +64,7 @@ export function tabLabel(
   icon?: LucideIcon;
   title: string;
   status?: GitChange["status"];
+  keepsRunning?: boolean;
 } {
   const child = readChildTab(tab);
   if (child) return { ...childTabLabel(child, terminalCommand), iconPath: "" };

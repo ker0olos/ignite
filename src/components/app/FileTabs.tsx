@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { tabLabel } from "@/lib/diffTabs";
 import { FileIcon } from "@/components/files/FileIcon";
 import { cn } from "@/lib/utils";
@@ -61,14 +61,17 @@ export function FileTabs({
             </button>
             <button
               onClick={() => onClose(path)}
-              aria-label={`Close ${label.name}`}
+              aria-label={`${label.keepsRunning ? "Hide" : "Close"} ${label.name}`}
+              title={label.keepsRunning ? "Hide; keeps running" : undefined}
               className={cn(
                 "shrink-0 rounded p-0.5 hover:bg-foreground/10",
                 path !== active &&
                   "invisible group-hover:visible pointer-coarse:visible",
               )}
             >
-              <X className="size-3.5" />
+              {createElement(label.keepsRunning ? ChevronDown : X, {
+                className: "size-3.5",
+              })}
             </button>
           </div>
         );
