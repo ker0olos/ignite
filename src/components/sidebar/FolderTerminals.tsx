@@ -1,17 +1,17 @@
 import { SquareTerminal } from "lucide-react";
 import { ChildRow } from "@/components/sidebar/ChildRow";
-import { childTabId } from "@/lib/childTabs";
+import { childTabId, terminalTitle, type TerminalLabel } from "@/lib/childTabs";
 
 /** A folder's running terminals under its conversations; each opens its tab, and Stop ends its shell. */
 export function FolderTerminals({
   terminals,
-  command,
+  label,
   activeTab,
   onOpen,
   onStop,
 }: {
   terminals: string[];
-  command: (terminal: string) => string | undefined;
+  label: (terminal: string) => TerminalLabel;
   activeTab: string | null;
   onOpen: (terminal: string) => void;
   onStop: (terminal: string) => void;
@@ -20,8 +20,8 @@ export function FolderTerminals({
     <ChildRow
       key={terminal}
       icon={SquareTerminal}
-      name={command(terminal) ?? "Terminal"}
-      detail={terminal}
+      name={terminalTitle(label(terminal))}
+      detail={label(terminal).name ?? ""}
       running
       selected={
         activeTab === childTabId({ kind: "terminal", session: "", terminal })

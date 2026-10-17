@@ -18,7 +18,7 @@ import {
 } from "./ptyShell.ts";
 
 type Terminal = {
-  info: TerminalInfo;
+  info: Omit<TerminalInfo, "name">;
   pty: IPty;
   screen: InstanceType<typeof xterm.Terminal>;
   serializer: InstanceType<typeof serialize.SerializeAddon>;
@@ -79,7 +79,8 @@ export function openTerminal(
   const screen = headlessTerminal({ cols, rows, scrollback: SCROLLBACK });
   const serializer = new serialize.SerializeAddon();
   screen.loadAddon(serializer);
-  const id = `t${registry.next++}`;
+  // Never shaped like a name (t1), which shifts as terminals close.
+  const id = `term-${registry.next++}`;
   const t: Terminal = {
     info: { terminal: id, cwd, running: true },
     pty,
@@ -105,7 +106,7 @@ export function openTerminal(
     }),
   );
   registry.all.set(id, t);
-  return t.info;
+  return terminalsIn(cwd).find((info) => info.terminal === id)!;
 }
 
 // A command starting echoes the Enter and one ending prints the prompt, so output is when it changes.
@@ -175,11 +176,11 @@ export async function closeIdleTerminal(id: string): Promise<boolean> {
   return true;
 }
 
-/** The folder's terminals, oldest first. */
+/** The folder's terminals, oldest first, named by their place: closing one renames those after it. */
 export function terminalsIn(cwd: string): TerminalInfo[] {
   return [...registry.all.values()]
     .filter((t) => t.info.cwd === cwd)
-    .map((t) => t.info);
+    .map((t, i) => ({ ...t.info, name: `t${i + 1}` }));
 }
 
 /**
@@ -214,7 +215,7 @@ function screenLines(id: string): string[] {
 }
 
 const header = (info: TerminalInfo) =>
-  `Terminal ${info.terminal} in ${info.cwd}` +
+  `Terminal ${info.name} in ${info.cwd}` +
   (info.running ? "" : ` (exited ${info.exitCode})`);
 
 function tail(lines: string[], count: number): string {
@@ -235,7 +236,9 @@ export function readTerminals(
   lines: number,
   only?: string,
 ): string {
-  const picked = terminalsIn(cwd).filter((t) => !only || t.terminal === only);
+  const picked = terminalsIn(cwd).filter(
+    (t) => !only || t.name === only || t.terminal === only,
+  );
   if (!picked.length) {
     return only
       ? `No terminal ${only} in ${cwd}.`

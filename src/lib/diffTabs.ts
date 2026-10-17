@@ -1,6 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import type { GitChange, GitReview } from "../../shared/git";
-import { childTabLabel, readChildTab } from "@/lib/childTabs";
+import {
+  childTabLabel,
+  readChildTab,
+  type TerminalLabel,
+} from "@/lib/childTabs";
 import { basename } from "@/lib/paths";
 
 /** A file's diff at some range, opened as a tab alongside file paths. */
@@ -55,7 +59,7 @@ function relativeTo(path: string, folder: string): string {
 export function tabLabel(
   tab: string,
   folder: string,
-  terminalCommand?: (terminal: string) => string | undefined,
+  terminalLabel?: (terminal: string) => TerminalLabel,
 ): {
   name: string;
   detail?: string;
@@ -64,10 +68,9 @@ export function tabLabel(
   icon?: LucideIcon;
   title: string;
   status?: GitChange["status"];
-  keepsRunning?: boolean;
 } {
   const child = readChildTab(tab);
-  if (child) return { ...childTabLabel(child, terminalCommand), iconPath: "" };
+  if (child) return { ...childTabLabel(child, terminalLabel), iconPath: "" };
   const diff = readDiffTab(tab);
   if (!diff) {
     return {

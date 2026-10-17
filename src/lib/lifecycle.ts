@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { exit } from "@tauri-apps/plugin-process";
 import { APP_TITLE } from "./app";
+import { isRemote } from "./remote";
 
 /** Asks before quitting, and quits the whole app only if confirmed. */
 export async function confirmQuit() {
@@ -33,5 +34,19 @@ export function confirmBeforeClose() {
       cancelLabel: "Cancel",
     });
     if (!ok) event.preventDefault();
+  });
+}
+
+/** Asks before closing a terminal a command still runs in (its command line, when known). */
+export function confirmCloseTerminal(command?: string) {
+  const message = command
+    ? `"${command}" is still running. Stop it and close the terminal?`
+    : "Close this terminal? Whatever runs in it stops.";
+  // A remote browser has no app dialogs.
+  if (isRemote()) return Promise.resolve(window.confirm(message));
+  return ask(message, {
+    kind: "warning",
+    okLabel: "Close",
+    cancelLabel: "Cancel",
   });
 }

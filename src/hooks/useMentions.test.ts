@@ -101,7 +101,7 @@ describe("useMentions", () => {
   it("asks the host for the folder's terminals and files on @", async () => {
     const request = vi.fn(async (r: { type: string }) =>
       r.type === "terminal_list"
-        ? [{ terminal: "t1", cwd: "/p", running: true }]
+        ? [{ terminal: "term-3", name: "t1", cwd: "/p", running: true }]
         : { conversations: [], files: [{ folder: "/p", path: "src/a.ts" }] },
     );
     const host = { request } as unknown as HostClient;

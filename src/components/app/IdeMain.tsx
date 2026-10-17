@@ -13,7 +13,7 @@ import {
 import { useIdeTabs } from "@/hooks/useIdeTabs";
 import { cn } from "@/lib/utils";
 
-/** The IDE layouts' main area: the tab strip over its front tab, and VS Code's terminal panel below. */
+/** The IDE layouts' main area: the tab strip over its front tab, and the terminal panel below. */
 export function IdeMain({
   jetbrains,
   view,
@@ -33,14 +33,14 @@ export function IdeMain({
   pane: Omit<ComponentProps<typeof DesktopWorkspace>, "sidebar" | "agent">;
 }) {
   const { tabs, folder } = pane;
-  const placed = useIdeTabs(tabs, !jetbrains);
+  const placed = useIdeTabs(tabs);
   const conversation = view === "conversation";
   const front = conversation ? placed.front : null;
   return (
     // One tree whether or not the panel shows, so the conversation never remounts.
     <ResizablePanelGroup orientation="vertical">
       <ResizablePanel id="main" minSize="160px">
-        <div className="flex h-full flex-col">
+        <div data-pane="main" className="flex h-full flex-col">
           {conversation && (
             <WorkspaceTabs
               folder={folder}
@@ -50,7 +50,7 @@ export function IdeMain({
               front={front}
               hidden={hidden}
               onHide={onHide}
-              terminalCommand={pane.terminalCommand}
+              terminalLabel={pane.terminalLabel}
             />
           )}
           {conversation && !jetbrains && !front && (
@@ -83,19 +83,21 @@ export function IdeMain({
       {placed.panel && <ResizableHandle />}
       {placed.panel && (
         <ResizablePanel id="terminal" defaultSize="30%" minSize="80px">
-          <EditorPane
-            {...pane}
-            tabs={{
-              ...tabs,
-              files: placed.terminals,
-              // A closed terminal leaves the main area as it was.
-              close: (tab) => {
-                tabs.close(tab);
-                tabs.activate(placed.kept);
-              },
-            }}
-            active={placed.panel}
-          />
+          <div data-pane="terminal" className="h-full">
+            <EditorPane
+              {...pane}
+              tabs={{
+                ...tabs,
+                files: placed.terminals,
+                // A closed terminal leaves the main area as it was.
+                close: (tab) => {
+                  tabs.close(tab);
+                  tabs.activate(placed.kept);
+                },
+              }}
+              active={placed.panel}
+            />
+          </div>
         </ResizablePanel>
       )}
     </ResizablePanelGroup>

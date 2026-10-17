@@ -44,7 +44,22 @@ describe("terminal", () => {
     expect(
       sent.map((m) => m.type === "terminal_data" && m.data).join(""),
     ).toContain("hi-3");
-    expect(terminalsIn(cwd)).toEqual([{ terminal: id, cwd, running: true }]);
+    expect(terminalsIn(cwd)).toEqual([
+      { terminal: id, name: "t1", cwd, running: true },
+    ]);
+  });
+
+  it("names the folder's terminals by their place, so closing one renames the rest", async () => {
+    const [first, second] = [open(), open()];
+    expect(terminalsIn(cwd).map((t) => t.name)).toEqual(["t1", "t2"]);
+    writeTerminal(second, "echo from-second\r");
+    await vi.waitFor(() => expect(screen("t2")).toContain("\nfrom-second"));
+    closeTerminal(first);
+    expect(terminalsIn(cwd)).toMatchObject([{ terminal: second, name: "t1" }]);
+    // The agent reads it by its new name; its header says so.
+    const read = readTerminals("reader", cwd, 50, "t1");
+    expect(read).toMatch(/^Terminal t1 in /);
+    expect(read).toContain("from-second");
   });
 
   it("hands each conversation only what it hasn't seen, once", async () => {

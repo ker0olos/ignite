@@ -6,6 +6,7 @@ import type { useTabs } from "@/hooks/useTabs";
 import { conversationTitle } from "@/lib/conversations";
 import { tabLabel } from "@/lib/diffTabs";
 import { nextFront, type Front } from "@/lib/ideTabs";
+import type { TerminalLabel } from "@/lib/childTabs";
 
 /** The IDE layouts' one strip: conversations, then files; a conversation's tab only hides when closed. */
 export function WorkspaceTabs({
@@ -16,18 +17,18 @@ export function WorkspaceTabs({
   front,
   hidden,
   onHide,
-  terminalCommand,
+  terminalLabel,
 }: {
   folder: string;
   projectList: ProjectListProps;
   tabs: ReturnType<typeof useTabs>;
-  /** The editor's tabs this strip shows (VS Code's terminals go to its panel). */
+  /** The editor's tabs this strip shows (terminals go to the panel below). */
   files: string[];
   /** The file in front, else null: the shown conversation is. */
   front: string | null;
   hidden: string[];
   onHide: (session: string) => void;
-  terminalCommand?: (terminal: string) => string | undefined;
+  terminalLabel?: (terminal: string) => TerminalLabel;
 }) {
   const { conversations, shown } = projectList;
   const rows = projectList.rows(folder).flatMap((r) => [r, ...(r.forks ?? [])]);
@@ -55,7 +56,7 @@ export function WorkspaceTabs({
     else tabs.close(tab);
     if (next) bring(next);
   };
-  // ⌘W, unless a tab outside the strip (VS Code's terminal panel) is active.
+  // ⌘W, unless a tab outside the strip (the terminal panel) is active.
   const stripActive = !tabs.active || files.includes(tabs.active);
   useFrontTabClose(frontTab && stripActive ? () => close(frontTab) : null);
 
@@ -69,7 +70,7 @@ export function WorkspaceTabs({
       // One row that scrolls; each title truncates.
       className="flex-nowrap overflow-x-auto pt-1.5 *:max-w-60 *:shrink-0"
       label={(tab) => {
-        if (!isConversation(tab)) return tabLabel(tab, folder, terminalCommand);
+        if (!isConversation(tab)) return tabLabel(tab, folder, terminalLabel);
         const title = titles.get(tab) ?? conversationTitle({ title: "" });
         return { name: title, title, icon: MessageSquare, iconPath: "" };
       }}

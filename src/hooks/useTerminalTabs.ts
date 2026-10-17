@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { TerminalInfo } from "../../shared/terminal";
 import type { useTabs } from "@/hooks/useTabs";
-import { terminalOf } from "@/lib/childTabs";
+import { terminalOf, type TerminalLabel } from "@/lib/childTabs";
+import { confirmCloseTerminal } from "@/lib/lifecycle";
 import type { HostClient } from "@/lib/piHost";
 
 /** The terminal ids among a list of tab ids. */
@@ -25,9 +26,8 @@ const without = (all: Record<string, string[]>, terminal: string) =>
 
 /**
  * The open folders' running terminals, for the sidebar. `closeTab` ends a
- * terminal's shell with its tab only when no command runs in it; otherwise it
- * stays listed until `stop`, which ends it and closes its tab. One that
- * exited is forgotten once no tab shows it.
+ * terminal with its tab, asking first when a command still runs in it; `stop`
+ * ends one from the sidebar. One that exited is forgotten once no tab shows it.
  */
 export function useTerminalTabs(
   host: HostClient | null,
@@ -38,6 +38,7 @@ export function useTerminalTabs(
   const [running, setRunning] = useState<Record<string, string[]>>({});
   // null once a push said nothing runs; pushes are newer than any listing in flight.
   const [commands, setCommands] = useState<Record<string, string | null>>({});
+  const [names, setNames] = useState<Record<string, string>>({});
   const [exits, setExits] = useState(0);
   const key = folders.join("\n");
 
@@ -66,10 +67,18 @@ export function useTerminalTabs(
               .catch(() => {});
           }
         }
-        return [cwd, list.filter((t) => t.running)] as const;
+        return [cwd, list] as const;
       }),
-    ).then((entries) => {
+    ).then((listed) => {
       if (cancelled) return;
+      setNames(
+        Object.fromEntries(
+          listed.flatMap(([, list]) => list.map((t) => [t.terminal, t.name])),
+        ),
+      );
+      const entries = listed.map(
+        ([cwd, list]) => [cwd, list.filter((t) => t.running)] as const,
+      );
       setRunning(
         Object.fromEntries(
           entries.map(([cwd, list]) => [cwd, list.map((t) => t.terminal)]),
@@ -101,24 +110,30 @@ export function useTerminalTabs(
   );
 
   const closeTab = useCallback(
-    (id: string) => {
-      close(id);
+    async (id: string) => {
       const terminal = terminalOf(id);
-      if (!terminal || !host) return;
-      host
+      if (!terminal || !host) return close(id);
+      const idle = await host
         .request({ type: "terminal_close_idle", terminal })
-        .then((closed) => {
-          if (closed) setRunning((all) => without(all, terminal));
-        })
-        .catch(() => {});
+        // Unchecked counts as busy: ask, then end it, never leave it running unlisted.
+        .catch(() => false);
+      const command = commands[terminal] ?? undefined;
+      if (!idle && !(await confirmCloseTerminal(command))) return;
+      close(id);
+      setRunning((all) => without(all, terminal));
+      if (!idle)
+        host.request({ type: "terminal_close", terminal }).catch(() => {});
     },
-    [host, close],
+    [host, close, commands],
   );
 
   const runningIn = useCallback((cwd: string) => running[cwd] ?? [], [running]);
-  const command = useCallback(
-    (terminal: string): string | undefined => commands[terminal] ?? undefined,
-    [commands],
+  const label = useCallback(
+    (terminal: string): TerminalLabel => ({
+      name: names[terminal],
+      command: commands[terminal] ?? undefined,
+    }),
+    [names, commands],
   );
-  return { running: runningIn, command, stop, closeTab };
+  return { running: runningIn, label, stop, closeTab };
 }
