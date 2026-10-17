@@ -57,6 +57,15 @@ function fail(what, error) {
 
 // Everything after this imports the packages: installed once, for the clone and the version setup builds.
 const { linkPackages } = await import("../sidecar/appPackages.ts");
+const { followRename, preflight, readyToRun } =
+  await import("../sidecar/appPreflight.ts");
+const moved = await followRename(clone);
+if (moved) step(moved);
+// Before it downloads anything; a rerun with nothing to download goes on offline too.
+if (!(await readyToRun(clone, home))) {
+  const problem = await preflight(home);
+  if (problem) fail(`${APP_TITLE} can't be set up`, problem);
+}
 await linkPackages(clone, { keepOwn: true, step }).catch((error) =>
   fail("Couldn't install the packages", error),
 );

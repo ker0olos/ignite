@@ -274,6 +274,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          attestation shows binary.yml didn't build it from main, used with a warning
                          when GitHub or Sigstore can't be reached to check
   attestation.ts         That check without gh: GitHub's attestation API, Sigstore's signature check
+  appPreflight.ts        Setup's checks before downloading: about 1 GB free and npm and GitHub in reach (skipped
+                         when nothing needs downloading); a clone of a renamed repository follows its new name
   appRun.ts              Runs the build tools (pnpm, npm, Vite, cargo), their output in the error, setup's log, or
                          the terminal (--verbose); setup's steps
   appDoctor.ts           `npm run setup -- --check`: Node, git, pnpm, the packages, the version, the launcher, and
