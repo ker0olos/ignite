@@ -106,13 +106,20 @@ describe("downloadBinary", () => {
     expect(existsSync(join(into(), "ignite-x"))).toBe(false);
   });
 
-  it("has none when the release is missing or unreachable", async () => {
+  it("says why there's none: not published, refused, or unreachable", async () => {
+    const tree = git("rev-parse", "HEAD:src-tauri").slice(0, 7);
     const offline = vi.fn(async () => {
-      throw new Error("offline");
+      throw new TypeError("fetch failed", {
+        cause: { code: "ECONNRESET" },
+      });
     }) as unknown as typeof fetch;
-    for (const get of [answer(404), offline]) {
-      const got = await downloadBinary(repo, into(), { get }, "x");
-      expect(got).toEqual({ why: "CI hasn't published one for this version" });
+    const cases: [typeof fetch, string][] = [
+      [answer(404), `CI hasn't published one for src-tauri ${tree}`],
+      [answer(403), "GitHub answered 403 for it"],
+      [offline, "couldn't download it from GitHub (ECONNRESET)"],
+    ];
+    for (const [get, why] of cases) {
+      expect(await downloadBinary(repo, into(), { get }, "x")).toEqual({ why });
     }
   });
 

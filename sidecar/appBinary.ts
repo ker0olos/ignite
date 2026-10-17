@@ -81,6 +81,27 @@ async function keepVerified(
   }
 }
 
+// The release's binary, or why there's none: not published, or the download failed.
+async function fetchRelease(
+  url: string,
+  tree: string,
+  get: typeof fetch,
+): Promise<Response | { why: string }> {
+  const signal = AbortSignal.timeout(300_000);
+  const response = await get(url, { signal }).catch((error: Error) => error);
+  if (response instanceof Error) {
+    // fetch says only "fetch failed"; its cause names the network error.
+    const cause = response.cause as
+      { code?: string; message?: string } | undefined;
+    const reason = cause?.code ?? cause?.message ?? response.message;
+    return { why: `couldn't download it from GitHub (${reason})` };
+  }
+  if (response.status === 404)
+    return { why: `CI hasn't published one for src-tauri ${tree.slice(0, 7)}` };
+  if (!response.ok) return { why: `GitHub answered ${response.status} for it` };
+  return response;
+}
+
 /** Downloads and verifies the binary for checkout `dir`'s src-tauri/ into `into`. */
 export async function downloadBinary(
   dir: string,
@@ -90,11 +111,11 @@ export async function downloadBinary(
 ): Promise<Download> {
   const from = await source(dir, asset);
   if ("why" in from) return from;
-  const url = releaseUrl(from.repo, await treeOf(dir, "HEAD"), from.asset);
-  const signal = AbortSignal.timeout(300_000);
-  const response = await get(url, { signal }).catch(() => null);
-  if (!response?.ok) return { why: "CI hasn't published one for this version" };
-  return keepVerified(response, join(into, from.asset), from.repo, verify);
+  const tree = await treeOf(dir, "HEAD");
+  const url = releaseUrl(from.repo, tree, from.asset);
+  const got = await fetchRelease(url, tree, get);
+  if ("why" in got) return got;
+  return keepVerified(got, join(into, from.asset), from.repo, verify);
 }
 
 /**
