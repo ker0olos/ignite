@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "setup": "node launcher/setup.mjs",
+    "uninstall": "node launcher/uninstall.mjs",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test",
     "prepare": "git config core.hooksPath .githooks",
     "lint:js": "oxlint --deny-warnings && eslint . --cache --cache-location node_modules/.cache/eslint/ && knip"

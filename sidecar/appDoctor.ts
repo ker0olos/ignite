@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { APP_NAME, APP_TITLE } from "../src/lib/app.ts";
-import { userData } from "./appLauncher.ts";
+import { launcherFiles, userData } from "./appLauncher.ts";
 import { lockHash, pinned } from "./appPackages.ts";
 
 /** One line of the report: whether it's fine, and what was found. */
@@ -77,28 +77,16 @@ function version(home: string): Check {
   return { ok: true, text: parts.filter(Boolean).join("; ") };
 }
 
-/** Where setup put the launcher on this platform. */
-function launcherPath({ home, platform, env }: Place) {
-  if (platform === "darwin")
-    return join(home, "Applications", `${APP_TITLE}.app`);
-  const data = userData(platform, home, env);
-  return platform === "win32"
-    ? join(
-        data,
-        "Microsoft",
-        "Windows",
-        "Start Menu",
-        "Programs",
-        `${APP_TITLE}.lnk`,
-      )
-    : join(data, "applications", `${APP_NAME}.desktop`);
-}
-
 /** Whether setup's work is in place: Node, git, pnpm, the packages, the version, the launcher. */
 export async function checks(place: Place): Promise<Check[]> {
   const [major, minor] = process.versions.node.split(".").map(Number);
   const node = major > 22 || (major === 22 && minor >= 18);
-  const launcher = launcherPath(place);
+  const { home, platform, env } = place;
+  const launcher = launcherFiles(
+    platform,
+    home,
+    userData(platform, home, env),
+  ).shown;
   return [
     {
       ok: node,

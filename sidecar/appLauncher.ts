@@ -20,6 +20,36 @@ export function userData(
   return env.XDG_DATA_HOME ?? join(home, ".local", "share");
 }
 
+/**
+ * Where the launcher lives on `platform`: what the user opens (the app, the
+ * menu entry, the shortcut), and on Linux and Windows the script it runs.
+ */
+export function launcherFiles(
+  platform: NodeJS.Platform,
+  home: string,
+  data: string,
+): { shown: string; script?: string } {
+  const bin = join(home, `.${APP_NAME}`, "bin");
+  if (platform === "darwin")
+    return { shown: join(home, "Applications", `${APP_TITLE}.app`) };
+  if (platform === "win32")
+    return {
+      shown: join(
+        data,
+        "Microsoft",
+        "Windows",
+        "Start Menu",
+        "Programs",
+        `${APP_TITLE}.lnk`,
+      ),
+      script: join(bin, `${APP_NAME}-launch.ps1`),
+    };
+  return {
+    shown: join(data, "applications", `${APP_NAME}.desktop`),
+    script: join(bin, `${APP_NAME}-launch`),
+  };
+}
+
 type Place = {
   /** The clone, whose launcher/launch.mjs runs. */
   clone: string;
@@ -78,7 +108,7 @@ async function write(file: string, text: string, mode?: number) {
 
 /** ~/Applications/Ignite.app; returns it. */
 async function macApp(place: Place) {
-  const bundle = join(place.home, "Applications", `${APP_TITLE}.app`);
+  const bundle = launcherFiles("darwin", place.home, place.data).shown;
   const contents = join(bundle, "Contents");
   await write(join(contents, "MacOS", "launch"), unixLaunch(place), 0o755);
   await write(join(contents, "Info.plist"), PLIST);
@@ -90,14 +120,14 @@ async function macApp(place: Place) {
 
 /** The launch script and the app menu entry that runs it; returns the script. */
 async function linuxEntry(place: Place) {
-  const launch = join(place.home, `.${APP_NAME}`, "bin", `${APP_NAME}-launch`);
-  await write(launch, unixLaunch(place), 0o755);
-  const menu = join(place.data, "applications");
-  await write(
-    join(menu, `${APP_NAME}.desktop`),
-    desktopEntry(launch, place.clone),
+  const { shown, script: launch = "" } = launcherFiles(
+    "linux",
+    place.home,
+    place.data,
   );
-  spawnSync("update-desktop-database", ["-q", menu]);
+  await write(launch, unixLaunch(place), 0o755);
+  await write(shown, desktopEntry(launch, place.clone));
+  spawnSync("update-desktop-database", ["-q", dirname(shown)]);
   return launch;
 }
 
@@ -114,26 +144,18 @@ const hiddenRun = (launch: string) => [
 
 /** The launch script and a Start Menu shortcut to it (made through COM, which only PowerShell reaches); returns the script. */
 async function windowsShortcut(place: Place) {
-  const launch = join(
+  const { shown, script: launch = "" } = launcherFiles(
+    "win32",
     place.home,
-    `.${APP_NAME}`,
-    "bin",
-    `${APP_NAME}-launch.ps1`,
+    place.data,
   );
   await write(launch, windowsLaunch(place));
-  const programs = join(
-    place.data,
-    "Microsoft",
-    "Windows",
-    "Start Menu",
-    "Programs",
-  );
   const ps = (s: string) => `'${s.replace(/'/g, "''")}'`;
   const args = hiddenRun(launch)
     .map((a) => (a.includes(" ") ? `"${a}"` : a))
     .join(" ");
   const script = [
-    `$s = (New-Object -ComObject WScript.Shell).CreateShortcut(${ps(join(programs, `${APP_TITLE}.lnk`))})`,
+    `$s = (New-Object -ComObject WScript.Shell).CreateShortcut(${ps(shown)})`,
     `$s.TargetPath = 'powershell.exe'`,
     `$s.Arguments = ${ps(args)}`,
     `$s.IconLocation = ${ps(join(place.clone, "src-tauri", "icons", "icon.ico"))}`,
