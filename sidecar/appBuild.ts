@@ -20,6 +20,7 @@ import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { promisify } from "node:util";
 import { APP_NAME, APP_TITLE } from "../src/lib/app.ts";
+import { downloadBinary } from "./appBinary.ts";
 import { CLONE_FLAGS } from "./worktreeClone.ts";
 import { git } from "./worktreeGit.ts";
 
@@ -137,15 +138,34 @@ async function placeBinary(dir: string, from: string) {
 
 // Without Tauri's custom-protocol feature the binary loads localhost:1420,
 // where the launcher serves the frontend, so it holds no frontend of its own.
-async function buildBinary(dir: string) {
+async function buildBinary(dir: string, why: string) {
   const target = join(APPS, "target");
-  await run(
-    "cargo",
-    ["build", "--profile", PROFILE, "--features", "no-console"],
-    join(dir, "src-tauri"),
-    { CARGO_TARGET_DIR: target },
+  try {
+    await run(
+      "cargo",
+      ["build", "--profile", PROFILE, "--features", "no-console"],
+      join(dir, "src-tauri"),
+      { CARGO_TARGET_DIR: target },
+    );
+  } catch (error) {
+    if ((error as { code?: string }).code !== "ENOENT") throw error;
+    throw new Error(
+      `There's no prebuilt binary to use (${why}), and building one needs Rust: https://rustup.rs`,
+      { cause: error },
+    );
+  }
+  return join(target, PROFILE, EXE);
+}
+
+/** The version's binary: CI's verified one for its src-tauri/, else built here. */
+async function makeBinary(dir: string) {
+  const downloads = join(buildDir(dir), "download");
+  const got = await downloadBinary(dir, downloads);
+  await placeBinary(
+    dir,
+    "file" in got ? got.file : await buildBinary(dir, got.why),
   );
-  await placeBinary(dir, join(target, PROFILE, EXE));
+  await rm(downloads, { recursive: true, force: true });
 }
 
 async function sameFile(a: string, b: string) {
@@ -189,7 +209,7 @@ export async function removeVersion(clone: string, dir: string) {
 /**
  * Builds commit `sha` of the clone into its own folder, reusing what it can
  * from the checkout `from` (its packages, and its binary when the Rust side
- * didn't change), with the frontend for `mods`.
+ * didn't change; else CI's, else built here), with the frontend for `mods`.
  */
 export async function buildVersion(
   clone: string,
@@ -207,7 +227,7 @@ export async function buildVersion(
     const binary = binaryOf(from);
     if (existsSync(binary) && (await sameRust(clone, from, sha)))
       await placeBinary(dir, binary);
-    else await buildBinary(dir);
+    else await makeBinary(dir);
     await ensureDist(dir, mods);
   } catch (error) {
     await removeVersion(clone, dir);

@@ -1,0 +1,116 @@
+name: Binary
+
+# Builds the app's binary for each platform once per src-tauri/ tree, attests
+# where it came from, and publishes it as release `bin-<tree hash>`, which the
+# launcher downloads and verifies instead of building (sidecar/appBinary.ts).
+on:
+  push:
+    branches: [main]
+    paths: ["src-tauri/**", ".github/workflows/binary.yml"]
+  workflow_dispatch:
+
+# No concurrency group: one would cancel queued runs, and their trees would get
+# no release. Runs for the same tree just upload the same files.
+jobs:
+  tag:
+    # Only main's builds are published; the launcher verifies that ref too.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      exists: ${{ steps.tag.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="bin-$(git rev-parse HEAD:src-tauri)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # Complete only with every platform's binary; a half-uploaded one is rebuilt.
+          assets=$(gh release view "$tag" -R "$GITHUB_REPOSITORY" --json assets -q '.assets | length' 2>/dev/null || echo 0)
+          if [ "$assets" -ge 4 ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: tag
+    if: needs.tag.outputs.exists != 'true'
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            asset: ignite-darwin-arm64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            asset: ignite-darwin-x64
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            asset: ignite-linux-x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset: ignite-windows-x64.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      # tauri::generate_context! needs dist/ to exist; this binary loads the launcher's frontend.
+      - run: mkdir dist
+
+      - name: Build
+        shell: bash
+        working-directory: src-tauri
+        run: |
+          cargo build --profile app --features no-console --target ${{ matrix.target }}
+          exe=ignite; [ "$RUNNER_OS" = Windows ] && exe=ignite.exe
+          mkdir -p ../out
+          cp "target/${{ matrix.target }}/app/$exe" "../out/${{ matrix.asset }}"
+
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: out/${{ matrix.asset }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: out/${{ matrix.asset }}
+
+  release:
+    needs: [tag, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.tag.outputs.tag }}
+        run: |
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --prerelease \
+              --target "$GITHUB_SHA" --title "Binary $TAG" \
+              --notes "The app's binary for src-tauri/ tree ${TAG#bin-}, which the launcher downloads. Not a version of the app."
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber out/*

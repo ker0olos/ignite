@@ -248,3 +248,12 @@ export function gitAccess(
     return { allow: [], deny: [] };
   }
 }
+
+/** A remote URL's owner/name (`git@github.com:me/app.git` → `me/app`), or null for a local path. */
+export function remoteName(url: string): string | null {
+  const bare = url.replace(/^([a-z+]+:\/\/)[^/@]*@/, "$1");
+  const m = /^(?:[a-z+]+:\/\/|[^/@:]+@)[^/:]+[:/](.+?)(?:\.git)?\/?$/.exec(
+    bare,
+  );
+  return m ? m[1].replace(/^\d+\//, "") : null;
+}

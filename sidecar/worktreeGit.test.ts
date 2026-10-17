@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { remoteName } from "./gitPlace.ts";
+import { remoteName } from "./worktreeGit.ts";
 
 describe("remoteName", () => {
   it.each([
