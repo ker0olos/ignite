@@ -9,7 +9,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { APP_TITLE } from "./app";
 import { isRemote } from "./remote";
 
-/** True in the Windows build, where the title and menu bars are native. */
+/** True in the Windows build, which draws its own title bar (WindowControls). */
 export const isWindows = () => navigator.userAgent.includes("Windows");
 
 /** True on macOS. */
@@ -38,7 +38,7 @@ export async function setGlass(on: boolean) {
   if (glassWanted) document.documentElement.classList.add("glass");
 }
 
-/** Gives the window the page's light or dark (null follows the OS): macOS's glass, Windows' title and menu bars. */
+/** Gives the window the page's light or dark (null follows the OS): macOS's glass, Windows' frame and dialogs. */
 export async function setWindowTheme(theme: "light" | "dark" | null) {
   if ((isMac() || isWindows()) && !isRemote())
     await getCurrentWindow().setTheme(theme);
@@ -50,13 +50,18 @@ const STAGE_MANAGER_STRIP = 160;
 /**
  * Windows start hidden; this fills the monitor's work area (leaving room for
  * Stage Manager) and then shows the window. `maximize()` is avoided on macOS
- * because it zooms over the Stage Manager strip; on Windows it's the only way
- * to fit the native title and menu bars above the taskbar.
+ * because it zooms over the Stage Manager strip; on Windows it fills the screen
+ * above the taskbar, with the system title bar off for the app's own.
  */
 export async function fitToScreenAndShow() {
   const win = getCurrentWindow();
   try {
-    if (isWindows()) return await win.maximize();
+    if (isWindows()) {
+      // Its own title bar, as VS Code and JetBrains draw theirs (WindowControls).
+      // Never in maximize's way: without it the window would open small.
+      await win.setDecorations(false).catch(() => {});
+      return await win.maximize();
+    }
     const monitor = await currentMonitor();
     if (!monitor) return;
     const { x, y } = monitor.workArea.position.toLogical(monitor.scaleFactor);

@@ -347,3 +347,26 @@ body:has(.ide-vscode, .ide-islands) [data-command-center] {
 .ide-vscode [data-slot="conversation-row"]:has([aria-current]) {
   @apply outline outline-sidebar-primary -outline-offset-1;
 }
+
+/* Windows: the window's controls in its top-right corner (WindowControls); while they show, what
+   reaches that corner makes room: the default layout's conversation a strip like VS Code's title bar.
+   In the IDE layouts they fill the top bar's height. */
+:root:has([data-slot="window-controls"]) {
+  --window-controls: 8.625rem;
+}
+:root:has([data-slot="window-controls"])
+  :is([data-slot="file-tabs"], [data-slot="ide-top-bar"]) {
+  padding-right: var(--window-controls);
+}
+:root:has([data-slot="window-controls"])
+  :is(.ide-vscode, .ide-islands)
+  [data-slot="file-tabs"] {
+  @apply pr-2;
+}
+:root:has([data-slot="window-controls"])
+  [data-pane="agent"]:not(:is(.ide-vscode, .ide-islands) *) {
+  @apply pt-9;
+}
+body:has(.ide-vscode, .ide-islands) [data-slot="window-controls"] {
+  @apply h-13;
+}

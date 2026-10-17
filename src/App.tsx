@@ -22,6 +22,9 @@ import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useTabs } from "@/hooks/useTabs";
 import { useTerminalTabs } from "@/hooks/useTerminalTabs";
 import { useTextSize } from "@/hooks/useTextSize";
+import { WindowControls } from "@/components/app/WindowControls";
+import { isRemote } from "@/lib/remote";
+import { isWindows } from "@/lib/window";
 import { OPEN_HOST, shownRows, shownSession } from "@/lib/demo";
 import { orderedRows } from "@/lib/conversations";
 import { cn } from "@/lib/utils";
@@ -140,6 +143,7 @@ export default function App() {
         folder={current}
         remote={remote}
       />
+      {isWindows() && !isRemote() && <WindowControls />}
       <AppCommandCenter
         {...{ command, home, rows, settings, openFile }}
         host={host}
