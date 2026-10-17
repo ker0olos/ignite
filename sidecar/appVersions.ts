@@ -13,6 +13,7 @@ import {
   versionDir,
 } from "./appBuild.ts";
 import { awaitingCI } from "./appBinary.ts";
+import { linkPackages, prunePackages } from "./appPackages.ts";
 import { git } from "./worktreeGit.ts";
 
 type StateName = "good" | "bad" | "next" | "restart";
@@ -85,6 +86,7 @@ async function moveClone(clone: string, sha: string) {
   await git(clone, ["diff", "--quiet", "HEAD"]);
   await git(clone, ["merge-base", "--is-ancestor", "HEAD", sha]);
   await git(clone, ["reset", "-q", "--hard", sha]);
+  await linkPackages(clone, { keepOwn: true });
 }
 
 /**
@@ -115,13 +117,20 @@ export async function stageUpdate(
   return latest;
 }
 
-/** Removes versions other than `keep`, and unfinished ones no process is still building. */
+const versions = async () =>
+  (await readdir(APPS).catch(() => [])).filter((n) => /^[0-9a-f]{40}$/.test(n));
+
+/**
+ * Removes versions other than `keep`, and unfinished ones no process is still
+ * building, then the packages no version or the clone uses any more.
+ */
 export async function pruneVersions(clone: string, keep: string[]) {
-  const names = await readdir(APPS).catch(() => []);
   const busy = await building();
-  for (const name of names) {
-    if (!/^[0-9a-f]{40}$/.test(name) || keep.includes(name)) continue;
+  for (const name of await versions()) {
+    if (keep.includes(name)) continue;
     if (busy && !isBuilt(versionDir(name))) continue;
     await removeVersion(clone, versionDir(name));
   }
+  const left = (await versions()).map(versionDir);
+  await prunePackages([clone, ...left], { busy });
 }

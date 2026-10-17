@@ -270,8 +270,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   appUpdate.ts           The app's own commit, and updating it: a launcher version stages the next one,
                          a clone pulls (`git pull --ff-only`, `pnpm install` if the lockfile changed)
   appBuild.ts            Launcher versions (~/.ignite/app/<commit>, worktrees of the user's clone): building one
-                         (release binary, packages linked from pnpm's store, a frontend per set of mods)
-  pnpm.ts                Installs packages with the pnpm package.json pins, installed with npm to ~/.ignite/pnpm if missing
+                         (release binary, its packages linked, a frontend per set of mods)
+  appPackages.ts         Packages installed once per lockfile (~/.ignite/packages/<hash>, with the pnpm
+                         package.json pins, itself installed with npm if missing), linked as the clone's
+                         and each version's node_modules; pruned with the versions, and pnpm's store with them
   appBinary.ts           A version's binary from CI's release for its src-tauri/ tree: refused when its
                          attestation shows binary.yml didn't build it from main, used with a warning
                          when GitHub or Sigstore can't be reached to check
