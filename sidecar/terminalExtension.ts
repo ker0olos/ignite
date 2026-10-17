@@ -23,7 +23,7 @@ export default function terminal(pi: ExtensionAPI) {
       terminal: Type.Optional(
         Type.String({
           description:
-            "One terminal's id (e.g. t1); all of the folder's when left out.",
+            "One terminal's name (e.g. t1); all of the folder's when left out.",
         }),
       ),
       lines: Type.Optional(

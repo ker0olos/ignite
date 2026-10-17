@@ -9,6 +9,7 @@ import { tabLabel } from "@/lib/diffTabs";
 import type { HostClient } from "@/lib/piHost";
 import { basename } from "@/lib/paths";
 import type { Settings } from "@/lib/settings";
+import type { TerminalLabel } from "@/lib/childTabs";
 
 /**
  * The workspace on a phone: one pane at a time, the conversation or an open
@@ -21,7 +22,7 @@ export function MobileWorkspace({
   editor,
   session,
   host,
-  terminalCommand,
+  terminalLabel,
   sidebar,
   agent,
 }: {
@@ -31,7 +32,7 @@ export function MobileWorkspace({
   editor: Settings["editor"];
   session: ReturnType<typeof useAgentSession>;
   host: HostClient | null;
-  terminalCommand?: (terminal: string) => string | undefined;
+  terminalLabel?: (terminal: string) => TerminalLabel;
   sidebar: ReactNode;
   agent: ReactNode;
 }) {
@@ -49,7 +50,7 @@ export function MobileWorkspace({
       <MobileBar
         title={
           active
-            ? tabLabel(active, folder, terminalCommand).name
+            ? tabLabel(active, folder, terminalLabel).name
             : basename(folder)
         }
         onMenu={() => setOpen(true)}
@@ -65,7 +66,7 @@ export function MobileWorkspace({
             editor={editor}
             session={session}
             host={host}
-            terminalCommand={terminalCommand}
+            terminalLabel={terminalLabel}
           />
         ) : (
           agent

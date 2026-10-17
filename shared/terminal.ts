@@ -6,6 +6,8 @@ export const TERMINAL_READ_TOOL = "terminal_read";
 /** One of a folder's terminals. */
 export type TerminalInfo = {
   terminal: string;
+  /** What users and agents call it: its place among the folder's terminals, oldest first (t1, t2…). */
+  name: string;
   cwd: string;
   running: boolean;
   exitCode?: number;

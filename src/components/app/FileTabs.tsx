@@ -1,5 +1,6 @@
 import { createElement } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { X } from "lucide-react";
+import type { TerminalLabel } from "@/lib/childTabs";
 import { tabLabel } from "@/lib/diffTabs";
 import { FileIcon } from "@/components/files/FileIcon";
 import { cn } from "@/lib/utils";
@@ -11,8 +12,8 @@ export function FileTabs({
   folder,
   onSelect,
   onClose,
-  terminalCommand,
-  label: labelOf = (tab) => tabLabel(tab, folder, terminalCommand),
+  terminalLabel,
+  label: labelOf = (tab) => tabLabel(tab, folder, terminalLabel),
   className,
 }: {
   files: string[];
@@ -20,7 +21,7 @@ export function FileTabs({
   folder: string;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
-  terminalCommand?: (terminal: string) => string | undefined;
+  terminalLabel?: (terminal: string) => TerminalLabel;
   /** How a tab shows; files, diffs and children by default. */
   label?: (tab: string) => ReturnType<typeof tabLabel>;
   className?: string;
@@ -72,17 +73,14 @@ export function FileTabs({
             </button>
             <button
               onClick={() => onClose(path)}
-              aria-label={`${label.keepsRunning ? "Hide" : "Close"} ${label.name}`}
-              title={label.keepsRunning ? "Hide; keeps running" : undefined}
+              aria-label={`Close ${label.name}`}
               className={cn(
                 "shrink-0 rounded p-0.5 hover:bg-foreground/10",
                 path !== active &&
                   "invisible group-hover:visible pointer-coarse:visible",
               )}
             >
-              {createElement(label.keepsRunning ? ChevronDown : X, {
-                className: "size-3.5",
-              })}
+              <X className="size-3.5" />
             </button>
           </div>
         );

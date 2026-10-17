@@ -1,5 +1,5 @@
 import { Bot, SquareTerminal } from "lucide-react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   terminalOf,
   childTabId,
@@ -45,24 +45,20 @@ describe("child tab ids", () => {
     expect(readChildTab('child:{"kind":"terminal","session":"s"}')).toBeNull();
     expect(tabLabel(childTabId(term), "/work")).toMatchObject({
       name: "Terminal",
-      detail: "t1",
       icon: SquareTerminal,
-      keepsRunning: false,
     });
-    const running = (t: string) => (t === "t1" ? "npm run dev" : undefined);
-    expect(tabLabel(childTabId(term), "/work", running)).toMatchObject({
+    // By its name at the prompt, by its command while one runs.
+    const idle = () => ({ name: "t2" });
+    expect(tabLabel(childTabId(term), "/work", idle)).toMatchObject({
+      name: "Terminal 2",
+      detail: "t2",
+    });
+    const busy = () => ({ name: "t2", command: "npm run dev" });
+    expect(tabLabel(childTabId(term), "/work", busy)).toMatchObject({
       name: "npm run dev",
-      detail: "t1",
+      detail: "t2",
       title: "npm run dev",
-      keepsRunning: true,
     });
-  });
-
-  it("keep every terminal running on Windows", () => {
-    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Windows NT 10.0");
-    const term: ChildTab = { kind: "terminal", session: "s", terminal: "t1" };
-    expect(tabLabel(childTabId(term), "/work").keepsRunning).toBe(true);
-    vi.restoreAllMocks();
   });
 
   it("label a tab by its subagent or command", () => {

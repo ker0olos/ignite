@@ -8,7 +8,7 @@ const files = ["/f/a.ts", t1];
 
 it("keeps the file in front while the panel's terminal is active", () => {
   const { result, rerender } = renderHook(
-    ({ active }) => useIdeTabs({ files, active }, true),
+    ({ active }) => useIdeTabs({ files, active }),
     { initialProps: { active: "/f/a.ts" as string | null } },
   );
   expect(result.current.front).toBe("/f/a.ts");

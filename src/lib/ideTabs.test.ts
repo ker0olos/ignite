@@ -8,43 +8,30 @@ const files = ["/f/a.ts", t1, "/f/b.ts", t2];
 const none = { kept: null, picked: null };
 
 describe("ideTabs", () => {
-  it("keeps every tab in JetBrains' one strip", () => {
-    expect(ideTabs(files, t1, none, false)).toEqual({
-      strip: files,
-      terminals: [],
-      front: t1,
-      panel: null,
-    });
-  });
-
-  it("moves VS Code's terminals to the panel, the active one shown there", () => {
-    const tabs = ideTabs(files, t1, none, true);
+  it("moves terminals to the panel, the active one shown there", () => {
+    const tabs = ideTabs(files, t1, none);
     expect(tabs.strip).toEqual(["/f/a.ts", "/f/b.ts"]);
     expect(tabs.terminals).toEqual([t1, t2]);
     expect(tabs.panel).toBe(t1);
   });
 
   it("keeps the file in front while the panel's terminal is active", () => {
-    expect(
-      ideTabs(files, t1, { kept: "/f/b.ts", picked: null }, true).front,
-    ).toBe("/f/b.ts");
+    expect(ideTabs(files, t1, { kept: "/f/b.ts", picked: null }).front).toBe(
+      "/f/b.ts",
+    );
     // The conversation stays in front the same way.
-    expect(
-      ideTabs(files, t1, { kept: null, picked: null }, true).front,
-    ).toBeNull();
+    expect(ideTabs(files, t1, { kept: null, picked: null }).front).toBeNull();
   });
 
   it("keeps the picked terminal while a file is in front, else the newest", () => {
-    expect(
-      ideTabs(files, "/f/b.ts", { kept: null, picked: t1 }, true),
-    ).toMatchObject({
-      front: "/f/b.ts",
-      panel: t1,
-    });
-    expect(
-      ideTabs(files, null, { kept: null, picked: "gone" }, true).panel,
-    ).toBe(t2);
-    expect(ideTabs(["/f/a.ts"], null, none, true).panel).toBeNull();
+    expect(ideTabs(files, "/f/b.ts", { kept: null, picked: t1 })).toMatchObject(
+      {
+        front: "/f/b.ts",
+        panel: t1,
+      },
+    );
+    expect(ideTabs(files, null, { kept: null, picked: "gone" }).panel).toBe(t2);
+    expect(ideTabs(["/f/a.ts"], null, none).panel).toBeNull();
   });
 });
 

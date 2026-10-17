@@ -1,6 +1,5 @@
 import { Bot, SquareTerminal, type LucideIcon } from "lucide-react";
 import type { AgentStatus } from "../../shared/hostProtocol";
-import { isWindows } from "@/lib/window";
 
 /** What a conversation runs beside it, opened as a tab: a subagent, or a background command. */
 export type ChildTab =
@@ -55,27 +54,26 @@ export function terminalOf(id: string): string | null {
   return tab?.kind === "terminal" ? tab.terminal : null;
 }
 
+/** A terminal as its tab and sidebar row show it: its name (t1) and the command running in it. */
+export type TerminalLabel = { name?: string; command?: string };
+
+/** A terminal's title: the command running in it, else "Terminal 1". */
+export const terminalTitle = ({ name, command }: TerminalLabel) =>
+  command ?? (name ? `Terminal ${name.slice(1)}` : "Terminal");
+
 /** How the tab strip shows a child tab; a terminal by the command running in it, if one is. */
 export function childTabLabel(
   tab: ChildTab,
-  command?: (terminal: string) => string | undefined,
-): {
-  name: string;
-  detail: string;
-  title: string;
-  icon: LucideIcon;
-  /** Closing the tab leaves it running (a terminal with a command in it, any on Windows). */
-  keepsRunning?: boolean;
-} {
+  terminal?: (terminal: string) => TerminalLabel,
+): { name: string; detail: string; title: string; icon: LucideIcon } {
   if (tab.kind === "terminal") {
-    const busy = command?.(tab.terminal);
-    const running = busy ?? "Terminal";
+    const label = terminal?.(tab.terminal) ?? {};
+    const title = terminalTitle(label);
     return {
-      name: running,
-      detail: tab.terminal,
-      title: running,
+      name: title,
+      detail: label.name ?? "",
+      title,
       icon: SquareTerminal,
-      keepsRunning: busy !== undefined || isWindows(),
     };
   }
   return tab.kind === "agent"

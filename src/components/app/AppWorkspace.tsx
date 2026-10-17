@@ -133,7 +133,7 @@ export function AppWorkspace({
               ?.request({ type: "background_stop", session: shown, pid })
               .catch(() => {}),
           terminals: terminals.running,
-          terminalCommand: terminals.command,
+          terminalLabel: terminals.label,
           onOpenTerminal: (cwd, terminal) =>
             openIn(
               cwd,

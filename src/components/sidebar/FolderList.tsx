@@ -6,6 +6,7 @@ import { FolderTerminals } from "@/components/sidebar/FolderTerminals";
 import type { Conversations } from "@/hooks/useConversations";
 import type { TaggedAgentStatus } from "@/lib/conversations";
 import { sortedByName } from "@/lib/paths";
+import type { TerminalLabel } from "@/lib/childTabs";
 
 /** Opening and stopping what runs under a conversation. */
 export type ChildActions = {
@@ -19,7 +20,7 @@ export type ChildActions = {
   /** A folder's running terminals. */
   terminals: (cwd: string) => string[];
   /** The command running in a terminal, while one is. */
-  terminalCommand: (terminal: string) => string | undefined;
+  terminalLabel: (terminal: string) => TerminalLabel;
   onOpenTerminal: (cwd: string, terminal: string) => void;
   onStopTerminal: (terminal: string) => void;
 };
@@ -130,7 +131,7 @@ export function FolderList({
           />
           <FolderTerminals
             terminals={childActions.terminals(path)}
-            command={childActions.terminalCommand}
+            label={childActions.terminalLabel}
             activeTab={path === folder ? childActions.activeTab : null}
             onOpen={(terminal) => childActions.onOpenTerminal(path, terminal)}
             onStop={childActions.onStopTerminal}

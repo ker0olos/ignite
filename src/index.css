@@ -280,11 +280,12 @@
 /* The VS Code and JetBrains layouts restyle the shared panes, tabs and folder list by their
    data-slot and data-pane marks; outside the layers, so they win over those components' classes. */
 
-/* JetBrains: each pane a rounded island; the conversation's unclipped (WebKit repaints a scroller under a rounded clip). */
-.ide-islands [data-pane] {
+/* JetBrains: each pane a rounded island; the conversation's unclipped (WebKit repaints a scroller under a rounded clip).
+   The main area holds two, its tabs' and the terminal panel's, so it's none itself. */
+.ide-islands [data-pane]:not([data-pane="agent"]) {
   @apply mx-[3px] mb-1.5 h-[calc(100%-0.375rem)] rounded-lg border;
 }
-.ide-islands [data-pane="side"] {
+.ide-islands :is([data-pane="side"], [data-pane="terminal"]) {
   @apply overflow-hidden;
 }
 .ide-islands [data-slot="resizable-handle"] {

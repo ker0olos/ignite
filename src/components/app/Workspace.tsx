@@ -112,7 +112,7 @@ export function Workspace({
         gitStatus={panel.gitStatus && (narrow || layout === "default")}
       />
     );
-  const { terminalCommand } = projectList.childActions;
+  const { terminalLabel } = projectList.childActions;
   const pane = {
     folder,
     tabs,
@@ -120,7 +120,7 @@ export function Workspace({
     editor,
     session,
     host,
-    terminalCommand,
+    terminalLabel,
   };
   return (
     <OpenTabContext.Provider value={openFile}>

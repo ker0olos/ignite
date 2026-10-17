@@ -9,6 +9,7 @@ import { readChildTab } from "@/lib/childTabs";
 import { readDiffTab } from "@/lib/diffTabs";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
+import type { TerminalLabel } from "@/lib/childTabs";
 
 /** Open file, diff, subagent and background tabs, and the active one's view. */
 export function EditorPane({
@@ -19,7 +20,7 @@ export function EditorPane({
   editor,
   session,
   host,
-  terminalCommand,
+  terminalLabel,
   strip = true,
 }: {
   folder: string;
@@ -30,7 +31,7 @@ export function EditorPane({
   session: ReturnType<typeof useAgentSession>;
   /** The sidecar, whether or not a conversation shows. */
   host: HostClient | null;
-  terminalCommand?: (terminal: string) => string | undefined;
+  terminalLabel?: (terminal: string) => TerminalLabel;
   /** Off, the tabs are drawn elsewhere (the IDE layouts' one strip). */
   strip?: boolean;
 }) {
@@ -45,7 +46,7 @@ export function EditorPane({
           folder={folder}
           onSelect={tabs.activate}
           onClose={tabs.close}
-          terminalCommand={terminalCommand}
+          terminalLabel={terminalLabel}
         />
       )}
       {childTab ? (

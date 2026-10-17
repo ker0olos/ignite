@@ -52,8 +52,8 @@ function setup(
     onStopBackground: vi.fn(),
     onClear: vi.fn(),
     terminals: (cwd: string) => (cwd === "/other" ? ["t2"] : []),
-    terminalCommand: (terminal: string) =>
-      terminal === "t2" ? "vite" : undefined,
+    terminalLabel: (terminal: string) =>
+      terminal === "t2" ? { name: "t1", command: "vite" } : {},
     onOpenTerminal: vi.fn(),
     onStopTerminal: vi.fn(),
   };
@@ -162,7 +162,8 @@ it("stops a running background command, not one that ended", () => {
 
 it("lists a folder's running terminals by their command, opening and stopping each", () => {
   const { childActions } = setup();
-  fireEvent.click(screen.getByText("t2"));
+  // Shown by its name in the folder (t1), opened by its id.
+  fireEvent.click(screen.getByText("t1"));
   expect(childActions.onOpenTerminal).toHaveBeenCalledWith("/other", "t2");
   fireEvent.click(screen.getByRole("button", { name: "Stop vite" }));
   expect(childActions.onStopTerminal).toHaveBeenCalledWith("t2");

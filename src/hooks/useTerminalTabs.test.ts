@@ -1,9 +1,14 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TerminalInfo } from "../../shared/terminal";
 import { childTabId } from "@/lib/childTabs";
 import type { HostClient } from "@/lib/piHost";
+import { confirmCloseTerminal } from "@/lib/lifecycle";
 import { useTerminalTabs } from "./useTerminalTabs";
+
+vi.mock("@/lib/lifecycle", () => ({ confirmCloseTerminal: vi.fn() }));
+const confirm = vi.mocked(confirmCloseTerminal);
+beforeEach(() => confirm.mockReset());
 
 const tab = (terminal: string) =>
   childTabId({ kind: "terminal", session: "", terminal });
@@ -52,7 +57,9 @@ function setup(
 
 describe("useTerminalTabs", () => {
   it("lists running terminals and keeps a shell whose tab closes", async () => {
-    const listed = { "/a": [{ terminal: "t1", cwd: "/a", running: true }] };
+    const listed = {
+      "/a": [{ terminal: "t1", name: "t1", cwd: "/a", running: true }],
+    };
     const { result, rerender, closed } = setup(listed);
     await waitFor(() => expect(result.current.running("/a")).toEqual(["t1"]));
     expect(result.current.running("/broken")).toEqual([]);
@@ -64,7 +71,9 @@ describe("useTerminalTabs", () => {
 
   it("forgets exited terminals once no tab shows them", async () => {
     const listed = {
-      "/a": [{ terminal: "t2", cwd: "/a", running: false, exitCode: 0 }],
+      "/a": [
+        { terminal: "t2", name: "t2", cwd: "/a", running: false, exitCode: 0 },
+      ],
     };
     const { rerender, closed, request, emit } = setup(listed, [tab("t2")]);
     act(() => emit({ type: "terminal_exit" }));
@@ -76,12 +85,22 @@ describe("useTerminalTabs", () => {
 
   it("names each terminal's running command, listed then pushed", async () => {
     const listed = {
-      "/a": [{ terminal: "t1", cwd: "/a", running: true, command: "vite" }],
+      "/a": [
+        {
+          terminal: "t1",
+          name: "t1",
+          cwd: "/a",
+          running: true,
+          command: "vite",
+        },
+      ],
     };
     const { result, emit } = setup(listed);
-    await waitFor(() => expect(result.current.command("t1")).toBe("vite"));
+    await waitFor(() =>
+      expect(result.current.label("t1").command).toBe("vite"),
+    );
     act(() => emit({ type: "terminal_command", terminal: "t1" } as never));
-    expect(result.current.command("t1")).toBeUndefined();
+    expect(result.current.label("t1").command).toBeUndefined();
     act(() =>
       emit({
         type: "terminal_command",
@@ -89,36 +108,53 @@ describe("useTerminalTabs", () => {
         command: "npm run dev",
       } as never),
     );
-    expect(result.current.command("t1")).toBe("npm run dev");
+    expect(result.current.label("t1").command).toBe("npm run dev");
     // A listing taken before the push doesn't undo it.
     act(() => emit({ type: "terminal_exit" }));
     await waitFor(() => expect(result.current.running("/a")).toEqual(["t1"]));
-    expect(result.current.command("t1")).toBe("npm run dev");
+    expect(result.current.label("t1").command).toBe("npm run dev");
   });
 
-  it("closing a terminal's tab ends it only if the sidecar finds it idle", async () => {
+  it("closes an idle terminal with its tab without asking", async () => {
+    const { result, close, closed } = setup();
+    await act(() => result.current.closeTab(tab("t1")));
+    await act(() => result.current.closeTab("/a/x.ts"));
+    expect(close.mock.calls).toEqual([[tab("t1")], ["/a/x.ts"]]);
+    expect(confirm).not.toHaveBeenCalled();
+    // The sidecar's idle check already closed it.
+    expect(closed()).toEqual([]);
+  });
+
+  it("asks before closing a terminal a command runs in", async () => {
     const listed = {
       "/a": [
-        { terminal: "t1", cwd: "/a", running: true },
-        { terminal: "t2", cwd: "/a", running: true },
+        {
+          terminal: "t2",
+          name: "t2",
+          cwd: "/a",
+          running: true,
+          command: "npm run dev",
+        },
       ],
     };
-    const { result, request, close } = setup(listed);
-    await waitFor(() =>
-      expect(result.current.running("/a")).toEqual(["t1", "t2"]),
-    );
-    act(() => result.current.closeTab(tab("t1")));
-    act(() => result.current.closeTab(tab("t2")));
-    act(() => result.current.closeTab("/a/x.ts"));
-    expect(close).toHaveBeenCalledTimes(3);
+    const { result, close, closed } = setup(listed);
     await waitFor(() => expect(result.current.running("/a")).toEqual(["t2"]));
-    expect(
-      request.mock.calls.filter(([r]) => r.type === "terminal_close_idle"),
-    ).toHaveLength(2);
+    confirm.mockResolvedValue(false);
+    await act(() => result.current.closeTab(tab("t2")));
+    expect(confirm).toHaveBeenCalledWith("npm run dev");
+    expect(close).not.toHaveBeenCalled();
+    expect(closed()).toEqual([]);
+    confirm.mockResolvedValue(true);
+    await act(() => result.current.closeTab(tab("t2")));
+    expect(close).toHaveBeenCalledWith(tab("t2"));
+    expect(closed()).toEqual(["t2"]);
+    expect(result.current.running("/a")).toEqual([]);
   });
 
   it("stop ends the shell, closes its tab and drops its row", async () => {
-    const listed = { "/a": [{ terminal: "t1", cwd: "/a", running: true }] };
+    const listed = {
+      "/a": [{ terminal: "t1", name: "t1", cwd: "/a", running: true }],
+    };
     const { result, rerender, close, closed } = setup(listed);
     rerender({ files: ["/a/x.ts", tab("t1")] });
     await waitFor(() => expect(result.current.running("/a")).toEqual(["t1"]));

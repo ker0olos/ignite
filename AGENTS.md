@@ -46,7 +46,7 @@ src/                     React frontend (almost all logic lives here)
     useFolderDrop.ts     Drag-and-drop folders onto the window
     useTabs.ts           Open file tabs, reset per folder (⌘W closes one); none in front for the IDE layouts' conversation
     useHiddenTabs.ts     The IDE layouts' closed conversation tabs, reopened when the sidebar shows the conversation
-    useIdeTabs.ts        Where the IDE layouts' tabs go, keeping the front tab while VS Code's panel terminal is active
+    useIdeTabs.ts        Where the IDE layouts' tabs go, keeping the front tab while the panel's terminal is active
     useFrontTabClose.ts  ⌘W in the IDE layouts: the tab strip closes its front tab, file or conversation
     useEditorOverlay.ts  The editor pane dragged past the conversation's minimum: drawn over it and the sidebar
     useSidebarWidth.ts   The sidebar's dragged width (localStorage), kept when the editor pane opens or closes
@@ -123,7 +123,7 @@ src/                     React frontend (almost all logic lives here)
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     themePalette.ts      The theme's colors for inline code, success, warning and errors
     tabs.ts              Open/close logic for file tabs
-    ideTabs.ts           Where the IDE layouts put the editor's tabs: the one strip, VS Code's terminal panel
+    ideTabs.ts           Where the IDE layouts put the editor's tabs: the one strip, terminals in a panel below
     recent.ts            Recent-folders list logic
     conversationTags.ts  Conversation tags: splitting typed text, adding, removing, suggestions
     commandQuery.ts      Command center query: `@folder`, `@convos`/`@files`/`@folders`, result picks
@@ -416,7 +416,7 @@ Two places hold persisted data:
   panel between the folder list (JetBrains': only the folder its top bar
   picks), the file tree and the PR view (the composer's git status, kept
   open); one strip of conversation and file tabs over whichever is in front
-  (`lib/ideTabs.ts`; VS Code's terminals open in a bottom panel instead).
+  (`lib/ideTabs.ts`; terminals open in a panel below, in JetBrains its own island).
   Closing a conversation's tab only hides it (`hooks/useHiddenTabs.ts`; the
   sidebar ends conversations, and showing one there reopens its tab); a closed
   front tab gives way per `nextFront`, and ⌘W closes the front tab
@@ -676,9 +676,13 @@ conversation last looked is added as a hidden message (like Claude Code's
 command runs in it, its tab and sidebar row are named by that command line
 (the terminal's foreground process, read with `ps` after output; not on
 Windows), and "Terminal" at the prompt. Closing the
-tab ends its shell when it sits at its prompt (`terminal_close_idle`, checked
-afresh); with a command running (and always on Windows) the shell keeps
-running, listed under its folder in the sidebar, where Stop ends it.
+tab ends its shell, in every layout; when a command still runs in it
+(`terminal_close_idle`, checked afresh; always on Windows, which can't tell) a
+dialog asks first, naming the command (`confirmCloseTerminal`). Stop on its
+sidebar row ends one too. A folder's terminals are named by their place, oldest first (`t1`,
+`t2`…, `name` in `TerminalInfo`), as the composer's `@`, `terminal_read` and
+their tabs ("Terminal 1") call them; closing one renames those after it, so
+the names always match the open tabs. Ids (`term-1`) stay fixed.
 
 The composer completes `/` at the start of a message with the app's
 `/compact` (pi's `compact()`: older messages become a summary, shown as a

@@ -53,7 +53,7 @@ const sidebar = (
           onStopBackground: vi.fn(),
           onClear: vi.fn(),
           terminals: () => [],
-          terminalCommand: () => undefined,
+          terminalLabel: () => ({}),
           onOpenTerminal: vi.fn(),
           onStopTerminal: vi.fn(),
         },

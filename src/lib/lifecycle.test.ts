@@ -1,7 +1,14 @@
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { describe, expect, it } from "vitest";
-import { confirmBeforeClose, confirmQuit } from "./lifecycle";
+import { describe, expect, it, vi } from "vitest";
+import {
+  confirmBeforeClose,
+  confirmCloseTerminal,
+  confirmQuit,
+} from "./lifecycle";
+import { isRemote } from "./remote";
+
+vi.mock("./remote", () => ({ isRemote: vi.fn(() => false) }));
 
 /**
  * Fakes the backend with a confirmation dialog that answers `answer` (the
@@ -55,5 +62,30 @@ describe("confirmBeforeClose", () => {
     await requestClose();
     expect(calls).toContain("plugin:dialog|message");
     expect(calls).not.toContain("plugin:window|destroy");
+  });
+});
+
+describe("confirmCloseTerminal", () => {
+  it("asks in the app's dialog, naming the command when known", async () => {
+    let asked = "";
+    mockWindows("main");
+    mockIPC((cmd, args) => {
+      if (cmd !== "plugin:dialog|message") return null;
+      asked = (args as { message: string }).message;
+      return "Close";
+    });
+    expect(await confirmCloseTerminal("npm run dev")).toBe(true);
+    expect(asked).toBe(
+      '"npm run dev" is still running. Stop it and close the terminal?',
+    );
+  });
+
+  it("asks with the browser's confirm when remote", async () => {
+    vi.mocked(isRemote).mockReturnValue(true);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    expect(await confirmCloseTerminal()).toBe(false);
+    expect(confirm).toHaveBeenCalledWith(
+      "Close this terminal? Whatever runs in it stops.",
+    );
   });
 });

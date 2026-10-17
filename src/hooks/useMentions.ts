@@ -51,7 +51,7 @@ function useMentionSources(
     if (!host || !at) return;
     host
       .request({ type: "terminal_list", cwd: folder })
-      .then((list) => setTerminals(list.map((t) => t.terminal)))
+      .then((list) => setTerminals(list.map((t) => t.name)))
       .catch(() => setTerminals([]));
   }, [host, at, folder]);
 
