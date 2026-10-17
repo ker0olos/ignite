@@ -8,11 +8,13 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
   copyFile,
+  lstat,
   mkdir,
   readdir,
   rename,
   rm,
   stat,
+  unlink,
   writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -20,7 +22,7 @@ import { dirname, join, relative } from "node:path";
 import { promisify } from "node:util";
 import { APP_NAME, APP_TITLE } from "../src/lib/app.ts";
 import { downloadBinary } from "./appBinary.ts";
-import { pnpmInstall } from "./pnpm.ts";
+import { linkPackages } from "./appPackages.ts";
 import { git } from "./worktreeGit.ts";
 
 const exec = promisify(execFile);
@@ -179,6 +181,10 @@ async function sameRust(clone: string, from: string, sha: string) {
 
 /** Removes a version's worktree and folder; a missing one is fine. */
 export async function removeVersion(clone: string, dir: string) {
+  // Its link to the shared packages first, so nothing below follows it into them.
+  const link = join(dir, "node_modules");
+  if ((await lstat(link).catch(() => null))?.isSymbolicLink())
+    await unlink(link);
   await git(clone, ["worktree", "remove", "--force", dir]).catch(() => {});
   await rm(dir, { recursive: true, force: true });
   await git(clone, ["worktree", "prune"]).catch(() => {});
@@ -202,7 +208,7 @@ export async function buildVersion(
   await mkdir(APPS, { recursive: true });
   await git(clone, ["worktree", "add", "--detach", dir, sha]);
   try {
-    await pnpmInstall(dir);
+    await linkPackages(dir);
     const binary = binaryOf(from);
     if (existsSync(binary) && (await sameRust(clone, from, sha)))
       await placeBinary(dir, binary);

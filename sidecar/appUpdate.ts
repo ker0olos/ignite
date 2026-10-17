@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import type { AppVersion } from "../shared/hostProtocol.ts";
 import { APPS } from "./appBuild.ts";
 import { readState, stageUpdate, writeState } from "./appVersions.ts";
-import { pnpmInstall } from "./pnpm.ts";
+import { linkPackages } from "./appPackages.ts";
 
 const run = promisify(execFile);
 
@@ -54,7 +54,7 @@ async function stagedUpdate(root: string, stage: typeof stageUpdate) {
  */
 export async function appUpdate(
   root = appRoot(),
-  install = pnpmInstall,
+  install = (dir: string) => linkPackages(dir, { keepOwn: true }),
   stage = stageUpdate,
   apps = APPS,
 ): Promise<{ updated: boolean; ready?: boolean; warning?: string }> {

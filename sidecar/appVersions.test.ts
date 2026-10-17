@@ -1,7 +1,14 @@
 // @vitest-environment node
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -113,11 +120,17 @@ describe("pruneVersions", () => {
       await mkdir(join(v, "build"), { recursive: true });
       await writeFile(join(v, "build", "ok"), "");
     }
+    // Its packages, shared with other checkouts, outlive it.
+    const shared = join(dir, "shared");
+    await mkdir(shared);
+    await writeFile(join(shared, "react.js"), "");
+    await symlink(shared, join(old, "node_modules"), "junction");
     await mkdir(unfinished, { recursive: true });
     await writeFile(join(APPS, "build.lock"), String(process.pid));
     await pruneVersions(clone, ["a".repeat(40)]);
     expect(existsSync(kept)).toBe(true);
     expect(existsSync(old)).toBe(false);
+    expect(existsSync(join(shared, "react.js"))).toBe(true);
     expect(existsSync(unfinished)).toBe(true);
     expect(git(clone, "worktree", "list")).not.toContain(old);
   });

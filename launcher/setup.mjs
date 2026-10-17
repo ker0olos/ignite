@@ -44,10 +44,10 @@ function fail(message) {
 const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 22 || (major === 22 && minor < 18))
   fail("Ignite needs Node.js 22.18 or newer.");
-// Everything after this imports the packages.
+// Everything after this imports the packages, installed once for the clone and the version setup builds.
 console.log("Installing packages…");
-const { pnpmInstall } = await import("../sidecar/pnpm.ts");
-await pnpmInstall(dirname(here)).catch((error) =>
+const { linkPackages } = await import("../sidecar/appPackages.ts");
+await linkPackages(dirname(here), { keepOwn: true }).catch((error) =>
   fail(`Couldn't install the packages:\n${error.message}`),
 );
 // CI builds the binary for these machines; elsewhere it's built here, with Rust.
