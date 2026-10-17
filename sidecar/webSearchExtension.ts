@@ -4,11 +4,7 @@ import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { WEB_SEARCH_TOOL } from "../shared/steps.ts";
-import {
-  claudeExecutable,
-  createClaudeCode,
-  type ClaudeCode,
-} from "./claudeCode.ts";
+import { createClaudeCode, type ClaudeCode } from "./claudeCode.ts";
 
 const SYSTEM_PROMPT =
   "You search the web for another agent. Search, then reply with what you found only, no preamble: " +
@@ -37,7 +33,6 @@ export async function searchWeb(
         prompt: request,
         options: {
           model: "haiku",
-          pathToClaudeCodeExecutable: claudeExecutable() ?? undefined,
           // Only WebSearch: it runs on Anthropic's servers, while WebFetch would
           // fetch from here, outside the sandbox, localhost included.
           tools: ["WebSearch"],
