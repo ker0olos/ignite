@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import type { TerminalInfo } from "../../shared/terminal";
 import type { useTabs } from "@/hooks/useTabs";
-import { readChildTab } from "@/lib/childTabs";
+import { terminalOf } from "@/lib/childTabs";
 import type { HostClient } from "@/lib/piHost";
 
 /** The terminal ids among a list of tab ids. */
 function terminalsIn(tabs: string[]) {
-  return tabs.flatMap((id) => {
-    const tab = readChildTab(id);
-    return tab?.kind === "terminal" ? [tab.terminal] : [];
-  });
+  return tabs.flatMap((id) => terminalOf(id) ?? []);
 }
 
 function listTerminals(host: HostClient, cwd: string) {
@@ -96,10 +93,7 @@ export function useTerminalTabs(
 
   const stop = useCallback(
     (terminal: string) => {
-      for (const id of files) {
-        const tab = readChildTab(id);
-        if (tab?.kind === "terminal" && tab.terminal === terminal) close(id);
-      }
+      for (const id of files) if (terminalOf(id) === terminal) close(id);
       setRunning((all) => without(all, terminal));
       host?.request({ type: "terminal_close", terminal }).catch(() => {});
     },
@@ -109,9 +103,8 @@ export function useTerminalTabs(
   const closeTab = useCallback(
     (id: string) => {
       close(id);
-      const tab = readChildTab(id);
-      if (tab?.kind !== "terminal" || !host) return;
-      const { terminal } = tab;
+      const terminal = terminalOf(id);
+      if (!terminal || !host) return;
       host
         .request({ type: "terminal_close_idle", terminal })
         .then((closed) => {

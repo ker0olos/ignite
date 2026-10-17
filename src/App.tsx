@@ -107,7 +107,7 @@ export default function App() {
           key={current}
           folder={current}
           folders={shownFolders}
-          {...{ tabs, settings, setSettings, settingsButton, rows, session }}
+          {...{ tabs, settings, setSettings, menu, rows, session }}
           tags={list.tags}
           tagFilter={list.tagFilter}
           onToggleTagFilter={list.toggleTagFilter}
@@ -122,7 +122,7 @@ export default function App() {
             openFolder,
             openSettings,
           }}
-          {...{ host, terminals, openIn }}
+          {...{ host, terminals, openIn, addFolder }}
           about={dialog.about}
         />
       ) : (

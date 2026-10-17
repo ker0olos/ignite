@@ -86,6 +86,15 @@ it("goes on and leaves the questions to the agent from the window", () => {
   expect(onApprove).toHaveBeenCalledWith("q1", false);
 });
 
+it("leaves the questions alone while the composer is hidden behind a file", () => {
+  const onApprove = show();
+  box().closest("form")!.parentElement!.setAttribute("inert", "");
+  fireEvent.keyDown(window, { key: "Backspace", ctrlKey: true });
+  fireEvent.keyDown(window, { key: "1", altKey: true, code: "Digit1" });
+  expect(onApprove).not.toHaveBeenCalled();
+  expect(sqlite().getAttribute("aria-checked")).not.toBe("true");
+});
+
 it("keeps Ctrl+Backspace for a text box with text", () => {
   const onApprove = show();
   fireEvent.change(box(), { target: { value: "draft" } });

@@ -32,10 +32,18 @@ export const ANSI = [
   "brightWhite",
 ] as const;
 
-const ROLES = ["code", "success", "warning", "destructive", ...ANSI] as const;
+const ROLES = [
+  "code",
+  "success",
+  "warning",
+  "destructive",
+  "status-bar",
+  "status-bar-foreground",
+  ...ANSI,
+] as const;
 type Role = (typeof ROLES)[number];
 
-/** The app's accent and terminal colours a theme sets; the app keeps its own for the rest. */
+/** The app's accent, status bar and terminal colours a theme sets; the app keeps its own for the rest. */
 export type Palette = Partial<Record<Role, string>>;
 
 // Editor color keys per role, first found wins.
@@ -47,6 +55,8 @@ const COLOR_KEYS = {
     "terminal.ansiRed",
     "errorForeground",
   ],
+  "status-bar": ["statusBar.background"],
+  "status-bar-foreground": ["statusBar.foreground"],
   ...Object.fromEntries(
     ANSI.map((c) => [c, [`terminal.ansi${c[0].toUpperCase()}${c.slice(1)}`]]),
   ),

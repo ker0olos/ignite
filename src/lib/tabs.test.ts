@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { closeTab, openTab } from "./tabs";
+import { neighbour, closeTab, openTab } from "./tabs";
 
 describe("openTab", () => {
   it("appends a new file and activates it", () => {
@@ -49,5 +49,15 @@ describe("closeTab", () => {
   it("ignores a path that is not open", () => {
     const tabs = { files: ["a"], active: "a" };
     expect(closeTab(tabs, "zzz")).toEqual(tabs);
+  });
+});
+
+describe("neighbour", () => {
+  it("is the right-hand neighbour, else the left, else nothing", () => {
+    expect(neighbour(["a", "b", "c"], "b")).toBe("c");
+    expect(neighbour(["a", "b", "c"], "c")).toBe("b");
+    expect(neighbour(["a", "b", "c"], "a")).toBe("b");
+    expect(neighbour(["a", "b"], "gone")).toBe("b");
+    expect(neighbour(["a"], "a")).toBeNull();
   });
 });

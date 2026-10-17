@@ -31,8 +31,9 @@ export function useTabs(folder: string | null) {
       (path: string) => update((t) => closeTab(t, path)),
       [update],
     ),
+    /** Null leaves the tabs open with none in front (the IDE layouts' conversation). */
     activate: useCallback(
-      (path: string) => update((t) => ({ ...t, active: path })),
+      (path: string | null) => update((t) => ({ ...t, active: path })),
       [update],
     ),
   };

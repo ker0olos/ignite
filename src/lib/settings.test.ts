@@ -266,10 +266,23 @@ describe("loadSettings", () => {
   });
 });
 
+describe("layout", () => {
+  it.each([
+    ['layout = "vscode"', "vscode"],
+    ['layout = "jetbrains"', "jetbrains"],
+    ['layout = "emacs"', "default"],
+    ["layout = 3", "default"],
+  ])("reads %s as %s", async (toml, layout) => {
+    fakeFs({ [FILE]: `${toml}\n` });
+    expect((await loadSettings()).layout).toBe(layout);
+  });
+});
+
 describe("saveSettings", () => {
   const next: Settings = {
     theme: "github-dark",
     icon_theme: "minimal",
+    layout: "jetbrains",
     editor: { font_family: "Monaco, monospace", word_wrap: true },
     files: { hide_gitignored: false, show_tree: false },
     conversation: {

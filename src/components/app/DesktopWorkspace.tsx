@@ -13,8 +13,13 @@ export function DesktopWorkspace({
   sidebar,
   agent,
   agentMinWidth,
+  glass = true,
   ...pane
-}: ComponentProps<typeof MobileWorkspace> & { agentMinWidth: number }) {
+}: ComponentProps<typeof MobileWorkspace> & {
+  agentMinWidth: number;
+  /** Off, the window's Liquid Glass doesn't show through. */
+  glass?: boolean;
+}) {
   const { active } = pane.tabs;
   const overlay = useEditorOverlay(agentMinWidth, !!active);
   const sidebarWidth = useSidebarWidth();
@@ -29,7 +34,7 @@ export function DesktopWorkspace({
       orientation="horizontal"
       className="relative flex-1"
       elementRef={overlay.group}
-      data-glass
+      data-glass={glass || undefined}
       defaultLayout={layout.defaultLayout}
       onLayoutChanged={layout.onLayoutChanged}
     >
@@ -56,7 +61,9 @@ export function DesktopWorkspace({
         className="glass:bg-background"
         minSize={`${agentMinWidth}px`}
       >
-        <div className="relative flex h-full flex-col">{agent}</div>
+        <div data-pane="agent" className="relative flex h-full flex-col">
+          {agent}
+        </div>
       </ResizablePanel>
       {active && <PaneHandle onPointerDown={() => overlay.follow()} />}
       {active && (

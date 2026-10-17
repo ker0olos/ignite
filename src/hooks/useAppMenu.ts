@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { homeDir } from "@tauri-apps/api/path";
 import type { AppVersion } from "../../shared/hostProtocol";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { closeFrontTab } from "@/hooks/useFrontTabClose";
 import type { useFolders } from "@/hooks/useFolders";
 import { confirmBeforeClose, confirmQuit } from "@/lib/lifecycle";
 import { menuItems, setAppMenu, type MenuHandlers } from "@/lib/menu";
@@ -95,8 +96,9 @@ export function useAppMenu({
       closeFolder: () => h().closeFolder(),
       clearFolders: () => h().clearFolders(),
       openSettings: () => h().openSettings(),
-      // ⌘W closes the file tab; with none open it falls through to the window.
+      // ⌘W closes the IDE layouts' front tab, else the file tab; with none open, the window.
       closeTab: () => {
+        if (!closeFrontTab()) return;
         const { active, closeTab } = h();
         return active ? closeTab(active) : win.close();
       },

@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import type { RemoteStatus } from "../../../shared/remote";
+import { TitleButtons } from "@/components/app/TitleButtons";
 import { Workspace } from "@/components/app/Workspace";
 import { RemoteDevices } from "@/components/remote/RemoteDevices";
 import type { Section } from "@/components/settings/sections";
@@ -19,6 +19,7 @@ import { needingSignIn } from "@/lib/mcpServers";
 import { basename } from "@/lib/paths";
 import type { HostClient } from "@/lib/piHost";
 import { approvalSetting, modelRouterSetting } from "@/lib/composerSettings";
+import type { MenuEntry } from "@/lib/inAppMenu";
 import type { Settings } from "@/lib/settings";
 
 type AppWorkspaceProps = {
@@ -26,7 +27,8 @@ type AppWorkspaceProps = {
   tabs: ReturnType<typeof useTabs>;
   settings: Settings;
   setSettings: (settings: Settings) => Promise<void>;
-  settingsButton: ReactNode;
+  /** The in-app menu's entries; none on macOS. */
+  menu: MenuEntry[];
   folders: string[];
   rows: (cwd: string) => TaggedAgentStatus[];
   tags: string[];
@@ -46,6 +48,8 @@ type AppWorkspaceProps = {
   terminals: ReturnType<typeof useTerminalTabs>;
   /** Opens a tab in any folder, selecting it first. */
   openIn: (folder: string, tab: string) => void;
+  /** Shows an open folder, or adds one. */
+  addFolder: (folder: string) => void;
   about: ReturnType<typeof useAbout>;
 };
 
@@ -55,7 +59,7 @@ export function AppWorkspace({
   tabs,
   settings,
   setSettings,
-  settingsButton,
+  menu,
   folders,
   rows,
   session,
@@ -69,6 +73,7 @@ export function AppWorkspace({
   host,
   terminals,
   openIn,
+  addFolder,
   tags,
   tagFilter,
   onToggleTagFilter,
@@ -90,7 +95,14 @@ export function AppWorkspace({
       resizableProjectSplit={settings.sidebar.resizable_split}
       approval={approvalSetting(settings, setSettings)}
       modelRouter={modelRouterSetting(settings, setSettings)}
-      actions={settingsButton}
+      actions={<TitleButtons menu={menu} onSettings={() => openSettings()} />}
+      layout={settings.layout}
+      chrome={{
+        menu,
+        onSettings: () => openSettings(),
+        onSearch: () => command.openWith(),
+        onSelectFolder: addFolder,
+      }}
       projectList={{
         folders,
         rows,

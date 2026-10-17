@@ -2,6 +2,7 @@ import { startTransition, useCallback, useRef } from "react";
 import type { AgentMessage } from "../../shared/agentTypes";
 import type { OpenedSession } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
+import { neighbour } from "@/lib/tabs";
 
 const PREVIEW = 40;
 
@@ -12,13 +13,6 @@ function later<A extends unknown[]>(put: (...a: A) => boolean, ...a: A) {
     ok = put(...a);
   });
   return ok;
-}
-
-/** The conversation to show once `closing` closes: its right-hand neighbour, else its left. */
-export function nextShown(open: string[], closing: string): string | null {
-  const i = open.indexOf(closing);
-  const rest = open.filter((s) => s !== closing);
-  return rest[i] ?? rest[i - 1] ?? rest.at(-1) ?? null;
 }
 
 /**
@@ -106,17 +100,19 @@ export function useSessionSwitch({
   const close = useCallback(
     async (session: string, shown: string | null, open: string[]) => {
       if (!host || !folder) return;
+      // The neighbour shows at once; ending a conversation saves its worktree, which takes a while.
+      if (session === shown) {
+        const next = neighbour(open, session);
+        if (next) void show(next);
+        else {
+          wanted.current = null;
+          put(folder, null);
+        }
+      }
       await host
         .request({ type: "close_session", cwd: folder, session })
         .catch((e: Error) => setError(e.message));
       drop(session);
-      if (session !== shown) return;
-      const next = nextShown(open, session);
-      if (next) await show(next);
-      else {
-        wanted.current = null;
-        put(folder, null);
-      }
     },
     [host, folder, show, put, drop, setError],
   );

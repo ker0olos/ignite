@@ -105,6 +105,7 @@ export function CommandCenter({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
+        data-command-center
         className={cn(
           "top-[12%] max-w-none max-sm:top-[4%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-none",
           layout.width,

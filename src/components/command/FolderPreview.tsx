@@ -1,5 +1,6 @@
 import type { AgentStatus } from "../../../shared/hostProtocol";
 import { DetailsSection } from "@/components/command/DetailsSection";
+import { conversationTitle } from "@/lib/conversations";
 import { basename, tildify } from "@/lib/paths";
 
 /** A folder in the command center: where it is and its listed conversations. */
@@ -25,7 +26,7 @@ export function FolderPreview({
           <ul className="flex flex-col gap-0.5">
             {conversations.map((c) => (
               <li key={c.session} className="truncate">
-                {c.title || "New conversation"}
+                {conversationTitle(c)}
               </li>
             ))}
           </ul>
