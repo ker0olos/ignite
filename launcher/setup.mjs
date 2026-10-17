@@ -17,12 +17,36 @@ if (major < 22 || (major === 22 && minor < 18)) {
   process.exit(1);
 }
 
+// An option it doesn't know would otherwise run a whole setup (a typo'd `--check,` too).
+const OPTIONS = ["--check", "--verbose"];
+const unknown = process.argv.slice(2).filter((a) => !OPTIONS.includes(a));
+if (unknown.length) {
+  console.error(
+    `Unknown option ${unknown.join(" ")}. Setup takes ${OPTIONS.join(" or ")}.`,
+  );
+  process.exit(1);
+}
+
 const { APP_NAME, APP_TITLE } = await import("../src/lib/app.ts");
 const { stepper } = await import("../sidecar/appRun.ts");
 
 const clone = dirname(dirname(fileURLToPath(import.meta.url)));
 const home = homedir();
 const log = join(home, `.${APP_NAME}`, "launch", "setup.log");
+// `--check` reports what setup set up and what takes space, and changes nothing (the last log included).
+if (process.argv.includes("--check")) {
+  const { checks, human, space } = await import("../sidecar/appDoctor.ts");
+  const place = { clone, home, platform: process.platform, env: process.env };
+  for (const { ok, text } of await checks(place))
+    console.log(`${ok ? "✓" : "✗"} ${text}`);
+  const used = space(home);
+  const total = human(used.reduce((sum, [, bytes]) => sum + bytes, 0));
+  console.log(`\nSpace in ~/.${APP_NAME} (${total}):`);
+  for (const [name, bytes] of used.filter(([, b]) => b >= 1 << 20))
+    console.log(`  ${human(bytes).padStart(8)}  ${name}`);
+  console.log(`\nThe last setup's log is ${log}`);
+  process.exit(0);
+}
 const step = stepper(log);
 // Each run's log starts afresh; the tools' output joins it (sidecar/appRun.ts).
 writeFileSync(

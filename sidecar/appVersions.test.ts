@@ -97,6 +97,20 @@ describe("stageUpdate on a branch", () => {
 });
 
 describe("pruneVersions", () => {
+  it("removes Cargo's builds where CI builds the binary, unless one runs", async () => {
+    const { pruneVersions, APPS } = await load();
+    const target = join(APPS, "target");
+    await mkdir(target, { recursive: true });
+    await writeFile(join(APPS, "build.lock"), String(process.pid));
+    await pruneVersions(clone, [], true);
+    expect(existsSync(target)).toBe(true);
+    await rm(join(APPS, "build.lock"));
+    await pruneVersions(clone, [], false);
+    expect(existsSync(target)).toBe(true);
+    await pruneVersions(clone, [], true);
+    expect(existsSync(target)).toBe(false);
+  });
+
   it("removes unfinished versions once no process builds them", async () => {
     const { pruneVersions, versionDir, APPS } = await load();
     const unfinished = versionDir("b".repeat(40));
