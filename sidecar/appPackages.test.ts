@@ -61,7 +61,7 @@ describe.skipIf(process.platform === "win32")("linkPackages", () => {
     await linkPackages(b, { home });
     const installs = (await calls()).filter((c) => c.includes(" install "));
     expect(installs).toHaveLength(1);
-    expect(installs[0]).toContain("--frozen-lockfile");
+    expect(installs[0]).toContain("--frozen-lockfile --prefer-offline --prod");
     const shared = await realpath(join(a, "node_modules"));
     expect(await realpath(join(b, "node_modules"))).toBe(shared);
     // Its own copy of the manifest, without scripts to run.

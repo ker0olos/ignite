@@ -94,8 +94,9 @@ async function install(dir: string, into: string, ctx: Ctx) {
   // No scripts: the folder isn't a checkout for `prepare` to set up.
   delete manifest.scripts;
   await writeFile(join(into, "package.json"), JSON.stringify(manifest));
+  // Only what runs and builds the frontend: maintainers' tools stay out.
   const store = ["--store-dir", storeDir(ctx.home)];
-  await pnpm(dir, into, [...INSTALL, ...store], ctx);
+  await pnpm(dir, into, [...INSTALL, "--prod", ...store], ctx);
   await writeFile(join(into, "ok"), "");
 }
 

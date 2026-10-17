@@ -16,7 +16,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { HostMessage, HostRequest } from "../shared/hostProtocol.ts";
 import { APP_NAME } from "../src/lib/app.ts";
-import { createClaudeCode } from "./claudeCode.ts";
+import { bridgeToClaude, createClaudeCode } from "./claudeCode.ts";
 import { codexBackend, withCodexLogin } from "./credentials.ts";
 import { createHeadlessUI } from "./headlessUI.ts";
 import { createHost } from "./host.ts";
@@ -65,6 +65,9 @@ process.env.PI_TELEMETRY = "0";
 // Claude Code holds back an MCP tool's input until each value is whole, so an artifact's
 // HTML would arrive in one piece at the end; claude-bridge passes this env to it.
 process.env.CLAUDE_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING ??= "1";
+await bridgeToClaude(agentDir).catch((error) =>
+  log(`claude-bridge.json: ${error}`),
+);
 
 // ponytail: pi doesn't export its auth.json store, so it's loaded by path;
 // recheck on pi upgrades (the version is pinned).

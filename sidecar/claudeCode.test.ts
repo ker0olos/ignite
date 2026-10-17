@@ -1,9 +1,20 @@
 // @vitest-environment node
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createClaudeCode } from "./claudeCode.ts";
+import {
+  bridgeToClaude,
+  claudeExecutable,
+  createClaudeCode,
+} from "./claudeCode.ts";
 
 // Each test stands in for `claude` with a small shell script.
 let dir: string;
@@ -89,5 +100,87 @@ describe("login", () => {
     const done = claude.login(controller.signal, () => {});
     controller.abort();
     await expect(done).rejects.toThrow();
+  });
+});
+
+describe("claudeExecutable", () => {
+  const home = () => join(dir, "home");
+  const file = async (...parts: string[]) => {
+    await mkdir(join(...parts, ".."), { recursive: true });
+    await writeFile(join(...parts), "");
+    return join(...parts);
+  };
+
+  it("is the first claude on PATH, claude.exe on Windows", async () => {
+    const [a, b] = [join(dir, "a"), join(dir, "b")];
+    await mkdir(join(a, "claude"), { recursive: true }); // a folder, not it
+    const unix = await file(b, "claude");
+    const windows = await file(b, "claude.exe");
+    expect(claudeExecutable(`:${a}:${b}`, "darwin", home(), {})).toBe(unix);
+    expect(claudeExecutable(`${a};${b}`, "win32", home(), {})).toBe(windows);
+  });
+
+  it("finds the binary behind npm's claude.cmd on Windows", async () => {
+    const npm = join(dir, "npm");
+    await file(npm, "claude.cmd");
+    const binary = await file(
+      npm,
+      "node_modules",
+      "@anthropic-ai",
+      "claude-code",
+      "bin",
+      "claude.exe",
+    );
+    expect(claudeExecutable(npm, "win32", home(), {})).toBe(binary);
+  });
+
+  it("looks where the installers put it when PATH has none", async () => {
+    const native = await file(home(), ".local", "bin", "claude");
+    expect(claudeExecutable("", "linux", home(), {})).toBe(native);
+    const winget = await file(
+      dir,
+      "local",
+      "Microsoft",
+      "WinGet",
+      "Links",
+      "claude.exe",
+    );
+    expect(
+      claudeExecutable("", "win32", home(), {
+        LOCALAPPDATA: join(dir, "local"),
+      }),
+    ).toBe(winget);
+  });
+
+  it("is null when Claude Code isn't installed", () => {
+    expect(
+      claudeExecutable("", "win32", home(), { ProgramData: dir }),
+    ).toBeNull();
+  });
+});
+
+describe("bridgeToClaude", () => {
+  const config = () => join(dir, "pi", "claude-bridge.json");
+
+  it("sets the bridge's Claude Code, keeping its other settings", async () => {
+    await mkdir(join(dir, "pi"));
+    await writeFile(
+      config(),
+      JSON.stringify({ provider: { plan: "max" }, askClaude: {} }),
+    );
+    await bridgeToClaude(join(dir, "pi"), "/bin/claude");
+    expect(JSON.parse(await readFile(config(), "utf8"))).toEqual({
+      provider: { plan: "max", pathToClaudeCodeExecutable: "/bin/claude" },
+      askClaude: {},
+    });
+  });
+
+  it("writes nothing without a Claude Code, or over a file that doesn't parse", async () => {
+    await bridgeToClaude(join(dir, "pi"), null);
+    await expect(readFile(config(), "utf8")).rejects.toThrow();
+    await mkdir(join(dir, "pi"));
+    await writeFile(config(), "{ oops");
+    await bridgeToClaude(join(dir, "pi"), "/bin/claude");
+    expect(await readFile(config(), "utf8")).toBe("{ oops");
   });
 });
