@@ -17,10 +17,7 @@ src/                     React frontend (almost all logic lives here)
   components/            UI only, one component per file; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
     app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle,
-                         the VS Code and JetBrains layouts (IdeWorkspace: top bar, ActivityBar, side panel,
-                         IdeMain's one tab strip (WorkspaceTabs) over the front tab, PR view, StatusBar;
-                         existing components rearranged, restyled by `data-slot` in index.css),
-                         zoomable images and the markup editor (react-konva) for attached ones
+                         Windows' window controls, zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner, the update-ready banner
     files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon)
@@ -44,10 +41,7 @@ src/                     React frontend (almost all logic lives here)
                          ends closed projects' sessions
     useSettings.ts       settings.toml, synced across windows; applies theme
     useFolderDrop.ts     Drag-and-drop folders onto the window
-    useTabs.ts           Open file tabs, reset per folder (⌘W closes one); none in front for the IDE layouts' conversation
-    useHiddenTabs.ts     The IDE layouts' closed conversation tabs, reopened when the sidebar shows the conversation
-    useIdeTabs.ts        Where the IDE layouts' tabs go, keeping the front tab while the panel's terminal is active
-    useFrontTabClose.ts  ⌘W in the IDE layouts: the tab strip closes its front tab, file or conversation
+    useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
     useEditorOverlay.ts  The editor pane dragged past the conversation's minimum: drawn over it and the sidebar
     useSidebarWidth.ts   The sidebar's dragged width (localStorage), kept when the editor pane opens or closes
     useProviders.ts      Provider status, sign-in and sign-out via the pi host
@@ -124,7 +118,6 @@ src/                     React frontend (almost all logic lives here)
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     themePalette.ts      The theme's colors for inline code, success, warning and errors
     tabs.ts              Open/close logic for file tabs
-    ideTabs.ts           Where the IDE layouts put the editor's tabs: the one strip, terminals in a panel below
     recent.ts            Recent-folders list logic
     conversationTags.ts  Conversation tags: splitting typed text, adding, removing, suggestions
     commandQuery.ts      Command center query: `@folder`, `@convos`/`@files`/`@folders`, result picks
@@ -134,8 +127,8 @@ src/                     React frontend (almost all logic lives here)
     iconThemeGroups.ts   Icon themes grouped for the picker
     openFolders.ts       The file tree's open folders, remembered (localStorage, newest 500)
     menu.ts              macOS menu bar
-    inAppMenu.ts         On Windows and Linux the same items as an in-app menu (AppMenuButton: a button that unfolds
-                         into a menu bar, File first and the app's menu last), and its shortcuts' key matching
+    inAppMenu.ts         On Windows and Linux the same items as an in-app menu (AppMenuButton), File first and
+                         the app's menu last, and its shortcuts' key matching
     lifecycle.ts         Confirm before quitting or closing a window
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
@@ -269,8 +262,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, copySignIn), run in the MCP session
   mcpSession.ts          An in-memory session with only the MCP adapter: checks and sign-ins with no conversation open
   wire.ts                Session event wire form (toWireEvent, describeError)
-  claudeCode.ts          The user's Claude Code, found on PATH or where its installers put it, and its login
-                         (`claude auth status/login`); the agent SDK runs it (bridge, web search), not a bundled copy
+  claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
   appUpdate.ts           The app's own commit, and updating it: a launcher version stages the next one,
                          a clone pulls (`git pull --ff-only`, `pnpm install` if the lockfile changed)
   appBuild.ts            Launcher versions (~/.ignite/app/<commit>, worktrees of the user's clone): building one
@@ -340,7 +332,6 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   remote.ts              Remote access: browsers share this sidecar; replies routed by id, events to all
   remoteServer.ts        Its HTTP server: proxies the UI from Vite, WebSocket; its links (network, Tailscale)
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
-public/icon-themes/      Bundled icon themes (VS Code format), served as-is
 demo/tempo/, demo/pantry/ Sample projects `pnpm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
@@ -407,26 +398,10 @@ Two places hold persisted data:
   `importedFrom`, and the picker lists it once. Never read other editors'
   settings; only their installed theme files.
 - **Icon theme:** `icon_theme` is `"minimal"` (the app's Lucide glyphs, the
-  default), `"jetbrains"` (bundled in `public/icon-themes/jetbrains`, fogio's
-  MIT-licensed JetBrains New UI icon theme, served with the app), or a VS
-  Code file icon theme's id (`<publisher>.<name>/<id>`), found in the same
+  default), or a VS Code file icon theme's id (`<publisher>.<name>/<id>`), found in the same
   VS Code-family editors' extensions or in `~/.ignite/icon-themes/` (each
   folder there an extension with a `package.json`). Read in place, not
   copied: one that's gone falls back to Minimal. Image and font icons both work.
-- **Layout** (`layout`): `"default"` (the sidebar layout), `"vscode"` or
-  `"jetbrains"` (Settings → Appearance). The IDE layouts reuse the same panes
-  (`components/app/IdeWorkspace.tsx`): an activity bar switching the side
-  panel between the folder list (JetBrains': only the folder its top bar
-  picks), the file tree and the PR view (the composer's git status, kept
-  open); one strip of conversation and file tabs over whichever is in front
-  (`lib/ideTabs.ts`; terminals open in a panel below, in JetBrains its own island).
-  Closing a conversation's tab only hides it (`hooks/useHiddenTabs.ts`; the
-  sidebar ends conversations, and showing one there reopens its tab); a closed
-  front tab gives way per `nextFront`, and ⌘W closes the front tab
-  (`hooks/useFrontTabClose.ts`). The status bar shows git status in place of
-  the composer, VS Code's in the theme's `statusBar.background`. JetBrains'
-  bar is labelled and its panes are islands. No Liquid Glass; phones keep the
-  default layout.
 - **Editor settings** (`[editor]` in settings.toml): `font_family` (CSS list,
   default Menlo) and `word_wrap` for the file viewer.
 - **Conversation settings** (`[conversation]`): `show_thinking` (off by

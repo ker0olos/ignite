@@ -1,8 +1,6 @@
-import type { AgentStatus } from "../../shared/agentStatus";
 import { describe, expect, it } from "vitest";
 import {
   conversationTitle,
-  runCounts,
   orderedRows,
   replyNote,
   rowsOf,
@@ -164,21 +162,5 @@ describe("conversationTitle", () => {
   it("is the title, or New conversation before the first message", () => {
     expect(conversationTitle({ title: "Fix bug" })).toBe("Fix bug");
     expect(conversationTitle({ title: "" })).toBe("New conversation");
-  });
-});
-
-describe("runCounts", () => {
-  const row = (running: boolean, waiting: boolean) =>
-    ({ running, waiting }) as AgentStatus;
-  it("counts working and waiting conversations, waiting ones not as working", () => {
-    expect(
-      runCounts([row(true, false), row(true, true), row(false, true)]),
-    ).toBe("1 working · 2 waiting");
-    expect(runCounts([row(true, false)])).toBe("1 working");
-    expect(runCounts([row(false, false)])).toBe("");
-    // A fork waiting on the user counts too.
-    expect(
-      runCounts([{ ...row(false, false), forks: [row(false, true)] }]),
-    ).toBe("1 waiting");
   });
 });

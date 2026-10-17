@@ -13,12 +13,9 @@ export function DesktopWorkspace({
   sidebar,
   agent,
   agentMinWidth,
-  glass = true,
   ...pane
 }: ComponentProps<typeof MobileWorkspace> & {
   agentMinWidth: number;
-  /** Off, the window's Liquid Glass doesn't show through. */
-  glass?: boolean;
 }) {
   const { active } = pane.tabs;
   const overlay = useEditorOverlay(agentMinWidth, !!active);
@@ -34,7 +31,7 @@ export function DesktopWorkspace({
       orientation="horizontal"
       className="relative flex-1"
       elementRef={overlay.group}
-      data-glass={glass || undefined}
+      data-glass
       defaultLayout={layout.defaultLayout}
       onLayoutChanged={layout.onLayoutChanged}
     >

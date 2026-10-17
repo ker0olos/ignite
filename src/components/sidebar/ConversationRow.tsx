@@ -35,7 +35,6 @@ export function ConversationRow({
 
   return (
     <div
-      data-slot="conversation-row"
       className={cn(
         "group relative flex min-h-7 items-center rounded-md",
         selected
@@ -45,7 +44,6 @@ export function ConversationRow({
     >
       <button
         onClick={onShow}
-        data-slot="conversation-button"
         aria-current={selected || undefined}
         className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-[13px]"
       >

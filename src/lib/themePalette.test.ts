@@ -29,8 +29,6 @@ describe("paletteOf", () => {
           "editorWarning.foreground": "#ff0",
           "terminal.ansiRed": "#f00",
           "terminal.ansiBrightBlue": "#9cf",
-          "statusBar.background": "#007acc",
-          "statusBar.foreground": "#fff",
         },
         tokenColors: [
           { scope: ["comment"], settings: { foreground: "#888" } },
@@ -45,8 +43,6 @@ describe("paletteOf", () => {
       success: "#0f0",
       warning: "#ff0",
       destructive: "#f00",
-      "status-bar": "#007acc",
-      "status-bar-foreground": "#fff",
       green: "#0f0",
       red: "#f00",
       brightBlue: "#9cf",

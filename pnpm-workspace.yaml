@@ -14,10 +14,6 @@ allowBuilds:
   tree-sitter-rust: false
   tree-sitter-typescript: false
 
-# The agent SDK's own Claude Code (117 MB): it runs the user's installed claude instead.
-ignoredOptionalDependencies:
-  - "@anthropic-ai/claude-agent-sdk-*"
-
 minimumReleaseAgeExclude:
   - "@anthropic-ai/sandbox-runtime@0.0.80"
 

@@ -64,12 +64,6 @@ describe("listIconThemes", () => {
     });
     expect(await m.listIconThemes()).toEqual([
       {
-        id: "jetbrains",
-        label: "JetBrains",
-        source: "Built-in",
-        path: "/icon-themes/jetbrains/jetbrains.json",
-      },
-      {
         id: "vscode.mine/jb",
         label: "JetBrains",
         source: "Custom",
@@ -147,28 +141,6 @@ describe("loadIconTheme", () => {
   });
 });
 
-describe("the bundled theme", () => {
-  it("is fetched from the app, its icons used by URL", async () => {
-    fake({});
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        json: async () => ({
-          iconDefinitions: { ts: { iconPath: "./icons/file/ts.svg" } },
-          fileExtensions: { ts: "ts" },
-        }),
-      })),
-    );
-    const theme = await m.loadIconTheme("jetbrains");
-    const icon = m.themedIcon(theme, "a.ts", "file", false);
-    expect(icon).toEqual({ image: "/icon-themes/jetbrains/icons/file/ts.svg" });
-    expect(await m.iconUrl("/icon-themes/jetbrains/icons/file/ts.svg")).toBe(
-      "/icon-themes/jetbrains/icons/file/ts.svg",
-    );
-    vi.unstubAllGlobals();
-  });
-});
-
 describe("iconUrl", () => {
   it("reads each file once, as a typed blob", async () => {
     const { calls } = fake(SETI);
@@ -183,12 +155,9 @@ describe("iconUrl", () => {
 });
 
 describe("iconUrlNow", () => {
-  it("has a bundled icon's URL, and a read one's, at once", async () => {
+  it("has a read icon's URL at once", async () => {
     fake({ "/x/a.svg": "<svg/>" });
     URL.createObjectURL = () => "blob:a";
-    expect(m.iconUrlNow("/icon-themes/jetbrains/a.svg")).toBe(
-      "/icon-themes/jetbrains/a.svg",
-    );
     expect(m.iconUrlNow("/x/a.svg")).toBeUndefined();
     await m.iconUrl("/x/a.svg");
     expect(m.iconUrlNow("/x/a.svg")).toBe("blob:a");

@@ -15,8 +15,6 @@
 }
 
 @theme inline {
-  --color-status-bar: var(--status-bar);
-  --color-status-bar-foreground: var(--status-bar-foreground);
   --font-heading: var(--font-sans);
   --font-sans: system-ui, -apple-system, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -95,11 +93,6 @@
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   /* The VS Code layout's status bar: the theme's own, else the accent. */
-  --status-bar: var(--theme-status-bar-light, var(--sidebar-primary));
-  --status-bar-foreground: var(
-    --theme-status-bar-foreground-light,
-    var(--sidebar-primary-foreground)
-  );
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
@@ -138,11 +131,6 @@
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   /* The VS Code layout's status bar: the theme's own, else the accent. */
-  --status-bar: var(--theme-status-bar-dark, var(--sidebar-primary));
-  --status-bar-foreground: var(
-    --theme-status-bar-foreground-dark,
-    var(--sidebar-primary-foreground)
-  );
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
@@ -277,96 +265,14 @@
   border-radius: 3px;
 }
 
-/* The VS Code and JetBrains layouts restyle the shared panes, tabs and folder list by their
-   data-slot and data-pane marks; outside the layers, so they win over those components' classes. */
-
-/* JetBrains: each pane a rounded island; the conversation's unclipped (WebKit repaints a scroller under a rounded clip).
-   The main area holds two, its tabs' and the terminal panel's, so it's none itself. */
-.ide-islands [data-pane]:not([data-pane="agent"]) {
-  @apply mx-[3px] mb-1.5 h-[calc(100%-0.375rem)] rounded-lg border;
-}
-.ide-islands :is([data-pane="side"], [data-pane="terminal"]) {
-  @apply overflow-hidden;
-}
-.ide-islands [data-slot="resizable-handle"] {
-  @apply bg-transparent shadow-none;
-}
-.ide-islands [data-slot="file-tabs"] {
-  @apply h-10 flex-nowrap items-center gap-1 rounded-t-lg bg-sidebar px-2 py-0;
-}
-.ide-islands [data-slot="file-tab"] {
-  @apply h-7 rounded-md border border-transparent;
-}
-.ide-islands [data-slot="file-tab"][data-active] {
-  @apply border-sidebar-primary bg-sidebar-primary/15;
-}
-.ide-islands [data-slot="project-name"] {
-  @apply gap-2 font-semibold;
-}
-.ide-islands [data-slot="project-name"]::after {
-  content: attr(data-count);
-  @apply text-xs font-normal text-muted-foreground;
-}
-.ide-islands [data-slot="conversation-row"] {
-  @apply min-h-7.5 pl-1.5;
-}
-
-/* Both: no folder icons; the command center (in a portal) on the editor's background. */
-:is(.ide-vscode, .ide-islands) [data-slot="project-icon"] {
-  @apply hidden;
-}
-body:has(.ide-vscode, .ide-islands) [data-command-center] {
-  @apply bg-background;
-}
-
-/* VS Code: flat touching tabs, the active one marked on top; folders as uppercase sections over tight rows. */
-.ide-vscode [data-slot="file-tabs"] {
-  @apply gap-0 border-b-0 bg-sidebar pt-0;
-}
-.ide-vscode [data-slot="file-tab"] {
-  @apply h-8.75 rounded-none border-0 border-t border-r border-t-transparent border-r-border;
-}
-.ide-vscode [data-slot="file-tab"][data-active] {
-  @apply border-t-sidebar-primary bg-background;
-}
-.ide-vscode [data-slot="folder-list"] {
-  @apply gap-0;
-}
-.ide-vscode [data-slot="project-row"] {
-  @apply mt-1.5 h-5.5 rounded-none;
-}
-.ide-vscode [data-slot="project-name"] {
-  @apply text-[11px] font-bold tracking-wide uppercase;
-}
-.ide-vscode [data-slot="conversation-row"] {
-  @apply min-h-6 rounded-none pl-3;
-}
-.ide-vscode [data-slot="conversation-button"] {
-  @apply py-0.5;
-}
-.ide-vscode [data-slot="conversation-row"]:has([aria-current]) {
-  @apply outline outline-sidebar-primary -outline-offset-1;
-}
-
 /* Windows: the window's controls in its top-right corner (WindowControls); while they show, what
-   reaches that corner makes room: the default layout's conversation a strip like VS Code's title bar.
-   In the IDE layouts they fill the top bar's height. */
+   reaches that corner makes room: the tab strip, and the conversation a strip like VS Code's title bar. */
 :root:has([data-slot="window-controls"]) {
   --window-controls: 8.625rem;
 }
-:root:has([data-slot="window-controls"])
-  :is([data-slot="file-tabs"], [data-slot="ide-top-bar"]) {
+:root:has([data-slot="window-controls"]) [data-slot="file-tabs"] {
   padding-right: var(--window-controls);
 }
-:root:has([data-slot="window-controls"])
-  :is(.ide-vscode, .ide-islands)
-  [data-slot="file-tabs"] {
-  @apply pr-2;
-}
-:root:has([data-slot="window-controls"])
-  [data-pane="agent"]:not(:is(.ide-vscode, .ide-islands) *) {
+:root:has([data-slot="window-controls"]) [data-pane="agent"] {
   @apply pt-9;
-}
-body:has(.ide-vscode, .ide-islands) [data-slot="window-controls"] {
-  @apply h-13;
 }

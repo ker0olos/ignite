@@ -20,8 +20,6 @@ export type Settings = {
   theme: string;
   /** "minimal" (the app's own glyphs), or a VS Code icon theme's id from iconThemes.ts. */
   icon_theme: string;
-  /** How the workspace is laid out: the app's own, or like VS Code or JetBrains IDEs. */
-  layout: Layout;
   /** How the file viewer shows code. `font_family` is a CSS font-family list. */
   editor: { font_family: string; word_wrap: boolean };
   /** `show_tree`: the sidebar lists the folder's files under its conversations. */
@@ -82,12 +80,9 @@ export type Settings = {
 
 export type ConversationOrder = "oldest_first" | "newest_first";
 
-export type Layout = "default" | "vscode" | "jetbrains";
-
 export const DEFAULT_SETTINGS: Settings = {
   theme: SYSTEM_THEME,
   icon_theme: MINIMAL_ICONS,
-  layout: "default",
   editor: {
     font_family: "Menlo, Monaco, 'Courier New', monospace",
     word_wrap: true,
@@ -230,9 +225,6 @@ const readRemote = (
       : DEFAULT_SETTINGS.remote.port,
 });
 
-const readLayout = (value: unknown): Layout =>
-  value === "vscode" || value === "jetbrains" ? value : "default";
-
 const readIconTheme = (value: unknown) =>
   typeof value === "string" && value ? value : DEFAULT_SETTINGS.icon_theme;
 
@@ -264,7 +256,6 @@ export async function loadSettings(): Promise<Settings> {
   return {
     theme,
     icon_theme: readIconTheme(raw.icon_theme),
-    layout: readLayout(raw.layout),
     editor: {
       font_family:
         typeof editor.font_family === "string" && editor.font_family.trim()

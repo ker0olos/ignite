@@ -114,19 +114,6 @@ export function orderedRows(
 export const conversationTitle = (c: { title: string }) =>
   c.title || "New conversation";
 
-/** How many conversations, forks included, work and wait: "1 working · 2 waiting", empty for none. */
-export function runCounts(rows: TaggedAgentStatus[]) {
-  const all = rows.flatMap((r) => [r, ...(r.forks ?? [])]);
-  const waiting = all.filter((r) => r.waiting).length;
-  const working = all.filter((r) => r.running && !r.waiting).length;
-  return [
-    working > 0 && `${working} working`,
-    waiting > 0 && `${waiting} waiting`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
 /** `n` things, singular or plural: "1 tool", "4 tools". */
 export const counted = (n: number, one: string) =>
   `${n} ${one}${n === 1 ? "" : "s"}`;

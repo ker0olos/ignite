@@ -48,8 +48,6 @@ type AppWorkspaceProps = {
   terminals: ReturnType<typeof useTerminalTabs>;
   /** Opens a tab in any folder, selecting it first. */
   openIn: (folder: string, tab: string) => void;
-  /** Shows an open folder, or adds one. */
-  addFolder: (folder: string) => void;
   about: ReturnType<typeof useAbout>;
 };
 
@@ -73,7 +71,6 @@ export function AppWorkspace({
   host,
   terminals,
   openIn,
-  addFolder,
   tags,
   tagFilter,
   onToggleTagFilter,
@@ -96,13 +93,6 @@ export function AppWorkspace({
       approval={approvalSetting(settings, setSettings)}
       modelRouter={modelRouterSetting(settings, setSettings)}
       actions={<TitleButtons menu={menu} onSettings={() => openSettings()} />}
-      layout={settings.layout}
-      chrome={{
-        menu,
-        onSettings: () => openSettings(),
-        onSearch: () => command.openWith(),
-        onSelectFolder: addFolder,
-      }}
       projectList={{
         folders,
         rows,

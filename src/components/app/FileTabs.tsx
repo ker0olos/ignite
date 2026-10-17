@@ -13,8 +13,6 @@ export function FileTabs({
   onSelect,
   onClose,
   terminalLabel,
-  label: labelOf = (tab) => tabLabel(tab, folder, terminalLabel),
-  className,
 }: {
   files: string[];
   active: string;
@@ -22,26 +20,18 @@ export function FileTabs({
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
   terminalLabel?: (terminal: string) => TerminalLabel;
-  /** How a tab shows; files, diffs and children by default. */
-  label?: (tab: string) => ReturnType<typeof tabLabel>;
-  className?: string;
 }) {
   return (
     <div
       data-tauri-drag-region
       data-slot="file-tabs"
-      className={cn(
-        "flex shrink-0 flex-wrap items-end gap-0.5 border-b pt-4 pr-2 pl-[max(0.5rem,var(--tabs-inset,0px))]",
-        className,
-      )}
+      className="flex shrink-0 flex-wrap items-end gap-0.5 border-b pt-4 pr-2 pl-[max(0.5rem,var(--tabs-inset,0px))]"
     >
       {files.map((path) => {
-        const label = labelOf(path);
+        const label = tabLabel(path, folder, terminalLabel);
         return (
           <div
             key={path}
-            data-slot="file-tab"
-            data-active={path === active || undefined}
             title={label.title}
             className={cn(
               "group flex h-9 max-w-full min-w-0 items-center gap-1.5 rounded-t-md border border-b-0 pr-1.5 pl-3 text-[13px]",

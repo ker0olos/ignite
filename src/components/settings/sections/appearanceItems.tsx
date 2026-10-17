@@ -1,27 +1,14 @@
 import type { Item } from "@/components/settings/sections";
 import { IconThemePicker } from "@/components/settings/IconThemePicker";
 import { ThemePicker } from "@/components/settings/ThemePicker";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { CodeTheme } from "@/lib/codeThemes";
 import { CUSTOM_THEMES_DIR, listThemes } from "@/lib/codeThemeDiscovery";
 import { importTheme } from "@/lib/codeThemeLoad";
 import { CUSTOM_ICON_THEMES_DIR, type IconThemeInfo } from "@/lib/iconThemes";
-import type { Layout, Settings } from "@/lib/settings";
+import type { Settings } from "@/lib/settings";
 
-const LAYOUTS: { value: Layout; label: string }[] = [
-  { value: "default", label: "Default" },
-  { value: "vscode", label: "VS Code" },
-  { value: "jetbrains", label: "JetBrains" },
-];
-
-/** Settings rows for appearance: the layout, the theme and icon theme pickers, and the composer's git status. */
+/** Settings rows for appearance: the theme and icon theme pickers, and the composer's git status. */
 export function appearanceItems({
   themes,
   iconThemes,
@@ -36,38 +23,6 @@ export function appearanceItems({
   onThemesChange: (themes: CodeTheme[]) => void;
 }): Item[] {
   return [
-    {
-      section: "Appearance",
-      title: "Layout",
-      description:
-        "Arrange the window like VS Code (an activity bar) or a JetBrains IDE (tool windows).",
-      keywords:
-        "layout mode ide vs code vscode jetbrains intellij activity bar",
-      control: (
-        <Select
-          items={LAYOUTS}
-          value={settings.layout}
-          onValueChange={(value) =>
-            value && onChange({ ...settings, layout: value as Layout })
-          }
-        >
-          <SelectTrigger size="sm" className="w-44 text-[13px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent alignItemWithTrigger={false}>
-            {LAYOUTS.map((layout) => (
-              <SelectItem
-                key={layout.value}
-                value={layout.value}
-                className="text-[13px]"
-              >
-                {layout.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    },
     {
       section: "Appearance",
       title: "Theme",
@@ -102,9 +57,9 @@ export function appearanceItems({
     },
     {
       section: "Appearance",
-      title: "Git status",
+      title: "Git status in the composer",
       description:
-        "Each repository the conversation changed, with uncommitted files, unpushed commits or an open pull request: in the composer, or the VS Code and JetBrains layouts' status bar.",
+        "Show each repository the conversation changed with uncommitted files, unpushed commits or an open pull request.",
       keywords: "git branch pull request pr uncommitted unpushed repository",
       control: (
         <Switch
