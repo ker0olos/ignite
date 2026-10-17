@@ -29,6 +29,7 @@ export function IdeTopBar({
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <header
+      data-slot="ide-top-bar"
       data-tauri-drag-region
       className={cn(
         "flex h-13 shrink-0 items-center gap-1 pr-2",

@@ -95,6 +95,7 @@ src/                     React frontend (almost all logic lives here)
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
     useOpenedOnce.ts     Mounts a lazy dialog (Settings, command center) on first open; loads its code soon after startup
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
+    useMaximized.ts      Whether the window is maximized, for WindowControls' maximize or restore
     useIconTheme.ts      The loaded icon theme every FileIcon draws with, and light or dark; useIconUrl.ts its images
     useRemoteAccess.ts   Main window: starts the remote access server, runs browsers' allowed Tauri calls
     useTasks.ts          The folder's tasks, pushed by the sidecar, with status from their conversations
@@ -184,7 +185,8 @@ src/                     React frontend (almost all logic lives here)
     artifactCapture.ts   Mark up: an artifact page drawn as a PNG (HTML frames draw themselves, html-to-image,
                          with Google Fonts fetched for it)
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
-    window.ts            Window sizing and New Window
+    window.ts            Window sizing and New Window; on Windows no system title bar, the app's
+                         WindowControls (minimize, maximize, close) in the top-right corner instead
     liveReload.ts        Reloads the page when the launcher starts serving Vite (a mod changed)
     paths.ts             basename / dirname / ~ shortening
     utils.ts             `cn` class-name helper (shadcn)

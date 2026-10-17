@@ -68,7 +68,7 @@ describe("fitToScreenAndShow", () => {
     );
   });
 
-  it("maximizes on Windows, where the title and menu bars sit above the content", async () => {
+  it("maximizes on Windows, without the system title bar the app draws its own of", async () => {
     const ua = vi
       .spyOn(navigator, "userAgent", "get")
       .mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
@@ -76,9 +76,11 @@ describe("fitToScreenAndShow", () => {
     await fitToScreenAndShow();
     ua.mockRestore();
     expect(commands(calls)).toEqual([
+      "plugin:window|set_decorations",
       "plugin:window|maximize",
       "plugin:window|show",
     ]);
+    expect(calls[0].args).toEqual({ label: "main", value: false });
   });
 
   it("still shows the window when there is no monitor", async () => {
