@@ -77,6 +77,25 @@ describe("checks", () => {
       "Packages for this lockfile installed",
     );
   });
+
+  it("on Linux, says which of the sandbox's tools are missing", async () => {
+    const bin = join(dir, "bin");
+    const linux = (PATH: string) => ({
+      ...place(),
+      platform: "linux" as const,
+      env: { PATH },
+    });
+    expect((await checks(linux(bin))).at(-1)).toEqual({
+      ok: false,
+      text: "No sandbox without bubblewrap and socat: run npm run setup to install",
+    });
+    for (const tool of ["bwrap", "socat"]) await write(join(bin, tool));
+    execFileSync("chmod", ["+x", join(bin, "bwrap"), join(bin, "socat")]);
+    expect((await checks(linux(bin))).at(-1)).toEqual({
+      ok: true,
+      text: "bubblewrap and socat, for the sandbox",
+    });
+  });
 });
 
 describe("space", () => {

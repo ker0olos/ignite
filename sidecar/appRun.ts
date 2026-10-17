@@ -7,6 +7,12 @@ export type Step = (text: string) => void;
 
 const TAIL = 20_000;
 
+// pnpm's latest progress in `output` ("resolved 702, reused 0, downloaded 340, added 0"), or null.
+function progressOf(output: string) {
+  const all = output.match(/Progress: [^\r\n]+/g);
+  return all ? all[all.length - 1].slice("Progress: ".length) : null;
+}
+
 /**
  * A Step that prints what setup does now, and writes it to `log` after the
  * time it has taken ("0:12  Installing packages…"), where the tools' output goes.
@@ -25,7 +31,8 @@ export function stepper(log: string, now = Date.now): Step {
 /**
  * Runs a build tool (pnpm, npm, Vite, cargo) to completion. Its output goes in
  * the error when it fails, to IGNITE_TOOL_LOG's file when set (setup's log),
- * and with IGNITE_VERBOSE set, to the terminal as it runs.
+ * and with IGNITE_VERBOSE set, to the terminal as it runs; else a terminal
+ * shows its progress on one line (pnpm's), redrawn in place.
  */
 export function runTool(
   cmd: string,
@@ -39,6 +46,9 @@ export function runTool(
   const line = [cmd, ...args].join(" ");
   const verbose = !!process.env.IGNITE_VERBOSE;
   const log = process.env.IGNITE_TOOL_LOG;
+  // Never the sidecar's stdout, which is its protocol to the app.
+  const live = !verbose && process.stdout.isTTY;
+  let shown = false;
   if (log) appendFileSync(log, `$ ${line}\n`);
   // Through a shell, one command line: Node warns about arguments it doesn't escape.
   const child = spawn(shell ? line : cmd, shell ? [] : args, {
@@ -52,12 +62,18 @@ export function runTool(
     output = (output + data).slice(-TAIL);
     if (log) appendFileSync(log, data);
     if (verbose) terminal.write(data);
+    const progress = live && progressOf(data.toString());
+    if (progress) {
+      process.stdout.write(`\r\x1b[K  ${progress}`);
+      shown = true;
+    }
   };
   child.stdout.on("data", (d: Buffer) => keep(d, process.stdout));
   child.stderr.on("data", (d: Buffer) => keep(d, process.stderr));
   return new Promise<void>((resolve, reject) => {
     child.on("error", reject);
     child.on("close", (code) => {
+      if (shown) process.stdout.write("\r\x1b[K");
       if (code === 0) return resolve();
       reject(new Error(`${line} failed (exit ${code})\n${output.trim()}`));
     });

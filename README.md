@@ -65,17 +65,12 @@ once. Made for macOS; and others.
 You need [Node.js](https://nodejs.org) 22.18 or newer.
 
 ```sh
-git clone https://github.com/ker0olos/ignite.git
-cd ignite
+git clone https://github.com/ker0olos/ignite.git && cd ignite
 npm run setup
 ```
 
 Ignite opens when setup finishes, and lives in `~/Applications` on macOS, your
 app menu on Linux, or the Start Menu on Windows. It updates itself.
-
-On Linux, install [bubblewrap](https://github.com/containers/bubblewrap)
-(`bwrap`) so the agent's commands run sandboxed. Machines other than macOS,
-Linux x64 and Windows x64 also need [Rust](https://rustup.rs).
 
 `npm run uninstall` removes
 Ignite and keeps your conversations.
