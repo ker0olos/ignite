@@ -26,18 +26,6 @@ export type IconThemeInfo = {
   path: string;
 };
 
-// Served with the app (public/), so their files are fetched, not read from disk.
-const BUILT_IN_DIR = "/icon-themes/";
-
-const BUILT_IN_ICON_THEMES: IconThemeInfo[] = [
-  {
-    id: "jetbrains",
-    label: "JetBrains",
-    source: "Built-in",
-    path: `${BUILT_IN_DIR}jetbrains/jetbrains.json`,
-  },
-];
-
 type ExtensionManifest = {
   name?: string;
   publisher?: string;
@@ -76,7 +64,7 @@ async function scan(root: string, source: IconThemeInfo["source"]) {
 
 let discovered: Promise<IconThemeInfo[]> | null = null;
 
-/** Bundled, editor-installed and custom icon themes, each once; cached unless `refresh`. */
+/** Editor-installed and custom icon themes, each once; cached unless `refresh`. */
 export function listIconThemes(refresh = false) {
   if (!discovered || refresh) {
     discovered = homeDir().then(async (home) => {
@@ -85,8 +73,7 @@ export function listIconThemes(refresh = false) {
         ...extensionRoots(home).map((root) => scan(root, "VS Code")),
       ]);
       const byId = new Map<string, IconThemeInfo>();
-      for (const t of [...BUILT_IN_ICON_THEMES, ...found.flat()])
-        if (!byId.has(t.id)) byId.set(t.id, t);
+      for (const t of found.flat()) if (!byId.has(t.id)) byId.set(t.id, t);
       return [...byId.values()];
     });
   }
@@ -120,15 +107,9 @@ async function loadFonts(id: string, file: IconThemeFile, dir: string) {
 
 /** Loads an icon theme by id; rejects when it's no longer installed. */
 export async function loadIconTheme(id: string): Promise<IconTheme> {
-  const info =
-    BUILT_IN_ICON_THEMES.find((t) => t.id === id) ??
-    (await listIconThemes()).find((t) => t.id === id);
+  const info = (await listIconThemes()).find((t) => t.id === id);
   if (!info) throw new Error(`icon theme not found: ${id}`);
-  const file = normalizeTheme(
-    info.source === "Built-in"
-      ? await fetch(info.path).then((r) => r.json() as Promise<IconThemeFile>)
-      : await readJsonc<IconThemeFile>(info.path),
-  );
+  const file = normalizeTheme(await readJsonc<IconThemeFile>(info.path));
   const dir = dirname(info.path);
   return { file, dir, fonts: await loadFonts(id, file, dir) };
 }
@@ -158,9 +139,9 @@ const MIME: Record<string, string> = {
 const urls = new Map<string, Promise<string>>();
 const ready = new Map<string, string>();
 
-/** An icon file's URL if it's at hand now: a bundled one's own, or one already read. */
+/** An icon file's URL if it's at hand now: one already read. */
 export function iconUrlNow(path: string) {
-  return path.startsWith(BUILT_IN_DIR) ? path : ready.get(path);
+  return ready.get(path);
 }
 
 /** An icon file as an object URL, read once per path (a failed read is tried again next time). */

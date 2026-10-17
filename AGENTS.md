@@ -333,7 +333,6 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   remote.ts              Remote access: browsers share this sidecar; replies routed by id, events to all
   remoteServer.ts        Its HTTP server: proxies the UI from Vite, WebSocket; its links (network, Tailscale)
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
-public/icon-themes/      Bundled icon themes (VS Code format), served as-is
 demo/tempo/, demo/pantry/ Sample projects `pnpm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
@@ -400,9 +399,7 @@ Two places hold persisted data:
   `importedFrom`, and the picker lists it once. Never read other editors'
   settings; only their installed theme files.
 - **Icon theme:** `icon_theme` is `"minimal"` (the app's Lucide glyphs, the
-  default), `"jetbrains"` (bundled in `public/icon-themes/jetbrains`, fogio's
-  MIT-licensed JetBrains New UI icon theme, served with the app), or a VS
-  Code file icon theme's id (`<publisher>.<name>/<id>`), found in the same
+  default), or a VS Code file icon theme's id (`<publisher>.<name>/<id>`), found in the same
   VS Code-family editors' extensions or in `~/.ignite/icon-themes/` (each
   folder there an extension with a `package.json`). Read in place, not
   copied: one that's gone falls back to Minimal. Image and font icons both work.

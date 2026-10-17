@@ -20,7 +20,6 @@ export type Settings = {
   theme: string;
   /** "minimal" (the app's own glyphs), or a VS Code icon theme's id from iconThemes.ts. */
   icon_theme: string;
-  /** How the workspace is laid out: the app's own, or like VS Code or JetBrains IDEs. */
   /** How the file viewer shows code. `font_family` is a CSS font-family list. */
   editor: { font_family: string; word_wrap: boolean };
   /** `show_tree`: the sidebar lists the folder's files under its conversations. */

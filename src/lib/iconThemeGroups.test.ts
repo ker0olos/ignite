@@ -30,15 +30,6 @@ describe("iconThemeGroups", () => {
     ]);
   });
 
-  it("puts bundled themes first, after Minimal", () => {
-    const groups = iconThemeGroups(
-      [t("seti", "VS Code"), t("jetbrains", "Built-in")],
-      "jetbrains",
-    );
-    expect(groups.map((g) => g.source)).toEqual(["Built-in", "VS Code"]);
-    expect(groups[0].themes.map((x) => x.id)).toEqual(["minimal", "jetbrains"]);
-  });
-
   it("lists a saved theme that's gone under Missing", () => {
     const [missing] = iconThemeGroups([t("seti", "Custom")], "gone");
     expect(missing.source).toBe("Missing");
