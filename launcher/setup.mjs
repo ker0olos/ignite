@@ -1,21 +1,14 @@
 // `npm run setup`: installs the packages, builds the app and adds its launcher
 // (sidecar/appLauncher.ts), on every platform. Safe to run again; it picks up
-// where it stopped. `npm run setup -- --verbose` also shows each tool's output.
+// where it stopped. `npm run setup -- --verbose` also shows each tool's output;
+// `--check` reports and changes nothing. `npm run uninstall` removes it.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-
-// Before any TypeScript loads: older Nodes can't run it (nor mods' registerHooks).
-const [major, minor] = process.versions.node.split(".").map(Number);
-if (major < 22 || (major === 22 && minor < 18)) {
-  console.error(
-    `Ignite needs Node.js 22.18 or newer (this is ${process.versions.node}).`,
-  );
-  process.exit(1);
-}
+import "./nodeCheck.mjs";
 
 // An option it doesn't know would otherwise run a whole setup (a typo'd `--check,` too).
 const OPTIONS = ["--check", "--verbose"];

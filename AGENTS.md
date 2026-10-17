@@ -281,6 +281,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   appLauncher.ts         The launcher setup adds: ~/Applications/Ignite.app, a Linux menu entry or a Start Menu
                          shortcut, each running launch.mjs with setup's PATH
   appSetup.ts            Setup's steps that need the packages: the Windows sandbox setting, whether Rust is needed
+  appUninstall.ts        `npm run uninstall`: the launcher and what Ignite keeps to run (versions,
+                         packages, pnpm); the user's conversations, settings and tasks stay unless `--all`
   appVersions.ts         The launcher's state (good, bad, next, restart), staging an update, pruning versions
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
@@ -370,6 +372,8 @@ launcher/                How users run the app (not maintainers; see README)
   setup.mjs              `npm run setup`, on every platform: the packages, the Windows sandbox offer, the first
                          build, the launcher; timed steps on screen, everything in ~/.ignite/launch/setup.log;
                          `--check` reports instead and changes nothing (sidecar/appDoctor.ts)
+  uninstall.mjs          `npm run uninstall`: removes it, asking first (sidecar/appUninstall.ts)
+  nodeCheck.mjs          Both scripts' first import: refuses a Node too old for the TypeScript they load
   launch.mjs             What they run: starts the newest built version with ~/.ignite/mods at once,
                          falls back to the last good version, then to no mods; again on restart
   serve.mjs              Serves its built frontend on :1420, or Vite (proxied) once a mod changes
