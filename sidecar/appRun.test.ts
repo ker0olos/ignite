@@ -5,7 +5,15 @@ import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { runTool, stepper } from "./appRun.ts";
 
-afterEach(() => vi.unstubAllEnvs());
+// isTTY is set only in a terminal, so it's defined here rather than spied on.
+const setTTY = (value: boolean) =>
+  Object.defineProperty(process.stdout, "isTTY", { value, configurable: true });
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  delete (process.stdout as { isTTY?: boolean }).isTTY;
+});
 
 const node = (code: string) => [process.execPath, ["-e", code]] as const;
 
@@ -45,6 +53,37 @@ it("copies the tool's output to IGNITE_TOOL_LOG's file, after its command", asyn
   expect(text).toContain("out");
   expect(text).toContain("err");
   rmSync(dir, { recursive: true });
+});
+
+const PNPM = `console.log('Lockfile is up to date');
+console.log('Progress: resolved 702, reused 0, downloaded 207, added 0');
+console.log('Progress: resolved 702, reused 0, downloaded 700, added 708, done')`;
+
+it("redraws pnpm's progress on one line in a terminal, and clears it", async () => {
+  setTTY(true);
+  const write = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+  const [cmd, args] = node(PNPM);
+  await runTool(cmd, [...args], { cwd: "." });
+  const shown = write.mock.calls.map(([text]) => String(text));
+  expect(shown.at(-2)).toBe(
+    "\r\x1b[K  resolved 702, reused 0, downloaded 700, added 708, done",
+  );
+  expect(shown.at(-1)).toBe("\r\x1b[K");
+  expect(shown.join("")).not.toContain("Lockfile");
+});
+
+it("shows no progress outside a terminal (the sidecar's stdout) or with IGNITE_VERBOSE", async () => {
+  setTTY(false);
+  const write = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+  const [cmd, args] = node(PNPM);
+  await runTool(cmd, [...args], { cwd: "." });
+  expect(write).not.toHaveBeenCalled();
+  setTTY(true);
+  vi.stubEnv("IGNITE_VERBOSE", "1");
+  await runTool(cmd, [...args], { cwd: "." });
+  const shown = write.mock.calls.map(([text]) => String(text)).join("");
+  expect(shown).toContain("Lockfile");
+  expect(shown).not.toContain("\x1b[K");
 });
 
 it("prints each step, and logs it after the time taken", () => {

@@ -280,6 +280,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          the terminal (--verbose); setup's steps
   appDoctor.ts           `npm run setup -- --check`: Node, git, pnpm, the packages, the version, the launcher, and
                          what takes space in ~/.ignite; reads only, so it runs before the packages are in
+  appLinuxSandbox.ts     bubblewrap and socat, which Auto's sandbox needs on Linux: which are missing, the
+                         package manager's command (through sudo) setup installs them with
   appLauncher.ts         The launcher setup adds: ~/Applications/Ignite.app, a Linux menu entry or a Start Menu
                          shortcut, each running launch.mjs with setup's PATH
   appSetup.ts            Setup's steps that need the packages: the Windows sandbox setting, whether Rust is needed
@@ -371,7 +373,8 @@ shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
 launcher/                How users run the app (not maintainers; see README)
-  setup.mjs              `npm run setup`, on every platform: the packages, the Windows sandbox offer, the first
+  setup.mjs              `npm run setup`, on every platform: the sandbox's questions first (Windows' sandbox, Linux's bubblewrap and socat;
+                         or --sandbox / --no-sandbox), the packages, the first
                          build, the launcher; its steps on screen, timed in ~/.ignite/launch/setup.log with everything else;
                          `--check` reports instead and changes nothing (sidecar/appDoctor.ts)
   uninstall.mjs          `npm run uninstall`: removes it, asking first (sidecar/appUninstall.ts)

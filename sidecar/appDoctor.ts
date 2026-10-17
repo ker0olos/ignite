@@ -8,6 +8,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { APP_NAME, APP_TITLE } from "../src/lib/app.ts";
 import { launcherFiles, userData } from "./appLauncher.ts";
+import { missingPackages } from "./appLinuxSandbox.ts";
 import { lockHash, pinned } from "./appPackages.ts";
 
 /** One line of the report: whether it's fine, and what was found. */
@@ -78,6 +79,16 @@ function version(home: string): Check {
 }
 
 /** Whether setup's work is in place: Node, git, pnpm, the packages, the version, the launcher. */
+function linuxSandbox(path: string): Check {
+  const missing = missingPackages(path);
+  return missing.length
+    ? {
+        ok: false,
+        text: `No sandbox without ${missing.join(" and ")}: run npm run setup to install`,
+      }
+    : { ok: true, text: "bubblewrap and socat, for the sandbox" };
+}
+
 export async function checks(place: Place): Promise<Check[]> {
   const [major, minor] = process.versions.node.split(".").map(Number);
   const node = major > 22 || (major === 22 && minor >= 18);
@@ -98,6 +109,7 @@ export async function checks(place: Place): Promise<Check[]> {
     existsSync(launcher)
       ? { ok: true, text: `Launcher at ${launcher}` }
       : { ok: false, text: `No launcher at ${launcher}: run npm run setup` },
+    ...(platform === "linux" ? [linuxSandbox(env.PATH ?? "")] : []),
   ];
 }
 

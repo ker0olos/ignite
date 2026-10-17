@@ -1,7 +1,8 @@
 // `npm run setup`: installs the packages, builds the app and adds its launcher
 // (sidecar/appLauncher.ts), on every platform. Safe to run again; it picks up
 // where it stopped. `npm run setup -- --verbose` also shows each tool's output;
-// `--check` reports and changes nothing. `npm run uninstall` removes it.
+// `--check` reports and changes nothing; `--sandbox` or `--no-sandbox` answers
+// the sandbox's questions (Windows' sandbox, Linux's bubblewrap and socat). `npm run uninstall` removes it.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -11,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import "./nodeCheck.mjs";
 
 // An option it doesn't know would otherwise run a whole setup (a typo'd `--check,` too).
-const OPTIONS = ["--check", "--verbose"];
+const OPTIONS = ["--check", "--verbose", "--sandbox", "--no-sandbox"];
 const unknown = process.argv.slice(2).filter((a) => !OPTIONS.includes(a));
 if (unknown.length) {
   console.error(
@@ -49,6 +50,56 @@ writeFileSync(
 process.env.IGNITE_TOOL_LOG = log;
 if (process.argv.includes("--verbose")) process.env.IGNITE_VERBOSE = "1";
 
+// The sandbox's questions are asked before the long part, so setup then runs to the end unattended.
+const sandboxFlag = process.argv.includes("--sandbox")
+  ? true
+  : process.argv.includes("--no-sandbox")
+    ? false
+    : null;
+
+async function yes(question) {
+  if (sandboxFlag !== null) return sandboxFlag;
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await rl.question(`${question} [Y/n] `);
+  rl.close();
+  return !/^n/i.test(answer.trim());
+}
+
+async function wantsWindowsSandbox() {
+  if (process.platform !== "win32") return false;
+  if (sandboxFlag === null)
+    console.log(`
+The sandbox is recommended: Auto mode needs it to run commands without asking.
+Setting it up needs admin rights once, to create a Windows user for ${APP_TITLE}.
+`);
+  return yes("Turn on the sandbox?");
+}
+const windowsSandbox = await wantsWindowsSandbox();
+
+// sandbox-runtime needs bubblewrap and socat from the system, which only root installs.
+async function installLinuxSandbox() {
+  const { installCommand, missingPackages } =
+    await import("../sidecar/appLinuxSandbox.ts");
+  const path = process.env.PATH ?? "";
+  const missing = missingPackages(path);
+  if (!missing.length || sandboxFlag === false) return;
+  const names = missing.join(" and ");
+  const command = installCommand(missing, {
+    path,
+    root: process.getuid() === 0,
+  });
+  const manual = `Install ${names} so the agent's commands run sandboxed.`;
+  if (!command) return step(manual);
+  console.log(`\nThe sandbox needs ${names}: ${command.join(" ")}`);
+  if (!(await yes("Install them now? (asks for your password)"))) return;
+  step(`Installing ${names}…`);
+  const { status } = spawnSync(command[0], command.slice(1), {
+    stdio: "inherit",
+  });
+  if (status !== 0) step(`Couldn't install them. ${manual}`);
+}
+if (process.platform === "linux") await installLinuxSandbox();
+
 function fail(what, error) {
   step(`${what}:\n${error?.message ?? error}`);
   console.error(`\nThe full log is ${log}`);
@@ -78,16 +129,7 @@ if (buildsBinary() && spawnSync("cargo", ["--version"]).status !== 0)
     "it needs Rust: https://rustup.rs",
   );
 
-if (process.platform === "win32") {
-  console.log(`
-The sandbox is recommended: Auto mode needs it to run commands without asking.
-Setting it up needs admin rights once, to create a Windows user for ${APP_TITLE}.
-`);
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await rl.question("Turn on the sandbox? [Y/n] ");
-  rl.close();
-  if (!/^n/i.test(answer.trim())) await enableWindowsSandbox(home);
-}
+if (windowsSandbox) await enableWindowsSandbox(home);
 
 // Built now, so the first start opens at once.
 const { buildVersion, LAUNCH } = await import("../sidecar/appBuild.ts");
