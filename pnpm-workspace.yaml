@@ -14,6 +14,10 @@ allowBuilds:
   tree-sitter-rust: false
   tree-sitter-typescript: false
 
+# recheck's Java fallback (22 MB): every platform Ignite ships has its native binary.
+ignoredOptionalDependencies:
+  - recheck-jar
+
 minimumReleaseAgeExclude:
   - "@anthropic-ai/sandbox-runtime@0.0.80"
 

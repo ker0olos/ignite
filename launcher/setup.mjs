@@ -55,7 +55,6 @@ writeFileSync(
 );
 process.env.IGNITE_TOOL_LOG = log;
 if (process.argv.includes("--verbose")) process.env.IGNITE_VERBOSE = "1";
-else console.log("(npm run setup -- --verbose shows each tool's output too)");
 
 function fail(what, error) {
   step(`${what}:\n${error?.message ?? error}`);

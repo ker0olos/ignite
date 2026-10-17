@@ -269,13 +269,13 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          (release binary, its packages linked, a frontend per set of mods)
   appPackages.ts         Packages installed once per lockfile (~/.ignite/packages/<hash>, with the pnpm
                          package.json pins, itself installed with npm if missing), linked as the clone's
-                         and each version's node_modules; pruned with the versions, and pnpm's store with them
+                         and each version's node_modules, from pnpm's own store (the user's, shared); pruned with the versions
   appBinary.ts           A version's binary from CI's release for its src-tauri/ tree: refused when its
                          attestation shows binary.yml didn't build it from main, used with a warning
                          when GitHub or Sigstore can't be reached to check
   attestation.ts         That check without gh: GitHub's attestation API, Sigstore's signature check
   appRun.ts              Runs the build tools (pnpm, npm, Vite, cargo), their output in the error, setup's log, or
-                         the terminal (--verbose); setup's timed steps
+                         the terminal (--verbose); setup's steps
   appDoctor.ts           `npm run setup -- --check`: Node, git, pnpm, the packages, the version, the launcher, and
                          what takes space in ~/.ignite; reads only, so it runs before the packages are in
   appLauncher.ts         The launcher setup adds: ~/Applications/Ignite.app, a Linux menu entry or a Start Menu
@@ -368,7 +368,7 @@ shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
 launcher/                How users run the app (not maintainers; see README)
   setup.mjs              `npm run setup`, on every platform: the packages, the Windows sandbox offer, the first
-                         build, the launcher; timed steps on screen, everything in ~/.ignite/launch/setup.log;
+                         build, the launcher; its steps on screen, timed in ~/.ignite/launch/setup.log with everything else;
                          `--check` reports instead and changes nothing (sidecar/appDoctor.ts)
   launch.mjs             What they run: starts the newest built version with ~/.ignite/mods at once,
                          falls back to the last good version, then to no mods; again on restart

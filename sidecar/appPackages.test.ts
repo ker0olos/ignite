@@ -62,6 +62,8 @@ describe.skipIf(process.platform === "win32")("linkPackages", () => {
     const installs = (await calls()).filter((c) => c.includes(" install "));
     expect(installs).toHaveLength(1);
     expect(installs[0]).toContain("--frozen-lockfile --prefer-offline --prod");
+    // From pnpm's own store, shared with the user's projects.
+    expect(installs[0]).not.toContain("--store-dir");
     const shared = await realpath(join(a, "node_modules"));
     expect(await realpath(join(b, "node_modules"))).toBe(shared);
     // Its own copy of the manifest, without scripts to run.
@@ -98,7 +100,7 @@ describe.skipIf(process.platform === "win32")("linkPackages", () => {
 });
 
 describe.skipIf(process.platform === "win32")("prunePackages", () => {
-  it("removes what no checkout links or pins, and the store with it", async () => {
+  it("removes what no checkout links or pins, and the store Ignite once had", async () => {
     await fakePnpm();
     await fakePnpm("11.0.0");
     const a = await checkout("a");
@@ -114,7 +116,7 @@ describe.skipIf(process.platform === "win32")("prunePackages", () => {
     expect(existsSync(await realpath(join(a, "node_modules")))).toBe(true);
   });
 
-  it("keeps an unfinished install and the store while one is busy", async () => {
+  it("keeps an unfinished install, and the old store, while one is busy", async () => {
     await fakePnpm();
     const a = await checkout("a");
     const unfinished = join(home, "packages", "fedcba9876543210");

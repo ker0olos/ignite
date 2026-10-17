@@ -209,7 +209,7 @@ export async function buildVersion(
       step("Copying the app's binary from the version before…");
       await placeBinary(dir, binary);
     } else {
-      step("Downloading the app's binary and checking CI built it…");
+      step("Downloading the app's binary…");
       await makeBinary(dir, warn);
     }
     step("Building the frontend…");
