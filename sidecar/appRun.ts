@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
 /** Says what a build is doing now: "Installing packages…". */
 export type Step = (text: string) => void;
@@ -6,8 +8,24 @@ export type Step = (text: string) => void;
 const TAIL = 20_000;
 
 /**
- * Runs a build tool (pnpm, npm, Vite, cargo) to completion; its output goes
- * in the error when it fails, or with IGNITE_VERBOSE set, to the terminal as it runs.
+ * A Step that prints what setup does now after the time it has taken ("0:12
+ * Installing packages…"), and writes it to `log` too, where the tools' output goes.
+ */
+export function stepper(log: string, now = Date.now): Step {
+  mkdirSync(dirname(log), { recursive: true });
+  const started = now();
+  return (text) => {
+    const s = Math.round((now() - started) / 1000);
+    const line = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}  ${text}`;
+    console.log(line);
+    appendFileSync(log, `${line}\n`);
+  };
+}
+
+/**
+ * Runs a build tool (pnpm, npm, Vite, cargo) to completion. Its output goes in
+ * the error when it fails, to IGNITE_TOOL_LOG's file when set (setup's log),
+ * and with IGNITE_VERBOSE set, to the terminal as it runs.
  */
 export function runTool(
   cmd: string,
@@ -20,21 +38,23 @@ export function runTool(
 ) {
   const line = [cmd, ...args].join(" ");
   const verbose = !!process.env.IGNITE_VERBOSE;
+  const log = process.env.IGNITE_TOOL_LOG;
+  if (log) appendFileSync(log, `$ ${line}\n`);
   // Through a shell, one command line: Node warns about arguments it doesn't escape.
   const child = spawn(shell ? line : cmd, shell ? [] : args, {
     cwd,
     env: { ...process.env, ...env },
     shell,
-    stdio: verbose
-      ? ["ignore", "inherit", "inherit"]
-      : ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "pipe", "pipe"],
   });
   let output = "";
-  const keep = (data: Buffer) => {
+  const keep = (data: Buffer, terminal: NodeJS.WriteStream) => {
     output = (output + data).slice(-TAIL);
+    if (log) appendFileSync(log, data);
+    if (verbose) terminal.write(data);
   };
-  child.stdout?.on("data", keep);
-  child.stderr?.on("data", keep);
+  child.stdout.on("data", (d: Buffer) => keep(d, process.stdout));
+  child.stderr.on("data", (d: Buffer) => keep(d, process.stderr));
   return new Promise<void>((resolve, reject) => {
     child.on("error", reject);
     child.on("close", (code) => {

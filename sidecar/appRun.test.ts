@@ -1,6 +1,9 @@
 // @vitest-environment node
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
-import { runTool } from "./appRun.ts";
+import { runTool, stepper } from "./appRun.ts";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -29,4 +32,38 @@ it("passes the environment it's given", async () => {
   await expect(
     runTool(cmd, [...args], { cwd: ".", env: { X: "y" } }),
   ).resolves.toBeUndefined();
+});
+
+it("copies the tool's output to IGNITE_TOOL_LOG's file, after its command", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "app-run-"));
+  const log = join(dir, "setup.log");
+  vi.stubEnv("IGNITE_TOOL_LOG", log);
+  const [cmd, args] = node("console.log('out'); console.error('err')");
+  await runTool(cmd, [...args], { cwd: "." });
+  const text = readFileSync(log, "utf8");
+  expect(text.startsWith(`$ ${cmd} -e `)).toBe(true);
+  expect(text).toContain("out");
+  expect(text).toContain("err");
+  rmSync(dir, { recursive: true });
+});
+
+it("prints each step after the time taken, and logs it", () => {
+  const dir = mkdtempSync(join(tmpdir(), "app-run-"));
+  const log = join(dir, "logs", "setup.log");
+  let now = 0;
+  const lines: string[] = [];
+  const print = vi
+    .spyOn(console, "log")
+    .mockImplementation((l) => lines.push(l));
+  const step = stepper(log, () => now);
+  step("Installing packages…");
+  now = 75_000;
+  step("Building the frontend…");
+  print.mockRestore();
+  expect(lines).toEqual([
+    "0:00  Installing packages…",
+    "1:15  Building the frontend…",
+  ]);
+  expect(readFileSync(log, "utf8")).toBe(`${lines.join("\n")}\n`);
+  rmSync(dir, { recursive: true });
 });
