@@ -72,7 +72,6 @@ async function pnpm(pinner: string, cwd: string, args: string[], ctx: Ctx) {
 }
 
 const INSTALL = ["install", "--frozen-lockfile", "--prefer-offline"];
-const storeDir = (home: string) => join(home, "pnpm-store");
 
 /** Installs `dir`'s packages in place, as in a maintainer's clone, with the pnpm it pins. */
 export const pnpmInstall = (dir: string, options: Options = {}) =>
@@ -96,9 +95,9 @@ async function install(dir: string, into: string, ctx: Ctx) {
   // No scripts: the folder isn't a checkout for `prepare` to set up.
   delete manifest.scripts;
   await writeFile(join(into, "package.json"), JSON.stringify(manifest));
-  // Only what runs and builds the frontend: maintainers' tools stay out.
-  const store = ["--store-dir", storeDir(ctx.home)];
-  await pnpm(dir, into, [...INSTALL, "--prod", ...store], ctx);
+  // Only what runs and builds the frontend: maintainers' tools stay out. From
+  // pnpm's own store, shared with the user's other pnpm projects.
+  await pnpm(dir, into, [...INSTALL, "--prod"], ctx);
   await writeFile(join(into, "ok"), "");
 }
 
@@ -149,8 +148,8 @@ async function removeUnkept(
 
 /**
  * Removes the shared packages none of `checkouts` link to (but unfinished
- * ones while `busy` installs them), the pnpm versions none pins, and with
- * them pnpm's store.
+ * ones while `busy` installs them) and the pnpm versions none pins. pnpm's
+ * store is the user's, shared with their projects, and stays.
  */
 export async function prunePackages(
   checkouts: string[],
@@ -163,13 +162,13 @@ export async function prunePackages(
     checkouts.map((c) => pinned(c).catch(() => "")),
   );
   await removeUnkept(join(home, "pnpm"), (version) => pins.includes(version));
-  const removed = await removeUnkept(
+  await removeUnkept(
     join(home, "packages"),
     (_, into) =>
       linked.includes(join(into, "node_modules")) ||
       (busy && !existsSync(join(into, "ok"))),
   );
-  // The packages left keep their files; `pnpm store prune` would leave its global virtual store behind.
-  if (removed && !busy)
-    await rm(storeDir(home), { recursive: true, force: true });
+  // ponytail: the store of its own Ignite had until Oct 2026, unused since; delete once installs have pruned.
+  if (!busy)
+    await rm(join(home, "pnpm-store"), { recursive: true, force: true });
 }

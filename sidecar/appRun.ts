@@ -8,17 +8,17 @@ export type Step = (text: string) => void;
 const TAIL = 20_000;
 
 /**
- * A Step that prints what setup does now after the time it has taken ("0:12
- * Installing packages…"), and writes it to `log` too, where the tools' output goes.
+ * A Step that prints what setup does now, and writes it to `log` after the
+ * time it has taken ("0:12  Installing packages…"), where the tools' output goes.
  */
 export function stepper(log: string, now = Date.now): Step {
   mkdirSync(dirname(log), { recursive: true });
   const started = now();
   return (text) => {
     const s = Math.round((now() - started) / 1000);
-    const line = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}  ${text}`;
-    console.log(line);
-    appendFileSync(log, `${line}\n`);
+    const time = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+    console.log(text);
+    appendFileSync(log, `${time}  ${text}\n`);
   };
 }
 

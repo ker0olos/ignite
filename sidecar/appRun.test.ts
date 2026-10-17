@@ -47,7 +47,7 @@ it("copies the tool's output to IGNITE_TOOL_LOG's file, after its command", asyn
   rmSync(dir, { recursive: true });
 });
 
-it("prints each step after the time taken, and logs it", () => {
+it("prints each step, and logs it after the time taken", () => {
   const dir = mkdtempSync(join(tmpdir(), "app-run-"));
   const log = join(dir, "logs", "setup.log");
   let now = 0;
@@ -60,10 +60,9 @@ it("prints each step after the time taken, and logs it", () => {
   now = 75_000;
   step("Building the frontend…");
   print.mockRestore();
-  expect(lines).toEqual([
-    "0:00  Installing packages…",
-    "1:15  Building the frontend…",
-  ]);
-  expect(readFileSync(log, "utf8")).toBe(`${lines.join("\n")}\n`);
+  expect(lines).toEqual(["Installing packages…", "Building the frontend…"]);
+  expect(readFileSync(log, "utf8")).toBe(
+    "0:00  Installing packages…\n1:15  Building the frontend…\n",
+  );
   rmSync(dir, { recursive: true });
 });
