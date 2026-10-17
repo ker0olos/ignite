@@ -1,5 +1,6 @@
 import { Bot, SquareTerminal, type LucideIcon } from "lucide-react";
 import type { AgentStatus } from "../../shared/hostProtocol";
+import { isWindows } from "@/lib/window";
 
 /** What a conversation runs beside it, opened as a tab: a subagent, or a background command. */
 export type ChildTab =
@@ -57,14 +58,18 @@ export function childTabLabel(
   detail: string;
   title: string;
   icon: LucideIcon;
+  /** Closing the tab leaves it running (a terminal with a command in it, any on Windows). */
+  keepsRunning?: boolean;
 } {
   if (tab.kind === "terminal") {
-    const running = command?.(tab.terminal) ?? "Terminal";
+    const busy = command?.(tab.terminal);
+    const running = busy ?? "Terminal";
     return {
       name: running,
       detail: tab.terminal,
       title: running,
       icon: SquareTerminal,
+      keepsRunning: busy !== undefined || isWindows(),
     };
   }
   return tab.kind === "agent"
