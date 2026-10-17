@@ -42,6 +42,8 @@ src/                     React frontend (almost all logic lives here)
     useSettings.ts       settings.toml, synced across windows; applies theme
     useFolderDrop.ts     Drag-and-drop folders onto the window
     useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
+    useEditorOverlay.ts  The editor pane dragged past the conversation's minimum: drawn over it and the sidebar
+    useSidebarWidth.ts   The sidebar's dragged width (localStorage), kept when the editor pane opens or closes
     useProviders.ts      Provider status, sign-in and sign-out via the pi host
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
     useAgentSession.ts   The folder's shown pi session: conversation, send/stop, trust, model and effort

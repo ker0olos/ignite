@@ -23,7 +23,7 @@ export function FileTabs({
   return (
     <div
       data-tauri-drag-region
-      className="flex shrink-0 flex-wrap items-end gap-0.5 border-b px-2 pt-4"
+      className="flex shrink-0 flex-wrap items-end gap-0.5 border-b pt-4 pr-2 pl-[max(0.5rem,var(--tabs-inset,0px))]"
     >
       {files.map((path) => {
         const label = tabLabel(path, folder, terminalCommand);
