@@ -266,7 +266,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostMcpSignIn.ts       MCP server sign-in (signOut, signIn, copySignIn), run in the MCP session
   mcpSession.ts          An in-memory session with only the MCP adapter: checks and sign-ins with no conversation open
   wire.ts                Session event wire form (toWireEvent, describeError)
-  claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
+  claudeCode.ts          The user's Claude Code, found on PATH or where its installers put it, and its login
+                         (`claude auth status/login`); the agent SDK runs it (bridge, web search), not a bundled copy
   appUpdate.ts           The app's own commit, and updating it: a launcher version stages the next one,
                          a clone pulls (`git pull --ff-only`, `pnpm install` if the lockfile changed)
   appBuild.ts            Launcher versions (~/.ignite/app/<commit>, worktrees of the user's clone): building one
