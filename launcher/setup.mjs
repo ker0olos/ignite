@@ -8,6 +8,17 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
+// `npm run setup -- --verbose` also shows each tool's own output as it runs.
+const verbose = process.argv.includes("--verbose");
+if (verbose) process.env.IGNITE_VERBOSE = "1";
+const started = Date.now();
+/** Prints what setup does now, after the time it has taken so far. */
+function step(text) {
+  const s = Math.round((Date.now() - started) / 1000);
+  console.log(
+    `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}  ${text}`,
+  );
+}
 
 /** Turns on `[approval] windows_sandbox` in settings.toml, keeping the rest. */
 async function enableWindowsSandbox() {
@@ -44,10 +55,11 @@ function fail(message) {
 const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 22 || (major === 22 && minor < 18))
   fail("Ignite needs Node.js 22.18 or newer.");
+if (!verbose)
+  console.log("(npm run setup -- --verbose shows each tool's output too)");
 // Everything after this imports the packages, installed once for the clone and the version setup builds.
-console.log("Installing packages…");
 const { linkPackages } = await import("../sidecar/appPackages.ts");
-await linkPackages(dirname(here), { keepOwn: true }).catch((error) =>
+await linkPackages(dirname(here), { keepOwn: true, step }).catch((error) =>
   fail(`Couldn't install the packages:\n${error.message}`),
 );
 // CI builds the binary for these machines; elsewhere it's built here, with Rust.
@@ -68,9 +80,8 @@ async function firstBuild() {
   const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: clone })
     .stdout.toString()
     .trim();
-  console.log("Setting up Ignite…");
   try {
-    await buildVersion(clone, head, clone, mods);
+    await buildVersion(clone, head, clone, mods, console.warn, step);
   } catch (error) {
     fail(`Couldn't build Ignite:\n${error.message}`);
   }
@@ -80,6 +91,7 @@ async function firstBuild() {
 const windows = process.platform === "win32";
 if (windows) await offerWindowsSandbox();
 await firstBuild();
+step("Adding Ignite's launcher…");
 const { status } = windows
   ? spawnSync(
       "powershell.exe",

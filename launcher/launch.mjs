@@ -77,7 +77,7 @@ async function pick() {
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: clone })
     .toString()
     .trim();
-  await buildVersion(clone, head, clone, MODS, (text) => tell(text));
+  await buildVersion(clone, head, clone, MODS, (text) => tell(text), log);
   return head;
 }
 

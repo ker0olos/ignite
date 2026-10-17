@@ -135,7 +135,7 @@ it.skipIf(process.platform === "win32")(
   async () => {
     await fakePnpm();
     const clone = await checkout("clone");
-    await pnpmInstall(clone, home);
+    await pnpmInstall(clone, { home });
     expect(await calls()).toEqual([
       `${clone} install --frozen-lockfile --prefer-offline`,
     ]);
@@ -145,7 +145,7 @@ it.skipIf(process.platform === "win32")(
 it("refuses a package that pins no pnpm", async () => {
   for (const packageManager of ["", "npm@11.0.0", "pnpm@latest"]) {
     const clone = await checkout("clone", packageManager);
-    await expect(pnpmInstall(clone, home)).rejects.toThrow(
+    await expect(pnpmInstall(clone, { home })).rejects.toThrow(
       "pins no pnpm version",
     );
   }

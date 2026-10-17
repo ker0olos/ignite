@@ -3,7 +3,6 @@
  * the user's clone in ~/.ignite/app/<commit>, built once (a release binary,
  * the frontend once per set of mods), so opening the app builds nothing.
  */
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
@@ -19,13 +18,12 @@ import {
 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
-import { promisify } from "node:util";
 import { APP_NAME, APP_TITLE } from "../src/lib/app.ts";
 import { downloadBinary } from "./appBinary.ts";
 import { linkPackages } from "./appPackages.ts";
+import { runTool, type Step } from "./appRun.ts";
 import { git } from "./worktreeGit.ts";
 
-const exec = promisify(execFile);
 const home = join(homedir(), `.${APP_NAME}`);
 /** Each version's folder, and the Cargo builds they share. */
 export const APPS = join(home, "app");
@@ -35,13 +33,8 @@ export const LAUNCH = join(home, "launch");
 const PROFILE = "app";
 const EXE = process.platform === "win32" ? "ignite.exe" : "ignite";
 
-async function run(cmd: string, args: string[], cwd: string, env = {}) {
-  await exec(cmd, args, {
-    cwd,
-    env: { ...process.env, ...env },
-    maxBuffer: 1 << 26,
-  });
-}
+const run = (cmd: string, args: string[], cwd: string, env = {}) =>
+  runTool(cmd, args, { cwd, env });
 
 /** Where commit `sha` is built. */
 export const versionDir = (sha: string) => join(APPS, sha);
@@ -201,18 +194,25 @@ export async function buildVersion(
   from: string,
   mods: string,
   warn: (text: string) => void = console.warn,
+  step: Step = () => {},
 ): Promise<string> {
   const dir = versionDir(sha);
   if (isBuilt(dir)) return dir;
   await removeVersion(clone, dir);
   await mkdir(APPS, { recursive: true });
+  step(`Checking out ${sha.slice(0, 7)} in ${dir}…`);
   await git(clone, ["worktree", "add", "--detach", dir, sha]);
   try {
-    await linkPackages(dir);
+    await linkPackages(dir, { step });
     const binary = binaryOf(from);
-    if (existsSync(binary) && (await sameRust(clone, from, sha)))
+    if (existsSync(binary) && (await sameRust(clone, from, sha))) {
+      step("Copying the app's binary from the version before…");
       await placeBinary(dir, binary);
-    else await makeBinary(dir, warn);
+    } else {
+      step("Downloading the app's binary and checking CI built it…");
+      await makeBinary(dir, warn);
+    }
+    step("Building the frontend…");
     await ensureDist(dir, mods);
   } catch (error) {
     await removeVersion(clone, dir);
