@@ -1,9 +1,9 @@
 import type { AppVersion } from "../../shared/hostProtocol";
 import { timeAgo } from "./memory";
 
-/** Where an update check is: an error carries git's reason. */
+/** Where an update check is: `ready` waits for a restart; an error carries the reason. */
 export type UpdateState =
-  "idle" | "checking" | "up-to-date" | "updated" | { error: string };
+  "idle" | "checking" | "up-to-date" | "updated" | "ready" | { error: string };
 
 const shortSha = (sha: string) => sha.slice(0, 7);
 
@@ -39,9 +39,8 @@ export function aboutPanel(version: AppVersion | null, now = Date.now()) {
 /** The line under Updates: what it does before a check, git's reason after a failed one. */
 export function updateDescription(state: UpdateState): string | undefined {
   if (typeof state === "object") return state.error;
-  return state === "idle"
-    ? "Gets the latest version and reloads the app."
-    : undefined;
+  if (state === "ready") return "An update is ready. Restart to run it.";
+  return state === "idle" ? "Gets the latest version." : undefined;
 }
 
 /** The update button: its label, and whether it spins or is done. */
@@ -51,6 +50,8 @@ export function updateButton(state: UpdateState) {
       return { label: "Checking for updates", spinning: true, disabled: true };
     case "updated":
       return { label: "Reloading", spinning: true, disabled: true };
+    case "ready":
+      return { label: "Restart to update", spinning: false, disabled: false };
     case "up-to-date":
       return { label: "Up to date", spinning: false, disabled: true };
     default:

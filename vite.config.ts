@@ -15,7 +15,7 @@ const root = path(".");
 const overlay = overlayFromEnv(root);
 
 // https://vite.dev/config/
-export default defineConfig(() => ({
+export default defineConfig(({ command }) => ({
   plugins: [overlay && modsVitePlugin(overlay), react(), tailwindcss()],
   resolve: {
     alias: { "@": path("./src") },
@@ -32,6 +32,10 @@ export default defineConfig(() => ({
       process.env.IGNITE_DEMO ? path("./demo/tempo") : null,
     ),
     __HEALTH_FILE__: JSON.stringify(process.env.IGNITE_HEALTH_FILE || null),
+    // Built by the launcher, which serves Vite instead once a mod changes.
+    __LIVE_RELOAD__: JSON.stringify(
+      command === "build" && !!process.env.IGNITE_LIVE_RELOAD,
+    ),
   },
 
   // Serves the app as a few bundles, not ~1,000 modules one request at a time (7s to start).

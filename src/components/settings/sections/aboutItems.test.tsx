@@ -9,6 +9,7 @@ const about = (over: Partial<Parameters<typeof aboutItems>[0]["about"]>) => ({
   error: null,
   update: "idle" as UpdateState,
   check: vi.fn(),
+  restart: vi.fn(),
   ...over,
 });
 const disabled = (item: { control?: unknown }) =>
@@ -57,5 +58,17 @@ describe("aboutItems", () => {
     expect(done.description).toBeUndefined();
     render(<>{done.control}</>);
     expect(screen.getByRole("button", { name: "Up to date" })).toBeTruthy();
+  });
+
+  it("restarts from the button once an update is ready", () => {
+    const restart = vi.fn();
+    const [, ready] = aboutItems({
+      about: about({ update: "ready", restart }),
+    });
+    expect(ready.description).toMatch(/Restart to run it/);
+    render(<>{ready.control}</>);
+    fireEvent.click(screen.getByRole("button", { name: "Restart to update" }));
+    expect(restart).toHaveBeenCalledOnce();
+    cleanup();
   });
 });

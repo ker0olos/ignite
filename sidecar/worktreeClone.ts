@@ -8,7 +8,7 @@ const exec = promisify(execFile);
 
 // Copy-on-write clones: a clone of a 1 GB node_modules takes 22 MB until changed.
 /** `cp` flags that clone copy-on-write, where the platform has them. */
-const CLONE_FLAGS: Partial<Record<NodeJS.Platform, string[]>> = {
+export const CLONE_FLAGS: Partial<Record<NodeJS.Platform, string[]>> = {
   darwin: ["-c", "-R", "-p"],
   linux: ["-R", "-p", "--reflink=always"],
 };

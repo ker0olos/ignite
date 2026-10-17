@@ -19,7 +19,7 @@ src/                     React frontend (almost all logic lives here)
     app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle,
                          zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
-                         MCP sign-in warning banner
+                         MCP sign-in warning banner, the update-ready banner
     files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
@@ -84,7 +84,8 @@ src/                     React frontend (almost all logic lives here)
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useSkills.ts         The app's skills and plugins, and other apps' to import, while Settings is open
     useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
-    useAbout.ts          The commit the app runs from; Check for updates, reloading every window
+    useAbout.ts          The commit the app runs from; Check for updates, reloading every window,
+                         or (launcher) built in the background every 6h, then Restart
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
     useOpenedOnce.ts     Mounts a lazy dialog (Settings, command center) on first open; loads its code soon after startup
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
@@ -176,6 +177,7 @@ src/                     React frontend (almost all logic lives here)
                          with Google Fonts fetched for it)
     mcpToolCall.ts       Reads pi-mcp-adapter's tool calls (server, tool, arguments) for the conversation
     window.ts            Window sizing and New Window
+    liveReload.ts        Reloads the page when the launcher starts serving Vite (a mod changed)
     paths.ts             basename / dirname / ~ shortening
     utils.ts             `cn` class-name helper (shadcn)
     remote.ts            In a browser (remote access): stands in for Tauri over a WebSocket to the sidecar
@@ -258,7 +260,13 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   mcpSession.ts          An in-memory session with only the MCP adapter: checks and sign-ins with no conversation open
   wire.ts                Session event wire form (toWireEvent, describeError)
   claudeCode.ts          The user's Claude Code login (`claude auth status/login`)
-  appUpdate.ts           The app's own commit, and updating it (`git pull --ff-only`, `npm ci` if the lockfile changed)
+  appUpdate.ts           The app's own commit, and updating it: a launcher version stages the next one,
+                         a clone pulls (`git pull --ff-only`, `npm ci` if the lockfile changed)
+  appBuild.ts            Launcher versions (~/.ignite/app/<commit>, worktrees of the user's clone): building one
+                         (release binary, packages cloned copy-on-write, a frontend per set of mods)
+  appBinary.ts           A version's binary from CI's release for its src-tauri/ tree, kept once
+                         `gh attestation verify` proves this repository's workflow built it
+  appVersions.ts         The launcher's state (good, bad, next, restart), staging an update, pruning versions
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
   lines.ts               LF-only JSONL splitting
   mcpConfig.ts           pi-mcp-adapter's mcp.json: read, edit servers, cached tool names
@@ -345,11 +353,14 @@ shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
 launcher/                How users run the app (not maintainers; see README)
-  setup.mjs              `npm run setup`: setup.ps1 on Windows (first offering the sandbox), else setup.sh
+  setup.mjs              `npm run setup`: builds the app, then setup.ps1 on Windows (first offering
+                         the sandbox), else setup.sh
   setup.sh               Makes ~/Applications/Ignite.app (macOS) or an app menu entry (Linux)
-  launch.sh              What that launcher runs: update, start with ~/.ignite/mods,
-                         fall back to the last good version, then to no mods
-  setup.ps1, launch.ps1  The same on Windows, in PowerShell: a Start Menu shortcut, and what it runs
+  setup.ps1              The same on Windows: a Start Menu shortcut
+  launch.mjs             What they run: starts the newest built version with ~/.ignite/mods at once,
+                         falls back to the last good version, then to no mods; again on restart
+  serve.mjs              Serves its built frontend on :1420, or Vite (proxied) once a mod changes
+  launch.sh, launch.ps1  Hand launchers from an older setup over to launch.mjs
 .todo                    Planned work
 src-tauri/               Rust shell: registers plugins, nothing else
   tauri.conf.json        App and main-window config
@@ -360,6 +371,8 @@ src-tauri/               Rust shell: registers plugins, nothing else
   capabilities/          Permissions the frontend may use
   tests/config.rs        Guards on the config (write scope, hidden window)
 .github/workflows/ci.yml Build, typecheck, lint, format check, tests on macOS, for pull requests to main and pushes to it (main saves the Rust cache PRs restore)
+.github/workflows/binary.yml Builds and attests the binary per platform once per src-tauri/ tree,
+                         as pre-release `bin-<tree hash>` (sidecar/appBinary.ts downloads it)
 .github/dependabot.yml   Daily PRs for new pi and pi-claude-bridge versions (new models arrive through them),
                          and sandbox-runtime's
 ```
@@ -895,7 +908,15 @@ Without the variable nothing changes.
   it that way; anything it imports statically can't be modded.
 - Load sibling files through `import.meta.resolve`, not `import.meta.dirname`,
   so they are still found when the importing file is a mod.
-- `launch.sh` and `launch.ps1` do the same steps; change both together.
+- The launcher runs versions it built (`sidecar/appBuild.ts`): a release
+  binary without Tauri's custom-protocol feature, so it loads localhost:1420,
+  where `launcher/serve.mjs` serves the version's frontend, built with the
+  mods (`vite build`, a few seconds, once per set of mods). When a mod changes
+  it serves Vite instead, and the page reloads onto it
+  (`lib/liveReload.ts`), so mods hot-reload as in dev. The binary is rebuilt
+  only when `src-tauri/` changed, and then downloaded from CI's release when
+  `gh attestation verify` passes, else built locally. Updates are built beside the running
+  version, never in place: a running sidecar loads extensions from its files.
 - The launcher counts a start as good once `reportHealthy()` (`lib/health.ts`)
   writes `IGNITE_HEALTH_FILE`, after the sidecar answers. Keep that call on
   the startup path, or every update looks broken and gets rolled back.

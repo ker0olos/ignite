@@ -36,3 +36,9 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
+
+# What the launcher runs (sidecar/appBuild.ts): built on users' machines, so quicker to build.
+[profile.app]
+inherits = "release"
+codegen-units = 16
+lto = "thin"

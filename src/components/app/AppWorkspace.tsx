@@ -4,6 +4,8 @@ import { Workspace } from "@/components/app/Workspace";
 import { RemoteDevices } from "@/components/remote/RemoteDevices";
 import type { Section } from "@/components/settings/sections";
 import { SignInBanner } from "@/components/sidebar/SignInBanner";
+import { UpdateBanner } from "@/components/sidebar/UpdateBanner";
+import type { useAbout } from "@/hooks/useAbout";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useCommandCenter } from "@/hooks/useCommandCenter";
 import type { Conversations } from "@/hooks/useConversations";
@@ -44,6 +46,7 @@ type AppWorkspaceProps = {
   terminals: ReturnType<typeof useTerminalTabs>;
   /** Opens a tab in any folder, selecting it first. */
   openIn: (folder: string, tab: string) => void;
+  about: ReturnType<typeof useAbout>;
 };
 
 /** The open folder's workspace, wired to the app: settings, folders, MCP sign-ins, remote devices. */
@@ -71,6 +74,7 @@ export function AppWorkspace({
   onToggleTagFilter,
   onClearTagFilter,
   onSetConversationTags,
+  about,
 }: AppWorkspaceProps) {
   return (
     <Workspace
@@ -127,11 +131,17 @@ export function AppWorkspace({
         },
       }}
       banner={
-        <SignInBanner
-          names={needingSignIn(mcp.servers)}
-          onSignIn={mcp.signIn}
-          onOpenSettings={() => openSettings("MCP")}
-        />
+        <>
+          <UpdateBanner
+            ready={about.update === "ready"}
+            onRestart={about.restart}
+          />
+          <SignInBanner
+            names={needingSignIn(mcp.servers)}
+            onSignIn={mcp.signIn}
+            onOpenSettings={() => openSettings("MCP")}
+          />
+        </>
       }
       footer={
         <RemoteDevices

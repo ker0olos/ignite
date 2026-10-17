@@ -257,8 +257,13 @@ export type HostRequest =
   | TaskRequest
   | TerminalRequest
   | { id: number; type: "app_version" }
-  /** Pulls the latest code; `updated` is false when it was already current. */
+  /**
+   * Gets the latest code: run from the launcher, builds it to run on the next
+   * start (`ready`), else pulls it (`updated` is false when already current).
+   */
   | { id: number; type: "app_update" }
+  /** Has the launcher start the app again, on a built update, once it quits. */
+  | { id: number; type: "app_restart" }
   | { type: "prompt_answer"; promptId: number; value: string }
   | { type: "prompt_cancel"; promptId: number }
   /**
@@ -319,7 +324,8 @@ export type HostResponses = SkillResponses &
     git_repo_details: GitRepoDetails;
     git_discard: undefined;
     app_version: AppVersion;
-    app_update: { updated: boolean };
+    app_update: { updated: boolean; ready?: boolean };
+    app_restart: undefined;
   };
 
 /** Messages the sidecar sends. */

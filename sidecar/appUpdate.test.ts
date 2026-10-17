@@ -88,3 +88,23 @@ describe("appUpdate", () => {
     expect((await appVersion(app)).subject).toBe("Local");
   });
 });
+
+describe("appUpdate in a launcher version", () => {
+  it("builds the latest beside it and says it's ready", async () => {
+    const stage = vi.fn(async () => "b".repeat(40));
+    const root = join(dir, "apps", "a".repeat(40));
+    const result = await appUpdate(root, vi.fn(), stage, join(dir, "apps"));
+    expect(stage).toHaveBeenCalledWith(root, expect.any(String));
+    expect(result).toEqual({ updated: false, ready: true });
+  });
+
+  it("isn't ready when the staged version is the running one", async () => {
+    const sha = "a".repeat(40);
+    const stage = vi.fn(async () => sha);
+    const root = join(dir, "apps", sha);
+    expect(await appUpdate(root, vi.fn(), stage, join(dir, "apps"))).toEqual({
+      updated: false,
+      ready: false,
+    });
+  });
+});

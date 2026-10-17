@@ -1,16 +1,7 @@
 import { basename } from "node:path";
 import type { GitReview } from "../shared/git.ts";
 import { run } from "./gitRun.ts";
-import { folderOf } from "./worktreeGit.ts";
-
-/** A remote URL's owner/name (`git@github.com:me/app.git` → `me/app`), or null for a local path. */
-export function remoteName(url: string): string | null {
-  const bare = url.replace(/^([a-z+]+:\/\/)[^/@]*@/, "$1");
-  const m = /^(?:[a-z+]+:\/\/|[^/@:]+@)[^/:]+[:/](.+?)(?:\.git)?\/?$/.exec(
-    bare,
-  );
-  return m ? m[1].replace(/^\d+\//, "") : null;
-}
+import { folderOf, remoteName } from "./worktreeGit.ts";
 
 async function git(repo: string, args: string[]): Promise<string> {
   const { output, code } = await run("git", ["-C", repo, ...args], {

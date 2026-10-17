@@ -122,9 +122,8 @@ export default function App() {
             openFolder,
             openSettings,
           }}
-          host={host}
-          terminals={terminals}
-          openIn={openIn}
+          {...{ host, terminals, openIn }}
+          about={dialog.about}
         />
       ) : (
         <WelcomeScreen

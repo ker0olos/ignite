@@ -1,4 +1,5 @@
-// `npm run setup`: setup.ps1 on Windows (which may have no bash), setup.sh elsewhere.
+// `npm run setup`: builds the app, then adds its launcher with setup.ps1 on
+// Windows (which may have no bash), setup.sh elsewhere.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -34,8 +35,46 @@ Setting it up needs admin rights once, to create a Windows user for Ignite.
   if (!/^n/i.test(answer.trim())) enableWindowsSandbox();
 }
 
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+// Mods need Node's registerHooks, and the sidecar runs TypeScript directly.
+const [major, minor] = process.versions.node.split(".").map(Number);
+if (major < 22 || (major === 22 && minor < 18))
+  fail("Ignite needs Node.js 22.18 or newer.");
+// CI's binary is verified with gh; without it, the binary is built with Rust.
+const works = (cmd, args) => spawnSync(cmd, args).status === 0;
+if (!works("gh", ["auth", "status"]) && !works("cargo", ["--version"]))
+  fail(
+    "Ignite needs the GitHub CLI signed in (gh auth login) to use its prebuilt binary, or Rust to build one: https://rustup.rs",
+  );
+
+/** Builds this checkout's commit now, so the first start opens at once. */
+async function firstBuild() {
+  const { buildVersion, LAUNCH } = await import("../sidecar/appBuild.ts");
+  const { writeState } = await import("../sidecar/appVersions.ts");
+  const clone = dirname(here);
+  const mods = join(dirname(LAUNCH), "mods");
+  mkdirSync(mods, { recursive: true });
+  const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: clone })
+    .stdout.toString()
+    .trim();
+  console.log(
+    "Setting up Ignite. Without a prebuilt binary this takes a few minutes.",
+  );
+  try {
+    await buildVersion(clone, head, clone, mods);
+  } catch (error) {
+    fail(`Couldn't build Ignite:\n${error.message}`);
+  }
+  await writeState("next", head);
+}
+
 const windows = process.platform === "win32";
 if (windows) await offerWindowsSandbox();
+await firstBuild();
 const { status } = windows
   ? spawnSync(
       "powershell.exe",

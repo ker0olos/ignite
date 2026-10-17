@@ -10,7 +10,7 @@ export function aboutItems({
 }: {
   about: ReturnType<typeof useAbout>;
 }): Item[] {
-  const { version, error, update, check } = about;
+  const { version, error, update, check, restart } = about;
   const button = updateButton(update);
   return [
     {
@@ -32,7 +32,7 @@ export function aboutItems({
           variant="outline"
           size="sm"
           disabled={button.disabled}
-          onClick={check}
+          onClick={update === "ready" ? restart : check}
         >
           {button.spinning && <Loader2 className="size-3.5 animate-spin" />}
           {button.label}

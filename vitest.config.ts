@@ -8,6 +8,7 @@ export default defineConfig({
     __PI_HOST_PATH__: JSON.stringify("/repo/sidecar/main.ts"),
     __DEMO_FOLDER__: "null",
     __HEALTH_FILE__: "null",
+    __LIVE_RELOAD__: "false",
   },
   test: {
     // Tauri's IPC mocks (@tauri-apps/api/mocks) need a window object.

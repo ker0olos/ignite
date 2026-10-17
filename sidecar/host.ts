@@ -32,7 +32,7 @@ import { memoryStatus } from "./cmem.ts";
 import { answered } from "./hostAnswers.ts";
 import { setTrust } from "./hostTrust.ts";
 import { compact, stop, unqueue } from "./hostQueue.ts";
-import { appUpdate, appVersion } from "./appUpdate.ts";
+import { appRestart, appUpdate, appVersion } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
 import {
   conversationGitStatus,
@@ -181,6 +181,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   terminal_snapshot: (_ctx, r) => terminalSnapshot(r.terminal),
   app_version: () => appVersion(),
   app_update: () => appUpdate(),
+  app_restart: () => appRestart(),
 };
 
 /**

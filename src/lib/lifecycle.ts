@@ -13,6 +13,14 @@ export async function confirmQuit() {
   if (ok) await exit(0);
 }
 
+/** Asks before restarting into an update, which ends running agents and commands. */
+export const confirmRestart = () =>
+  ask(`Restart ${APP_TITLE} to update? Running agents and commands stop.`, {
+    kind: "warning",
+    okLabel: "Restart",
+    cancelLabel: "Cancel",
+  });
+
 /**
  * Makes every way of closing this window (menu, shortcut, red traffic light)
  * ask first. Returns a promise of the unlisten function.

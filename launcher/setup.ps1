@@ -1,26 +1,17 @@
-# `npm run setup` on Windows (through setup.mjs): adds an Ignite shortcut to
-# the Start Menu that runs this checkout through launcher\launch.ps1. Safe to rerun.
+# `npm run setup` on Windows (through setup.mjs, once it has built the app):
+# adds an Ignite shortcut to the Start Menu that runs launcher\launch.mjs. Safe to rerun.
 $ErrorActionPreference = "Stop"
 $app = Split-Path -Parent $PSScriptRoot
 
-if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
-  Write-Error "Ignite needs Rust: https://rustup.rs"
-}
-# Mods need Node's registerHooks, and the sidecar runs TypeScript directly.
-# No double quotes in the script: Windows PowerShell strips them from native arguments.
-node -e 'const [a, b] = process.versions.node.split(/\./).map(Number);
-  process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)'
-if ($LASTEXITCODE -ne 0) { Write-Error "Ignite needs Node.js 22.18 or newer." }
-
 $ignite = Join-Path $HOME ".ignite"
-New-Item -ItemType Directory -Force (Join-Path $ignite "mods"), (Join-Path $ignite "bin") | Out-Null
+New-Item -ItemType Directory -Force (Join-Path $ignite "bin") | Out-Null
 
 # The Start Menu starts apps with the PATH saved for the user, not this
 # terminal's; keep the one that found node and cargo.
 $launch = Join-Path $ignite "bin\ignite-launch.ps1"
 $path = $env:PATH -replace "'", "''"
-$script = (Join-Path $PSScriptRoot "launch.ps1") -replace "'", "''"
-Set-Content -Encoding UTF8 $launch "`$env:PATH = '$path'`n& '$script'"
+$script = (Join-Path $PSScriptRoot "launch.mjs") -replace "'", "''"
+Set-Content -Encoding UTF8 $launch "`$env:PATH = '$path'`n& node '$script'"
 
 $programs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
 $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $programs "Ignite.lnk"))
