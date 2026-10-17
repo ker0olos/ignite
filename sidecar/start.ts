@@ -26,6 +26,7 @@ import { createWorkspaces } from "./worktrees.ts";
 import { createDraft } from "./draftSession.ts";
 import { MCP_STATUS_EVENT, mcpSessionOpener } from "./mcpSession.ts";
 import {
+  activateCurrentTools,
   defaultTools,
   freshExtensions,
   reselectModel,
@@ -162,6 +163,8 @@ async function openSession(
     settingsManager,
     resourceLoader,
   });
+  // A reopened conversation gets today's tools, not only those it last declared.
+  activateCurrentTools(session);
   // Starts extensions (session_start), as pi's own modes do; the error
   // listener also makes a reload start them again.
   await session.bindExtensions({
