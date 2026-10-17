@@ -1,7 +1,7 @@
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 
 /**
- * Tells the launcher (launcher/launch.sh) the app came up: a window rendered
+ * Tells the launcher (launcher/launch.mjs) the app came up: a window rendered
  * and the sidecar answered. Without a launcher there is no file to write.
  */
 export async function reportHealthy(

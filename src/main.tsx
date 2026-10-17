@@ -1,8 +1,10 @@
 import "./lib/remoteFirst";
+import { followLiveMods } from "./lib/liveReload";
 import { fitToScreenAndShow, isWindows } from "./lib/window";
 
 // Shown before the app's modules load, so the window opens at once.
 fitToScreenAndShow();
+followLiveMods();
 if (isWindows()) {
   document.documentElement.classList.add("windows");
 }

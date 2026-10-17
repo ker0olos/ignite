@@ -1,4 +1,5 @@
-// `npm run setup`: setup.ps1 on Windows (which may have no bash), setup.sh elsewhere.
+// `npm run setup`: builds the app, then adds its launcher with setup.ps1 on
+// Windows (which may have no bash), setup.sh elsewhere.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -34,8 +35,40 @@ Setting it up needs admin rights once, to create a Windows user for Ignite.
   if (!/^n/i.test(answer.trim())) enableWindowsSandbox();
 }
 
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+// Mods need Node's registerHooks, and the sidecar runs TypeScript directly.
+const [major, minor] = process.versions.node.split(".").map(Number);
+if (major < 22 || (major === 22 && minor < 18))
+  fail("Ignite needs Node.js 22.18 or newer.");
+if (spawnSync("cargo", ["--version"]).status !== 0)
+  fail("Ignite needs Rust: https://rustup.rs");
+
+/** Builds this checkout's commit now, so the first start opens at once. */
+async function firstBuild() {
+  const { buildVersion, LAUNCH } = await import("../sidecar/appBuild.ts");
+  const { writeState } = await import("../sidecar/appVersions.ts");
+  const clone = dirname(here);
+  const mods = join(dirname(LAUNCH), "mods");
+  mkdirSync(mods, { recursive: true });
+  const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: clone })
+    .stdout.toString()
+    .trim();
+  console.log("Building Ignite. The first build takes a few minutes.");
+  try {
+    await buildVersion(clone, head, clone, mods);
+  } catch (error) {
+    fail(`Couldn't build Ignite:\n${error.message}`);
+  }
+  await writeState("next", head);
+}
+
 const windows = process.platform === "win32";
 if (windows) await offerWindowsSandbox();
+await firstBuild();
 const { status } = windows
   ? spawnSync(
       "powershell.exe",

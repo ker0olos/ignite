@@ -1,17 +1,9 @@
 #!/bin/bash
-# `npm run setup` on macOS and Linux (through setup.mjs): adds an Ignite
-# launcher that runs this checkout through launcher/launch.sh, an app in
+# `npm run setup` on macOS and Linux (through setup.mjs, once it has built the
+# app): adds an Ignite launcher that runs launcher/launch.mjs, an app in
 # ~/Applications on macOS or an app menu entry on Linux. Safe to rerun.
 set -euo pipefail
 app=$(cd "$(dirname "$0")/.." && pwd)
-
-command -v cargo >/dev/null ||
-  { echo "Ignite needs Rust: https://rustup.rs" >&2; exit 1; }
-# Mods need Node's registerHooks, and the sidecar runs TypeScript directly.
-node -e 'const [a, b] = process.versions.node.split(".").map(Number);
-  process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)' ||
-  { echo "Ignite needs Node.js 22.18 or newer." >&2; exit 1; }
-mkdir -p "$HOME/.ignite/mods"
 
 # Apps opened from Finder or a menu get a bare PATH; keep the one that found
 # node and cargo.
@@ -19,7 +11,7 @@ write_launch() {
   cat >"$1" <<EOF
 #!/bin/bash
 export PATH="$PATH"
-exec /bin/bash "$app/launcher/launch.sh"
+exec node "$app/launcher/launch.mjs"
 EOF
   chmod +x "$1"
 }

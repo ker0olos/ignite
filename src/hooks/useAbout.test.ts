@@ -101,3 +101,81 @@ it("does nothing without a host", async () => {
   await act(() => result.current.check());
   expect(result.current.update).toBe("idle");
 });
+
+it("readies an update the launcher built, and restarts into it", async () => {
+  const quit = vi.fn(async () => {});
+  const host = fakeHost(async (type) =>
+    type === "app_update" ? { updated: false, ready: true } : VERSION,
+  );
+  const confirm = vi.fn(async () => true);
+  const { result } = renderHook(() =>
+    useAbout(host, false, vi.fn(), false, quit, confirm),
+  );
+  await act(() => result.current.check());
+  expect(result.current.update).toBe("ready");
+  await act(() => result.current.restart());
+  expect(host.request).toHaveBeenCalledWith({ type: "app_restart" });
+  expect(quit).toHaveBeenCalledWith(0);
+});
+
+it("doesn't restart when the user cancels", async () => {
+  const quit = vi.fn(async () => {});
+  const host = fakeHost(async () => VERSION);
+  const { result } = renderHook(() =>
+    useAbout(host, false, vi.fn(), false, quit, async () => false),
+  );
+  await act(() => result.current.restart());
+  expect(host.request).not.toHaveBeenCalledWith({ type: "app_restart" });
+  expect(quit).not.toHaveBeenCalled();
+});
+
+it("stays ready through a later check that fails", async () => {
+  let fail = false;
+  const host = fakeHost(async (type) => {
+    if (type !== "app_update") return VERSION;
+    if (fail) throw new Error("offline");
+    return { updated: false, ready: true };
+  });
+  const { result } = renderHook(() => useAbout(host, false, vi.fn(), false));
+  await act(() => result.current.check());
+  fail = true;
+  await act(() => result.current.check());
+  expect(result.current.update).toBe("ready");
+});
+
+it("runs one check at a time", async () => {
+  let answer: (v: unknown) => void = () => {};
+  const host = fakeHost((type) =>
+    type === "app_update"
+      ? new Promise((r) => (answer = r))
+      : Promise.resolve(VERSION),
+  );
+  const { result } = renderHook(() => useAbout(host, false, vi.fn(), false));
+  let first: Promise<void> = Promise.resolve();
+  act(() => {
+    first = result.current.check();
+    void result.current.check();
+  });
+  await act(async () => {
+    answer({ updated: false });
+    await first;
+  });
+  const updates = vi
+    .mocked(host.request)
+    .mock.calls.filter(([r]) => r.type === "app_update");
+  expect(updates).toHaveLength(1);
+});
+
+it("checks on its own when started by the launcher", async () => {
+  vi.useFakeTimers();
+  try {
+    const host = fakeHost(async (type) =>
+      type === "app_update" ? { updated: false, ready: true } : VERSION,
+    );
+    const { result } = renderHook(() => useAbout(host, false, vi.fn(), true));
+    await act(() => vi.advanceTimersByTimeAsync(30_000));
+    expect(result.current.update).toBe("ready");
+  } finally {
+    vi.useRealTimers();
+  }
+});

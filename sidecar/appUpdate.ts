@@ -3,9 +3,11 @@
  * version is the checked-out commit and updating is a pull.
  */
 import { execFile } from "node:child_process";
-import { dirname } from "node:path";
+import { basename, dirname, relative } from "node:path";
 import { promisify } from "node:util";
 import type { AppVersion } from "../shared/hostProtocol.ts";
+import { APPS } from "./appBuild.ts";
+import { readState, stageUpdate, writeState } from "./appVersions.ts";
 
 const run = promisify(execFile);
 
@@ -33,14 +35,29 @@ export async function appVersion(root = appRoot()): Promise<AppVersion> {
 const npmCi = (root: string) =>
   run("npm", ["ci", "--no-audit", "--no-fund"], { cwd: root }).then(() => {});
 
+/** Whether `root` is a version the launcher built, not a clone run with `tauri dev`. */
+const isVersion = (root: string, apps: string) =>
+  relative(apps, dirname(root)) === "";
+
+async function stagedUpdate(root: string, stage: typeof stageUpdate) {
+  const staged =
+    (await stage(root, process.env.IGNITE_MODS ?? "")) ??
+    (await readState("next"));
+  return { updated: false, ready: !!staged && staged !== basename(root) };
+}
+
 /**
- * Pulls the latest code (fast-forward only, so local work is never merged
- * over) and reinstalls dependencies when the lockfile changed.
+ * Run from the launcher, builds the latest code to run on the next start;
+ * `ready` once one waits. Otherwise pulls it (fast-forward only, so local
+ * work is never merged over) and reinstalls dependencies when the lockfile changed.
  */
 export async function appUpdate(
   root = appRoot(),
   install = npmCi,
-): Promise<{ updated: boolean }> {
+  stage = stageUpdate,
+  apps = APPS,
+): Promise<{ updated: boolean; ready?: boolean }> {
+  if (isVersion(root, apps)) return stagedUpdate(root, stage);
   const before = await git(root, ["rev-parse", "HEAD"]);
   await git(root, ["pull", "--ff-only", "--quiet"]);
   const after = await git(root, ["rev-parse", "HEAD"]);
@@ -56,3 +73,6 @@ export async function appUpdate(
   if (changed) await install(root);
   return { updated: true };
 }
+
+/** Tells the launcher to start the app again once it quits. */
+export const appRestart = () => writeState("restart", "1");

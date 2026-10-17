@@ -5,9 +5,15 @@
     "sidecar/start.ts",
     "sidecar/modsHooks.ts",
     "sidecar/*Extension.ts",
-    "sidecar/testMcpServer.ts"
+    "sidecar/testMcpServer.ts",
+    "launcher/*.mjs"
   ],
-  "project": ["src/**/*.{ts,tsx,css}", "sidecar/**/*.ts", "shared/**/*.ts"],
+  "project": [
+    "src/**/*.{ts,tsx,css}",
+    "sidecar/**/*.ts",
+    "shared/**/*.ts",
+    "launcher/*.mjs"
+  ],
   "ignore": ["src/components/ui/**", "sidecar/types/**"],
   "ignoreDependencies": ["pi-claude-bridge", "tree-sitter-.*"],
   "ignoreBinaries": ["caffeinate", "osascript"]

@@ -3,10 +3,13 @@
  * (Node runs the TypeScript directly). It turns on mods/ overrides before
  * loading anything they could replace, so this file itself can't be modded.
  */
+import { enableCompileCache } from "node:module";
 import { fileURLToPath } from "node:url";
 import { overlayFromEnv } from "../shared/modsOverlay.ts";
 
 process.stderr.write("pi-host: starting\n");
+// V8's compiled code kept on disk: each start after the first parses less.
+enableCompileCache();
 const overlay = overlayFromEnv(fileURLToPath(new URL("..", import.meta.url)));
 if (overlay) (await import("./modsHooks.ts")).registerModsHooks(overlay);
 await import("./start.ts");

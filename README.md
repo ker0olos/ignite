@@ -74,9 +74,10 @@ npm install
 npm run setup
 ```
 
-Ignite is now in `~/Applications` on macOS, your app menu on Linux, or the
-Start Menu on Windows. It updates itself each time it opens, and goes back
-to the last working version if an update fails to start.
+Setup builds Ignite once (a few minutes), then puts it in `~/Applications`
+on macOS, your app menu on Linux, or the Start Menu on Windows. It opens at
+once, builds updates in the background and asks you to restart for them, and
+goes back to the last working version if an update fails to start.
 
 Linux sandboxes commands with
 [bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`). Windows, setup
