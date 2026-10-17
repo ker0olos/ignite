@@ -1,0 +1,3 @@
+## Cleanup
+
+- Delete package-lock.json and package.json's npm `overrides` from 2026-10-24: launchers from before pnpm build their next version with npm, so they need them until they've updated once.

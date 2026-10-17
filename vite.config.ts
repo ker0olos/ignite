@@ -27,7 +27,7 @@ export default defineConfig(({ command }) => ({
     __PI_HOST_PATH__: JSON.stringify(
       path("./sidecar/main.ts").replaceAll("\\", "/"),
     ),
-    // `npm run demo` opens the sample project with a fixed conversation.
+    // `pnpm run demo` opens the sample project with a fixed conversation.
     __DEMO_FOLDER__: JSON.stringify(
       process.env.IGNITE_DEMO ? path("./demo/tempo") : null,
     ),

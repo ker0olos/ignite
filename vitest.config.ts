@@ -22,7 +22,7 @@ export default defineConfig({
     // Sidecar tests spawn git, shells and PTYs, which a full parallel run slows well past 5s.
     testTimeout: 30_000,
     hookTimeout: 30_000,
-    // `npm run coverage` shows which branches no test reaches. It is a tool
+    // `pnpm run coverage` shows which branches no test reaches. It is a tool
     // for finding untested paths, not a gate, so there are no thresholds.
     coverage: {
       provider: "v8",

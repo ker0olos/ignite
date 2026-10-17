@@ -105,6 +105,7 @@ const CACHES = [
   ".bun/install/cache",
   ".pnpm-store",
   "Library/pnpm",
+  ".local/share/pnpm",
   ".yarn",
   ".gradle/caches",
   ".m2/repository",

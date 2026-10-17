@@ -73,14 +73,15 @@ export async function cloneOf(checkout: string) {
 // Moves the clone too, so the next start runs the new launcher; only a clean
 // checkout with no commits of its own, so a working clone is left alone.
 async function moveClone(clone: string, sha: string) {
-  // npm and cargo rewrite these themselves; they aren't the user's edits.
-  await git(clone, [
-    "checkout",
-    "-q",
-    "--",
+  // Package managers and cargo rewrite these themselves; they aren't the user's
+  // edits. npm's lockfile is for clones still from before pnpm.
+  for (const file of [
     "package-lock.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
     "src-tauri/Cargo.lock",
-  ]);
+  ])
+    await git(clone, ["checkout", "-q", "--", file]).catch(() => {});
   await git(clone, ["diff", "--quiet", "HEAD"]);
   await git(clone, ["merge-base", "--is-ancestor", "HEAD", sha]);
   await git(clone, ["reset", "-q", "--hard", sha]);

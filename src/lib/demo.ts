@@ -1,5 +1,5 @@
 /**
- * Demo mode (`npm run demo`): the app opens demo/tempo and demo/pantry, and a
+ * Demo mode (`pnpm run demo`): the app opens demo/tempo and demo/pantry, and a
  * demo host (demoHost.ts) stands in for the sidecar, so everything shown is
  * scripted: providers, models, conversations, search, git. Tempo has three
  * conversations at once: one delivered through git, one waiting on its

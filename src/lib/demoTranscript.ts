@@ -1,5 +1,5 @@
 /**
- * The conversation `npm run demo` shows first: the agent adding dark mode to
+ * The conversation `pnpm run demo` shows first: the agent adding dark mode to
  * the sample project in demo/tempo. Its files are the finished result, so the
  * diffs here match them (checked in demo.test.ts).
  */

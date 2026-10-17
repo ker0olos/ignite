@@ -76,7 +76,7 @@ describe("appUpdate", () => {
     expect((await appVersion(app)).subject).toBe("Second");
     expect(install).not.toHaveBeenCalled();
 
-    await commit(origin, "package-lock.json", "{}\n", "Bump deps");
+    await commit(origin, "pnpm-lock.yaml", "{}\n", "Bump deps");
     expect(await appUpdate(app, install)).toEqual({ updated: true });
     expect(install).toHaveBeenCalledWith(app);
   });

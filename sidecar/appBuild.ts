@@ -10,7 +10,6 @@ import {
   copyFile,
   mkdir,
   readdir,
-  readFile,
   rename,
   rm,
   stat,
@@ -21,7 +20,7 @@ import { dirname, join, relative } from "node:path";
 import { promisify } from "node:util";
 import { APP_NAME, APP_TITLE } from "../src/lib/app.ts";
 import { downloadBinary } from "./appBinary.ts";
-import { CLONE_FLAGS } from "./worktreeClone.ts";
+import { pnpmInstall } from "./pnpm.ts";
 import { git } from "./worktreeGit.ts";
 
 const exec = promisify(execFile);
@@ -35,13 +34,10 @@ const PROFILE = "app";
 const EXE = process.platform === "win32" ? "ignite.exe" : "ignite";
 
 async function run(cmd: string, args: string[], cwd: string, env = {}) {
-  // npm is a .cmd on Windows, which only runs through a shell.
-  const shell = process.platform === "win32" && cmd === "npm";
   await exec(cmd, args, {
     cwd,
     env: { ...process.env, ...env },
     maxBuffer: 1 << 26,
-    shell,
   });
 }
 
@@ -138,8 +134,13 @@ async function placeBinary(dir: string, from: string) {
 
 // Without Tauri's custom-protocol feature the binary loads localhost:1420,
 // where the launcher serves the frontend, so it holds no frontend of its own.
-async function buildBinary(dir: string, why: string) {
+async function buildBinary(
+  dir: string,
+  why: string,
+  warn: (text: string) => void,
+) {
   const target = join(APPS, "target");
+  warn(`No prebuilt binary (${why}), so it's built here: a few minutes.`);
   try {
     await run(
       "cargo",
@@ -164,33 +165,9 @@ async function makeBinary(dir: string, warn: (text: string) => void) {
   if ("warning" in got && got.warning) warn(got.warning);
   await placeBinary(
     dir,
-    "file" in got ? got.file : await buildBinary(dir, got.why),
+    "file" in got ? got.file : await buildBinary(dir, got.why, warn),
   );
   await rm(downloads, { recursive: true, force: true });
-}
-
-async function sameFile(a: string, b: string) {
-  const [x, y] = await Promise.all([readFile(a), readFile(b)]);
-  return x.equals(y);
-}
-
-// Copy-on-write where the filesystem can clone (1 GB for almost nothing), else a fresh install.
-async function installPackages(dir: string, from: string) {
-  const source = join(from, "node_modules");
-  const flags = CLONE_FLAGS[process.platform];
-  const lock = "package-lock.json";
-  if (
-    flags &&
-    existsSync(source) &&
-    (await sameFile(join(from, lock), join(dir, lock)))
-  ) {
-    const cloned = await exec("cp", [...flags, source, dir])
-      .then(() => true)
-      .catch(() => false);
-    if (cloned) return;
-  }
-  await rm(join(dir, "node_modules"), { recursive: true, force: true });
-  await run("npm", ["ci", "--no-audit", "--no-fund"], dir);
 }
 
 async function sameRust(clone: string, from: string, sha: string) {
@@ -208,9 +185,9 @@ export async function removeVersion(clone: string, dir: string) {
 }
 
 /**
- * Builds commit `sha` of the clone into its own folder, reusing what it can
- * from the checkout `from` (its packages, and its binary when the Rust side
- * didn't change; else CI's, else built here), with the frontend for `mods`.
+ * Builds commit `sha` of the clone into its own folder: its packages, the
+ * checkout `from`'s binary when the Rust side didn't change (else CI's, else
+ * built here), and the frontend for `mods`.
  */
 export async function buildVersion(
   clone: string,
@@ -225,7 +202,7 @@ export async function buildVersion(
   await mkdir(APPS, { recursive: true });
   await git(clone, ["worktree", "add", "--detach", dir, sha]);
   try {
-    await installPackages(dir, from);
+    await pnpmInstall(dir);
     const binary = binaryOf(from);
     if (existsSync(binary) && (await sameRust(clone, from, sha)))
       await placeBinary(dir, binary);
