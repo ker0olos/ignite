@@ -1,4 +1,5 @@
 import { Plus, Search } from "lucide-react";
+import { useState } from "react";
 import { AppMenuButton } from "@/components/app/AppMenuButton";
 import { FolderSwitcher } from "@/components/app/FolderSwitcher";
 import { SettingsButton } from "@/components/app/SettingsButton";
@@ -24,6 +25,8 @@ export function IdeTopBar({
   chrome: IdeChrome;
 }) {
   const { menu, onSearch, onSettings } = chrome;
+  // JetBrains' menu bar unfolds over its folder switcher, as PyCharm's does over the project's.
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <header
       data-tauri-drag-region
@@ -37,8 +40,10 @@ export function IdeTopBar({
         data-tauri-drag-region
         className="h-full w-22 shrink-0 in-[.windows]:w-2"
       />
-      {menu.length > 0 && <AppMenuButton entries={menu} />}
-      {jetbrains && (
+      {menu.length > 0 && (
+        <AppMenuButton entries={menu} onUnfold={setMenuOpen} />
+      )}
+      {jetbrains && !menuOpen && (
         <FolderSwitcher
           folder={folder}
           folders={projectList.folders}

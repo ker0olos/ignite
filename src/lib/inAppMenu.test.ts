@@ -37,8 +37,8 @@ const matches = (init: KeyboardEventInit, accelerator: string) =>
   matchesAccelerator(press(init), accelerator);
 
 describe("inAppMenuEntries", () => {
-  it("keeps the app menu, File and View, and drops Edit and the empty Window menu", () => {
-    expect(build().map(labelOf)).toEqual(["Ignite", "File", "View"]);
+  it("keeps File, View and the app menu last, and drops Edit and the empty Window menu", () => {
+    expect(build().map(labelOf)).toEqual(["File", "View", "Ignite"]);
   });
 
   it("drops predefined items and the separators they leave", () => {

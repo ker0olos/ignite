@@ -1,3 +1,4 @@
+import { APP_TITLE } from "./app";
 import { menuItems } from "./menu";
 
 export type MenuEntry =
@@ -47,11 +48,20 @@ function convert(items: Source[]): MenuEntry[] {
   return tidy(entries);
 }
 
-/** The menu bar's items as a tree for the in-app menu; predefined items are left out. */
+const isAppMenu = (e: MenuEntry) => e !== "separator" && e.label === APP_TITLE;
+
+/**
+ * The menu bar's items as a tree for the in-app menu; predefined items are
+ * left out, and the app's own menu (macOS's first) goes last, so File leads.
+ */
 export function inAppMenuEntries(
   items: ReturnType<typeof menuItems>,
 ): MenuEntry[] {
-  return convert(items as Source[]);
+  const entries = convert(items as Source[]);
+  return [
+    ...entries.filter((e) => !isAppMenu(e)),
+    ...entries.filter(isAppMenu),
+  ];
 }
 
 // Its own button sits beside the menu's; the shortcut still works.
