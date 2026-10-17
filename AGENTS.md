@@ -17,10 +17,7 @@ src/                     React frontend (almost all logic lives here)
   components/            UI only, one component per file; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
     app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle,
-                         the VS Code and JetBrains layouts (IdeWorkspace: top bar, ActivityBar, side panel,
-                         IdeMain's one tab strip (WorkspaceTabs) over the front tab, PR view, StatusBar;
-                         existing components rearranged, restyled by `data-slot` in index.css),
-                         zoomable images and the markup editor (react-konva) for attached ones
+                         Windows' window controls, zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner, the update-ready banner
     files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon)
@@ -44,10 +41,7 @@ src/                     React frontend (almost all logic lives here)
                          ends closed projects' sessions
     useSettings.ts       settings.toml, synced across windows; applies theme
     useFolderDrop.ts     Drag-and-drop folders onto the window
-    useTabs.ts           Open file tabs, reset per folder (⌘W closes one); none in front for the IDE layouts' conversation
-    useHiddenTabs.ts     The IDE layouts' closed conversation tabs, reopened when the sidebar shows the conversation
-    useIdeTabs.ts        Where the IDE layouts' tabs go, keeping the front tab while the panel's terminal is active
-    useFrontTabClose.ts  ⌘W in the IDE layouts: the tab strip closes its front tab, file or conversation
+    useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
     useEditorOverlay.ts  The editor pane dragged past the conversation's minimum: drawn over it and the sidebar
     useSidebarWidth.ts   The sidebar's dragged width (localStorage), kept when the editor pane opens or closes
     useProviders.ts      Provider status, sign-in and sign-out via the pi host
@@ -124,7 +118,6 @@ src/                     React frontend (almost all logic lives here)
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     themePalette.ts      The theme's colors for inline code, success, warning and errors
     tabs.ts              Open/close logic for file tabs
-    ideTabs.ts           Where the IDE layouts put the editor's tabs: the one strip, terminals in a panel below
     recent.ts            Recent-folders list logic
     conversationTags.ts  Conversation tags: splitting typed text, adding, removing, suggestions
     commandQuery.ts      Command center query: `@folder`, `@convos`/`@files`/`@folders`, result picks
@@ -413,20 +406,6 @@ Two places hold persisted data:
   VS Code-family editors' extensions or in `~/.ignite/icon-themes/` (each
   folder there an extension with a `package.json`). Read in place, not
   copied: one that's gone falls back to Minimal. Image and font icons both work.
-- **Layout** (`layout`): `"default"` (the sidebar layout), `"vscode"` or
-  `"jetbrains"` (Settings → Appearance). The IDE layouts reuse the same panes
-  (`components/app/IdeWorkspace.tsx`): an activity bar switching the side
-  panel between the folder list (JetBrains': only the folder its top bar
-  picks), the file tree and the PR view (the composer's git status, kept
-  open); one strip of conversation and file tabs over whichever is in front
-  (`lib/ideTabs.ts`; terminals open in a panel below, in JetBrains its own island).
-  Closing a conversation's tab only hides it (`hooks/useHiddenTabs.ts`; the
-  sidebar ends conversations, and showing one there reopens its tab); a closed
-  front tab gives way per `nextFront`, and ⌘W closes the front tab
-  (`hooks/useFrontTabClose.ts`). The status bar shows git status in place of
-  the composer, VS Code's in the theme's `statusBar.background`. JetBrains'
-  bar is labelled and its panes are islands. No Liquid Glass; phones keep the
-  default layout.
 - **Editor settings** (`[editor]` in settings.toml): `font_family` (CSS list,
   default Menlo) and `word_wrap` for the file viewer.
 - **Conversation settings** (`[conversation]`): `show_thinking` (off by

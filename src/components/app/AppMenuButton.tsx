@@ -17,14 +17,7 @@ const FOLD_MS = 150;
  * The menu bar on Windows and Linux: a button that unfolds into its menus
  * (File, Edit…) with File open, as VS Code's does, and folds once none is.
  */
-export function AppMenuButton({
-  entries,
-  onUnfold,
-}: {
-  entries: MenuEntry[];
-  /** Told when the bar unfolds and folds, so what it covers (JetBrains' folder switcher) can make way. */
-  onUnfold?: (unfolded: boolean) => void;
-}) {
+export function AppMenuButton({ entries }: { entries: MenuEntry[] }) {
   const menus = listedEntries(entries).flatMap((e) =>
     e !== "separator" && e.items ? [{ ...e, items: e.items }] : [],
   );
@@ -35,7 +28,6 @@ export function AppMenuButton({
     const fold = setTimeout(() => setUnfolded(false), FOLD_MS);
     return () => clearTimeout(fold);
   }, [open, unfolded]);
-  useEffect(() => onUnfold?.(unfolded), [unfolded, onUnfold]);
 
   if (!unfolded)
     return (

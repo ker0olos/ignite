@@ -21,7 +21,6 @@ export function EditorPane({
   session,
   host,
   terminalLabel,
-  strip = true,
 }: {
   folder: string;
   tabs: ReturnType<typeof useTabs>;
@@ -32,23 +31,19 @@ export function EditorPane({
   /** The sidecar, whether or not a conversation shows. */
   host: HostClient | null;
   terminalLabel?: (terminal: string) => TerminalLabel;
-  /** Off, the tabs are drawn elsewhere (the IDE layouts' one strip). */
-  strip?: boolean;
 }) {
   const diffTab = readDiffTab(active);
   const childTab = readChildTab(active);
   return (
     <div className="flex h-full min-w-0 flex-col glass:bg-background">
-      {strip && (
-        <FileTabs
-          files={tabs.files}
-          active={active}
-          folder={folder}
-          onSelect={tabs.activate}
-          onClose={tabs.close}
-          terminalLabel={terminalLabel}
-        />
-      )}
+      <FileTabs
+        files={tabs.files}
+        active={active}
+        folder={folder}
+        onSelect={tabs.activate}
+        onClose={tabs.close}
+        terminalLabel={terminalLabel}
+      />
       {childTab ? (
         <ChildView
           key={active}

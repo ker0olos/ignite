@@ -125,7 +125,7 @@ export default function App() {
             openFolder,
             openSettings,
           }}
-          {...{ host, terminals, openIn, addFolder }}
+          {...{ host, terminals, openIn }}
           about={dialog.about}
         />
       ) : (

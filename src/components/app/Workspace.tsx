@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from "react";
 import { DesktopWorkspace } from "@/components/app/DesktopWorkspace";
-import { IdeWorkspace, type IdeChrome } from "@/components/app/IdeWorkspace";
 import { MobileWorkspace } from "@/components/app/MobileWorkspace";
 import { ViewSwitch, type WorkspaceView } from "@/components/app/ViewSwitch";
 import { AgentPanel } from "@/components/agent/AgentPanel";
@@ -15,7 +14,7 @@ import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useTabs } from "@/hooks/useTabs";
 import type { HostClient } from "@/lib/piHost";
 import type { CodeThemes } from "@/lib/codeThemes";
-import type { Layout, Settings } from "@/lib/settings";
+import type { Settings } from "@/lib/settings";
 import type { Approval, ModelRouter } from "@/components/agent/Composer";
 
 type WorkspaceProps = {
@@ -39,9 +38,6 @@ type WorkspaceProps = {
   session: ReturnType<typeof useAgentSession>;
   /** The sidecar, whether or not a conversation shows. */
   host: HostClient | null;
-  layout: Layout;
-  /** What the VS Code and JetBrains layouts' bars reach. */
-  chrome: IdeChrome;
 };
 
 /**
@@ -64,8 +60,6 @@ export function Workspace({
   footer,
   session,
   host,
-  layout,
-  chrome,
   ...panel
 }: WorkspaceProps) {
   const { active, open: openFile } = tabs;
@@ -108,8 +102,6 @@ export function Workspace({
         editor={editor}
         modelRouter={modelRouter}
         {...panel}
-        // The IDE layouts' status bar shows it instead.
-        gitStatus={panel.gitStatus && (narrow || layout === "default")}
       />
     );
   const { terminalLabel } = projectList.childActions;
@@ -127,28 +119,6 @@ export function Workspace({
       <RunInTerminalContext.Provider value={runIn}>
         {narrow ? (
           <MobileWorkspace {...pane} sidebar={sidebar} agent={agent} />
-        ) : layout !== "default" ? (
-          <IdeWorkspace
-            {...pane}
-            jetbrains={layout === "jetbrains"}
-            chrome={chrome}
-            view={view}
-            onView={setView}
-            onNewTerminal={runIn && (() => runIn())}
-            side={{
-              folder,
-              projectList,
-              host,
-              banner,
-              footer,
-              selected: active,
-              onOpenFile: openFile,
-              hideGitIgnored,
-            }}
-            agent={agent}
-            gitStatus={panel.gitStatus}
-            agentMinWidth={view === "tasks" ? 640 : 320}
-          />
         ) : (
           <DesktopWorkspace
             {...pane}

@@ -1,6 +1,5 @@
 import { Folder } from "lucide-react";
 import { ProjectRowActions } from "@/components/sidebar/ProjectRowActions";
-import { counted } from "@/lib/conversations";
 import { basename, tildify } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +11,6 @@ export function ProjectRow({
   path,
   home,
   selected,
-  count,
   onNew,
   onHistory,
   onDismiss,
@@ -20,8 +18,6 @@ export function ProjectRow({
   path: string;
   home: string;
   selected?: boolean;
-  /** Its conversations, shown beside it only in the JetBrains layout. */
-  count?: number;
   onNew: () => void;
   /** Opens the command center on the folder's conversations. */
   onHistory: () => void;
@@ -29,7 +25,6 @@ export function ProjectRow({
 }) {
   return (
     <div
-      data-slot="project-row"
       className={cn(
         "group relative flex h-8 items-center rounded-md",
         selected
@@ -39,18 +34,11 @@ export function ProjectRow({
     >
       <button
         onClick={onNew}
-        data-slot="project-name"
         title={tildify(path, home)}
         aria-current={selected || undefined}
-        data-count={
-          count === undefined ? undefined : counted(count, "conversation")
-        }
         className="flex h-full min-w-0 flex-1 items-center gap-2 px-2 text-[13px]"
       >
-        <Folder
-          data-slot="project-icon"
-          className="size-4 shrink-0 text-muted-foreground"
-        />
+        <Folder className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate">{basename(path)}</span>
       </button>
       <ProjectRowActions
