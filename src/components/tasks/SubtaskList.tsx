@@ -5,8 +5,9 @@ import type { Subtask } from "../../../shared/tasks";
 export function SubtaskList({ subtasks }: { subtasks: Subtask[] }) {
   return (
     <ul className="flex flex-col">
-      {subtasks.map((s) => (
-        <SubtaskRow key={s.title} subtask={s} />
+      {/* Titles can repeat, and subtasks have no id. */}
+      {subtasks.map((s, i) => (
+        <SubtaskRow key={`${i}:${s.title}`} subtask={s} />
       ))}
     </ul>
   );

@@ -13,7 +13,7 @@ it("turns the composer's git status off", () => {
     onChange,
     iconThemes: [],
     onThemesChange: vi.fn(),
-  }).find((i) => i.title === "Git status in the composer")!;
+  }).find((i) => i.title === "Git status")!;
   const { checked, onCheckedChange } = (
     row.control as ReactElement<SwitchProps>
   ).props;

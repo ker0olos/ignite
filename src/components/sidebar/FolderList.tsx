@@ -95,7 +95,7 @@ export function FolderList({
     setExpanded((open) => ({ ...open, [path]: !open[path] }));
 
   return (
-    <div className="flex flex-col gap-1">
+    <div data-slot="folder-list" className="flex flex-col gap-1">
       <div className="mb-1 flex justify-end">
         <ConversationTagFilter
           tags={tags}
@@ -110,6 +110,7 @@ export function FolderList({
             path={path}
             home={home}
             selected={path === folder && !shown}
+            count={rows(path).length}
             onNew={() => void conversations.create(path)}
             onHistory={() => onHistory(path)}
             onDismiss={() => onDismiss(path)}

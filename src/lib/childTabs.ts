@@ -49,6 +49,12 @@ function parse(id: string): (Partial<ChildTab> & { session: string }) | null {
   }
 }
 
+/** The terminal a tab id shows, or null for any other tab. */
+export function terminalOf(id: string): string | null {
+  const tab = readChildTab(id);
+  return tab?.kind === "terminal" ? tab.terminal : null;
+}
+
 /** How the tab strip shows a child tab; a terminal by the command running in it, if one is. */
 export function childTabLabel(
   tab: ChildTab,

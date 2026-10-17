@@ -44,8 +44,11 @@ export function ProposedTaskRow({ task }: { task: ProposedTask }) {
             </p>
           )}
           <ul className="flex flex-col">
-            {subtasks.map((title) => (
-              <SubtaskRow key={title} subtask={{ title, status: "todo" }} />
+            {subtasks.map((title, i) => (
+              <SubtaskRow
+                key={`${i}:${title}`}
+                subtask={{ title, status: "todo" }}
+              />
             ))}
           </ul>
         </div>

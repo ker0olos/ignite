@@ -90,8 +90,9 @@ export function useComposerQuestionKeys(
 
 const FIELD = "input, textarea, select, [contenteditable=true]";
 
-/** Whether focus is in a field outside the composer (a terminal, a dialog, the task sheet), whose keys stay its own. */
+/** Whether the keys aren't the composer's: it's hidden (inert, behind an IDE layout's file), or focus is in another field. */
 function typingElsewhere(input: HTMLTextAreaElement | null) {
+  if (input?.closest("[inert]")) return true;
   const active = document.activeElement;
   if (!active?.matches(FIELD)) return false;
   return !input?.form?.contains(active);

@@ -2,7 +2,7 @@ import { X } from "lucide-react";
 import { AgentStatusIcon } from "@/components/app/AgentStatusIcon";
 import { ConversationTagMenu } from "@/components/sidebar/ConversationTagMenu";
 import { TagChip } from "@/components/sidebar/TagChip";
-import type { TaggedAgentStatus } from "@/lib/conversations";
+import { conversationTitle, type TaggedAgentStatus } from "@/lib/conversations";
 import { cn } from "@/lib/utils";
 
 const ROW_TAGS = 2;
@@ -27,7 +27,7 @@ export function ConversationRow({
   onClose: () => void;
   onSetTags: (tags: string[]) => void;
 }) {
-  const title = agent.title || "New conversation";
+  const title = conversationTitle(agent);
   const tags = agent.tags ?? [];
 
   const actionClass =
@@ -35,6 +35,7 @@ export function ConversationRow({
 
   return (
     <div
+      data-slot="conversation-row"
       className={cn(
         "group relative flex min-h-7 items-center rounded-md",
         selected
@@ -44,6 +45,7 @@ export function ConversationRow({
     >
       <button
         onClick={onShow}
+        data-slot="conversation-button"
         aria-current={selected || undefined}
         className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-[13px]"
       >

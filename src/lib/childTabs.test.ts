@@ -1,6 +1,7 @@
 import { Bot, SquareTerminal } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 import {
+  terminalOf,
   childTabId,
   childTabs,
   readChildTab,
@@ -95,5 +96,13 @@ describe("childTabs", () => {
 
   it("lists nothing for a conversation without any", () => {
     expect(childTabs({ ...status, running: false })).toEqual([]);
+  });
+});
+
+describe("terminalOf", () => {
+  it("is the terminal a terminal tab shows, else null", () => {
+    const tab = childTabId({ kind: "terminal", session: "", terminal: "t1" });
+    expect(terminalOf(tab)).toBe("t1");
+    expect(terminalOf("/f/app.ts")).toBeNull();
   });
 });

@@ -9,17 +9,17 @@ export function openTab({ files }: Tabs, path: string): Tabs {
   };
 }
 
-/**
- * Closes `path`. If it was active, the tab now at its position becomes active
- * (the one to its right, or the new last tab), or none when all are closed.
- */
+/** What takes `closing`'s place: the one to its right, else the new last one, else none. */
+export function neighbour(list: string[], closing: string): string | null {
+  const i = list.indexOf(closing);
+  const rest = list.filter((s) => s !== closing);
+  return rest[i] ?? rest[i - 1] ?? rest.at(-1) ?? null;
+}
+
+/** Closes `path`; if it was active, its neighbour becomes active. */
 export function closeTab({ files, active }: Tabs, path: string): Tabs {
-  const index = files.indexOf(path);
-  if (index === -1) return { files, active };
+  if (!files.includes(path)) return { files, active };
   const rest = files.filter((f) => f !== path);
   if (active !== path) return { files: rest, active };
-  return {
-    files: rest,
-    active: rest[Math.min(index, rest.length - 1)] ?? null,
-  };
+  return { files: rest, active: neighbour(files, path) };
 }
