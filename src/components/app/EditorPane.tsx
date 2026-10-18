@@ -57,7 +57,7 @@ export function EditorPane({
           host={session.host}
           themes={codeThemes}
           editor={editor}
-          target={{ shown: session.session, show: session.show }}
+          shown={session.session}
         />
       ) : (
         <FileView

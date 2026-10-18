@@ -3,7 +3,7 @@ import { CodeLine } from "@/components/conversation/CodeLine";
 import { FoldedLines } from "@/components/conversation/FoldedLines";
 import { MoreLines } from "@/components/conversation/MoreLines";
 import type { Editor, RowExtras } from "@/components/conversation/shared";
-import { foldUnchanged } from "@/lib/gitDiff";
+import { foldUnchanged, keepUnfolded } from "@/lib/gitDiff";
 import { highlightLines, type Token } from "@/lib/highlight";
 import type { DiffLine } from "@/lib/toolRows";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -33,6 +33,8 @@ export function CodeLines({
   const code = lines.map((l) => (l.kind === "gap" ? "" : l.text)).join("\n");
   const marks = lines.some((l) => l.kind === "add" || l.kind === "del");
   const shown = all ? lines : lines.slice(0, max);
+  const folded = foldUnchanged(shown, expanded);
+  const rows = extras ? keepUnfolded(folded, extras.keep) : folded;
 
   useEffect(() => {
     let cancelled = false;
@@ -53,7 +55,7 @@ export function CodeLines({
         )}
         style={{ fontFamily: editor.font_family }}
       >
-        {foldUnchanged(shown, expanded).map((row) =>
+        {rows.map((row) =>
           "from" in row ? (
             <FoldedLines
               key={`fold-${row.from}`}

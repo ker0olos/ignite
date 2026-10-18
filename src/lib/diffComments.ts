@@ -1,16 +1,12 @@
-/** A line a comment quotes: its kind and number (new file's, or old file's when removed). */
-export type CommentLine = {
-  kind: "add" | "del" | "ctx";
-  num: number;
-  text: string;
-};
+import type { GitChange } from "../../shared/git";
+import type { CommentLine } from "../../shared/sentComments";
 
-/** A comment on a range of a diff tab's rows, kept until sent or deleted. */
+/** A comment on a range of a diff tab's rows, in its conversation's message until sent or deleted. */
 export type DiffComment = {
   id: number;
-  repo: string;
+  /** The diff it's on; none for one taken back from a queued message. */
+  diff?: { repo: string; range: string; status: GitChange["status"] };
   path: string;
-  range: string;
   /** The rows it covers in the diff, `to` the one it shows under. */
   from: number;
   to: number;
@@ -65,6 +61,22 @@ export function removeDiffComment(key: Key, id: number) {
     key,
     diffComments(key).filter((c) => c.id !== id),
   );
+}
+
+let revealing: number | null = null;
+
+/** Asks the comment's card to scroll into view and flash, once it shows. */
+export function revealDiffComment(id: number) {
+  revealing = id;
+  listeners.forEach((l) => l());
+}
+
+/** The comment asked to show, until its card has. */
+export const revealedComment = () => revealing;
+
+/** The card of comment `id` showed it. */
+export function revealedDone(id: number) {
+  if (revealing === id) revealing = null;
 }
 
 /** Deletes the given comments (the ones just sent), keeping any added since. */

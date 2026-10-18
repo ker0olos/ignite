@@ -1,10 +1,11 @@
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCommentReveal } from "@/hooks/useCommentReveal";
 import type { DiffComment } from "@/lib/diffComments";
-import { commentPlace } from "@/lib/diffCommentMessage";
+import { commentPlace } from "../../../shared/sentComments";
 import { basename } from "@/lib/paths";
 
-/** A saved comment under its last line: where it is, its text, Edit and Delete. */
+/** A saved comment under its last line: where it is, its text, Edit and Delete; flashed when revealed. */
 export function DiffCommentCard({
   comment,
   onEdit,
@@ -14,9 +15,10 @@ export function DiffCommentCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const ref = useCommentReveal(comment.id);
   return (
     <div className="sticky left-0 w-full max-w-xl px-3 py-1.5 font-sans text-[13px] leading-normal">
-      <div className="rounded-md border bg-background px-2.5 py-2">
+      <div ref={ref} className="rounded-md border bg-background px-2.5 py-2">
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <span className="min-w-0 flex-1 truncate">
             {commentPlace(basename(comment.path), comment.lines)}

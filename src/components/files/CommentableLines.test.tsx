@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import { CommentableLines } from "@/components/files/CommentableLines";
 import { useDiffComments } from "@/hooks/useDiffComments";
 import { DEFAULT_CODE_THEMES } from "@/lib/codeThemes";
@@ -15,7 +15,7 @@ const lines: DiffLine[] = [
 function Lines() {
   const comments = useDiffComments(
     { repo: "/repo", range: "HEAD", path: "a.ts", status: "M", session: "v1" },
-    { shown: "v1", show: vi.fn() },
+    "v1",
   );
   return (
     <CommentableLines

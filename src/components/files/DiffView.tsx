@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { CommentableLines } from "@/components/files/CommentableLines";
-import { DiffCommentsSend } from "@/components/files/DiffCommentsSend";
 import { ChangeNav } from "@/components/files/ChangeNav";
 import { PathCrumbs } from "@/components/files/PathCrumbs";
 import { useChangeNav } from "@/hooks/useChangeNav";
-import { useDiffComments, type CommentTarget } from "@/hooks/useDiffComments";
+import { useDiffComments } from "@/hooks/useDiffComments";
 import { rangeLabel, type DiffTab } from "@/lib/diffTabs";
 import { parseUnifiedDiff } from "@/lib/gitDiff";
 import type { HostClient } from "@/lib/piHost";
@@ -14,19 +13,20 @@ import type { Settings } from "@/lib/settings";
 type Loaded =
   { lines: ReturnType<typeof parseUnifiedDiff> } | { message: string };
 
-/** Read-only, syntax-highlighted view of one file's diff at some range, with a breadcrumb; its lines take comments for the conversation. */
+/** Read-only, syntax-highlighted view of one file's diff at some range, with a breadcrumb; its lines take comments for the conversation's message. */
 export function DiffView({
   tab,
   host,
   themes,
   editor,
-  target,
+  shown,
 }: {
   tab: DiffTab;
   host: HostClient | null;
   themes: CodeThemes;
   editor: Settings["editor"];
-  target: CommentTarget;
+  /** The conversation shown, which a diff no conversation opened comments to. */
+  shown: string | null;
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -34,7 +34,7 @@ export function DiffView({
     loaded && "lines" in loaded ? loaded.lines : null,
     scroller,
   );
-  const comments = useDiffComments(tab, target);
+  const comments = useDiffComments(tab, shown);
 
   useEffect(() => {
     if (!host) return;
@@ -62,12 +62,7 @@ export function DiffView({
       <nav className="flex h-8 shrink-0 items-center gap-1 pr-2 pl-4 text-xs text-muted-foreground">
         <PathCrumbs path={tab.path} />
         <span className="min-w-0 truncate">({rangeLabel(tab.range)})</span>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          {comments.count > 0 && (
-            <DiffCommentsSend count={comments.count} onSend={comments.send} />
-          )}
-          {changes.count > 0 && <ChangeNav onStep={changes.go} />}
-        </div>
+        {changes.count > 0 && <ChangeNav onStep={changes.go} />}
       </nav>
       {loaded && "message" in loaded ? (
         <p className="flex flex-1 items-center justify-center text-[13px] text-muted-foreground">

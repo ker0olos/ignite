@@ -50,6 +50,8 @@ export function CommentableLines({
       />
     ),
     selected: selection.selected,
+    keep: (row) =>
+      draft?.to === row || comments.comments.some((c) => c.to === row),
   };
   // A drag over the lines extends the range to the row under the pointer.
   const onMouseMove = (e: MouseEvent) => {

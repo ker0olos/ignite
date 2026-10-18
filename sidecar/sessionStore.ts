@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import { describeSession } from "../shared/describeSession.ts";
-import { typedSkill } from "../shared/skills.ts";
+import { typedMessage } from "../shared/sentComments.ts";
 import type { HostContext, SessionStore } from "./hostTypes.ts";
 
 /**
@@ -66,7 +66,7 @@ export const sessions: SessionStore = {
       .filter((s) => s.messageCount > 0)
       .map((s) => ({
         id: s.id,
-        title: s.name ?? typedSkill(s.firstMessage),
+        title: s.name ?? typedMessage(s.firstMessage),
         modified: s.modified.getTime(),
         messageCount: s.messageCount,
         text: s.allMessagesText,

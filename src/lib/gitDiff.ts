@@ -69,6 +69,21 @@ export function foldUnchanged(
   return rows;
 }
 
+/** `rows` with every fold holding a row to keep opened up. */
+export function keepUnfolded(
+  rows: DiffRow[],
+  keep: (row: number) => boolean,
+): DiffRow[] {
+  return rows.flatMap((row): DiffRow[] => {
+    if (!("from" in row)) return [row];
+    const all = Array.from(
+      { length: row.to - row.from },
+      (_, i) => row.from + i,
+    );
+    return all.some(keep) ? all.map((index) => ({ index })) : [row];
+  });
+}
+
 /** The row where each run of added or removed lines starts. */
 export function changeStarts(lines: DiffLine[]): number[] {
   return lines.flatMap((line, i) =>

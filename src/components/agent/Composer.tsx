@@ -1,10 +1,9 @@
 import { type KeyboardEvent, useRef } from "react";
-import type { QueuedMessage } from "../../../shared/queue";
 import type { ApprovalMode } from "../../../shared/hostProtocol";
 import { ComposerBar } from "@/components/agent/ComposerBar";
 import { ComposerInput } from "@/components/agent/ComposerInput";
 import { ComposerQuestion } from "@/components/agent/ComposerQuestion";
-import { ImageAttachments } from "@/components/agent/ImageAttachments";
+import { ComposerAttachments } from "@/components/agent/ComposerAttachments";
 import { MentionMenu } from "@/components/agent/MentionMenu";
 import { QueuedMessages } from "@/components/agent/QueuedMessages";
 import type { useAgentSession } from "@/hooks/useAgentSession";
@@ -12,13 +11,13 @@ import { useComposerDraft } from "@/hooks/useComposerDraft";
 import { useComposerFocus } from "@/hooks/useComposerFocus";
 import { useComposerHistory } from "@/hooks/useComposerHistory";
 import { useComposerQuestionKeys } from "@/hooks/useComposerQuestionKeys";
+import { useComposerSend } from "@/hooks/useComposerSend";
 import { useMentions } from "@/hooks/useMentions";
 import type { QuestionDeck } from "@/hooks/useQuestionDeck";
 import { shortcut } from "@/lib/approvalKeys";
-import { appCommand, skillPrompt } from "@/lib/mentions";
 import type { HostClient } from "@/lib/piHost";
 import { noteLabel } from "@/lib/questions";
-import { canSend, composerKey, takenText } from "@/lib/queue";
+import { composerKey } from "@/lib/queue";
 import { cn } from "@/lib/utils";
 
 type Session = ReturnType<typeof useAgentSession>;
@@ -61,8 +60,8 @@ export function Composer({
   const skills = session.state?.skills ?? [];
   const input = useRef<HTMLTextAreaElement>(null);
   const options = useRef<HTMLDivElement>(null);
-  const { text, setText, images, setImages, attach, remove, replace, paste } =
-    useComposerDraft(asking, input, session.session);
+  const draft = useComposerDraft(asking, input);
+  const { text, setText, images, attach, remove, replace, paste } = draft;
   const mentions = useMentions({
     host,
     folder,
@@ -75,24 +74,16 @@ export function Composer({
   const history = useComposerHistory(text, setText, input);
   const questionKeys = useComposerQuestionKeys(asking, options, input);
   useComposerFocus(input);
-
+  const message = useComposerSend({
+    session,
+    asking: !!asking,
+    skills,
+    draft,
+    record: history.record,
+    input,
+  });
+  const { sendable, stop } = message;
   const queued = session.transcript?.queued ?? [];
-  const sendable = sendableNow(session, text, images.length);
-  // While the agent works, a message waits for the run's end.
-  const handleSend = () => {
-    if (!sendable) return;
-    history.record(text);
-    setText("");
-    // `/compact` sends no images; they wait for the next message.
-    if (appCommand("compact", text) === null) setImages([]);
-    void session.send(skillPrompt(text, skills), images, "followUp");
-  };
-  const restore = (taken: QueuedMessage[]) => {
-    setText((t) => takenText(taken, t));
-    setImages((i) => [...taken.flatMap((m) => m.images ?? []), ...i]);
-    input.current?.focus();
-  };
-  const stop = () => void session.stop().then(restore);
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (mentions.onKeyDown(e) || questionKeys.onInputKey(e)) return;
     if (!asking && history.onKeyDown(e)) return;
@@ -105,7 +96,7 @@ export function Composer({
     e.preventDefault();
     if (act === "stop") stop();
     else if (act === "now") void session.unqueue(queued[0], "now");
-    else handleSend();
+    else message.send();
   };
 
   return (
@@ -114,7 +105,7 @@ export function Composer({
       onSubmit={(e) => {
         e.preventDefault();
         if (asking) asking.next();
-        else handleSend();
+        else message.send();
       }}
     >
       <MentionMenu {...mentions.menu} />
@@ -126,7 +117,7 @@ export function Composer({
         <QueuedMessages
           queued={queued}
           unqueue={session.unqueue}
-          onEdit={(m) => restore([m])}
+          onEdit={(m) => message.restore([m])}
         />
         {asking && (
           <ComposerQuestion
@@ -136,7 +127,14 @@ export function Composer({
             onKeyDown={questionKeys.onOptionKey}
           />
         )}
-        <ImageAttachments images={images} onRemove={remove} onEdit={replace} />
+        <ComposerAttachments
+          images={images}
+          onRemoveImage={remove}
+          onEditImage={replace}
+          comments={message.comments}
+          session={session.session}
+          onRemoveComment={message.removeComment}
+        />
         <ComposerInput
           ref={input}
           value={text}
@@ -160,15 +158,6 @@ export function Composer({
         />
       </fieldset>
     </form>
-  );
-}
-
-function sendableNow(session: Session, text: string, images: number) {
-  return canSend(
-    !!session.state || session.none,
-    { text, images },
-    session.transcript?.routing ?? false,
-    session.waitingOnFork,
   );
 }
 

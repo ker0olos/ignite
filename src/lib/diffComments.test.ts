@@ -9,9 +9,8 @@ import {
 } from "@/lib/diffComments";
 
 const base = {
-  repo: "/repo",
+  diff: { repo: "/repo", range: "HEAD", status: "M" as const },
   path: "a.ts",
-  range: "HEAD",
   from: 0,
   to: 0,
   lines: [],

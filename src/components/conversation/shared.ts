@@ -31,6 +31,8 @@ export type RowExtras = {
   /** Under the row: its comments and comment box. */
   below: (row: number) => ReactNode;
   selected: (row: number) => boolean;
+  /** Rows a fold must not hide (ones with comments under them). */
+  keep: (row: number) => boolean;
 };
 
 /** Ends a running bash call so the agent carries on, false when none ran; null where nothing can (a subagent's calls). */
