@@ -2,9 +2,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 // Vite serves these by URL; under Node, web-tree-sitter reads them from disk.
-vi.mock("tree-sitter-bash/tree-sitter-bash.wasm?url", () => ({
+vi.mock("../../shared/grammars/tree-sitter-bash.wasm?url", () => ({
   default: new URL(
-    "../../node_modules/tree-sitter-bash/tree-sitter-bash.wasm",
+    "../../shared/grammars/tree-sitter-bash.wasm",
     import.meta.url,
   ).pathname,
 }));

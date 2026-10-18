@@ -2,8 +2,8 @@
  * Parses shell commands with tree-sitter's bash grammar, so the approval
  * rules see each command's real words instead of guessing from raw text.
  */
-import { createRequire } from "node:module";
 import { basename } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Language, Parser, type Node } from "web-tree-sitter";
 import type {
   ParseBash,
@@ -158,8 +158,8 @@ function visit(
 
 async function load(): Promise<ParseBash> {
   await Parser.init();
-  const wasm = createRequire(import.meta.url).resolve(
-    "tree-sitter-bash/tree-sitter-bash.wasm",
+  const wasm = fileURLToPath(
+    import.meta.resolve("../shared/grammars/tree-sitter-bash.wasm"),
   );
   const parser = new Parser();
   parser.setLanguage(await Language.load(wasm));

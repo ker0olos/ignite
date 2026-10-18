@@ -1,5 +1,5 @@
 import { Language, Parser } from "web-tree-sitter";
-import bashWasm from "tree-sitter-bash/tree-sitter-bash.wasm?url";
+import bashWasm from "../../shared/grammars/tree-sitter-bash.wasm?url";
 import runtimeWasm from "web-tree-sitter/web-tree-sitter.wasm?url";
 
 let parser: Promise<Parser> | undefined;

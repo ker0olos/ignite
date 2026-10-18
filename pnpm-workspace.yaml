@@ -1,22 +1,21 @@
 # npm's flat node_modules: pi's extensions load packages they don't declare.
 nodeLinker: hoisted
 
-# Only node-pty's script is needed (its native module); tree-sitter's would build
-# bindings the app doesn't use, as it loads their .wasm.
+# Only node-pty's script is needed (its native module).
 allowBuilds:
   "@google/genai": false
   node-pty: true
   protobufjs: false
-  tree-sitter-bash: false
-  tree-sitter-go: false
-  tree-sitter-javascript: false
-  tree-sitter-python: false
-  tree-sitter-rust: false
-  tree-sitter-typescript: false
 
-# recheck's Java fallback (22 MB): every platform Ignite ships has its native binary.
+# recheck's Java and native backends (~50 MB): it falls back to its JavaScript one,
+# fast enough for the short regexes pi-mcp-adapter's tool search checks.
 ignoredOptionalDependencies:
   - recheck-jar
+  - recheck-linux-arm64
+  - recheck-linux-x64
+  - recheck-macos-arm64
+  - recheck-macos-x64
+  - recheck-windows-x64
 
 minimumReleaseAgeExclude:
   - "@anthropic-ai/sandbox-runtime@0.0.80"
