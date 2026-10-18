@@ -48,8 +48,9 @@ once. Made for macOS; and others.
   images.
 - Claude and ChatGPT through your Claude Code and Codex sign-ins, so you use
   the plans you already pay for. API keys work too.
-- Commands run in a sandbox: they write only inside the project, can't read
-  your credentials, and may only read from websites. risky asks first, or turn on full access and nothing asks.
+- Commands run in an OS sandbox ([below](#sandbox)): they write only inside
+  the project, can't read your credentials, and may only read from websites.
+  Risky ones ask first, or turn on full access and nothing asks.
 - ⌘K searches every conversation, file and project, and ⌘P jumps straight
   to a file.
 - Skills and MCP servers import from Claude Code, Codex, Cursor and Claude
@@ -59,6 +60,39 @@ once. Made for macOS; and others.
 - Code shows in any theme from VS Code, VSCodium, Cursor or Windsurf.
 - Use it from your phone on the same Wi-Fi:
   Settings → Remote, then scan the QR code.
+
+## Sandbox
+
+In Auto mode (the default), the agent's shell commands run without asking,
+inside the operating system's own sandbox, through Anthropic's
+[sandbox-runtime](https://github.com/anthropics/sandbox-runtime):
+
+- **macOS:** Seatbelt, the kernel sandbox behind `sandbox-exec`.
+- **Linux:** [bubblewrap](https://github.com/containers/bubblewrap)
+  namespaces (setup installs it, with `socat`).
+- **Windows:** every command asks first, unless you turn on sandbox-runtime's
+  Windows sandbox (alpha), which runs commands as a separate low-privilege
+  user that can open only the folders it's granted.
+
+Inside it, a command:
+
+- writes only in the project's worktree, temp folders and package caches;
+- can't read credentials: `~/.ssh`, `~/.aws`, keychains and other tools'
+  auth files;
+- goes online only through a proxy in the app: package registries and git
+  hosts fully, other public sites for reads only (GET), never `localhost`
+  or a bare IP address.
+
+When the sandbox blocks a command, it asks you before running it outside,
+and you can always allow that host or path. Some commands still ask in Auto:
+ones on a denylist of risky commands (a wide `rm -rf`, `sudo`, `curl | sh`…), file edits outside
+the project, MCP tools that change things, and git commits, pushes and pull
+requests, which run with your own credentials once you approve their review.
+
+The sandbox covers shell commands only. The agent's file tools and your MCP
+servers run as you, and it guards against mistakes, not a determined
+attacker: a read can still carry data out in its URL. Manual mode asks
+before every tool call.
 
 ## Install
 
