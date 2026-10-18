@@ -36,3 +36,17 @@ export function describeError(error: unknown): string {
   }
   return error instanceof Error ? error.message : String(error);
 }
+
+const reason = (stderr: string, prefix: string) =>
+  stderr.match(new RegExp(`^${prefix}: (.+?)[;:.]?$`, "m"))?.[1];
+
+/** A failed git command's reason from its stderr (Node's message is its whole argument list); else describeError's. */
+export function commandReason(error: unknown): string {
+  const stderr = (error as { stderr?: unknown } | null)?.stderr;
+  if (typeof stderr !== "string" || !stderr.trim()) return describeError(error);
+  return (
+    reason(stderr, "fatal") ??
+    reason(stderr, "error") ??
+    stderr.trim().split("\n").at(-1)!
+  );
+}

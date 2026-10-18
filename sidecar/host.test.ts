@@ -19,7 +19,7 @@ import { createHost } from "./host.ts";
 import { skippable } from "./skipWait.ts";
 import { createTaskStore } from "./taskStore.ts";
 import { createSearch } from "./search.ts";
-import { describeError, toWireEvent } from "./wire.ts";
+import { commandReason, describeError, toWireEvent } from "./wire.ts";
 import type {
   McpCatalogSource,
   McpStatusSnapshot,
@@ -870,6 +870,37 @@ describe("describeError", () => {
 
   it("stringifies non-errors", () => {
     expect(describeError("plain")).toBe("plain");
+  });
+});
+
+describe("commandReason", () => {
+  const failed = (stderr: string) =>
+    Object.assign(new Error("Command failed: git -c a=b worktree add"), {
+      stderr,
+    });
+
+  it("gives a failed command's reason from its stderr, not its arguments", () => {
+    expect(
+      commandReason(
+        failed(
+          "Preparing\nfatal: '/w/a' is a missing but locked worktree;\nuse 'add -f -f' to override\n",
+        ),
+      ),
+    ).toBe("'/w/a' is a missing but locked worktree");
+  });
+
+  it("prefers git's fatal line to an error line before it", () => {
+    expect(
+      commandReason(failed("error: could not lock\nfatal: could not set\n")),
+    ).toBe("could not set");
+    expect(commandReason(failed("hint: x\nerror: bad ref\n"))).toBe("bad ref");
+  });
+
+  it("falls back to the last line, then to the message", () => {
+    expect(
+      commandReason(failed("Preparing worktree\nPermission denied\n")),
+    ).toBe("Permission denied");
+    expect(commandReason(failed("  "))).toMatch(/^Command failed/);
   });
 });
 

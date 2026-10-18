@@ -44,11 +44,6 @@ export function ComposerToolbar({
       <ComposerModelMenus session={session} modelRouter={modelRouter} />
       <ApprovalMenu mode={approval.mode} onChange={approval.onChange} />
       {git}
-      {session.error && (
-        <span className="truncate text-xs text-destructive">
-          {session.error}
-        </span>
-      )}
       {question ??
         (running ? (
           <div className={ACTION}>

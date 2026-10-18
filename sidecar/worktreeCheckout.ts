@@ -88,6 +88,10 @@ export async function create(
   named = true,
 ) {
   const saved = await verified(repo, stateRef(id));
+  // A locked worktree whose folder was deleted stays registered (prune skips
+  // locked ones), and git won't add another at its path.
+  if ((await gitOr(repo, ["worktree", "unlock", path])) !== null)
+    await gitOr(repo, ["worktree", "prune"]);
   await mkdir(dirname(path), { recursive: true });
   if (named) await writeFile(repoFile(path), repo);
   if (saved) await addAt(repo, path, saved);

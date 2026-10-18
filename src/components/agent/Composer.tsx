@@ -1,6 +1,7 @@
 import { type KeyboardEvent, useRef } from "react";
 import type { ApprovalMode } from "../../../shared/hostProtocol";
 import { ComposerBar } from "@/components/agent/ComposerBar";
+import { ComposerError } from "@/components/agent/ComposerError";
 import { ComposerInput } from "@/components/agent/ComposerInput";
 import { ComposerQuestion } from "@/components/agent/ComposerQuestion";
 import { ComposerAttachments } from "@/components/agent/ComposerAttachments";
@@ -145,6 +146,7 @@ export function Composer({
           onKeyDown={onKeyDown}
           {...askingInput(asking)}
         />
+        {session.error && <ComposerError error={session.error} />}
         <ComposerBar
           host={host}
           session={session}

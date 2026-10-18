@@ -27,6 +27,7 @@ import { follow, reportTo } from "./hostFollow.ts";
 import { forkOf } from "./forks.ts";
 import { withEntryIds } from "./hostCheckpoint.ts";
 import { hand, takeTurn } from "./hostSend.ts";
+import { commandReason } from "./wire.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -213,7 +214,14 @@ async function inWorkspace(
   agent: Agent,
   open: (workdir: string) => Promise<Session>,
 ) {
-  const ws = await ctx.workspaces.open(agent.cwd, agent.id);
+  const ws = await ctx.workspaces
+    .open(agent.cwd, agent.id)
+    .catch((error: unknown) => {
+      throw new Error(
+        `Couldn't set up this conversation's worktree: ${commandReason(error)}`,
+        { cause: error },
+      );
+    });
   agent.workdir = ws.dir;
   agent.ready = ws.ready;
   try {

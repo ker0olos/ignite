@@ -215,6 +215,15 @@ describe("workspaces", () => {
     );
   });
 
+  it("opens again a worktree whose folder was deleted while locked", async () => {
+    const workspaces = createWorkspaces(root);
+    const path = worktreePath(repo, "a", root);
+    await workspaces.open(repo, "a");
+    rmSync(join(path, ".."), { recursive: true, force: true });
+    expect((await workspaces.open(repo, "a")).dir).toBe(path);
+    expect(read(path, "app.ts")).toBe("one\n");
+  });
+
   it("removes a worktree whose repository is gone", async () => {
     const workspaces = createWorkspaces(root);
     await workspaces.open(repo, "a");
