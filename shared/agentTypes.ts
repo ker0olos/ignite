@@ -1,3 +1,5 @@
+import type { RewoundFiles } from "./rewind.ts";
+
 /**
  * pi's messages and session events as they cross the wire, from pi's
  * docs/message-types.md and docs/json.md. Only the fields the app reads are
@@ -31,6 +33,8 @@ export type UserMessage = {
   role: "user";
   content: string | (TextContent | ImageContent)[];
   timestamp: number;
+  /** pi's entry id, set by the sidecar on messages the conversation may rewind to (app only). */
+  entryId?: string;
 };
 
 export type AssistantMessage = {
@@ -175,6 +179,10 @@ export type SessionEvent =
       success: boolean;
       finalError?: string;
     }
+  /** The app's own: pi saved the user message sent at `timestamp` as entry `entryId`. */
+  | { type: "message_entry"; timestamp: number; entryId: string }
+  /** The app's own: the conversation went back to before user message `entryId`. */
+  | { type: "rewound"; entryId: string; files: RewoundFiles }
   /** Messages sent mid-run that pi hasn't delivered yet, in delivery order. */
   | { type: "queue_update"; steering: string[]; followUp: string[] }
   | { type: "compaction_start"; reason: CompactionReason }

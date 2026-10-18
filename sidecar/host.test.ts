@@ -140,6 +140,11 @@ function fakeSession() {
     refreshContext: vi.fn(),
     sendCustomMessage: vi.fn(async () => {}),
     isStreaming: false,
+    isCompacting: false,
+    navigateTree: vi.fn<(id: string) => Promise<{ cancelled: boolean }>>(
+      async () => ({ cancelled: false }),
+    ),
+    setSessionName: vi.fn(),
     listeners: new Set<(e: SessionEvent) => void>(),
     subscribe: vi.fn((cb: (e: SessionEvent) => void) => {
       session.listeners.add(cb);
@@ -948,6 +953,38 @@ describe("sessions", () => {
     });
     expect(responses()[0]).toMatchObject({
       data: { messages: [hello, reply] },
+    });
+  });
+
+  it("names each user message by its entry, and edits one through rewind", async () => {
+    const session = fakeSession();
+    const hello = { role: "user", content: "hi", timestamp: 1 } as const;
+    session.messages = [hello];
+    session.sessionManager.getBranch = () => [
+      { id: "u1", type: "message", parentId: null, message: hello },
+    ];
+    const { request, responses, sent } = setup(
+      fakeRuntime().runtime,
+      async () => session,
+    );
+    await request({ id: 1, type: "open_session", cwd: "/work", session: "a" });
+    expect(responses()[0]).toMatchObject({
+      data: { messages: [{ ...hello, entryId: "u1" }] },
+    });
+    await request({
+      id: 2,
+      type: "rewind",
+      session: "a",
+      entryId: "u1",
+      text: "hello",
+    });
+    expect(responses()[1]).toMatchObject({ ok: true });
+    expect(session.navigateTree).toHaveBeenCalledWith("u1");
+    expect(session.prompt).toHaveBeenCalledWith("hello", expect.anything());
+    expect(sent).toContainEqual({
+      type: "session_event",
+      session: "a",
+      event: { type: "rewound", entryId: "u1", files: "shared" },
     });
   });
 

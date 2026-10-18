@@ -10,6 +10,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
+import { dropCheckpoints } from "./checkpoints.ts";
 import {
   git,
   gitOr,
@@ -142,6 +143,7 @@ async function remove(path: string) {
   const branch = await gitOr(path, ["symbolic-ref", "-q", "--short", "HEAD"]);
   const message = `${APP_NAME} snapshot${branch ? `\n\nbranch: ${branch}` : ""}`;
   await git(repo, ["update-ref", stateRef(id), await snapshot(path, message)]);
+  await dropCheckpoints(repo, id);
   await gitOr(repo, ["worktree", "unlock", path]);
   // Windows can't delete a file another process holds open; then a later
   // sweep tries again, as the lock names a process that's gone by then.

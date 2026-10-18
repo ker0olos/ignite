@@ -93,9 +93,10 @@ export type Session = {
   readonly sessionManager: {
     appendMessage(message: ToolResultMessage): string;
     getBranch(): {
+      id: string;
       type: string;
       parentId: string | null;
-      message?: { role: string };
+      message?: { role: string; timestamp?: number };
     }[];
     /** Moves the leaf back to entry `id`; what's appended next starts a new branch. */
     branch(id: string): void;
@@ -114,6 +115,10 @@ export type Session = {
     },
   ): Promise<void>;
   readonly isStreaming: boolean;
+  readonly isCompacting: boolean;
+  /** Moves the leaf to before user message `id` (pi's tree navigation, same file); later entries stay on the old branch. */
+  navigateTree(id: string): Promise<{ cancelled: boolean }>;
+  setSessionName(name: string): void;
   subscribe(listener: (event: SessionEvent) => void): () => void;
   prompt(
     text: string,
@@ -236,6 +241,10 @@ export type Agent = {
   subagents: Map<string, SubagentStatus>;
   /** Running tool calls' latest progress, by tool call id, until pi saves their results. */
   toolRuns: Map<string, SessionEvent>;
+  /** Its worktree's files as the latest user message started, until that message is saved. */
+  snapshot?: Promise<string | null>;
+  /** Settles once every checkpoint being saved is. */
+  checkpoint?: Promise<unknown>;
 };
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };

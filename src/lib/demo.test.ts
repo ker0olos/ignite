@@ -168,6 +168,36 @@ describe("the demo host", () => {
     await host.request({ type: "prompt", text: "no conversation" });
   });
 
+  it("names user messages so Edit shows, and edits one by rewinding, then replying", async () => {
+    const host = createDemoHost(TEMPO, 0);
+    const opened = await host.request({
+      type: "open_session",
+      cwd: TEMPO,
+      session: "tempo",
+    });
+    const first = opened!.messages!.find((m) => m.role === "user");
+    expect(first).toMatchObject({ entryId: expect.stringMatching(/^entry-/) });
+    const { heard } = listen(host);
+    await host.request({
+      type: "rewind",
+      session: "tempo",
+      entryId: "entry-0",
+      text: "again",
+    });
+    await vi.waitFor(() =>
+      expect(heard).toHaveBeenLastCalledWith(
+        expect.objectContaining({ event: { type: "agent_settled" } }),
+      ),
+    );
+    const events = heard.mock.calls.map((c) => c[0].event);
+    expect(events[0]).toEqual({
+      type: "rewound",
+      entryId: "entry-0",
+      files: "restored",
+    });
+    expect(events.map((e) => e.type)).toContain("message_entry");
+  });
+
   it("reads conversations, their details, the demo's diffs and settings", async () => {
     const host = createDemoHost(TEMPO);
     const read = { cwd: TEMPO, session: "pantry" };

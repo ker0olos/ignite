@@ -10,6 +10,7 @@ import { workingLine, writingText } from "@/lib/runStep";
 import { shownItems } from "@/lib/routedMessage";
 import type { Transcript } from "@/lib/transcript";
 import { toRows } from "@/lib/toolRows";
+import { editableEntries } from "@/lib/rewind";
 import type { CodeThemes } from "@/lib/codeThemes";
 
 /** The conversation so far, auto-scrolling unless the user has scrolled up. */
@@ -48,6 +49,7 @@ export function Conversation({
 
   const working = workingLine(transcript, folder, showThinking, waitingOnFork);
   const rows = toRows(items, transcript.tools);
+  const editable = editableEntries(items);
   const { start, topRef } = useOlderRows(scrollRef, rows.length, shown);
 
   return (
@@ -68,6 +70,9 @@ export function Conversation({
               stickyUserMessages={stickyUserMessages}
               onApprove={onApprove}
               last={start + j === rows.length - 1}
+              editable={
+                row.kind === "user" && editable.has(row.message.entryId ?? "")
+              }
             />
           </RowBoundary>
         ))}

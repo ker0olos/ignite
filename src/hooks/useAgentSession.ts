@@ -8,6 +8,9 @@ import { useSessionCache } from "@/hooks/useSessionCache";
 import { view } from "@/lib/sessionEntry";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
 import { useSessionSwitch } from "@/hooks/useSessionSwitch";
+import { useRewind } from "@/hooks/useRewind";
+
+const NO_SKILLS: never[] = [];
 
 /**
  * The pi session for the open folder: the conversation, sending and stopping,
@@ -110,9 +113,12 @@ export function useAgentSession(
   });
 
   const draft = useDraftState(opened, none, actions.pending, statuses);
+  const seen = view(current, draft);
+  const skills = seen.state?.skills ?? NO_SKILLS;
+  const rewind = useRewind(opened, shown, skills, setError);
 
   return {
-    ...view(current, draft),
+    ...seen,
     error,
     /** A fork of it is open, or its report is on the way; it takes no messages. */
     waitingOnFork: useForkWait(host, shown),
@@ -122,6 +128,8 @@ export function useAgentSession(
     fork: () => actions.fork("", []),
     stop: actions.stop,
     unqueue: actions.unqueue,
+    /** Edits a user message of the shown conversation, sending `text` in its place; false when refused. */
+    rewind,
     /** The shown conversation's id; the folder may have others open. */
     session: shown,
     /** Recently shown conversations (any folder), kept rendered so showing one again is instant. */

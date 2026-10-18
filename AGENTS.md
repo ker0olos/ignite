@@ -24,7 +24,7 @@ src/                     React frontend (almost all logic lives here)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
                          (which also answers the agent's questions), model/effort/approval menus, git status, trust prompt
-    conversation/        Transcript rendering: messages, tool rows (with approve/deny) and their pieces; WorkingLine is the run's spinner, step and time,
+    conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces; WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              Recent cmem observations for the Memory settings
@@ -53,6 +53,8 @@ src/                     React frontend (almost all logic lives here)
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
     useCompact.ts        `/compact`: compacts the shown conversation
     useFork.ts           `/fork`: forks the shown conversation, shows the fork, sends it the text after `/fork`
+    useRewind.ts         Edits a user message of the shown conversation: rewinds to before it, sends the new text
+    useMessageEdit.ts    One user message being edited in place: its text, ↵ sends, Esc cancels
     useForkWait.ts       Whether the shown conversation waits for a fork, so its composer takes no messages
     useMentions.ts       The composer's completions: `/skill` at the start, `@image1`, `@t1` and `@path` anywhere
     useDraftState.ts     A folder with no conversation: the models and effort it would start with
@@ -138,6 +140,8 @@ src/                     React frontend (almost all logic lives here)
     sessionEntry.ts      A conversation as the app keeps it, built from what opening it returned
     routedMessage.ts     The first message while the router reads it, shown until pi adds it
     compaction.ts        Compaction in the conversation: running, then its summary; saved summaries
+    rewind.ts            Editing user messages: which offer Edit (named, after the latest compaction), when (idle),
+                         the conversation cut back to before one
     toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands, parses edit diffs
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
@@ -217,6 +221,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   compactProgress.ts     `/compact`'s progress: the summary's tokens, read off pi's stream as it's written
   queuedImages.ts        Queued messages' images (pi's queue lists only text), forgotten once delivered
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
+  hostRewind.ts          Edits a user message (`rewind`): its checkpoint restored, pi's leaf moved before it, the new text sent
+  hostCheckpoint.ts      User messages' entry ids for the app, and their worktree checkpoints, saved as each starts
+  checkpoints.ts         Checkpoints under refs/ignite/checkpoints/<id>/<entry>: take, keep, restore, drop
   hostFork.ts            Forks a conversation (new_session's `fork`): its file, its worktree's files, a note to the original;
                          closing a fork sends its report to the original, which carries on
   hostFollow.ts          Follows a conversation's session events: to the app if shown, run state, settling
@@ -363,6 +370,7 @@ shared/commandSearch.ts  Ranks conversations and files for the command center (s
 shared/adb.ts            The adb tool's arguments: its command, host paths, calls that never exit
 shared/questions.ts      ask_user's questions and answers (used by both)
 shared/tasks.ts          Tasks and the agent's updates to them (used by both)
+shared/rewind.ts         Editing a user message: the request, what happened to its files
 shared/queue.ts          Messages sent mid-run: how they wait, and taking one back (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/shellEdits.ts     The files a bash call changed, as its result carries them (used by both)
@@ -706,6 +714,24 @@ open), the report waits in `~/.ignite/pi/fork-notes/<id>.json`, like the note
 that the fork was made, and joins its next run as a hidden message
 (`sidecar/forkExtension.ts`). While the summary is written, the fork's last
 reply waits there in its place, so a sidecar restart never drops a report.
+
+Hovering one of the user's messages shows Edit, which edits it in place
+(its images kept): ↵ rewinds the conversation to just before it and sends
+the new text, Esc cancels. The app names each user message by pi's entry id
+(`entryId`, on opening and in a `message_entry` event once pi saves it), and
+`rewind` (`sidecar/hostRewind.ts`) moves pi's leaf to before that entry with
+`navigateTree`, so the old branch stays in the file; a `rewound` event cuts the
+app's transcript there. Only an idle conversation rewinds (not running,
+routing, compacting, waiting on approval or a fork, nothing queued), only to
+messages after its latest compaction, and never a subagent's. Editing the
+first message retitles it (a fork keeps its name). Before each user message
+runs, its worktree's tracked and untracked files are snapshot (moving no
+branch) and kept under `refs/ignite/checkpoints/<session id>/<entry id>`
+(`sidecar/checkpoints.ts`); a failed snapshot never fails the message.
+Rewinding first restores that checkpoint's files (ignored ones stay, HEAD
+too); a folder outside git rewinds only the conversation, and Edit's tooltip
+says so. A conversation's checkpoints go when its worktree is saved and
+removed, and a fork keeps its own file and files when its original rewinds.
 
 Tasks and conversations are one thing shown two ways. Every conversation
 plans before it changes files: `task_update` lays out its subtasks and keeps

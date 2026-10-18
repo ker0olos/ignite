@@ -10,6 +10,7 @@ import type {
 import type { GitReview } from "../../shared/git";
 import { applyCompactionEvent, type CompactionItem } from "@/lib/compaction";
 import { applyRouting, ended } from "@/lib/routedMessage";
+import { applyRewindEvent } from "@/lib/rewind";
 import { nextBlock, type StreamUpdate } from "@/lib/streamBlocks";
 
 export type Item =
@@ -174,7 +175,7 @@ function applyBackgroundEvent(t: Transcript, event: SessionEvent): Transcript {
     case "queue_update":
       return applyQueue(t, event);
     default:
-      return t;
+      return applyRewindEvent(t, event);
   }
 }
 

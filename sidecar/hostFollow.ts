@@ -1,6 +1,7 @@
 import type { SessionEvent } from "../shared/agentTypes.ts";
 import { titleOf } from "../shared/conversations.ts";
 import { followSubagents } from "./hostChildren.ts";
+import { followUserMessage } from "./hostCheckpoint.ts";
 import { pushProjects, trackRun } from "./hostProjects.ts";
 import { reload, tellsApp, type Agent, type HostContext } from "./hostTypes.ts";
 import { delivered } from "./queuedImages.ts";
@@ -18,6 +19,7 @@ export function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
     });
   }
   trackToolRun(agent, event);
+  followUserMessage(ctx, agent, event);
   const subagentsChanged = followSubagents(agent, event);
   if (trackRun(agent, event) || subagentsChanged) pushProjects(ctx);
   if (event.type === "message_start") delivered(agent, event.message);

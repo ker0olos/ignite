@@ -32,6 +32,7 @@ import { rememberImages } from "./queuedImages.ts";
 import { routeMessage } from "./hostRoute.ts";
 import { follow, reportTo } from "./hostFollow.ts";
 import { forkOf } from "./forks.ts";
+import { checkpointFirst, withEntryIds } from "./hostCheckpoint.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -148,7 +149,10 @@ function messagesFor(s: Session, followed: boolean, known: boolean) {
   if (followed && known) return {};
   // pi lists a message once it ends; the one being written follows.
   return {
-    messages: [...s.messages, ...[s.agent.state.streamingMessage ?? []].flat()],
+    messages: withEntryIds(s.sessionManager, [
+      ...s.messages,
+      ...[s.agent.state.streamingMessage ?? []].flat(),
+    ]),
   };
 }
 
@@ -256,7 +260,7 @@ export async function closeAll(ctx: HostContext) {
 }
 
 /** A message written before a cut-off run resumed goes first; one written after waits until that run has started. */
-async function settleResume(agent: Agent) {
+export async function settleResume(agent: Agent) {
   const { resume } = agent;
   if (!resume) return;
   agent.resume = undefined;
@@ -284,6 +288,7 @@ export async function prompt(
   if (s.isStreaming) rememberImages(agent!, text, images);
   // A message sent mid-run steers the run; a conversation's first one may be routed.
   else if (!(await routeMessage(ctx, agent!, s, text, images))) return;
+  else await checkpointFirst(agent!);
   // A message written instead of answering says why, so it steers even when queued.
   const behavior = waitsOnUser(agent!) ? "steer" : queue;
   const options = {

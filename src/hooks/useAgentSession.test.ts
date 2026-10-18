@@ -432,6 +432,81 @@ describe("useAgentSession", () => {
       });
     });
 
+    it("edits a message: sends it with its skill as pi's command, and shows the conversation from before it", async () => {
+      const first = { ...hello, entryId: "u1" };
+      const again = { role: "user", content: "Bye", timestamp: 2 } as const;
+      const skills = [{ name: "review", description: "R" }];
+      const host = fakeHost(async (req) =>
+        req.type === "rewind"
+          ? undefined
+          : { ...STATE, skills, workdir: "/wt", messages: [first, again] },
+      );
+      const { result } = renderHook(() => useAgentSession(host, "/work", null));
+      await waitFor(() =>
+        expect(result.current.transcript?.items).toHaveLength(2),
+      );
+      expect(result.current.filesStay).toBe(false);
+      host.emit({
+        type: "session_event",
+        session: "s1",
+        event: { type: "message_entry", timestamp: 2, entryId: "u2" },
+      });
+      expect(result.current.transcript?.items[1]).toEqual({
+        kind: "message",
+        message: { ...again, entryId: "u2" },
+      });
+      let sent = false;
+      await act(async () => {
+        sent = await result.current.rewind("u2", "/review now", []);
+      });
+      expect(sent).toBe(true);
+      expect(host.request).toHaveBeenCalledWith({
+        type: "rewind",
+        session: "s1",
+        entryId: "u2",
+        text: "/skill:review now",
+      });
+      host.emit({
+        type: "session_event",
+        session: "s1",
+        event: { type: "rewound", entryId: "u2", files: "restored" },
+      });
+      expect(result.current.transcript?.items).toEqual([
+        { kind: "message", message: first },
+      ]);
+    });
+
+    it("sends an edited message's images, and shows why one was refused", async () => {
+      const host = fakeHost(async (req) =>
+        req.type === "rewind"
+          ? Promise.reject(new Error("Wait for the agent"))
+          : { ...STATE, workdir: "/work" },
+      );
+      const { result } = renderHook(() => useAgentSession(host, "/work", null));
+      await waitFor(() => expect(result.current.transcript).not.toBeNull());
+      expect(result.current.filesStay).toBe(true);
+      const images = [
+        { type: "image" as const, data: "AA==", mimeType: "image/png" },
+      ];
+      let sent = true;
+      await act(async () => {
+        sent = await result.current.rewind("u1", "x", images);
+      });
+      expect(sent).toBe(false);
+      expect(host.request).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "rewind", images }),
+      );
+      expect(result.current.error).toBe("Wait for the agent");
+    });
+
+    it("edits nothing before a conversation opens", async () => {
+      const host = fakeHost(() => new Promise(() => {}));
+      const { result } = renderHook(() => useAgentSession(host, "/work", null));
+      expect(await result.current.rewind("u1", "x", [])).toBe(false);
+      expect(result.current.filesStay).toBe(false);
+      expect(types(host)).toEqual(["open_session"]);
+    });
+
     it("stops listening when the folder closes", async () => {
       const { host, unmount } = await opened();
       unmount();

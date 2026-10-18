@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { ToolCall } from "../../../shared/agentTypes";
+import type { ImageContent, ToolCall } from "../../../shared/agentTypes";
 import type { QuestionAnswer } from "../../../shared/questions";
 import type { ToolRun } from "@/lib/transcript";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -44,3 +44,19 @@ export const PREVIEW_LINES = 5;
 export const PREVIEW_CHARS = 400;
 export const CODE_PREVIEW_LINES = 12;
 export const DIFF_PREVIEW_LINES = 40;
+
+/** Editing the shown conversation's user messages; null where none can be edited (a subagent's conversation). */
+export type MessageEdit = {
+  /** Rewinds to before message `entryId` and sends `text` in its place; false when refused. */
+  edit: (
+    entryId: string,
+    text: string,
+    images: ImageContent[],
+  ) => Promise<boolean>;
+  /** Something runs or waits (a run, routing, compaction, an approval, a queued message, a fork), so Edit is off. */
+  disabled: boolean;
+  /** The agent works in the folder itself, so its files stay as they are. */
+  filesStay: boolean;
+};
+
+export const MessageEditContext = createContext<MessageEdit | null>(null);
