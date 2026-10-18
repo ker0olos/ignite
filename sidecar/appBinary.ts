@@ -6,7 +6,6 @@
  */
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { verifyAttestation } from "./attestation.ts";
 import { git, remoteName } from "./worktreeGit.ts";
 
 const WORKFLOW = ".github/workflows/binary.yml";
@@ -28,8 +27,9 @@ export function githubRepo(url: string): string | null {
   return host?.[1].toLowerCase() === "github.com" ? remoteName(url) : null;
 }
 
-const attested = (file: string, repo: string) =>
-  verifyAttestation(file, repo, WORKFLOW);
+// Loaded when a binary is checked, not with the sidecar: sigstore is about 250 modules.
+const attested = async (file: string, repo: string) =>
+  (await import("./attestation.ts")).verifyAttestation(file, repo, WORKFLOW);
 
 const originRepo = (repoDir: string) =>
   git(repoDir, ["remote", "get-url", "origin"])

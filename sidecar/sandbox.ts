@@ -4,9 +4,9 @@
  * project, temp folders and package caches, no reading credentials, any
  * request to package registries and git hosts, and only reads elsewhere.
  */
-import {
-  SandboxManager,
-  type SandboxRuntimeConfig,
+import type {
+  SandboxManager as Manager,
+  SandboxRuntimeConfig,
 } from "@anthropic-ai/sandbox-runtime";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -290,6 +290,8 @@ export async function createSandbox(
   home = homedir(),
 ): Promise<Sandbox | undefined> {
   if (!["darwin", "linux"].includes(process.platform)) return undefined;
+  // Loaded here, not before the sidecar is ready: about 100 modules, which conversations load with their extensions.
+  const { SandboxManager } = await import("@anthropic-ai/sandbox-runtime");
   if (!SandboxManager.isSupportedPlatform()) return undefined;
   const { errors } = SandboxManager.checkDependencies();
   if (errors.length) throw new Error(errors.join("; "));
@@ -331,12 +333,10 @@ export async function createSandbox(
         (text) => SandboxManager.annotateStderrWithSandboxFailures(id, text),
         output,
       ),
-    sendRefused: refusedRequest,
+    sendRefused: (id) => refusedRequest(SandboxManager, id),
   };
 }
 
 /** Whether run `id` sent a request the proxy refused; it records denials as they happen, so there's no wait. */
-export const refusedRequest = (id: string) =>
-  /deny http-request/.test(
-    SandboxManager.annotateStderrWithSandboxFailures(id, ""),
-  );
+export const refusedRequest = (manager: typeof Manager, id: string) =>
+  /deny http-request/.test(manager.annotateStderrWithSandboxFailures(id, ""));

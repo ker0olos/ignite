@@ -1,14 +1,14 @@
 import "./lib/remoteFirst";
 import { followLiveMods } from "./lib/liveReload";
+import { prestartPiHost } from "./lib/piHost";
 import { fitToScreenAndShow, isWindows } from "./lib/window";
 
+// The sidecar is the slowest part of a start, so it starts first; imported
+// statically, it doesn't wait behind the app's modules for its own chunk.
+if (!__DEMO_FOLDER__) prestartPiHost();
 // Shown before the app's modules load, so the window opens at once.
 fitToScreenAndShow();
 followLiveMods();
-// The sidecar takes about a second to load, so it starts beside the app's modules.
-if (!__DEMO_FOLDER__) {
-  void import("./lib/piHost").then((m) => m.prestartPiHost());
-}
 if (isWindows()) {
   document.documentElement.classList.add("windows");
 }

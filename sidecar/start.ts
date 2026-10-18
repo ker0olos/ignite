@@ -247,6 +247,13 @@ const host = createHost(
 
 const inFlight = new Set<Promise<void>>();
 
+// Opened once the shown conversation is, which would otherwise wait while it
+// loads the extensions, so a new conversation's model menu is ready when first shown.
+let warmDraft = () => {
+  warmDraft = () => {};
+  void draft({}).catch(() => {});
+};
+
 const lines = createLineSplitter((line) => {
   let request: HostRequest;
   try {
@@ -268,7 +275,10 @@ const lines = createLineSplitter((line) => {
     if (took > 1000) log(`${request.type} took ${took}ms`);
   });
   inFlight.add(handled);
-  void handled.finally(() => inFlight.delete(handled));
+  void handled.finally(() => {
+    inFlight.delete(handled);
+    if (request.type === "open_session") warmDraft();
+  });
 });
 
 process.stdin.on("data", lines.push);
@@ -281,6 +291,4 @@ process.stdin.on("end", async () => {
 });
 
 send({ type: "ready" });
-// Opened now, so a new conversation's model menu is ready when first shown.
-void draft({}).catch(() => {});
 log("ready");
