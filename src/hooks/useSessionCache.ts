@@ -12,6 +12,7 @@ import {
   type Entry,
   type Opened,
 } from "@/lib/sessionEntry";
+import { cacheState } from "@/lib/sessionStateCache";
 import type { Transcript } from "@/lib/transcript";
 
 /** How many recently shown conversations are kept (and stay rendered), so showing one again is instant. */
@@ -179,7 +180,7 @@ export function useSessionCache(
     /** Sets conversation `session`'s model and effort (the shown one's by default). */
     setState: useCallback(
       (state: SessionState, session = shownNow()) =>
-        change(session, (o) => ({ ...o, state })),
+        change(session, (o) => (cacheState(o.session, state), { ...o, state })),
       [change, shownNow],
     ),
     /** Sets the trust of every kept conversation in `cwd`: it's the folder's. */
