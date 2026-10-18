@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { DiffComment } from "@/lib/diffComments";
-import { commentLines, sentComments } from "@/lib/diffCommentMessage";
+import {
+  commentLines,
+  placeComment,
+  sentComments,
+} from "@/lib/diffCommentMessage";
 import type { DiffLine } from "@/lib/toolRows";
 
 const lines: DiffLine[] = [
@@ -43,5 +47,30 @@ describe("sentComments", () => {
       "B",
     ]);
     expect(sent[0]).toEqual({ path: "z.ts", lines: [], text: "Taken back" });
+  });
+});
+
+describe("placeComment", () => {
+  const at = (from: number, to: number) =>
+    comment({ from, to, lines: commentLines(lines, from, to) });
+
+  it("keeps a comment at its rows while they still hold its lines", () => {
+    expect(placeComment(lines, at(0, 1))).toMatchObject({ from: 0, to: 1 });
+  });
+
+  it("follows its lines to where the diff, read again, has them, nearest first", () => {
+    const moved: DiffLine[] = [
+      { kind: "ctx", num: 9, text: "new" },
+      ...lines,
+      { kind: "ctx", num: 50, text: "a" },
+    ];
+    expect(placeComment(moved, at(0, 1))).toMatchObject({ from: 1, to: 2 });
+    expect(placeComment(moved, at(3, 3))).toMatchObject({ from: 4, to: 4 });
+  });
+
+  it("finds no place once its lines are gone", () => {
+    expect(
+      placeComment([{ kind: "ctx", num: 1, text: "z" }], at(0, 1)),
+    ).toBeNull();
   });
 });

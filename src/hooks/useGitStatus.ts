@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GitRepoStatus } from "../../shared/git";
 import { cacheGitStatus, cachedGitStatus } from "@/lib/gitStatusCache";
 import type { HostClient } from "@/lib/piHost";
@@ -6,6 +6,8 @@ import type { HostClient } from "@/lib/piHost";
 const POLL_MS = 5000;
 // A conversation just shown is still opening; its repositories are known soon.
 const OPENING_MS = 1000;
+// Past this many "not open yet" answers, it may never open: back to the usual pace.
+const OPENING_TRIES = 10;
 
 /**
  * The repositories the shown conversation worked in: its last known ones at once (from any
@@ -20,6 +22,7 @@ export function useGitStatus(
     repos: GitRepoStatus[];
   } | null>(null);
   const [reads, setReads] = useState(0);
+  const opening = useRef({ session, tries: 0 });
 
   useEffect(() => {
     if (!host || !session) return;
@@ -30,7 +33,13 @@ export function useGitStatus(
       .request({ type: "git_status", session })
       .then((repos) => {
         // Not open yet: the last known ones stay until it is.
-        if (!repos) return void (wait = OPENING_MS);
+        if (opening.current.session !== session)
+          opening.current = { session, tries: 0 };
+        if (!repos) {
+          if (opening.current.tries++ < OPENING_TRIES) wait = OPENING_MS;
+          return;
+        }
+        opening.current.tries = 0;
         cacheGitStatus(session, repos);
         if (!cancelled) setFound({ session, repos });
       })

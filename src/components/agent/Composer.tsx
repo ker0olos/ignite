@@ -132,7 +132,6 @@ export function Composer({
           onRemoveImage={remove}
           onEditImage={replace}
           comments={message.comments}
-          session={session.session}
           onRemoveComment={message.removeComment}
         />
         <ComposerInput

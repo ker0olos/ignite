@@ -32,6 +32,21 @@ describe("gitStatusCache", () => {
     expect(later.cachedGitStatus("s200")).toEqual([]);
   });
 
+  it("writes only a changed answer, keeping what another window saved", async () => {
+    const mine = await fresh();
+    mine.cacheGitStatus("s1", [status("a")]);
+    const set = vi.spyOn(Storage.prototype, "setItem");
+    mine.cacheGitStatus("s1", [status("a")]);
+    expect(set).not.toHaveBeenCalled();
+    set.mockRestore();
+
+    (await fresh()).cacheGitStatus("other", [status("b")]);
+    mine.cacheGitStatus("s1", [status("c")]);
+    const later = await fresh();
+    expect(later.cachedGitStatus("other")).toEqual([status("b")]);
+    expect(later.cachedGitStatus("s1")).toEqual([status("c")]);
+  });
+
   it("starts empty from unreadable storage, and keeps working without it", async () => {
     localStorage.setItem("git-status", "[not json");
     const cache = await fresh();

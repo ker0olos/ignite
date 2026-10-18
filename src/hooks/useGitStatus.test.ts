@@ -107,3 +107,19 @@ it("keeps the cached ones while the conversation opens, asking again after a sec
   expect(request).toHaveBeenCalledTimes(2);
   expect(result.current).toEqual([status("open")]);
 });
+
+it("goes back to every 5 seconds when a conversation never opens", async () => {
+  vi.useFakeTimers();
+  const request = vi.fn().mockResolvedValue(null);
+  const host = hostWith(request);
+  renderHook(() => useGitStatus(host, "never"));
+  await act(() => vi.advanceTimersByTimeAsync(0));
+  for (let i = 0; i < 10; i++) {
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+  }
+  expect(request).toHaveBeenCalledTimes(11);
+  await act(() => vi.advanceTimersByTimeAsync(4_000));
+  expect(request).toHaveBeenCalledTimes(11);
+  await act(() => vi.advanceTimersByTimeAsync(1_000));
+  expect(request).toHaveBeenCalledTimes(12);
+});

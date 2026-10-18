@@ -24,12 +24,7 @@ const show = (images = [image], comments = [comment]) => {
     onRemoveComment: vi.fn(),
   };
   const view = render(
-    <ComposerAttachments
-      images={images}
-      comments={comments}
-      session="s1"
-      {...props}
-    />,
+    <ComposerAttachments images={images} comments={comments} {...props} />,
   );
   return { ...props, view };
 };
@@ -49,18 +44,18 @@ it("shows nothing with nothing attached", () => {
   expect(view.container.innerHTML).toBe("");
 });
 
-it("opens a comment's diff tab and reveals it there, but not one with no diff", () => {
+it("opens the comment's own diff tab and reveals it there, but not one with no diff", () => {
   const openTab = vi.fn();
   const props = {
     images: [],
     onRemoveImage: vi.fn(),
     onEditImage: vi.fn(),
-    session: "s1",
     onRemoveComment: vi.fn(),
   };
+  const opened = { ...comment, diff: { ...comment.diff!, session: "s1" } };
   const { rerender } = render(
     <OpenTabContext.Provider value={openTab}>
-      <ComposerAttachments {...props} comments={[comment]} />
+      <ComposerAttachments {...props} comments={[opened]} />
     </OpenTabContext.Provider>,
   );
   fireEvent.click(screen.getByText("Rename it"));

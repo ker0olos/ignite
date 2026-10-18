@@ -6,14 +6,7 @@ import { diffTabId } from "@/lib/diffTabs";
 import { basename } from "@/lib/paths";
 
 /** A diff comment in the composer's message, as tall as an image's thumbnail; clicked, it opens its diff on it. */
-export function CommentAttachment({
-  comment,
-  session,
-}: {
-  comment: DiffComment;
-  /** The conversation it's for, whose diff tab it opens. */
-  session: string | null;
-}) {
+export function CommentAttachment({ comment }: { comment: DiffComment }) {
   const openTab = useOpenTab();
   const { diff, path, lines, text } = comment;
   return (
@@ -24,7 +17,7 @@ export function CommentAttachment({
       className="flex h-14 w-52 items-start gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-left text-[13px] outline-none disabled:cursor-default"
       onClick={() => {
         if (!diff) return;
-        openTab(diffTabId({ ...diff, path, session: session ?? undefined }));
+        openTab(diffTabId({ ...diff, path }));
         revealDiffComment(comment.id);
       }}
     >

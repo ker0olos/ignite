@@ -5,7 +5,13 @@ import type { CommentLine } from "../../shared/sentComments";
 export type DiffComment = {
   id: number;
   /** The diff it's on; none for one taken back from a queued message. */
-  diff?: { repo: string; range: string; status: GitChange["status"] };
+  diff?: {
+    repo: string;
+    range: string;
+    status: GitChange["status"];
+    /** The diff tab's own conversation, so its tab opens again rather than a copy. */
+    session?: string;
+  };
   path: string;
   /** The rows it covers in the diff, `to` the one it shows under. */
   from: number;

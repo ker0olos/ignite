@@ -27,6 +27,9 @@ export function cachedGitStatus(session: string): GitRepoStatus[] | undefined {
 /** Remembers the conversation's repositories, keeping the newest 200 conversations'. */
 export function cacheGitStatus(session: string, repos: GitRepoStatus[]) {
   cache ??= load();
+  if (JSON.stringify(cache[session]) === JSON.stringify(repos)) return;
+  // Other windows save theirs too.
+  cache = load();
   const kept = Object.entries(cache)
     .filter(([s]) => s !== session)
     .slice(-(MAX - 1));

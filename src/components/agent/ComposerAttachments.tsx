@@ -10,15 +10,12 @@ export function ComposerAttachments({
   onRemoveImage,
   onEditImage,
   comments,
-  session,
   onRemoveComment,
 }: {
   images: ImageContent[];
   onRemoveImage: (index: number) => void;
   onEditImage: (index: number, image: ImageContent) => void;
   comments: DiffComment[];
-  /** The conversation the comments are for. */
-  session: string | null;
   onRemoveComment: (id: number) => void;
 }) {
   if (images.length === 0 && comments.length === 0) return null;
@@ -43,7 +40,7 @@ export function ComposerAttachments({
           label="Remove comment"
           onRemove={() => onRemoveComment(c.id)}
         >
-          <CommentAttachment comment={c} session={session} />
+          <CommentAttachment comment={c} />
         </RemovableAttachment>
       ))}
     </div>

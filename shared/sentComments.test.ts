@@ -91,6 +91,27 @@ describe("readComments", () => {
     });
   });
 
+  it("reads back lines of a file with CRLF line endings", () => {
+    const crlf: SentComment = {
+      path: "win.ts",
+      lines: [{ kind: "ctx", num: 1, text: "a();\r" }],
+      text: "Note",
+    };
+    expect(readComments(withComments("", [crlf])).comments).toEqual([crlf]);
+  });
+
+  it("keeps a mention and a fence in a comment's text as text", () => {
+    const tricky: SentComment = {
+      path: "a.ts",
+      lines: [{ kind: "add", num: 2, text: "x" }],
+      text: "see @src/b.ts:12\n```\nfoo()\n```",
+    };
+    expect(readComments(withComments("", [tricky, comment])).comments).toEqual([
+      tricky,
+      { ...comment, text: "Why change b?" },
+    ]);
+  });
+
   it("leaves a message that carries none, or a broken block, as it is", () => {
     expect(readComments("Just text")).toEqual({
       text: "Just text",

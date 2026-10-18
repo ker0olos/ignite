@@ -29,7 +29,12 @@ export function useDiffComments(tab: DiffTab, shown: string | null) {
     comments: all.filter(mine),
     add: (lines: DiffLine[], from: number, to: number, text: string) =>
       addDiffComment(key, {
-        diff: { repo: tab.repo, range: tab.range, status: tab.status },
+        diff: {
+          repo: tab.repo,
+          range: tab.range,
+          status: tab.status,
+          session: tab.session,
+        },
         path: tab.path,
         from,
         to,

@@ -30,7 +30,7 @@ describe("useDiffComments", () => {
         text: "Both",
         path: "a.ts",
         lines,
-        diff: { repo: "/repo", range: "HEAD", status: "M" },
+        diff: { repo: "/repo", range: "HEAD", status: "M", session: "c-crud" },
       },
     ]);
     expect(diffComments("c-crud").map((c) => c.text)).toEqual([

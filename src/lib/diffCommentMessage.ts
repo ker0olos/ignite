@@ -14,6 +14,28 @@ export function commentLines(
     .filter((l): l is CommentLine => l.kind !== "gap");
 }
 
+const sameLines = (a: CommentLine[], b: CommentLine[]) =>
+  a.length === b.length &&
+  a.every((l, i) => l.kind === b[i].kind && l.text === b[i].text);
+
+/** The comment where its lines are in `lines` now (the diff read again since): at its rows if they still match, else the nearest rows that do; null when they're gone. */
+export function placeComment(
+  lines: DiffLine[],
+  comment: DiffComment,
+): DiffComment | null {
+  const span = Math.abs(comment.to - comment.from);
+  const start = Math.min(comment.from, comment.to);
+  const fits = (at: number) =>
+    sameLines(commentLines(lines, at, at + span), comment.lines);
+  const at = fits(start)
+    ? start
+    : lines
+        .map((_, i) => i)
+        .filter(fits)
+        .sort((a, b) => Math.abs(a - start) - Math.abs(b - start))[0];
+  return at === undefined ? null : { ...comment, from: at, to: at + span };
+}
+
 const byPlace = (a: DiffComment, b: DiffComment) =>
   (a.diff?.repo ?? "").localeCompare(b.diff?.repo ?? "") ||
   a.path.localeCompare(b.path) ||
