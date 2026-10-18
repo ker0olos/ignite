@@ -25,6 +25,7 @@ import {
 import { userPickedModel } from "./hostRoute.ts";
 import { closeConversation, fork } from "./hostFork.ts";
 import { rewind } from "./hostRewind.ts";
+import { lessonHandlers } from "./hostReflect.ts";
 import { mcpServers, changeMcp, changeSkills } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
@@ -71,10 +72,7 @@ type Handler<K extends IdRequest["type"]> = (
 const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   status: (ctx) => Promise.all(PROVIDERS.map((id) => statusWithin(ctx, id))),
   login: (ctx, r) => login(ctx, r.provider, r.method, r.apiKey),
-  cancel_login: (ctx) => {
-    ctx.activeLogin?.abort();
-    return undefined;
-  },
+  cancel_login: (ctx) => void ctx.activeLogin?.abort(),
   logout: async (ctx, r) => {
     // Signing out would sign the user out of Claude Code itself.
     if (r.provider === "claude-code") {
@@ -149,6 +147,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   skills_catalog: (ctx) => ctx.skills.catalog(),
   skills_import: (ctx, r) =>
     changeSkills(ctx, () => ctx.skills.importSkills(r.source, r.names)),
+  ...lessonHandlers,
   memory_status: (_ctx, r) => memoryStatus(r.cwd),
   // The MCP extension reads the setting on (re)load, like mcp.json.
   memory_changed: (ctx) => changeMcp(ctx, async () => {}).then(() => {}),

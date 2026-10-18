@@ -1,27 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import type { Lesson } from "../shared/lessons.ts";
 import { mcpCall } from "../src/lib/mcpToolCall.ts";
 
-/** A mistake the agent wrote down so it doesn't make it again. */
-export type Lesson = {
-  id: string;
-  text: string;
-  /** tool_call: shown when the agent calls `tool`; system_prompt: in every run's system prompt. */
-  level: "tool_call" | "system_prompt";
-  /** The exact tool name (`git`, `bash`, `mcp__github`) or MCP tool name (`create_issue`). */
-  tool?: string;
-  /** Text in the call's arguments that marks it as the mistake; such a call is always blocked. */
-  match?: string;
-  /** The folder it applies to; none for every folder. */
-  folder?: string;
-  hits: number;
-  lastHit?: number;
-};
+export type { Lesson };
 
 type NewLesson = Pick<Lesson, "text" | "level" | "tool" | "match" | "folder">;
 
 export const MAX_LESSONS = 30;
-const MIN_MATCH = 3;
+/** The shortest `match` a tool_call lesson takes. */
+export const MIN_MATCH = 3;
+
+/** A new lesson's id. */
+export const lessonId = () => randomUUID().slice(0, 8);
 
 const cache = new Map<string, { mtime: number; lessons: Lesson[] }>();
 
@@ -90,7 +81,7 @@ export function addLesson(
       `${MAX_LESSONS} lessons already apply here. Merge this into one of them with \`replaces\`:\n${list(scope)}`,
     );
   }
-  const lesson: Lesson = { ...fields, id: randomUUID().slice(0, 8), hits: 0 };
+  const lesson: Lesson = { ...fields, id: lessonId(), hits: 0 };
   writeLessons(file, [...rest, lesson]);
   return lesson;
 }

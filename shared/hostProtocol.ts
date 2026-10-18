@@ -19,6 +19,7 @@ import type {
   ForkSession,
   SessionDetails,
 } from "./conversations.ts";
+import type * as Lessons from "./lessons.ts";
 import type { QuestionAnswer } from "./questions.ts";
 import type { McpCatalog } from "./mcpCatalog.ts";
 import type { McpServer, McpServerConfig } from "./mcpServers.ts";
@@ -242,6 +243,7 @@ export type HostRequest =
       cwd?: string;
     }
   | SkillRequest
+  | Lessons.LessonRequest
   | { id: number; type: "memory_status"; cwd?: string }
   /** The memory setting was saved; reloads the session to add or drop cmem's tools. */
   | { id: number; type: "memory_changed" }
@@ -289,6 +291,7 @@ export type {
 
 /** What each request resolves to. */
 export type HostResponses = SkillResponses &
+  Lessons.LessonResponses &
   RewindResponses &
   TaskResponses &
   TerminalResponses &
@@ -353,6 +356,7 @@ export type HostMessage =
   | { type: "agents"; agents: AgentStatus[] }
   /** A folder's tasks changed: saved by a window, or updated by an agent. */
   | { type: "tasks"; cwd: string; tasks: Task[] }
+  | Lessons.LessonMessage
   /** Check for updates found one and is building it, to run on the next start. */
   | { type: "app_update_installing" }
   /** The MCP servers changed (a status, or a saved change). */

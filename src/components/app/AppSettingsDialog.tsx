@@ -47,6 +47,7 @@ export function AppSettingsDialog({
         mcp={mcp}
         skills={dialog.skills}
         memory={dialog.memory}
+        lessons={dialog.lessons}
         about={dialog.about}
         folder={folder}
         remote={remote}

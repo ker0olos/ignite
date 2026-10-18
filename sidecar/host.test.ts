@@ -16,6 +16,7 @@ import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import { WROTE_INSTEAD } from "./hostApproval.ts";
 import { forgetWaiting, markWaiting, unmarkWaiting } from "./waitingCalls.ts";
 import { createHost } from "./host.ts";
+import { reflect } from "./reflector.ts";
 import { skippable } from "./skipWait.ts";
 import { createTaskStore } from "./taskStore.ts";
 import { createSearch } from "./search.ts";
@@ -48,6 +49,8 @@ vi.mock("./router.ts", async (original) => ({
   ...(await original<typeof import("./router.ts")>()),
   modelRouterOn: vi.fn(async () => true),
 }));
+// The real one calls the conversation's provider.
+vi.mock("./reflector.ts", () => ({ reflect: vi.fn(async () => []) }));
 // The real one writes to pi's folder in the user's home.
 vi.mock("./waitingCalls.ts", () => ({
   readWaiting: vi.fn(() => ({})),
@@ -2522,6 +2525,69 @@ describe("tool approval", () => {
     await host.shutdown();
     expect(session.dispose).toHaveBeenCalled();
     expect(answer).not.toHaveBeenCalled();
+  });
+
+  it("reflects on a denied call once the run settles, and offers what it learned", async () => {
+    const { ask, request, sent, session, reopen } = await opened();
+    const proposal = {
+      id: "p1",
+      text: "Ask before deleting",
+      level: "system_prompt" as const,
+      folderOnly: false,
+      evidence: "denied",
+    };
+    vi.mocked(reflect).mockClear().mockResolvedValueOnce([proposal]);
+    const bash = (id: string, command: string) => ({
+      type: "toolCall",
+      id,
+      name: "bash",
+      arguments: { command },
+    });
+    session.messages.push({
+      role: "assistant",
+      content: [
+        bash("t1", "rm -rf build"),
+        bash("t2", "npm install"),
+        bash("s1", "ls"),
+      ],
+    } as unknown as AgentMessage);
+    ask("t1");
+    // A sandbox-blocked run the user won't let run outside, and a subagent's call: neither counts.
+    session.emit({
+      type: "tool_execution_start",
+      toolCallId: "t2",
+      toolName: "bash",
+      args: {},
+    } as SessionEvent);
+    reopen()({ request: { toolCallId: "t2" }, answer: vi.fn(), wait: "ran" });
+    ask("s1", undefined, false);
+    for (const toolCallId of ["t1", "t2", "s1"])
+      await request({ type: "approval_answer", toolCallId, approved: false });
+    session.emit({ type: "agent_settled" } as SessionEvent);
+    await waitFor(sent, "lesson_proposals");
+    expect(vi.mocked(reflect).mock.calls[0][1]).toEqual([
+      "The user denied this call: bash rm -rf build",
+    ]);
+    await request({ id: 3, type: "lesson_proposals", session: "/work:saved" });
+    expect(sent.at(-1)).toMatchObject({ id: 3, data: [proposal] });
+  });
+
+  it("keeps running when reflecting fails", async () => {
+    const { ask, request, session } = await opened();
+    session.messages.push({
+      role: "assistant",
+      content: [{ type: "toolCall", id: "t1", name: "bash", arguments: {} }],
+    } as unknown as AgentMessage);
+    vi.mocked(reflect).mockClear().mockRejectedValueOnce(new Error("no model"));
+    ask("t1");
+    await request({
+      type: "approval_answer",
+      toolCallId: "t1",
+      approved: false,
+    });
+    session.emit({ type: "agent_settled" } as SessionEvent);
+    await vi.waitFor(() => expect(reflect).toHaveBeenCalled());
+    await request({ id: 3, type: "lesson_proposals", session: "/work:saved" });
   });
 
   it("passes ask_user's answers back with the reply", async () => {
