@@ -166,9 +166,20 @@ function killLeftovers() {
   return leftovers;
 }
 
-/** Starts the sidecar and returns a client for it. */
+let early: Promise<Transport> | null = null;
+
+/** Starts the sidecar while the app's modules still load; the next openPiHost takes it. */
+export function prestartPiHost() {
+  if (isRemote() || early) return;
+  early = spawnSidecar();
+  // Its failure shows once openPiHost awaits it.
+  early.catch(() => {});
+}
+
+/** Starts the sidecar (or takes the prestarted one) and returns a client for it. */
 export async function openPiHost(): Promise<HostClient> {
-  return createHostClient(
-    isRemote() ? remoteTransport() : await spawnSidecar(),
-  );
+  if (isRemote()) return createHostClient(remoteTransport());
+  const transport = early ?? spawnSidecar();
+  early = null;
+  return createHostClient(await transport);
 }

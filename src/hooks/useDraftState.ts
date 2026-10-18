@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { SessionState } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
 import type { Pending } from "@/hooks/useComposerActions";
+import { cacheState } from "@/lib/sessionStateCache";
 
 /**
  * In a folder with no conversation, what its first message would start with:
@@ -28,7 +29,12 @@ export function useDraftState(
         ...(provider && id && { model: { provider, id } }),
         ...(level && { level }),
       })
-      .then((s) => live && setState(s))
+      .then((s) => {
+        if (!live) return;
+        setState(s);
+        // Only the defaults: picks are for one conversation.
+        if (!provider && !level) cacheState(null, s);
+      })
       // Without it the composer just offers no model or effort menu.
       .catch(() => {});
     return () => {

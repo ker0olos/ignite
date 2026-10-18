@@ -45,10 +45,10 @@ export function AgentPanel({
   approval: Approval;
   modelRouter: ModelRouter;
 }) {
-  const { state, transcript } = session;
+  const { transcript } = session;
   const running = !!transcript?.running;
   // A folder with no conversation looks like a new one; sending starts it.
-  const loading = !state && !session.error && !session.none;
+  const loading = !session.ready && !session.error && !session.none;
   // A reopened conversation reads while its session still starts.
   const panes = session.kept.filter((o) => shownItems(o.transcript).length);
   const covered = panes.some((o) => o.session === session.session);

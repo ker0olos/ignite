@@ -5,6 +5,10 @@ import { fitToScreenAndShow, isWindows } from "./lib/window";
 // Shown before the app's modules load, so the window opens at once.
 fitToScreenAndShow();
 followLiveMods();
+// The sidecar takes about a second to load, so it starts beside the app's modules.
+if (!__DEMO_FOLDER__) {
+  void import("./lib/piHost").then((m) => m.prestartPiHost());
+}
 if (isWindows()) {
   document.documentElement.classList.add("windows");
 }

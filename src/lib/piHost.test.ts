@@ -250,6 +250,20 @@ describe("spawnSidecar", () => {
     expect(sessionStorage.getItem("pi-host-pids")).toBe("[4242,4242]");
   });
 
+  it("hands the prestarted sidecar to the first client only", async () => {
+    const shell = fakeShell();
+    vi.resetModules();
+    const fresh = await import("./piHost");
+    fresh.prestartPiHost();
+    fresh.prestartPiHost();
+    await fresh.openPiHost();
+    const spawns = () =>
+      shell.calls.filter((c) => c.cmd === "plugin:shell|spawn").length;
+    expect(spawns()).toBe(1);
+    await fresh.openPiHost();
+    expect(spawns()).toBe(2);
+  });
+
   it("still spawns when storage is unavailable", async () => {
     const shell = fakeShell();
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {

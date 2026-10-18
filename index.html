@@ -38,6 +38,10 @@
             --line: #30363d;
           }
         }
+        /* As Tailwind's preflight will have it, so nothing moves once it loads. */
+        #boot * {
+          box-sizing: border-box;
+        }
         #boot div {
           width: 340px;
           border-top: 1px solid var(--line);

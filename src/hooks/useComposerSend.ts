@@ -39,7 +39,7 @@ export function useComposerSend({
   const shown = comments.comments;
   const files = draft.files;
   const sendable = canSend(
-    !!session.state || session.none,
+    session.ready || session.none,
     { text, images: images.length + shown.length + files.length },
     session.transcript?.routing ?? false,
     session.waitingOnFork,

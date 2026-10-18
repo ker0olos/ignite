@@ -7,6 +7,7 @@ import type { AgentMessage } from "../../shared/agentTypes";
 import type { HostClient } from "@/lib/piHost";
 import { applyQueue } from "@/lib/queue";
 import { applyRouting } from "@/lib/routedMessage";
+import { cachedState } from "@/lib/sessionStateCache";
 import {
   applyError,
   applyEvent,
@@ -100,7 +101,10 @@ export const toOpened = (
 
 /** What the app sees of the session; every field is null until it's open. */
 type View = {
+  /** Until it's open, the last known one, so the menus draw at once. */
   state: SessionState | null;
+  /** The session is open: `state` is its own. */
+  ready: boolean;
   /** The conversation. */
   transcript: Transcript | null;
   /** Whether the folder's own pi resources load. */
@@ -115,14 +119,16 @@ type View = {
 export const view = (e: Entry | null, draft: SessionState | null): View =>
   isOpened(e)
     ? {
-        state: e.state,
+        state: e.state ?? cachedState(e.session),
+        ready: !!e.state,
         transcript: e.transcript,
         trust: e.trust,
         host: e.host,
         none: false,
       }
     : {
-        state: e ? draft : null,
+        state: e ? (draft ?? cachedState(null)) : null,
+        ready: false,
         transcript: null,
         trust: null,
         host: null,

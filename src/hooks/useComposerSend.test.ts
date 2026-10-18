@@ -28,6 +28,7 @@ function setup(id: string, typed: string, attached: SentFile[] = []) {
   const session = {
     session: id,
     state: {},
+    ready: true,
     none: false,
     transcript: { routing: false },
     waitingOnFork: false,

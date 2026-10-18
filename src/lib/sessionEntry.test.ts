@@ -3,7 +3,8 @@ import type { OpenedSession } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
 import { shownItems } from "@/lib/routedMessage";
 import { fromHistory } from "@/lib/transcript";
-import { toOpened } from "./sessionEntry";
+import { cacheState } from "@/lib/sessionStateCache";
+import { toOpened, toStarting, view } from "./sessionEntry";
 
 it("shows a first message the router is still reading, timed from its send", () => {
   const message = { role: "user" as const, content: "Fix it", timestamp: 7 };
@@ -74,4 +75,21 @@ it("keeps the followed transcript when the reply leaves out the messages", () =>
 it("starts empty when the reply leaves out the messages and none were followed", () => {
   const entry = toOpened({} as HostClient, "/f", known);
   expect(shownItems(entry.transcript)).toEqual([]);
+});
+
+it("shows a starting conversation's last known model and effort, not yet ready", () => {
+  const host = {} as HostClient;
+  const last = { ...known, models: [], thinkingLevels: [], skills: [] };
+  cacheState("starting-s1", last);
+  const starting = toStarting(host, "/f", "starting-s1", []);
+  expect(view(starting, null)).toMatchObject({
+    state: { thinkingLevel: "high" },
+    ready: false,
+  });
+  expect(view(toOpened(host, "/f", known), null).ready).toBe(true);
+  expect(view({ host, folder: "/f", session: null }, null)).toMatchObject({
+    state: null,
+    ready: false,
+    none: true,
+  });
 });

@@ -146,6 +146,7 @@ src/                     React frontend (almost all logic lives here)
     transcript.ts        Rebuilds the conversation from pi's session events
     streamBlocks.ts      A streamed message's blocks: text, thinking, tool calls (an artifact's JSON as it's written)
     sessionEntry.ts      A conversation as the app keeps it, built from what opening it returned
+    sessionStateCache.ts Each conversation's last model and effort (localStorage, newest 200), shown while it opens
     routedMessage.ts     The first message while the router reads it, shown until pi adds it
     compaction.ts        Compaction in the conversation: running, then its summary; saved summaries
     rewind.ts            Editing user messages: which offer Edit (named, after the latest compaction), when (idle),
@@ -509,6 +510,9 @@ Two places hold persisted data:
 - **Composer git status** in the webview's `localStorage` (`git-status`): each
   conversation's last known repositories, newest 200, so the composer shows them
   at once while they're read again (`lib/gitStatusCache.ts`).
+- **Composer models** in the webview's `localStorage` (`session-state`): the
+  newest models and each conversation's model and effort (newest 200), so the
+  menus show at once while it opens (`lib/sessionStateCache.ts`).
 - **Composer history** in the webview's `localStorage` (`composer-history`):
   the newest 100 sent messages, shared by every folder (`lib/history.ts`).
 - **pi's own files** in `~/.ignite/pi`: credentials (`auth.json`),

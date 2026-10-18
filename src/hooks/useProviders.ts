@@ -78,8 +78,11 @@ export function useProviders(
       }
     };
 
-    open()
+    // A microtask later, so StrictMode's undone first mount starts no sidecar.
+    Promise.resolve()
+      .then(() => (cancelled ? null : open()))
       .then(async (c) => {
+        if (!c) return;
         started = c;
         if (cancelled) return void c.close();
         client.current = c;
