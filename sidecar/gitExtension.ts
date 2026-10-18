@@ -170,9 +170,10 @@ export function delivers(tool: Tool, args: string[]): boolean {
 // An agent in its own worktree: the user's folder follows the remote when it can.
 // In a copy of a folder of repositories, that's the checkout of the one delivered.
 async function afterDelivery(tool: Tool, args: string[], cwd: string) {
+  if (!delivers(tool, args)) return null;
   const dir = tool === GIT_TOOL ? repoOf(args, cwd) : await ghDir(args, cwd);
   const folder = folderOf(dir);
-  return folder !== dir && delivers(tool, args) ? updateFolder(folder) : null;
+  return folder !== dir ? updateFolder(folder) : null;
 }
 
 // Without the parser, a rough split into commands is enough to spot git and gh.

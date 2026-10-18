@@ -109,13 +109,23 @@ async function unpushed(repo: string): Promise<number> {
   return Number(count?.trim()) || 0;
 }
 
+// It rarely changes, and finding it can take a few git calls; the app polls every few seconds.
+const defaults = new Map<string, { at: number; ref: Promise<string | null> }>();
+function defaultOf(repo: string) {
+  const known = defaults.get(repo);
+  if (known && Date.now() - known.at < PR_TTL_MS) return known.ref;
+  const ref = remoteDefault(repo);
+  defaults.set(repo, { at: Date.now(), ref });
+  return ref;
+}
+
 async function statusOf(repo: string): Promise<GitRepoStatus> {
   const [place, porcelain, ahead, defaultRef] = await Promise.all([
     placeOf(repo),
     // Without it, status may lock the index and fail the agent's own git call.
     gitOr(repo, ["--no-optional-locks", "status", "--porcelain", "-uall"]),
     unpushed(repo),
-    remoteDefault(repo),
+    defaultOf(repo),
   ]);
   const { name, branch } = place;
   const feature = branch && defaultRef !== `origin/${branch}`;

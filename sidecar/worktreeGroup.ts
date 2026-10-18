@@ -22,7 +22,6 @@ import {
   inGroupCopy,
   remoteName,
   repoFile,
-  repoOf,
   WORKTREES,
 } from "./worktreeGit.ts";
 
@@ -59,9 +58,8 @@ export async function groupOwner(path: string) {
   return owners.includes("mine") ? "mine" : "gone";
 }
 
-// ponytail: the folder's other files are copied in afresh each time the
-// workspace is made, so the agent's changes to them aren't kept.
-// A repository with no commit yet stays out too: copying its .git would have the agent commit to a copy.
+// ponytail: other files are copied in afresh, so the agent's changes to them aren't kept.
+// A repository with no commit yet stays out: copying its .git would have the agent commit to a copy.
 async function copyLoose(folder: string, path: string) {
   const names = await readdir(folder).catch(() => []);
   await cloneEntries(
@@ -73,12 +71,21 @@ async function copyLoose(folder: string, path: string) {
 
 /** Saves each worktree in the workspace under conversation `id`, then deletes it all. Throws, keeping it, when one can't be saved. */
 export async function removeGroup(path: string, id: string) {
+  // Copies still going in would recreate folders after the delete.
+  await copying.get(path);
   leave(path);
-  for (const checkout of groupCheckouts(path)) {
-    if (repoOf(checkout)) await remove(checkout, id);
-  }
+  for (const checkout of groupCheckouts(path)) await remove(checkout, id);
   await rm(path, { recursive: true, force: true });
   await tidy(dirname(path));
+}
+
+// Each open copy's ignored and loose files, while they're still being copied in.
+const copying = new Map<string, Promise<unknown>>();
+
+// A worktree that failed partway: gone, and unregistered, so the next open makes it again.
+async function discard(repo: string, checkout: string) {
+  await rm(checkout, { recursive: true, force: true });
+  await gitOr(repo, ["worktree", "prune"]);
 }
 
 /** Opens conversation `id`'s copy of `folder` at `path`, adding a worktree for each of its `repos` not there yet. */
@@ -96,10 +103,14 @@ export async function openGroup(
   const made = await Promise.allSettled(
     missing.map((repo) => create(repo, join(path, basename(repo)), id, false)),
   );
-  const failed = made.find((m) => m.status === "rejected");
-  if (failed) {
+  const failed = made.findIndex((m) => m.status === "rejected");
+  if (failed >= 0) {
+    for (const [i, m] of made.entries()) {
+      if (m.status === "rejected")
+        await discard(missing[i], join(path, basename(missing[i])));
+    }
     if (fresh) await removeGroup(path, id).catch(() => {});
-    throw failed.reason;
+    throw (made[failed] as PromiseRejectedResult).reason;
   }
   for (const repo of repos) {
     const checkout = join(path, basename(repo));
@@ -111,17 +122,28 @@ export async function openGroup(
       cloneIgnored(repo, join(path, basename(repo))).catch(() => {}),
     ),
     fresh ? copyLoose(folder, path).catch(() => {}) : null,
-  ]);
-  return { dir: path, ready: ready.then(() => {}) };
+  ]).then(() => {});
+  copying.set(path, ready);
+  void ready.then(() => copying.get(path) === ready && copying.delete(path));
+  return { dir: path, ready };
 }
 
 /** Where a gh call (in `cwd`) works: in a copy of a folder of repositories, the worktree its -R names; else `cwd`. */
 export async function ghDir(args: string[], cwd: string, root = WORKTREES) {
-  const i = args.findIndex((a) => a === "-R" || a === "--repo");
-  const name = i >= 0 ? args[i + 1] : undefined;
+  const name = repoFlag(args);
   return (
     (name && inGroupCopy(cwd, root) && (await checkoutNamed(cwd, name))) || cwd
   );
+}
+
+// gh's -R in any form: `-R x`, `--repo x`, `--repo=x`, `-Rx`.
+function repoFlag(args: string[]): string | undefined {
+  for (const [i, a] of args.entries()) {
+    if (a === "-R" || a === "--repo") return args[i + 1];
+    if (a.startsWith("--repo=")) return a.slice("--repo=".length);
+    if (a.startsWith("-R") && a.length > 2) return a.slice(2);
+  }
+  return undefined;
 }
 
 // The worktree in an agent's copy whose repository's origin is `name` (`owner/repo`, as gh's -R names it).

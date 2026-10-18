@@ -253,35 +253,26 @@ const real = (path: string) => {
   }
 };
 
-// The agent may write in its copy, so a folder there counts as a worktree only
-// when git's own links say it's one of the user's repositories': its private
-// dir among that repository's worktrees, which the agent can't add to.
-function isUsersCheckout(checkout: string, folder: string | null) {
+// The agent writes in its copy: a folder there counts only when git links it both ways, which the agent can't forge.
+function isCheckout(checkout: string) {
   try {
     const { own, common } = gitDirs(checkout);
-    const repoGit = folder ? join(folder, basename(checkout), ".git") : common;
+    const back = readFileSync(join(own, "gitdir"), "utf8").trim();
     return (
-      basename(common) === ".git" &&
       real(dirname(own)) === real(join(common, "worktrees")) &&
-      (!folder || !existsSync(folder) || real(common) === real(repoGit))
+      real(back) === real(join(checkout, ".git"))
     );
   } catch {
     return false;
   }
 }
 
-/** The worktrees in an agent's copy of a folder of repositories: each of the user's repositories' that's there. */
+/** The worktrees in an agent's copy of a folder of repositories. */
 export function groupCheckouts(workspace: string): string[] {
-  let folder: string | null = null;
-  try {
-    folder = readFileSync(repoFile(workspace), "utf8").trim();
-  } catch {
-    // Named nowhere: git's links alone decide.
-  }
   try {
     return readdirSync(workspace)
       .map((name) => join(workspace, name))
-      .filter((path) => isUsersCheckout(path, folder));
+      .filter(isCheckout);
   } catch {
     return [];
   }

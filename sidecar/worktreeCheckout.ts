@@ -79,11 +79,7 @@ async function addAt(repo: string, path: string, saved: string) {
   await git(repo, ["worktree", "add", "--detach", path, base]);
 }
 
-/**
- * Adds conversation `id`'s worktree of `repo` at `path`: its saved state,
- * else fresh from startPoint. `named` writes the file beside it naming the
- * user's checkout (a folder of repositories names its folder there instead).
- */
+/** Adds conversation `id`'s worktree of `repo` at `path`, from its saved state or fresh; `named` writes the `.repo` file beside it. */
 export async function create(
   repo: string,
   path: string,

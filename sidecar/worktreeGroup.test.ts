@@ -210,4 +210,56 @@ describe("a folder of repositories", () => {
       folder,
     );
   });
+
+  it("saves a repository that is itself a linked worktree of another, like any", async () => {
+    const main = join(base, "main-repo");
+    mkdirSync(main);
+    git(main, "init", "-q", "-b", "main");
+    git(main, "commit", "-q", "--allow-empty", "-m", "init");
+    git(main, "worktree", "add", "-q", "-b", "side", join(folder, "linked"));
+    const workspaces = createWorkspaces(root);
+    const ws = await workspaces.open(folder, "a");
+    expect(groupCheckouts(ws.dir)).toContain(join(ws.dir, "linked"));
+    write(join(ws.dir, "linked", "made.ts"), "made\n");
+    await workspaces.close(folder, "a");
+    const again = await workspaces.open(folder, "a");
+    expect(read(again.dir, "linked", "made.ts")).toBe("made\n");
+  });
+
+  it("reads gh's -R in every form", async () => {
+    git(
+      join(folder, "web"),
+      "remote",
+      "add",
+      "origin",
+      "git@github.com:me/web.git",
+    );
+    const ws = await createWorkspaces(root).open(folder, "a");
+    const web = join(ws.dir, "web");
+    for (const flag of [["--repo=me/web"], ["-Rme/web"], ["-R", "me/web"]]) {
+      expect(await ghDir(["pr", "merge", ...flag], ws.dir, root)).toBe(web);
+    }
+  });
+
+  it("leaves no half-made worktree when one fails to open, so the next open makes it", async () => {
+    const workspaces = createWorkspaces(root);
+    const ws = await workspaces.open(folder, "a");
+    const api = repoIn("api");
+    // A saved state with no parent can't be restored.
+    const orphan = git(
+      api,
+      "commit-tree",
+      git(api, "rev-parse", "HEAD^{tree}"),
+      "-m",
+      "x",
+    );
+    git(api, "update-ref", stateRef("a"), orphan);
+    await expect(workspaces.open(folder, "a")).rejects.toThrow();
+    expect(existsSync(join(ws.dir, "api"))).toBe(false);
+    expect(existsSync(join(ws.dir, "web"))).toBe(true);
+    expect(git(api, "worktree", "list").split("\n")).toHaveLength(1);
+    git(api, "update-ref", "-d", stateRef("a"));
+    await workspaces.open(folder, "a");
+    expect(read(ws.dir, "api", "app.ts")).toBe("api\n");
+  });
 });

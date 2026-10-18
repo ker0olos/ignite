@@ -59,3 +59,15 @@ it("tags the conversation's own worktree, and warns when it's the user's checkou
   expect(await screen.findByText("Your checkout")).toBeTruthy();
   expect(screen.getByText("feat/server")).toBeTruthy();
 });
+
+it("says a detached checkout of the user's is detached, not new", async () => {
+  const request = vi.fn().mockResolvedValue({ files: [], commits: [] });
+  render(
+    <GitRepoStatusItem
+      host={{ request } as unknown as HostClient}
+      status={{ ...status, branch: undefined, shared: true }}
+    />,
+  );
+  fireEvent.click(screen.getByText("motr-expo"));
+  expect(await screen.findByText("detached HEAD")).toBeTruthy();
+});

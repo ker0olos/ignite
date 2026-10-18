@@ -13,7 +13,7 @@ export function GitRepoWhere({ status }: { status: GitRepoStatus }) {
     <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
       <GitBranch className="size-3 shrink-0" />
       <span className="truncate font-mono">
-        {status.branch ?? "No branch yet"}
+        {status.branch ?? (status.checkout ? "No branch yet" : "detached HEAD")}
       </span>
       {tag && (
         <span
