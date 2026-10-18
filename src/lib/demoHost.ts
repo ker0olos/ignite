@@ -7,6 +7,7 @@ import type {
   AgentMessage,
   AssistantMessage,
   SessionEvent,
+  UserMessage,
 } from "../../shared/agentTypes";
 import { rankConversations, rankFiles } from "../../shared/commandSearch";
 import type {
@@ -86,7 +87,10 @@ const queueOf = (c: DemoConversation | undefined) =>
 
 // The demo's messages carry a fixed date; a working conversation's run shows as started 42 seconds ago.
 function messagesOf(c: DemoConversation | undefined): AgentMessage[] {
-  const messages = c?.messages ?? [];
+  // Named like pi's entries, so Edit shows on them.
+  const messages = (c?.messages ?? []).map((m, i) =>
+    m.role === "user" ? { ...m, entryId: `entry-${i}` } : m,
+  );
   if (!c?.running) return messages;
   const last = messages.findLastIndex((m) => m.role === "user");
   return messages.map((m, i) =>
@@ -94,7 +98,7 @@ function messagesOf(c: DemoConversation | undefined): AgentMessage[] {
   );
 }
 
-const userMessage = (text: string): AgentMessage => ({
+const userMessage = (text: string): UserMessage => ({
   role: "user",
   content: text,
   timestamp: Date.now(),
@@ -106,7 +110,8 @@ const opened = (
 ): OpenedSession => ({
   ...DEMO_STATE,
   session,
-  workdir: c?.cwd ?? "",
+  // Its own worktree, as in a git folder: editing a message puts its files back.
+  workdir: `~/.ignite/worktrees/${session}`,
   trust: "trusted",
   messages: messagesOf(c),
   running: c?.running ?? false,
@@ -116,6 +121,35 @@ const opened = (
 
 const detailsOf = (c?: DemoConversation) =>
   c ? describeSession(c.messages) : null;
+
+// The command center's search over the demo's conversations and files.
+function search(
+  all: DemoConversation[],
+  r: CommandSearch,
+): CommandSearchResult {
+  const indexes = r.folders.map((folder): [string, typeof index] => {
+    const index = all
+      .filter((c) => c.cwd === folder)
+      .map((c) => ({
+        id: c.id,
+        title: c.title,
+        modified: c.modified,
+        messageCount: c.messages.length,
+        text: textOf(c),
+      }));
+    return [folder, index];
+  });
+  const files = r.folders.map((folder): [string, string[]] => [
+    folder,
+    DEMO_FILES[basename(folder) as keyof typeof DEMO_FILES] ?? [],
+  ]);
+  return {
+    conversations: r.kinds.includes("conversation")
+      ? rankConversations(indexes, r.text, r.limit)
+      : [],
+    files: r.kinds.includes("file") ? rankFiles(files, r.text, r.limit) : [],
+  };
+}
 
 /** A host that shows the demo's conversations, with `tempo` the demo folder. */
 export function createDemoHost(tempo: string, pace = 30): HostClient {
@@ -144,6 +178,11 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
       { type: "agent_start" },
       { type: "message_start", message: user },
       { type: "message_end", message: user },
+      {
+        type: "message_entry",
+        timestamp: user.timestamp,
+        entryId: `entry-${user.timestamp}`,
+      },
       { type: "message_start", message: start },
       {
         type: "message_update",
@@ -156,31 +195,6 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
       { type: "message_end", message: answer },
       { type: "agent_settled" },
     ]);
-  }
-
-  function search(r: CommandSearch): CommandSearchResult {
-    const indexes = r.folders.map((folder): [string, typeof index] => {
-      const index = all
-        .filter((c) => c.cwd === folder)
-        .map((c) => ({
-          id: c.id,
-          title: c.title,
-          modified: c.modified,
-          messageCount: c.messages.length,
-          text: textOf(c),
-        }));
-      return [folder, index];
-    });
-    const files = r.folders.map((folder): [string, string[]] => [
-      folder,
-      DEMO_FILES[basename(folder) as keyof typeof DEMO_FILES] ?? [],
-    ]);
-    return {
-      conversations: r.kinds.includes("conversation")
-        ? rankConversations(indexes, r.text, r.limit)
-        : [],
-      files: r.kinds.includes("file") ? rankFiles(files, r.text, r.limit) : [],
-    };
   }
 
   function open(r: Extract<Request, { type: "open_session" }>) {
@@ -223,7 +237,7 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
     draft_state: () => DEMO_STATE,
     set_model: () => DEMO_STATE,
     set_thinking_level: () => DEMO_STATE,
-    command_search: search,
+    command_search: (r: CommandSearch) => search(all, r),
     git_diff: (r: { path: string }) => DEMO_GIT_DIFFS[r.path] ?? "",
     git_status: () => [],
     git_repo_details: () => ({ files: [], commits: [] }),
@@ -231,6 +245,12 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
     ...NOTHING_RUNS,
     prompt: (r: { text: string; session?: string }) =>
       r.session && reply(r.session, r.text),
+    rewind: (r: { session: string; entryId: string; text: string }) => {
+      play(r.session, [
+        { type: "rewound", entryId: r.entryId, files: "restored" },
+      ]);
+      reply(r.session, r.text);
+    },
     ...tasksAnswers(demoTasks(tempo)),
   };
 

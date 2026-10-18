@@ -10,6 +10,7 @@ import type {
   ChildResponses,
 } from "./agentStatus.ts";
 import type { QueueKind, QueuedMessage, Unqueue } from "./queue.ts";
+import type { RewindRequest, RewindResponses } from "./rewind.ts";
 import type { GitRepoDetails, GitRepoStatus, GitReview } from "./git.ts";
 import type { MemoryStatus } from "./memory.ts";
 import type {
@@ -209,6 +210,7 @@ export type HostRequest =
       /** While it works; `steer` when unset. */
       queue?: QueueKind;
     }
+  | RewindRequest
   /** Stops the run; resolves to the queued messages, taken back. */
   | { id: number; type: "abort"; session?: string }
   /** Summarizes the conversation's older messages (`/compact`), optionally as `instructions` say; resolves once done. */
@@ -287,6 +289,7 @@ export type {
 
 /** What each request resolves to. */
 export type HostResponses = SkillResponses &
+  RewindResponses &
   TaskResponses &
   TerminalResponses &
   ChildResponses & {

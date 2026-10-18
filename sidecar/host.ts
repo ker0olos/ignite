@@ -24,6 +24,7 @@ import {
 } from "./hostSession.ts";
 import { userPickedModel } from "./hostRoute.ts";
 import { closeConversation, fork } from "./hostFork.ts";
+import { rewind } from "./hostRewind.ts";
 import { mcpServers, changeMcp, changeSkills } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
@@ -120,6 +121,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     await prompt(ctx, r.text, r.images, r.session, undefined, r.queue);
     return undefined;
   },
+  rewind: (ctx, r) => rewind(ctx, r.session, r.entryId, r.text, r.images),
   abort: (ctx, r) => stop(ctx, r.session),
   compact: (ctx, r) => compact(ctx, r.session, r.instructions),
   unqueue: (ctx, r) => unqueue(ctx, r),

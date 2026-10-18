@@ -18,6 +18,7 @@ import { createWorkspaces, updateFolder } from "./worktrees.ts";
 import { startPoint } from "./worktreeCheckout.ts";
 import { folderOf, gitAccess, worktreePath } from "./worktreeGit.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
+import { checkpointRef } from "./checkpoints.ts";
 
 let base: string;
 let repo: string;
@@ -156,6 +157,19 @@ describe("workspaces", () => {
     const again = await workspaces.open(repo, "a");
     expect(read(again.dir, "app.ts")).toBe("agent\n");
     expect(read(again.dir, "made.ts")).toBe("made\n");
+  });
+
+  it("deletes the conversation's checkpoints with its worktree, and no one else's", async () => {
+    const workspaces = createWorkspaces(root);
+    const ws = await workspaces.open(repo, "a");
+    const head = git(repo, "rev-parse", "HEAD");
+    git(repo, "update-ref", checkpointRef("a", "e1"), head);
+    git(repo, "update-ref", checkpointRef("b", "e1"), head);
+    await workspaces.close(repo, "a");
+    const refs = git(repo, "for-each-ref", "--format=%(refname)");
+    expect(refs).not.toContain(checkpointRef("a", "e1"));
+    expect(refs).toContain(checkpointRef("b", "e1"));
+    expect(existsSync(ws.dir)).toBe(false);
   });
 
   it("starts a fork's worktree as a copy of its original's files, on no branch", async () => {

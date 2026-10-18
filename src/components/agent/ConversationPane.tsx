@@ -1,16 +1,19 @@
-import { memo, useRef } from "react";
+import { memo, useMemo, useRef } from "react";
 import { Conversation } from "@/components/conversation/Conversation";
 import {
   AskingStepContext,
   ContinueContext,
   ConversationIdContext,
+  MessageEditContext,
   RunningContext,
   SkipWaitContext,
   type Editor,
+  type MessageEdit,
   type ToolProps,
 } from "@/components/conversation/shared";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { Transcript } from "@/lib/transcript";
+import { canRewind } from "@/lib/rewind";
 import { cn } from "@/lib/utils";
 
 /**
@@ -32,10 +35,13 @@ export const ConversationPane = memo(function ConversationPane({
   codeThemes,
   showThinking,
   stickyUserMessages,
+  rewind,
 }: {
   transcript: Transcript;
   /** Its id; null for a new one. */
   session: string | null;
+  /** Edits one of its user messages; unset while hidden. */
+  rewind?: MessageEdit["edit"];
   folder: string;
   shown: boolean;
   send: (text: string) => unknown;
@@ -53,6 +59,11 @@ export const ConversationPane = memo(function ConversationPane({
 }) {
   const ref = useRef<HTMLElement>(null);
   const running = !!transcript.running;
+  const disabled = !canRewind(transcript, waitingOnFork);
+  const edit = useMemo(
+    () => rewind && { edit: rewind, disabled },
+    [rewind, disabled],
+  );
   return (
     <main
       ref={ref}
@@ -70,19 +81,21 @@ export const ConversationPane = memo(function ConversationPane({
           >
             <RunningContext.Provider value={running}>
               <AskingStepContext.Provider value={askingStep}>
-                <Conversation
-                  transcript={transcript}
-                  folder={folder}
-                  shown={shown}
-                  editor={editor}
-                  codeThemes={codeThemes}
-                  showThinking={showThinking}
-                  stickyUserMessages={stickyUserMessages}
-                  scrollRef={ref}
-                  waiting={waiting}
-                  onApprove={onApprove}
-                  waitingOnFork={waitingOnFork}
-                />
+                <MessageEditContext.Provider value={edit ?? null}>
+                  <Conversation
+                    transcript={transcript}
+                    folder={folder}
+                    shown={shown}
+                    editor={editor}
+                    codeThemes={codeThemes}
+                    showThinking={showThinking}
+                    stickyUserMessages={stickyUserMessages}
+                    scrollRef={ref}
+                    waiting={waiting}
+                    onApprove={onApprove}
+                    waitingOnFork={waitingOnFork}
+                  />
+                </MessageEditContext.Provider>
               </AskingStepContext.Provider>
             </RunningContext.Provider>
           </ContinueContext.Provider>

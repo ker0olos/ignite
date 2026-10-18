@@ -52,7 +52,7 @@ export async function runOn(s: Session, { model, effort }: Pick) {
 // Only a conversation's first message, and not one whose model the user
 // picked; a Tasks-view task's own model counts while it's still available.
 async function routes(ctx: HostContext, agent: Agent, s: Session) {
-  if (s.messages.length || agent.pickedModel) return false;
+  if (s.messages.length || agent.pickedModel || agent.routed) return false;
   if (!(await modelRouterOn())) return false;
   const task = (await ctx.tasks.list(agent.cwd)).find(
     (t) => t.session === agent.id,

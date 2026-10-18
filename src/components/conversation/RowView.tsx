@@ -20,8 +20,11 @@ export function RowView({
   stickyUserMessages,
   onApprove,
   last,
+  editable = false,
 }: {
   row: Row;
+  /** A user message Edit is offered on (the shown conversation's, after its latest compaction). */
+  editable?: boolean;
   /** The conversation's newest row. */
   last: boolean;
   tools: Record<string, ToolRun>;
@@ -47,7 +50,13 @@ export function RowView({
       return <CompactionRow row={row} />;
     case "user":
       return (
-        <UserMessageRow message={row.message} sticky={stickyUserMessages} />
+        <UserMessageRow
+          // Its own state each: an edited message's replacement starts fresh.
+          key={row.message.timestamp}
+          message={row.message}
+          sticky={stickyUserMessages}
+          editable={editable}
+        />
       );
     case "text":
       return (
