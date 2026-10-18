@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { access, copyFile, mkdtemp, rm } from "node:fs/promises";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import {
   basename,
@@ -223,16 +223,77 @@ export function folderOf(dir: string, root = WORKTREES): string {
 // sandboxed command rewriting them could make the next unsandboxed git call
 // read a config of its own, which can run programs.
 /**
- * For a `dir` in an agent's worktree, what git may write outside it (the
- * worktree's private git dir, the shared objects) and what stays read-only
- * inside (the `.git` file and the private dir's pointers). Empty otherwise.
+ * For a `dir` in an agent's worktree (or a copy of a folder of them), what git
+ * may write outside it (each worktree's private git dir, the shared objects),
+ * what stays read-only inside (the `.git` files and the private dirs'
+ * pointers), and each repository's own git dir (`common`). Empty otherwise.
  */
 export function gitAccess(
   dir: string,
   root = WORKTREES,
-): { allow: string[]; deny: string[] } {
+): { allow: string[]; deny: string[]; common: string[] } {
   const worktree = worktreeOf(dir, root);
-  if (!worktree) return { allow: [], deny: [] };
+  const each = worktree ? checkoutsIn(worktree).map(checkoutAccess) : [];
+  return {
+    allow: each.flatMap((a) => a.allow),
+    deny: each.flatMap((a) => a.deny),
+    common: each.flatMap((a) => a.common),
+  };
+}
+
+// The workspace itself, or the worktrees directly in a folder of them.
+const checkoutsIn = (workspace: string) =>
+  existsSync(join(workspace, ".git")) ? [workspace] : groupCheckouts(workspace);
+
+const real = (path: string) => {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+};
+
+// The agent may write in its copy, so a folder there counts as a worktree only
+// when git's own links say it's one of the user's repositories': its private
+// dir among that repository's worktrees, which the agent can't add to.
+function isUsersCheckout(checkout: string, folder: string | null) {
+  try {
+    const { own, common } = gitDirs(checkout);
+    const repoGit = folder ? join(folder, basename(checkout), ".git") : common;
+    return (
+      basename(common) === ".git" &&
+      real(dirname(own)) === real(join(common, "worktrees")) &&
+      (!folder || !existsSync(folder) || real(common) === real(repoGit))
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** The worktrees in an agent's copy of a folder of repositories: each of the user's repositories' that's there. */
+export function groupCheckouts(workspace: string): string[] {
+  let folder: string | null = null;
+  try {
+    folder = readFileSync(repoFile(workspace), "utf8").trim();
+  } catch {
+    // Named nowhere: git's links alone decide.
+  }
+  try {
+    return readdirSync(workspace)
+      .map((name) => join(workspace, name))
+      .filter((path) => isUsersCheckout(path, folder));
+  } catch {
+    return [];
+  }
+}
+
+/** Whether `dir` is in an agent's copy of a folder of repositories, rather than in one worktree. */
+export function inGroupCopy(dir: string, root = WORKTREES): boolean {
+  const worktree = worktreeOf(dir, root);
+  return !!worktree && !existsSync(join(worktree, ".git"));
+}
+
+function checkoutAccess(worktree: string) {
   try {
     const { own, common } = gitDirs(worktree);
     return {
@@ -243,9 +304,10 @@ export function gitAccess(
           join(own, f),
         ),
       ],
+      common: [common],
     };
   } catch {
-    return { allow: [], deny: [] };
+    return { allow: [], deny: [], common: [] };
   }
 }
 

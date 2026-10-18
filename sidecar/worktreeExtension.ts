@@ -5,7 +5,8 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
-import { folderOf, gitOr } from "./worktreeGit.ts";
+import { basename } from "node:path";
+import { folderOf, gitOr, groupCheckouts, inGroupCopy } from "./worktreeGit.ts";
 
 export const GIT_GUIDANCE = `## Using git
 Run git and GitHub commands with the ${GIT_TOOL} and ${GH_TOOL} tools, one command per call; in a folder with several repositories, name the one you mean with -C <repo>.
@@ -33,19 +34,35 @@ export function guidance(cwd: string, folder: string, branch: string | null) {
   ].join(" ");
 }
 
+/** The system prompt's note for an agent in `cwd`, its own copy of the user's `folder`, whose `repos` are each its own worktree. */
+export function groupGuidance(cwd: string, folder: string, repos: string[]) {
+  return [
+    `You work in your own copy of the user's folder at ${cwd}: the user's folder at ${folder} holds several repositories (${repos.join(", ")}), and each of them here is your own git worktree, a separate checkout of the user's.`,
+    "Other agents may work in the same repositories in their own worktrees. The user's folder and theirs are not yours to edit; nothing you change shows up in the user's folder until it's merged.",
+    "Each worktree started from its repository's latest default branch on the remote, with no branch checked out. Run git in one with -C <repo>, and gh with -R <owner/name> for it (gh pr create also with --head <branch>), since gh runs in this folder, which isn't a repository.",
+    "To deliver your work, create a branch named for the task in each repository you changed, commit, push and open a pull request there with the git and gh tools.",
+    "When your work is merged or pushed, the user's checkout of that repository is brought up to date for you when that's safe; the tool result says whether it was.",
+    "The folder's other files here are copies: your changes to them aren't kept. If dependencies or build outputs are missing, install or build them in your worktree.",
+  ].join(" ");
+}
+
+async function where(cwd: string) {
+  const folder = folderOf(cwd);
+  if (folder === cwd) return SHARED;
+  if (inGroupCopy(cwd))
+    return groupGuidance(
+      cwd,
+      folder,
+      groupCheckouts(cwd).map((c) => basename(c)),
+    );
+  const branch = await gitOr(folder, ["branch", "--show-current"]);
+  return guidance(cwd, folder, branch || null);
+}
+
 export default function worktreeGuidance(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event, ctx) => {
-    const folder = folderOf(ctx.cwd);
-    const where =
-      folder === ctx.cwd
-        ? SHARED
-        : guidance(
-            ctx.cwd,
-            folder,
-            (await gitOr(folder, ["branch", "--show-current"])) || null,
-          );
     return {
-      systemPrompt: `${event.systemPrompt}\n\n${GIT_GUIDANCE}\n\n${where}`,
+      systemPrompt: `${event.systemPrompt}\n\n${GIT_GUIDANCE}\n\n${await where(ctx.cwd)}`,
     };
   });
 }

@@ -36,3 +36,26 @@ it("opens the repository's files and commits without submitting the composer", a
   });
   expect(submit).not.toHaveBeenCalled();
 });
+
+it("tags the conversation's own worktree, and warns when it's the user's checkout", async () => {
+  const request = vi.fn().mockResolvedValue({ files: [], commits: [] });
+  const host = { request } as unknown as HostClient;
+  const { unmount } = render(
+    <GitRepoStatusItem
+      host={host}
+      status={{ ...status, branch: undefined, checkout: "/Users/me/motr-expo" }}
+    />,
+  );
+  fireEvent.click(screen.getByText("motr-expo"));
+  expect(await screen.findByText("No branch yet")).toBeTruthy();
+  expect(screen.getByText("Worktree")).toBeTruthy();
+  expect(screen.queryByText("Your checkout")).toBeNull();
+  unmount();
+
+  render(
+    <GitRepoStatusItem host={host} status={{ ...status, shared: true }} />,
+  );
+  fireEvent.click(screen.getByText("motr-expo"));
+  expect(await screen.findByText("Your checkout")).toBeTruthy();
+  expect(screen.getByText("feat/server")).toBeTruthy();
+});

@@ -88,8 +88,22 @@ describe("gitStatus", () => {
     const found = await gitStatus(messages, app);
     // No GitHub remote, so gh finds no pull request.
     expect(found).toEqual([
-      { repo: app, name: "app", branch: "feat", changed: 2, unpushed: 1 },
-      { repo: local, name: "local", branch: "main", changed: 0, unpushed: 0 },
+      {
+        repo: app,
+        name: "app",
+        branch: "feat",
+        shared: true,
+        changed: 2,
+        unpushed: 1,
+      },
+      {
+        repo: local,
+        name: "local",
+        branch: "main",
+        shared: true,
+        changed: 0,
+        unpushed: 0,
+      },
     ]);
   });
 

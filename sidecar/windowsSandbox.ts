@@ -13,7 +13,7 @@ import {
 import { getShellConfig } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
 import {
   credentialPaths,
@@ -68,12 +68,12 @@ export function folderGrant(
   exists: (path: string) => boolean = existsSync,
 ) {
   const git = gitAccess(cwd);
-  const objects = git.allow[1];
+
   // srt-win creates a missing path to deny it.
   const credentials = inside(cwd, home) ? credentialPaths(home) : [];
   return {
     write: [cwd, ...git.allow],
-    read: objects ? [dirname(objects)] : [],
+    read: git.common,
     denyRead: credentials.filter(exists),
     denyWrite: git.deny.filter(exists),
   };

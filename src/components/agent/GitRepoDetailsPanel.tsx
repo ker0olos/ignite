@@ -1,11 +1,12 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowUp, ExternalLink, GitBranch, Pencil } from "lucide-react";
+import { ArrowUp, ExternalLink, Pencil } from "lucide-react";
 import type { GitRepoDetails, GitRepoStatus } from "../../../shared/git";
 import { GitChangeRow } from "@/components/conversation/GitChangeRow";
 import { GitCommitList } from "@/components/conversation/GitCommitList";
+import { GitRepoWhere } from "@/components/agent/GitRepoWhere";
 import { prState } from "@/lib/gitStatus";
 
-/** What a repository's pill opens: its branch, uncommitted files (each opening its diff), unpushed commits and pull request. */
+/** What a repository's pill opens: where it stands (branch, worktree, default branch), uncommitted files (each opening its diff), unpushed commits and pull request. */
 export function GitRepoDetailsPanel({
   status,
   details,
@@ -24,12 +25,7 @@ export function GitRepoDetailsPanel({
     <div className="divide-y text-[13px]">
       <div className="space-y-0.5 px-3 py-2.5">
         <p className="font-medium text-foreground">{status.name}</p>
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <GitBranch className="size-3 shrink-0" />
-          <span className="truncate font-mono">
-            {status.branch ?? "detached HEAD"}
-          </span>
-        </p>
+        <GitRepoWhere status={status} />
       </div>
       {error && <p className="px-3 py-2 text-xs text-destructive">{error}</p>}
       {files.length > 0 && (

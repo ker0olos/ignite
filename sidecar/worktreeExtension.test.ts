@@ -3,6 +3,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 import worktreeGuidance, {
   GIT_GUIDANCE,
+  groupGuidance,
   guidance,
 } from "./worktreeExtension.ts";
 
@@ -17,6 +18,17 @@ describe("guidance", () => {
 
   it("names no branch when the user's folder isn't on one", () => {
     expect(guidance("/wt/a", "/work", null)).not.toContain("Don't switch");
+  });
+});
+
+describe("groupGuidance", () => {
+  it("tells the agent its copy holds a worktree of each repository, delivered one by one", () => {
+    const text = groupGuidance("/wt/a", "/projects", ["server", "web"]);
+    expect(text).toContain("your own copy of the user's folder at /wt/a");
+    expect(text).toContain("(server, web)");
+    expect(text).toContain("-C <repo>");
+    expect(text).toContain("in each repository you changed");
+    expect(text).toContain("aren't kept");
   });
 });
 

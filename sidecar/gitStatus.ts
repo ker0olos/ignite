@@ -17,7 +17,8 @@ import type { HostContext } from "./hostTypes.ts";
 import { changes, commitsIn, repoOf } from "./gitReview.ts";
 import { untrackedChanges } from "./gitUntracked.ts";
 import { CHANGES_FILES } from "./taskSteps.ts";
-import { git, gitOr } from "./worktreeGit.ts";
+import { remoteDefault } from "./worktreeCheckout.ts";
+import { folderOf, git, gitOr } from "./worktreeGit.ts";
 
 // gh asks GitHub; the app polls every few seconds.
 const PR_TTL_MS = 30_000;
@@ -109,20 +110,22 @@ async function unpushed(repo: string): Promise<number> {
 }
 
 async function statusOf(repo: string): Promise<GitRepoStatus> {
-  const [place, porcelain, ahead, remoteHead] = await Promise.all([
+  const [place, porcelain, ahead, defaultRef] = await Promise.all([
     placeOf(repo),
     // Without it, status may lock the index and fail the agent's own git call.
     gitOr(repo, ["--no-optional-locks", "status", "--porcelain", "-uall"]),
     unpushed(repo),
-    gitOr(repo, ["rev-parse", "--abbrev-ref", "origin/HEAD"]),
+    remoteDefault(repo),
   ]);
   const { name, branch } = place;
-  const feature = branch && remoteHead?.trim() !== `origin/${branch}`;
+  const feature = branch && defaultRef !== `origin/${branch}`;
   const pr = feature ? await prOf(repo, branch) : undefined;
+  const checkout = folderOf(repo);
   return {
     repo,
     name,
     ...(branch && { branch }),
+    ...(checkout !== repo ? { checkout } : { shared: true }),
     changed: porcelain?.split("\n").filter(Boolean).length ?? 0,
     unpushed: ahead,
     ...(pr && { pr }),

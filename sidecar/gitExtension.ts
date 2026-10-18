@@ -27,6 +27,7 @@ import { resultText, run } from "./gitRun.ts";
 import { committed, headOf, repoOf, review, updated } from "./gitReview.ts";
 import { askTask } from "./taskExtension.ts";
 import { folderOf, gitOr } from "./worktreeGit.ts";
+import { ghDir } from "./worktreeGroup.ts";
 import { updateFolder } from "./worktrees.ts";
 
 const Params = Type.Object({
@@ -167,9 +168,11 @@ export function delivers(tool: Tool, args: string[]): boolean {
 }
 
 // An agent in its own worktree: the user's folder follows the remote when it can.
+// In a copy of a folder of repositories, that's the checkout of the one delivered.
 async function afterDelivery(tool: Tool, args: string[], cwd: string) {
-  const folder = folderOf(cwd);
-  return folder !== cwd && delivers(tool, args) ? updateFolder(folder) : null;
+  const dir = tool === GIT_TOOL ? repoOf(args, cwd) : await ghDir(args, cwd);
+  const folder = folderOf(dir);
+  return folder !== dir && delivers(tool, args) ? updateFolder(folder) : null;
 }
 
 // Without the parser, a rough split into commands is enough to spot git and gh.

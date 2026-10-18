@@ -11,7 +11,11 @@ import {
 } from "./windowsSandbox.ts";
 
 const git = vi.hoisted(() => ({
-  access: { allow: [] as string[], deny: [] as string[] },
+  access: {
+    allow: [] as string[],
+    deny: [] as string[],
+    common: [] as string[],
+  },
 }));
 vi.mock("./worktreeGit.ts", () => ({ gitAccess: () => git.access }));
 
@@ -69,7 +73,7 @@ describe("windowsConfig", () => {
 
 describe("folderGrant", () => {
   it("lets commands write in a folder outside any worktree", () => {
-    git.access = { allow: [], deny: [] };
+    git.access = { allow: [], deny: [], common: [] };
     expect(folderGrant("C:\\app")).toEqual({
       write: ["C:\\app"],
       read: [],
@@ -82,6 +86,7 @@ describe("folderGrant", () => {
     git.access = {
       allow: ["/repo/.git/worktrees/s1", "/repo/.git/objects"],
       deny: ["/wt/s1/.git", "/repo/.git/worktrees/s1/config.worktree"],
+      common: ["/repo/.git"],
     };
     const exists = (p: string) => p.endsWith(".git");
     expect(folderGrant("/wt/s1", "/home/me", exists)).toEqual({
@@ -93,7 +98,7 @@ describe("folderGrant", () => {
   });
 
   it("denies the credentials that exist when the folder holds the home folder", () => {
-    git.access = { allow: [], deny: [] };
+    git.access = { allow: [], deny: [], common: [] };
     const exists = (p: string) => p.endsWith(".ssh");
     const denied = (cwd: string) =>
       folderGrant(cwd, "/home/me", exists).denyRead;
