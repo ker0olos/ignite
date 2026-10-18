@@ -45,7 +45,7 @@ export function Conversation({
   const contentRef = useRef<HTMLDivElement>(null);
   const items = shownItems(transcript);
   const last = items.at(-1);
-  useStickToBottom(scrollRef, contentRef, last);
+  useStickToBottom(scrollRef, contentRef, last, shown);
 
   const working = workingLine(transcript, folder, showThinking, waitingOnFork);
   const rows = toRows(items, transcript.tools);

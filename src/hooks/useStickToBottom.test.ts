@@ -40,23 +40,29 @@ function setup() {
     height += by;
     resized();
   };
-  const content = document.createElement("div");
+  const scrollRef = { current: el };
+  const contentRef = { current: document.createElement("div") };
+  let props = { last: undefined as Item | undefined, shown: true };
   const { result, rerender } = renderHook(
-    ({ last }: { last: Item | undefined }) =>
-      useStickToBottom({ current: el }, { current: content }, last),
-    { initialProps: { last: undefined as Item | undefined } },
+    ({ last, shown }: typeof props) =>
+      useStickToBottom(scrollRef, contentRef, last, shown),
+    { initialProps: props },
   );
+  const show = (shown: boolean) => rerender((props = { ...props, shown }));
   const shrink = (by: number) => {
     height -= by;
     scroll(top);
   };
   const send = () =>
-    rerender({
-      last: {
-        kind: "message",
-        message: { role: "user", content: "hi", timestamp: 0 },
-      },
-    });
+    rerender(
+      (props = {
+        ...props,
+        last: {
+          kind: "message",
+          message: { role: "user", content: "hi", timestamp: 0 },
+        },
+      }),
+    );
   const narrow = (to: number, by: number) => {
     width = to;
     grow(by);
@@ -75,6 +81,7 @@ function setup() {
     send,
     narrow,
     widen,
+    show,
     stuck: result.current,
   };
 }
@@ -150,5 +157,31 @@ describe("useStickToBottom", () => {
     expect(stuck.current).toBe(true);
     grow(50);
     expect(el.scrollTop).toBe(750);
+  });
+
+  it("puts back the bottom when shown after its scroll was reset while hidden", () => {
+    const { el, scroll, grow, show, stuck } = setup();
+    show(false);
+    scroll(0);
+    grow(50);
+    show(true);
+    expect(el.scrollTop).toBe(850);
+    expect(stuck.current).toBe(true);
+  });
+
+  it("puts back the place the user left when shown after a reset while hidden", () => {
+    const { el, scroll, grow, show, stuck } = setup();
+    scroll(400);
+    show(false);
+    el.scrollTop = 0;
+    show(true);
+    expect(el.scrollTop).toBe(400);
+    el.scrollTop = 0;
+    show(false);
+    grow(500);
+    expect(el.scrollTop).toBe(400);
+    show(true);
+    expect(el.scrollTop).toBe(400);
+    expect(stuck.current).toBe(false);
   });
 });
