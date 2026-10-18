@@ -111,9 +111,18 @@ describe("useProviders", () => {
     const { unmount } = renderHook(() =>
       useProviders(() => new Promise((r) => (finish = r))),
     );
+    await act(async () => {});
     unmount();
     await act(async () => finish(fake.client));
     expect(fake.client.close).toHaveBeenCalled();
+  });
+
+  it("starts no sidecar for a mount undone at once, as StrictMode's first", async () => {
+    const open = vi.fn(async () => fakeClient().client);
+    const { unmount } = renderHook(() => useProviders(open));
+    unmount();
+    await act(async () => {});
+    expect(open).not.toHaveBeenCalled();
   });
 
   describe("connect", () => {
