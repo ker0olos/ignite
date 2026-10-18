@@ -1,10 +1,10 @@
 import type { RemoteStatus } from "../../../shared/remote";
 import { TitleButtons } from "@/components/app/TitleButtons";
+import { UpdateToast } from "@/components/app/UpdateToast";
 import { Workspace } from "@/components/app/Workspace";
 import { RemoteDevices } from "@/components/remote/RemoteDevices";
 import type { Section } from "@/components/settings/sections";
 import { SignInBanner } from "@/components/sidebar/SignInBanner";
-import { UpdateBanner } from "@/components/sidebar/UpdateBanner";
 import type { useAbout } from "@/hooks/useAbout";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { useCommandCenter } from "@/hooks/useCommandCenter";
@@ -79,81 +79,81 @@ export function AppWorkspace({
   about,
 }: AppWorkspaceProps) {
   return (
-    <Workspace
-      folder={folder}
-      tabs={tabs}
-      codeThemes={codeThemesFor(settings.theme)}
-      editor={settings.editor}
-      hideGitIgnored={settings.files.hide_gitignored}
-      showFileTree={settings.files.show_tree}
-      showThinking={settings.conversation.show_thinking}
-      stickyUserMessages={settings.conversation.sticky_user_messages}
-      gitStatus={settings.composer.git_status}
-      resizableProjectSplit={settings.sidebar.resizable_split}
-      approval={approvalSetting(settings, setSettings)}
-      modelRouter={modelRouterSetting(settings, setSettings)}
-      actions={<TitleButtons menu={menu} onSettings={() => openSettings()} />}
-      projectList={{
-        folders,
-        rows,
-        shown: session.session,
-        conversations,
-        conversationLimit: {
-          enabled: settings.sidebar.max_conversations_enabled,
-          max: settings.sidebar.max_conversations,
-        },
-        home,
-        onDismiss: conversations.dismiss,
-        onHistory: (path) => command.openWith(`@${basename(path)} @convos `),
-        onOpenFolder: openFolder,
-        tags,
-        tagFilter,
-        onToggleTagFilter,
-        onClearTagFilter,
-        onSetConversationTags,
-        childActions: {
-          activeTab: tabs.active,
-          onOpenTab: (cwd, shown, tab) => {
-            conversations.show(cwd, shown);
-            openIn(cwd, tab);
+    <>
+      <Workspace
+        folder={folder}
+        tabs={tabs}
+        codeThemes={codeThemesFor(settings.theme)}
+        editor={settings.editor}
+        hideGitIgnored={settings.files.hide_gitignored}
+        showFileTree={settings.files.show_tree}
+        showThinking={settings.conversation.show_thinking}
+        stickyUserMessages={settings.conversation.sticky_user_messages}
+        gitStatus={settings.composer.git_status}
+        resizableProjectSplit={settings.sidebar.resizable_split}
+        approval={approvalSetting(settings, setSettings)}
+        modelRouter={modelRouterSetting(settings, setSettings)}
+        actions={<TitleButtons menu={menu} onSettings={() => openSettings()} />}
+        projectList={{
+          folders,
+          rows,
+          shown: session.session,
+          conversations,
+          conversationLimit: {
+            enabled: settings.sidebar.max_conversations_enabled,
+            max: settings.sidebar.max_conversations,
           },
-          onClear: (tab) => tabs.close(tab),
-          onStopBackground: (shown, pid) =>
-            void host
-              ?.request({ type: "background_stop", session: shown, pid })
-              .catch(() => {}),
-          terminals: terminals.running,
-          terminalLabel: terminals.label,
-          onOpenTerminal: (cwd, terminal) =>
-            openIn(
-              cwd,
-              childTabId({ kind: "terminal", session: "", terminal }),
-            ),
-          onStopTerminal: terminals.stop,
-        },
-      }}
-      banner={
-        <>
-          <UpdateBanner
-            ready={about.update === "ready"}
-            warning={about.warning}
-            onRestart={about.restart}
-          />
+          home,
+          onDismiss: conversations.dismiss,
+          onHistory: (path) => command.openWith(`@${basename(path)} @convos `),
+          onOpenFolder: openFolder,
+          tags,
+          tagFilter,
+          onToggleTagFilter,
+          onClearTagFilter,
+          onSetConversationTags,
+          childActions: {
+            activeTab: tabs.active,
+            onOpenTab: (cwd, shown, tab) => {
+              conversations.show(cwd, shown);
+              openIn(cwd, tab);
+            },
+            onClear: (tab) => tabs.close(tab),
+            onStopBackground: (shown, pid) =>
+              void host
+                ?.request({ type: "background_stop", session: shown, pid })
+                .catch(() => {}),
+            terminals: terminals.running,
+            terminalLabel: terminals.label,
+            onOpenTerminal: (cwd, terminal) =>
+              openIn(
+                cwd,
+                childTabId({ kind: "terminal", session: "", terminal }),
+              ),
+            onStopTerminal: terminals.stop,
+          },
+        }}
+        banner={
           <SignInBanner
             names={needingSignIn(mcp.servers)}
             onSignIn={mcp.signIn}
             onOpenSettings={() => openSettings("MCP")}
           />
-        </>
-      }
-      footer={
-        <RemoteDevices
-          count={remote?.devices ?? 0}
-          onClick={() => openSettings("Remote")}
-        />
-      }
-      session={session}
-      host={host}
-    />
+        }
+        footer={
+          <RemoteDevices
+            count={remote?.devices ?? 0}
+            onClick={() => openSettings("Remote")}
+          />
+        }
+        session={session}
+        host={host}
+      />
+      <UpdateToast
+        update={about.update}
+        warning={about.warning}
+        onRestart={about.restart}
+      />
+    </>
   );
 }
