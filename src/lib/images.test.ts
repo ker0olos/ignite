@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFs } from "@/test/fakeFs";
-import { imageUrl, pastedImages, pickImages, toImage } from "./images";
+import {
+  imageName,
+  imageUrl,
+  pastedImages,
+  pickImages,
+  toImage,
+} from "./images";
 
 const PNG = new Uint8Array([137, 80, 78, 71]);
 
@@ -26,6 +32,7 @@ describe("images", () => {
     );
     const images = await pickImages();
     expect(images.map((i) => i.mimeType)).toEqual(["image/png", "image/jpeg"]);
+    expect(images.map(imageName)).toEqual(["shot.PNG", "photo.jpg"]);
   });
 
   it("attaches nothing when the picker is cancelled", async () => {
@@ -53,7 +60,9 @@ describe("images", () => {
         new File([PNG], "shot.png", { type: "image/png" }),
         new File(["hi"], "notes.txt", { type: "text/plain" }),
       ]);
-      expect(await pickImages(true)).toEqual([toImage(PNG, "image/png")]);
+      const images = await pickImages(true);
+      expect(images).toEqual([toImage(PNG, "image/png")]);
+      expect(imageName(images[0])).toBe("shot.png");
     });
 
     it("attaches nothing when the picker is cancelled", async () => {
@@ -69,5 +78,6 @@ describe("images", () => {
     ];
     const images = await pastedImages({ files } as unknown as DataTransfer);
     expect(images).toEqual([toImage(PNG, "image/png")]);
+    expect(imageName(images[0])).toBeUndefined();
   });
 });

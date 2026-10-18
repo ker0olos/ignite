@@ -1,10 +1,11 @@
+import { DropOverlay } from "@/components/app/DropOverlay";
 import { AppCommandCenter } from "@/components/app/AppCommandCenter";
 import { AppSettingsDialog } from "@/components/app/AppSettingsDialog";
 import { AppWorkspace } from "@/components/app/AppWorkspace";
 import { TitleButtons } from "@/components/app/TitleButtons";
 import { WelcomeScreen } from "@/components/app/WelcomeScreen";
 import { ConnectProviders } from "@/components/providers/ConnectProviders";
-import { useFolderDrop } from "@/hooks/useFolderDrop";
+import { useDrop } from "@/hooks/useDrop";
 import { useAgentSession } from "@/hooks/useAgentSession";
 import { useAppMenu } from "@/hooks/useAppMenu";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
@@ -27,7 +28,6 @@ import { isRemote } from "@/lib/remote";
 import { isWindows } from "@/lib/window";
 import { OPEN_HOST, shownRows, shownSession } from "@/lib/demo";
 import { orderedRows } from "@/lib/conversations";
-import { cn } from "@/lib/utils";
 
 export default function App() {
   const {
@@ -67,7 +67,7 @@ export default function App() {
   const command = useCommandCenter();
   const rows = (cwd: string) =>
     orderedRows(shownRows(list.rows)(cwd), settings.sidebar.conversation_order);
-  const dragging = useFolderDrop(addFolder);
+  const dropping = useDrop(addFolder);
   const dialog = useSettingsDialog(providers.host, current);
   const openSettings = dialog.show;
 
@@ -92,12 +92,8 @@ export default function App() {
   );
 
   return (
-    <div
-      className={cn(
-        "flex h-dvh",
-        dragging && "ring-2 ring-foreground/20 ring-inset",
-      )}
-    >
+    <div className="flex h-dvh">
+      {dropping && <DropOverlay preview={dropping} />}
       {connectScreen.open ? (
         <div className="flex-1">
           <ConnectProviders

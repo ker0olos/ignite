@@ -2,6 +2,11 @@ import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ImageContent } from "../../shared/agentTypes";
+import {
+  readFiles,
+  withFiles,
+  type SentFile,
+} from "../../shared/attachedFiles";
 import { readComments, withComments } from "../../shared/sentComments";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import { useComposerSend } from "@/hooks/useComposerSend";
@@ -18,7 +23,7 @@ const comment = (session: string) =>
     text: "Rename it",
   });
 
-function setup(id: string, typed: string, asking = false) {
+function setup(id: string, typed: string, attached: SentFile[] = []) {
   const send = vi.fn();
   const session = {
     session: id,
@@ -32,13 +37,13 @@ function setup(id: string, typed: string, asking = false) {
   const hook = renderHook(() => {
     const [text, setText] = useState(typed);
     const [images, setImages] = useState<ImageContent[]>([]);
+    const [files, setFiles] = useState(attached);
     return {
       text,
       ...useComposerSend({
         session,
-        asking,
         skills: [],
-        draft: { text, setText, images, setImages },
+        draft: { text, setText, images, setImages, files, setFiles },
         record: vi.fn(),
         input: { current: null },
       }),
@@ -68,16 +73,12 @@ describe("useComposerSend", () => {
     expect(readComments(send.mock.calls[0][0]).comments).toHaveLength(1);
   });
 
-  it("keeps them for the next message after /compact or while a question shows", () => {
+  it("keeps them for the next message after /compact", () => {
     comment("q-compact");
     const compact = setup("q-compact", "/compact");
     act(() => compact.hook.result.current.send());
     expect(compact.send.mock.calls[0][0]).toBe("/compact");
     expect(diffComments("q-compact")).toHaveLength(1);
-
-    const asking = setup("q-compact", "", true);
-    expect(asking.hook.result.current.comments).toEqual([]);
-    expect(asking.hook.result.current.sendable).toBe(false);
   });
 
   it("puts a queued message's text and comments back in the composer", () => {
@@ -88,5 +89,36 @@ describe("useComposerSend", () => {
     act(() => hook.result.current.restore([{ text: queued }]));
     expect(hook.result.current.text).toBe("Earlier\n\nMine");
     expect(hook.result.current.comments.map((c) => c.text)).toEqual(["Again"]);
+  });
+
+  it("sends dropped files with the text and comments, then forgets them", () => {
+    comment("q-files");
+    const notes = { path: "/d/notes.txt", text: "hi" };
+    const { send, hook } = setup("q-files", "Look", [notes]);
+    expect(hook.result.current.files).toEqual([notes]);
+    act(() => hook.result.current.send());
+    const sent = readComments(send.mock.calls[0][0]);
+    expect(sent.comments).toHaveLength(1);
+    expect(readFiles(sent.text)).toEqual({ text: "Look", files: [notes] });
+    expect(hook.result.current.files).toEqual([]);
+  });
+
+  it("sends files with no text, and removes one", () => {
+    const pdf = { path: "/d/a.pdf" };
+    const only = setup("q-only-files", "", [pdf]);
+    expect(only.hook.result.current.sendable).toBe(true);
+    act(() => only.hook.result.current.removeFile(0));
+    expect(only.hook.result.current.files).toEqual([]);
+  });
+
+  it("puts a queued message's files back", () => {
+    const { hook } = setup("q-back-files", "");
+    act(() =>
+      hook.result.current.restore([
+        { text: withFiles("Earlier", [{ path: "/d/a.pdf" }]) },
+      ]),
+    );
+    expect(hook.result.current.text).toBe("Earlier");
+    expect(hook.result.current.files).toEqual([{ path: "/d/a.pdf" }]);
   });
 });

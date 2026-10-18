@@ -1,3 +1,4 @@
+import { readFiles } from "./attachedFiles.ts";
 import { typedSkill } from "./skills.ts";
 
 /** A line a comment quotes: its kind and number (new file's, or old file's when removed). */
@@ -110,11 +111,21 @@ export function readComments(message: string): {
   return { text: message.slice(0, m!.index).trimEnd(), comments };
 }
 
-/** A message as the user wrote it: a skill as its `/name`, its diff comments left out (named when it's only them). */
+/** A message's own text (a skill still expanded), and the files and diff comments it carries. */
+export function readMessage(message: string) {
+  const { text: rest, comments } = readComments(message);
+  const { text, files } = readFiles(rest);
+  return { text, files, comments };
+}
+
+/** A message as the user wrote it: a skill as its `/name`, its diff comments and files left out (named when it's only them). */
 export function typedMessage(message: string): string {
-  const { text, comments } = readComments(message);
+  const { text, files, comments } = readMessage(message);
   const typed = typedSkill(text);
-  if (typed || !comments.length) return typed;
-  const n = comments.length;
-  return `${n} ${n === 1 ? "comment" : "comments"} on ${comments[0].path}`;
+  if (typed) return typed;
+  if (comments.length) {
+    const n = comments.length;
+    return `${n} ${n === 1 ? "comment" : "comments"} on ${comments[0].path}`;
+  }
+  return files.map((f) => f.path.split(/[\\/]/).pop()).join(", ");
 }

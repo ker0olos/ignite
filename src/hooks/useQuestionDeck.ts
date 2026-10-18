@@ -94,6 +94,11 @@ export function useQuestionDeck(
         ...d,
         images: typeof images === "function" ? images(d.images) : images,
       })),
+    setFiles: (files: SetStateAction<NonNullable<Draft["files"]>>) =>
+      change((d) => ({
+        ...d,
+        files: typeof files === "function" ? files(d.files ?? []) : files,
+      })),
     toggle: (label: string) =>
       change((d) => toggle(d, label, !!question.multiSelect)),
     back: step > 0 ? () => to(step - 1) : undefined,

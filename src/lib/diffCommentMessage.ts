@@ -1,5 +1,9 @@
 import type { CommentLine, SentComment } from "../../shared/sentComments";
-import type { DiffComment } from "@/lib/diffComments";
+import {
+  clearDiffComments,
+  diffComments,
+  type DiffComment,
+} from "@/lib/diffComments";
 import type { DiffLine } from "@/lib/toolRows";
 
 /** The commentable lines of rows `from` to `to` (in either order), gaps left out. */
@@ -47,4 +51,11 @@ export function sentComments(comments: DiffComment[]): SentComment[] {
   return [...comments]
     .sort(byPlace)
     .map(({ path, lines, text }) => ({ path, lines, text }));
+}
+
+/** The conversation's diff comments, as a message or an answer carries them; they're forgotten, as they're being sent. */
+export function takeComments(session: string | null): SentComment[] {
+  const all = diffComments(session);
+  clearDiffComments(session, all);
+  return sentComments(all);
 }

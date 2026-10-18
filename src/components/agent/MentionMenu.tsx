@@ -48,7 +48,7 @@ export function MentionMenu({
           >
             {option.kind === "file" ? (
               <FileIcon
-                name={label}
+                name={option.detail ?? label}
                 className="size-3.5 shrink-0 text-muted-foreground"
               />
             ) : (

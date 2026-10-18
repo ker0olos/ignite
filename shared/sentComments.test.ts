@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { withFiles } from "./attachedFiles.ts";
 import {
   commentPlace,
   readComments,
@@ -131,6 +132,17 @@ describe("typedMessage", () => {
   it("leaves the comments out of what the user wrote, a skill as its /name", () => {
     const skill = '<skill name="review" location="/s">\nBody\n</skill>\n\nnow';
     expect(typedMessage(withComments(skill, [comment]))).toBe("/review now");
+  });
+
+  it("leaves attached files out, and names them when they're all the message has", () => {
+    expect(typedMessage(withFiles("Look", [{ path: "/d/a.pdf" }]))).toBe(
+      "Look",
+    );
+    expect(
+      typedMessage(
+        withFiles("", [{ path: "/d/a.pdf" }, { path: "/d/b.txt", text: "" }]),
+      ),
+    ).toBe("a.pdf, b.txt");
   });
 
   it("names the comments when they're all the message has", () => {

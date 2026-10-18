@@ -17,14 +17,14 @@ src/                     React frontend (almost all logic lives here)
   components/            UI only, one component per file; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
     app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle,
-                         Windows' window controls, zoomable images and the markup editor (react-konva) for attached ones
+                         Windows' window controls, the drop overlay, zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner, the update-ready banner
     files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon),
                          diff tabs whose lines take comments (gutter "+", comment box)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
-                         (which also answers the agent's questions; one strip of attachments: images, diff comments), model/effort/approval menus, git status, trust prompt
+                         (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt
     conversation/        Transcript rendering: messages, tool rows (with approve/deny) and their pieces; WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
@@ -41,7 +41,7 @@ src/                     React frontend (almost all logic lives here)
     useProjects.ts       Each open project's and conversation's status (working, waiting, title);
                          ends closed projects' sessions
     useSettings.ts       settings.toml, synced across windows; applies theme
-    useFolderDrop.ts     Drag-and-drop folders onto the window
+    useDrop.ts           Drag-and-drop onto the window: folders open, images and other files attach to the composer
     useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
     useEditorOverlay.ts  The editor pane dragged past the conversation's minimum: drawn over it and the sidebar
     useSidebarWidth.ts   The sidebar's dragged width (localStorage), kept when the editor pane opens or closes
@@ -154,6 +154,9 @@ src/                     React frontend (almost all logic lives here)
     about.ts             About text: version line, update button states, the macOS About panel
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
     gitPolicy.ts         Which git and gh tool calls run and which ask (commit and push for review)
+    drop.ts              Sorts dropped paths: folders, images, small text files sent in full, others by path
+    dropPreview.ts       While a drag hovers: which of four overlays (folder, image, file, both) and what letting go does
+    userMessage.ts       A user message's typed text, images, attached files and diff comments, for its bubble
     gitDiff.ts           Unified diffs into diff lines; folding unchanged runs (never over a comment); stepping through changes
     diffTabs.ts          Diff tabs beside file tabs (encoded ids with the conversation that opened one, labels),
                          reading a git review
@@ -380,6 +383,7 @@ shared/queue.ts          Messages sent mid-run: how they wait, and taking one ba
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/shellEdits.ts     The files a bash call changed, as its result carries them (used by both)
 shared/featuredModels.ts The model menu's featured (current generation) models, which the router picks from
+shared/attachedFiles.ts  Dropped files in a message: `@path` with its text inline or only its path, and read back
 shared/sentComments.ts   Diff comments in a message: `@path:lines`, the quoted lines, the comment, and read back
                          for its cards; a message as typed, without them (titles, queue)
 shared/steps.ts          A tool call as a current step ("Editing src/app.ts"), for tasks and the working line
@@ -546,7 +550,7 @@ in turn, so nothing waits off screen. The `ask_user` tool (`sidecar/askExtension
 channel: its call waits as an approval and, once first in line, its questions
 take over the composer (`useQuestionDeck`, `ComposerQuestion`): options above
 the text box, whose text and images are a note on the picks, or the user's own
-answer when none is picked, with mentions, images and paste as usual. Its row
+answer when none is picked, with mentions, images, dropped files and paste as usual (files go in that question's note, and the conversation's diff comments in the last answer's). Its row
 says "Asking you · 1 of 2", and once answered lists the answers (from the
 result's `details`). `approval_answer` carries the answers (declining leaves
 the choice to the agent). The approval gate never asks about `ask_user` itself. **Manual** asks for every tool call (built-in,
@@ -704,7 +708,7 @@ The composer completes `/` at the start of a message with the app's
 divider that opens to it; text after it steers the summary; while it runs, a
 bar fills as the summary streams) and the session's
 skills (sent as pi's `/skill:name`, shown again as `/name`), `/fork` (below), and `@`
-anywhere with the message's images (`@image1`), the folder's terminals
+anywhere with the message's images (`@image1`) and dropped files (`@file1`), the folder's terminals
 (`@t1`) and files (`@src/app.ts`). Mentions stay plain text; the system
 prompt says what they name.
 
