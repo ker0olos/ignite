@@ -2,12 +2,11 @@ import { useSyncExternalStore } from "react";
 import { readComments, withComments } from "../../shared/sentComments";
 import {
   addDiffComment,
-  clearDiffComments,
   diffComments,
   removeDiffComment,
   subscribeDiffComments,
 } from "@/lib/diffComments";
-import { sentComments } from "@/lib/diffCommentMessage";
+import { takeComments } from "@/lib/diffCommentMessage";
 
 /** The diff comments in the conversation's message: removing one, sending them with it, taking them back with a queued one. */
 export function useComposerComments(session: string | null) {
@@ -18,10 +17,7 @@ export function useComposerComments(session: string | null) {
     comments: all,
     remove: (id: number) => removeDiffComment(session, id),
     /** `message` with the comments after it; they're forgotten, as it's being sent. */
-    take: (message: string) => {
-      clearDiffComments(session, all);
-      return withComments(message, sentComments(all));
-    },
+    take: (message: string) => withComments(message, takeComments(session)),
     /** Puts the comments of messages taken back from the queue in the message again. */
     restore: (messages: string[]) =>
       messages

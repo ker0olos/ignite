@@ -8,6 +8,7 @@ import { folderOf } from "./worktreeGit.ts";
 /** What the composer's `@` mentions in the user's messages point at. */
 export const MENTION_GUIDANCE =
   "In the user's messages, `@image1`, `@image2`… are the images attached to that message, in order; " +
+  "`@file1`, `@file2`… are the files attached to it, listed with their paths at its end; " +
   `\`@t1\`, \`@t2\`… are their terminals (read one with ${TERMINAL_READ_TOOL}); ` +
   "and `@path` is a file or folder in the project.";
 

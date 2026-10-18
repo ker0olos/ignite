@@ -11,18 +11,26 @@ export function useImageTarget() {
   return useSyncExternalStore(subscribeImageTargets, currentImageTarget);
 }
 
-/** Makes this input where marked-up images go while it's mounted; Done says `label`. */
-export function useProvideImageTarget(label: string, add: ImageTarget["add"]) {
-  const latest = useRef(add);
+/** Makes this input where marked-up (and dropped) images go while it's mounted, and dropped files with `addFile`; Done says `label`. */
+export function useProvideImageTarget(
+  label: string,
+  add: ImageTarget["add"],
+  addFile?: ImageTarget["addFile"],
+) {
+  const latest = useRef({ add, addFile });
   useEffect(() => {
-    latest.current = add;
+    latest.current = { add, addFile };
   });
+  const takesFiles = !!addFile;
   useEffect(
     () =>
       addImageTarget({
         label,
-        add: (image, name) => latest.current(image, name),
+        add: (image, name) => latest.current.add(image, name),
+        ...(takesFiles && {
+          addFile: (file) => latest.current.addFile?.(file),
+        }),
       }),
-    [label],
+    [label, takesFiles],
   );
 }

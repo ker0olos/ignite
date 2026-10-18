@@ -81,6 +81,30 @@ describe("mentionOptions", () => {
     ]);
   });
 
+  it("names each image by its file, or as from the clipboard", () => {
+    const options = mentionOptions(mentionAt("@im", 3)!, {
+      ...NONE,
+      images: 2,
+      imageNames: ["shot.png", "Clipboard"],
+    });
+    expect(options).toEqual([
+      { kind: "image", insert: "@image1", detail: "shot.png" },
+      { kind: "image", insert: "@image2", detail: "Clipboard" },
+    ]);
+  });
+
+  it("offers the message's attached files as @file1…, named, after its images", () => {
+    const options = mentionOptions(mentionAt("@fi", 3)!, {
+      ...NONE,
+      images: 1,
+      attached: ["report.pdf", "notes.txt"],
+    });
+    expect(options.slice(0, 2)).toEqual([
+      { kind: "file", insert: "@file1", detail: "report.pdf" },
+      { kind: "file", insert: "@file2", detail: "notes.txt" },
+    ]);
+  });
+
   it("filters images and terminals by what's typed, and keeps at most 8", () => {
     const options = mentionOptions(mentionAt("@t", 2)!, {
       ...NONE,

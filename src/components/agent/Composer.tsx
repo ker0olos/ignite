@@ -18,6 +18,8 @@ import { shortcut } from "@/lib/approvalKeys";
 import type { HostClient } from "@/lib/piHost";
 import { noteLabel } from "@/lib/questions";
 import { composerKey } from "@/lib/queue";
+import { imageName } from "@/lib/images";
+import { basename } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 
 type Session = ReturnType<typeof useAgentSession>;
@@ -70,13 +72,14 @@ export function Composer({
     input,
     skills,
     images: images.length,
+    imageNames: images.map((i) => imageName(i) ?? "Clipboard"),
+    attached: draft.files.map((f) => basename(f.path)),
   });
   const history = useComposerHistory(text, setText, input);
   const questionKeys = useComposerQuestionKeys(asking, options, input);
   useComposerFocus(input);
   const message = useComposerSend({
     session,
-    asking: !!asking,
     skills,
     draft,
     record: history.record,
@@ -131,8 +134,7 @@ export function Composer({
           images={images}
           onRemoveImage={remove}
           onEditImage={replace}
-          comments={message.comments}
-          onRemoveComment={message.removeComment}
+          attached={message}
         />
         <ComposerInput
           ref={input}

@@ -85,7 +85,7 @@ function useDismissal(start: number | null, current: boolean) {
 
 /**
  * The composer's `/skill` and `@` completions at the caret: the session's
- * skills, attached images, the folder's terminals and files. ↑/↓ move,
+ * skills, attached images and files, the folder's terminals and files. ↑/↓ move,
  * ↵ or ⇥ picks, esc closes.
  */
 export function useMentions({
@@ -96,6 +96,8 @@ export function useMentions({
   input,
   skills,
   images,
+  imageNames,
+  attached,
 }: {
   host: HostClient | null;
   folder: string;
@@ -104,6 +106,10 @@ export function useMentions({
   input: RefObject<HTMLTextAreaElement | null>;
   skills: SkillInfo[];
   images: number;
+  /** What each attached image is shown as in the menu. */
+  imageNames?: string[];
+  /** The names of the files attached to the message, offered as `@file1`… */
+  attached?: string[];
 }) {
   const { current, mention, setCaret, setCaretAt } = useCaret(text, input);
   const sources = useMentionSources(host, folder, mention);
@@ -117,7 +123,13 @@ export function useMentions({
 
   const options: MentionOption[] =
     mention && !dismissed
-      ? mentionOptions(mention, { skills, images, ...sources })
+      ? mentionOptions(mention, {
+          skills,
+          images,
+          imageNames,
+          attached,
+          ...sources,
+        })
       : [];
 
   const pick = (option: MentionOption) => {

@@ -9,17 +9,26 @@ import {
   type Question,
   type QuestionAnswer,
 } from "../../shared/questions";
+import { withFiles, type SentFile } from "../../shared/attachedFiles";
+import { withComments, type SentComment } from "../../shared/sentComments";
 import type { Item } from "./transcript";
 import { isMac } from "./window";
 
-/** One question's answer so far: picked labels, and the composer's text and images (a note beside picks, else the answer). */
+/** One question's answer so far: picked labels, and the composer's text, images and dropped files (a note beside picks, else the answer). */
 export type Draft = {
   picked: string[];
   text: string;
   images: ImageContent[];
+  /** Missing in drafts saved before files could be attached. */
+  files?: SentFile[];
 };
 
-export const EMPTY_DRAFT: Draft = { picked: [], text: "", images: [] };
+export const EMPTY_DRAFT: Draft = {
+  picked: [],
+  text: "",
+  images: [],
+  files: [],
+};
 
 /** ask_user's questions from the call's arguments, skipping malformed ones. */
 export function readQuestions(args: Record<string, unknown>): Question[] {
@@ -46,17 +55,36 @@ export function toAnswers(
   drafts: Draft[],
 ): QuestionAnswer[] {
   return questions.map(({ question }, i) => {
-    const { picked, text, images } = drafts[i] ?? EMPTY_DRAFT;
+    const { picked, text, images, files = [] } = drafts[i] ?? EMPTY_DRAFT;
     const typed = text.trim();
     const choices = picked.length ? picked : typed ? [typed] : [];
-    const note = picked.length > 0 && typed;
+    // Files go in the note, like a message carries them; typed text is the note only beside picks.
+    const note = withFiles(picked.length > 0 ? typed : "", files);
     return {
       question,
       choices,
-      ...(note && { note: typed }),
+      ...(note && { note }),
       ...(images.length > 0 && { images }),
     };
   });
+}
+
+/** What an answer says first: the choices, else what it was answered with, else that it was left to the agent. */
+export function answerLabel(choices: string[], images = 0, files = 0) {
+  if (choices.length) return choices.join(", ");
+  if (files) return "Answered with files";
+  return images ? "Answered with images" : "Left to the agent";
+}
+
+/** `answers` with the diff comments added to the last one's note, so they go with the answer like they would with a message. */
+export function withAnswerComments(
+  answers: QuestionAnswer[],
+  comments: SentComment[],
+): QuestionAnswer[] {
+  if (!comments.length || !answers.length) return answers;
+  const last = answers.at(-1)!;
+  const note = withComments(last.note ?? "", comments);
+  return [...answers.slice(0, -1), { ...last, note }];
 }
 
 /** What the composer's text is while a question shows: a note on the picks, or (undefined) the user's own answer. */

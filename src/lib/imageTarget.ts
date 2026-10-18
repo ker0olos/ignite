@@ -1,9 +1,11 @@
 import type { ImageContent } from "../../shared/agentTypes";
+import type { SentFile } from "../../shared/attachedFiles";
 
-/** An input a marked-up image can be added to, and what its Done button says. */
+/** An input a marked-up (or dropped) image can be added to, and what its Done button says; `addFile` takes dropped files, where it does. */
 export type ImageTarget = {
   label: string;
   add: (image: ImageContent, name: string) => void;
+  addFile?: (file: SentFile) => void;
 };
 
 let targets: ImageTarget[] = [];
