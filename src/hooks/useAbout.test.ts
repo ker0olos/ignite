@@ -102,6 +102,8 @@ it("says it's installing once the sidecar builds the update it found", async () 
     await done;
   });
   expect(result.current.update).toBe("ready");
+  act(() => host.push({ type: "app_update_installing" }));
+  expect(result.current.update).toBe("ready");
 });
 
 it("reloads the windows after an update", async () => {
@@ -203,9 +205,36 @@ it("checks on its own when started by the launcher", async () => {
       type === "app_update" ? { updated: false, ready: true } : VERSION,
     );
     const { result } = renderHook(() => useAbout(host, false, vi.fn(), true));
-    await act(() => vi.advanceTimersByTimeAsync(30_000));
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
     expect(result.current.update).toBe("ready");
   } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("waits for an idle moment where the webview has one", async () => {
+  vi.useFakeTimers();
+  let idle: (() => void) | undefined;
+  vi.stubGlobal("requestIdleCallback", (cb: () => void) => {
+    idle = cb;
+    return 1;
+  });
+  vi.stubGlobal("cancelIdleCallback", vi.fn());
+  try {
+    const host = fakeHost(async (type) =>
+      type === "app_update" ? { updated: false, ready: true } : VERSION,
+    );
+    const { result, unmount } = renderHook(() =>
+      useAbout(host, false, vi.fn(), true),
+    );
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    expect(result.current.update).toBe("idle");
+    await act(async () => idle?.());
+    expect(result.current.update).toBe("ready");
+    unmount();
+    expect(cancelIdleCallback).toHaveBeenCalledWith(1);
+  } finally {
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   }
 });

@@ -20,7 +20,7 @@ src/                     React frontend (almost all logic lives here)
     app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle,
                          Windows' window controls, the drop overlay, zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
-                         MCP sign-in warning banner, the update-ready banner
+                         MCP sign-in warning banner, the update banner (installing, then restart)
     files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon),
                          diff tabs whose lines take comments (gutter "+", comment box)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)

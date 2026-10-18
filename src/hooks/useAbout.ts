@@ -11,7 +11,8 @@ const RELOAD = "app://reload";
 const reloadPage = () => location.reload();
 // Started by the launcher, the main window builds updates in the background.
 const AUTO = __HEALTH_FILE__ !== null && getCurrentWindow().label === "main";
-const FIRST_CHECK_MS = 30_000;
+const FIRST_CHECK_MS = 2_000;
+const IDLE_WAIT_MS = 10_000;
 const CHECK_EVERY_MS = 6 * 60 * 60_000;
 
 /**
@@ -45,7 +46,8 @@ export function useAbout(
   useEffect(
     () =>
       host?.subscribe((m) => {
-        if (m.type === "app_update_installing") setUpdate("installing");
+        if (m.type === "app_update_installing")
+          setUpdate((u) => (u === "ready" ? u : "installing"));
       }),
     [host],
   );
@@ -95,10 +97,19 @@ export function useAbout(
 
   useEffect(() => {
     if (!host || !auto) return;
-    const first = setTimeout(check, FIRST_CHECK_MS);
+    let idle: number | undefined;
+    // Once the app has settled, at its first idle moment (WebKit may lack requestIdleCallback).
+    const first = setTimeout(() => {
+      if ("requestIdleCallback" in window)
+        idle = requestIdleCallback(() => void check(), {
+          timeout: IDLE_WAIT_MS,
+        });
+      else void check();
+    }, FIRST_CHECK_MS);
     const every = setInterval(check, CHECK_EVERY_MS);
     return () => {
       clearTimeout(first);
+      if (idle !== undefined) cancelIdleCallback(idle);
       clearInterval(every);
     };
   }, [host, auto, check]);
