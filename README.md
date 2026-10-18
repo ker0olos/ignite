@@ -63,36 +63,15 @@ once. Made for macOS; and others.
 
 ## Sandbox
 
-In Auto mode (the default), the agent's shell commands run without asking,
-inside the operating system's own sandbox, through Anthropic's
-[sandbox-runtime](https://github.com/anthropics/sandbox-runtime):
-
-- **macOS:** Seatbelt, the kernel sandbox behind `sandbox-exec`.
-- **Linux:** [bubblewrap](https://github.com/containers/bubblewrap)
-  namespaces (setup installs it, with `socat`).
-- **Windows:** every command asks first, unless you turn on sandbox-runtime's
-  Windows sandbox (alpha), which runs commands as a separate low-privilege
-  user that can open only the folders it's granted.
-
-Inside it, a command:
-
-- writes only in the project's worktree, temp folders and package caches;
-- can't read credentials: `~/.ssh`, `~/.aws`, keychains and other tools'
-  auth files;
-- goes online only through a proxy in the app: package registries and git
-  hosts fully, other public sites for reads only (GET), never `localhost`
-  or a bare IP address.
-
-When the sandbox blocks a command, it asks you before running it outside,
-and you can always allow that host or path. Some commands still ask in Auto:
-ones on a denylist of risky commands (a wide `rm -rf`, `sudo`, `curl | sh`…), file edits outside
-the project, MCP tools that change things, and git commits, pushes and pull
-requests, which run with your own credentials once you approve their review.
-
-The sandbox covers shell commands only. The agent's file tools and your MCP
-servers run as you, and it guards against mistakes, not a determined
-attacker: a read can still carry data out in its URL. Manual mode asks
-before every tool call.
+In Auto mode, shell commands run without asking inside the OS sandbox
+([sandbox-runtime](https://github.com/anthropics/sandbox-runtime): Seatbelt
+on macOS, bubblewrap on Linux; on Windows every command asks unless you turn
+on its alpha sandbox). They write only in the project, temp folders and
+package caches, can't read credentials, and online may only read public sites
+(registries and git hosts fully). A blocked command asks before running
+outside. Risky commands, edits outside the project, MCP changes, commits and
+pushes still ask. File tools and MCP servers aren't sandboxed, and it stops
+mistakes, not attackers.
 
 ## Install
 
