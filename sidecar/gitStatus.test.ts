@@ -13,7 +13,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import { fileDiff } from "./gitReview.ts";
+import type { HostContext } from "./hostTypes.ts";
 import {
+  conversationGitStatus,
   discardFile,
   gitStatus,
   repoDetails,
@@ -180,5 +182,15 @@ describe("discardFile", () => {
     await writeFile(join(root, "keep.txt"), "x\n");
     await expect(discardFile(root, "keep.txt")).rejects.toThrow("not a repo");
     expect(await readFile(join(root, "keep.txt"), "utf8")).toBe("x\n");
+  });
+});
+
+describe("conversationGitStatus", () => {
+  it("knows nothing yet of a conversation whose session isn't open", async () => {
+    const ctx = {
+      agents: new Map([["opening", { workdir: root }]]),
+    } as unknown as HostContext;
+    expect(await conversationGitStatus(ctx, "opening")).toBeNull();
+    expect(await conversationGitStatus(ctx, "unknown")).toBeNull();
   });
 });

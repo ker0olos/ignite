@@ -79,7 +79,8 @@ src/                     React frontend (almost all logic lives here)
     useDraftFrame.ts     Posts a draft artifact page into its frame, which updates it in place
     useBlockLang.ts      A code block's language: its fence's, or bash once an untagged one parses as shell
     useTerminalTabs.ts   The folders' running terminals for the sidebar; Stop ends one, closing its tab doesn't
-    useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request), read every 5s
+    useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request): cached
+                         ones at once, read again in the background, then every 5s (1s while it opens)
     useGitRepoDetails.ts A repository's uncommitted files and unpushed commits, while its composer popover is open
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
@@ -139,6 +140,7 @@ src/                     React frontend (almost all logic lives here)
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     gitStatus.ts         Which of a conversation's repositories the composer shows, and their pull requests' state
+    gitStatusCache.ts    Each conversation's last known repositories (localStorage, newest 200), shown before a read
     transcript.ts        Rebuilds the conversation from pi's session events
     streamBlocks.ts      A streamed message's blocks: text, thinking, tool calls (an artifact's JSON as it's written)
     sessionEntry.ts      A conversation as the app keeps it, built from what opening it returned
@@ -489,6 +491,9 @@ Two places hold persisted data:
 - **File tree's open folders** in the webview's `localStorage`
   (`file-tree-open`): absolute paths, so switching folders or relaunching
   keeps them open (`lib/openFolders.ts`).
+- **Composer git status** in the webview's `localStorage` (`git-status`): each
+  conversation's last known repositories, newest 200, so the composer shows them
+  at once while they're read again (`lib/gitStatusCache.ts`).
 - **Composer history** in the webview's `localStorage` (`composer-history`):
   the newest 100 sent messages, shared by every folder (`lib/history.ts`).
 - **pi's own files** in `~/.ignite/pi`: credentials (`auth.json`),
