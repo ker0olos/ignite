@@ -878,12 +878,13 @@ describe("reopening a conversation", () => {
     await waitFor(() =>
       expect(text(result.current.transcript)).toContain("saved s2"),
     );
-    expect(result.current.state).toBeNull();
+    expect(result.current.ready).toBe(false);
     await act(async () => start("s2"));
     await waitFor(() =>
       expect(text(result.current.transcript)).toContain("live s2"),
     );
     expect(result.current.state).toEqual(STATE);
+    expect(result.current.ready).toBe(true);
   });
 
   it("shows only the last conversation picked, whichever starts first", async () => {
