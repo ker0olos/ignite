@@ -1,36 +1,22 @@
 /** A code file's definitions (functions, classes, methods…) by line, from tree-sitter's tags queries. */
 import { lstat, readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Language, Parser, Query, type Node } from "web-tree-sitter";
 import { listFiles } from "./fileIndex.ts";
 
-const require = createRequire(import.meta.url);
-const JS = "tree-sitter-javascript/queries/tags.scm";
-const TS = "tree-sitter-typescript/queries/tags.scm";
+const grammarFile = (name: string) =>
+  fileURLToPath(import.meta.resolve(`../shared/grammars/${name}`));
+const JS = "javascript-tags.scm";
+const TS = "typescript-tags.scm";
 
 const GRAMMARS: Record<string, { wasm: string; tags: string[] }> = {
-  typescript: {
-    wasm: "tree-sitter-typescript/tree-sitter-typescript.wasm",
-    tags: [JS, TS],
-  },
-  tsx: { wasm: "tree-sitter-typescript/tree-sitter-tsx.wasm", tags: [JS, TS] },
-  javascript: {
-    wasm: "tree-sitter-javascript/tree-sitter-javascript.wasm",
-    tags: [JS],
-  },
-  python: {
-    wasm: "tree-sitter-python/tree-sitter-python.wasm",
-    tags: ["tree-sitter-python/queries/tags.scm"],
-  },
-  rust: {
-    wasm: "tree-sitter-rust/tree-sitter-rust.wasm",
-    tags: ["tree-sitter-rust/queries/tags.scm"],
-  },
-  go: {
-    wasm: "tree-sitter-go/tree-sitter-go.wasm",
-    tags: ["tree-sitter-go/queries/tags.scm"],
-  },
+  typescript: { wasm: "tree-sitter-typescript.wasm", tags: [JS, TS] },
+  tsx: { wasm: "tree-sitter-tsx.wasm", tags: [JS, TS] },
+  javascript: { wasm: "tree-sitter-javascript.wasm", tags: [JS] },
+  python: { wasm: "tree-sitter-python.wasm", tags: ["python-tags.scm"] },
+  rust: { wasm: "tree-sitter-rust.wasm", tags: ["rust-tags.scm"] },
+  go: { wasm: "tree-sitter-go.wasm", tags: ["go-tags.scm"] },
 };
 
 const BY_EXTENSION: Record<string, string> = {
@@ -60,9 +46,9 @@ function grammar(name: string) {
     const { wasm, tags } = GRAMMARS[name];
     found = (async () => {
       await Parser.init();
-      const language = await Language.load(require.resolve(wasm));
+      const language = await Language.load(grammarFile(wasm));
       const scm = await Promise.all(
-        tags.map((t) => readFile(require.resolve(t), "utf8")),
+        tags.map((t) => readFile(grammarFile(t), "utf8")),
       );
       const parser = new Parser();
       parser.setLanguage(language);

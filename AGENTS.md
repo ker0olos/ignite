@@ -14,6 +14,7 @@ src/                     React frontend (almost all logic lives here)
   main.tsx               Entry: sizes and shows the window, renders <App>
   App.tsx                Composes hooks, picks Welcome vs Workspace
   index.css              Tailwind + shadcn theme tokens, code-view styles
+  shadcn.css             shadcn's variants and utilities (its package's tailwind.css), copied so the CLI isn't a dependency
   components/            UI only, one component per file; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
     app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle,
@@ -401,6 +402,8 @@ shared/git.ts            The git and gh tools' names and what a commit or push s
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
+shared/grammars/         tree-sitter grammars (.wasm) and tags queries, copied from the tree-sitter-* packages
+                         (LICENSE names the versions); to update one, copy its files from the new version
 launcher/                How users run the app (not maintainers; see README)
   setup.mjs              `npm run setup`, on every platform: the sandbox's questions first (Windows' sandbox, Linux's bubblewrap and socat;
                          or --sandbox / --no-sandbox), the packages, the first

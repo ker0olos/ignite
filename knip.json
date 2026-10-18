@@ -15,6 +15,6 @@
     "launcher/*.mjs"
   ],
   "ignore": ["src/components/ui/**", "sidecar/types/**"],
-  "ignoreDependencies": ["pi-claude-bridge", "tree-sitter-.*"],
+  "ignoreDependencies": ["pi-claude-bridge"],
   "ignoreBinaries": ["caffeinate", "osascript", "update-desktop-database"]
 }
