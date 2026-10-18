@@ -20,7 +20,6 @@ function show(
   const value = edit && {
     edit: vi.fn(async () => true),
     disabled: false,
-    filesStay: false,
     ...edit,
   };
   render(
@@ -36,9 +35,6 @@ const button = () => screen.queryByRole("button", { name: "Edit message" });
 describe("UserMessageRow", () => {
   it("edits the message in place and sends it on Enter", async () => {
     const edit = show(true);
-    expect(button()?.parentElement?.title).toBe(
-      "Edit: the conversation and its files go back to here",
-    );
     fireEvent.click(button()!);
     const box = screen.getByRole("textbox", { name: "Edit message" });
     expect((box as HTMLTextAreaElement).value).toBe("Fix it");
@@ -51,27 +47,19 @@ describe("UserMessageRow", () => {
   it("cancels with its button, and sends with Send", async () => {
     const edit = show(true);
     fireEvent.click(button()!);
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Cancel/ }));
     expect(screen.queryByRole("textbox")).toBeNull();
     fireEvent.click(button()!);
     await act(
       async () =>
-        void fireEvent.click(screen.getByRole("button", { name: "Send" })),
+        void fireEvent.click(screen.getByRole("button", { name: /^Send/ })),
     );
     expect(edit!.edit).toHaveBeenCalledWith("u1", "Fix it", []);
-  });
-
-  it("says when the files stay as they are", () => {
-    show(true, { filesStay: true });
-    expect(button()?.parentElement?.title).toBe(
-      "Edit: the conversation goes back to here; files stay as they are",
-    );
   });
 
   it("turns Edit off while the conversation isn't idle", () => {
     show(true, { disabled: true });
     expect((button() as HTMLButtonElement).disabled).toBe(true);
-    expect(button()?.parentElement?.title).toBe("Edit once the agent is done");
   });
 
   it("offers no Edit on a message that isn't editable, or outside the shown conversation", () => {
@@ -95,7 +83,7 @@ describe("UserMessageRow", () => {
     fireEvent.click(button()!);
     expect(screen.getAllByRole("img")).toHaveLength(1);
     expect(
-      (screen.getByRole("button", { name: "Send" }) as HTMLButtonElement)
+      (screen.getByRole("button", { name: /^Send/ }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
   });

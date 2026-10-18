@@ -44,7 +44,6 @@ export function UserMessageRow({
             edit && (
               <EditMessageButton
                 disabled={edit.disabled}
-                filesStay={edit.filesStay}
                 onEdit={draft.start}
               />
             )

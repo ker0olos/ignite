@@ -55,8 +55,6 @@ export type MessageEdit = {
   ) => Promise<boolean>;
   /** Something runs or waits (a run, routing, compaction, an approval, a queued message, a fork), so Edit is off. */
   disabled: boolean;
-  /** The agent works in the folder itself, so its files stay as they are. */
-  filesStay: boolean;
 };
 
 export const MessageEditContext = createContext<MessageEdit | null>(null);

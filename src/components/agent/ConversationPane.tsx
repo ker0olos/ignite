@@ -34,13 +34,10 @@ export const ConversationPane = memo(function ConversationPane({
   showThinking,
   stickyUserMessages,
   rewind,
-  filesStay,
 }: {
   transcript: Transcript;
   /** Edits one of its user messages; unset while hidden. */
   rewind?: MessageEdit["edit"];
-  /** Its agent works in the folder itself, so editing leaves the files. */
-  filesStay: boolean;
   folder: string;
   shown: boolean;
   send: (text: string) => unknown;
@@ -60,8 +57,8 @@ export const ConversationPane = memo(function ConversationPane({
   const running = !!transcript.running;
   const disabled = !canRewind(transcript, waitingOnFork);
   const edit = useMemo(
-    () => rewind && { edit: rewind, disabled, filesStay },
-    [rewind, disabled, filesStay],
+    () => rewind && { edit: rewind, disabled },
+    [rewind, disabled],
   );
   return (
     <main

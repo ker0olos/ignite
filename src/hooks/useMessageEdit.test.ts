@@ -29,7 +29,6 @@ function setup(
   const full = edit && {
     edit: vi.fn(async () => true),
     disabled: false,
-    filesStay: false,
     ...edit,
   };
   const hook = renderHook(() => useMessageEdit(message, full));

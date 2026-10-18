@@ -729,8 +729,7 @@ runs, its worktree's tracked and untracked files are snapshot (moving no
 branch) and kept under `refs/ignite/checkpoints/<session id>/<entry id>`
 (`sidecar/checkpoints.ts`); a failed snapshot never fails the message.
 Rewinding first restores that checkpoint's files (ignored ones stay, HEAD
-too); a folder outside git rewinds only the conversation, and Edit's tooltip
-says so. A conversation's checkpoints go when its worktree is saved and
+too); a folder outside git rewinds only the conversation. A conversation's checkpoints go when its worktree is saved and
 removed, and a fork keeps its own file and files when its original rewinds.
 
 Tasks and conversations are one thing shown two ways. Every conversation

@@ -439,13 +439,12 @@ describe("useAgentSession", () => {
       const host = fakeHost(async (req) =>
         req.type === "rewind"
           ? undefined
-          : { ...STATE, skills, workdir: "/wt", messages: [first, again] },
+          : { ...STATE, skills, messages: [first, again] },
       );
       const { result } = renderHook(() => useAgentSession(host, "/work", null));
       await waitFor(() =>
         expect(result.current.transcript?.items).toHaveLength(2),
       );
-      expect(result.current.filesStay).toBe(false);
       host.emit({
         type: "session_event",
         session: "s1",
@@ -480,11 +479,10 @@ describe("useAgentSession", () => {
       const host = fakeHost(async (req) =>
         req.type === "rewind"
           ? Promise.reject(new Error("Wait for the agent"))
-          : { ...STATE, workdir: "/work" },
+          : STATE,
       );
       const { result } = renderHook(() => useAgentSession(host, "/work", null));
       await waitFor(() => expect(result.current.transcript).not.toBeNull());
-      expect(result.current.filesStay).toBe(true);
       const images = [
         { type: "image" as const, data: "AA==", mimeType: "image/png" },
       ];
@@ -503,7 +501,6 @@ describe("useAgentSession", () => {
       const host = fakeHost(() => new Promise(() => {}));
       const { result } = renderHook(() => useAgentSession(host, "/work", null));
       expect(await result.current.rewind("u1", "x", [])).toBe(false);
-      expect(result.current.filesStay).toBe(false);
       expect(types(host)).toEqual(["open_session"]);
     });
 

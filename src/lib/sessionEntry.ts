@@ -25,8 +25,6 @@ export type Opened = {
   transcript: Transcript;
   /** Drawn from its saved messages, until opening it returns. */
   preview?: true;
-  /** Where its agent works: its own worktree, or the folder itself (outside git). */
-  workdir?: string;
 };
 
 /** A folder showing no conversation, until the user starts or picks one. */
@@ -69,13 +67,12 @@ export const toOpened = (
     toolRuns = [],
     queue,
     routing,
-    workdir,
     ...state
   }: OpenedSession,
   kept?: Transcript,
 ): Opened => {
   if (!messages && kept) {
-    return { host, folder, session, state, trust, workdir, transcript: kept };
+    return { host, folder, session, state, trust, transcript: kept };
   }
   const history = toolRuns.reduce(
     applyEvent,
@@ -95,7 +92,6 @@ export const toOpened = (
     session,
     state,
     trust,
-    workdir,
     transcript: modelWarning
       ? applyError(transcript, modelWarning)
       : transcript,
@@ -113,8 +109,6 @@ type View = {
   host: HostClient | null;
   /** The folder shows no conversation; one starts only when the user asks. */
   none: boolean;
-  /** Its agent works in the folder itself, so editing a message leaves the files. */
-  filesStay: boolean;
 };
 
 /** What the app sees of the entry; in a folder with none, what its first message would start with. */
@@ -126,7 +120,6 @@ export const view = (e: Entry | null, draft: SessionState | null): View =>
         trust: e.trust,
         host: e.host,
         none: false,
-        filesStay: e.workdir === e.folder,
       }
     : {
         state: e ? draft : null,
@@ -134,5 +127,4 @@ export const view = (e: Entry | null, draft: SessionState | null): View =>
         trust: null,
         host: null,
         none: !!e,
-        filesStay: false,
       };

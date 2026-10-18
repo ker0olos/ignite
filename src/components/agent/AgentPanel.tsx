@@ -74,7 +74,6 @@ export function AgentPanel({
               onApprove={session.answer}
               waitingOnFork={shown && session.waitingOnFork}
               rewind={shown ? session.rewind : undefined}
-              filesStay={o.workdir === o.folder}
               waiting={shown ? waiting : NONE}
               askingStep={shown && asking ? asking.step : 0}
               editor={editor}
