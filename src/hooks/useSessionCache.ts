@@ -47,6 +47,9 @@ function pointAt(
   return { conversations, shownIn, recent };
 }
 
+/** In one order however they're shown: reordered panes move, and a moved pane loses its scroll. */
+const byId = (ids: string[]) => [...ids].sort();
+
 /** The folder's shown entry, if it belongs to `host`. */
 function shownEntry(
   host: HostClient | null,
@@ -105,8 +108,8 @@ export function useSessionCache(
   return {
     current,
     opened: current?.host ?? null,
-    /** Recently shown conversations, newest first, to keep rendered. */
-    kept: store.recent
+    /** Recently shown conversations to keep rendered, by id. */
+    kept: byId(store.recent)
       .map((id) => store.conversations[id])
       .filter((o): o is Opened => o?.host === host),
     shownNow,

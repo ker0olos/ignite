@@ -84,7 +84,7 @@ describe("useSessionCache", () => {
     expect(result.current.knownIn("/a")).toBe("s1");
   });
 
-  it("keeps the latest conversations and those a folder shows, newest first", () => {
+  it("keeps the latest conversations and those a folder shows", () => {
     const { result } = setup();
     act(() => void result.current.show("/b", reply("b1")));
     for (let i = 0; i < KEPT + 2; i++) {
@@ -92,10 +92,18 @@ describe("useSessionCache", () => {
     }
     const kept = result.current.kept.map((o) => o.session);
     expect(kept).toHaveLength(KEPT);
-    expect(kept[0]).toBe(`a${KEPT + 1}`);
+    expect(kept).toContain(`a${KEPT + 1}`);
     expect(result.current.reshow("/a", "a0")).toBe(false);
     // Out of the recent list, but still what /b shows.
     expect(result.current.knownIn("/b")).toBe("b1");
+  });
+
+  it("keeps the conversations in one order whichever shows", () => {
+    const { result } = setup();
+    act(() => void result.current.show("/a", reply("s2")));
+    act(() => void result.current.show("/a", reply("s1")));
+    act(() => void result.current.reshow("/a", "s2"));
+    expect(result.current.kept.map((o) => o.session)).toEqual(["s1", "s2"]);
   });
 
   it("sets trust on every kept conversation of the folder", () => {
