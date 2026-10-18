@@ -48,6 +48,10 @@ export type GitRepoStatus = {
   name: string;
   /** None when detached. */
   branch?: string;
+  /** The user's checkout at this path, when `repo` is the conversation's own worktree of it. */
+  checkout?: string;
+  /** `repo` is the user's checkout itself, which the conversation works in. */
+  shared?: boolean;
   /** Files with uncommitted changes, untracked ones included. */
   changed: number;
   /** Commits no remote has; 0 when it has no remote. */

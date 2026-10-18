@@ -13,7 +13,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import { fileDiff } from "./gitReview.ts";
+import type { HostContext } from "./hostTypes.ts";
 import {
+  conversationGitStatus,
   discardFile,
   gitStatus,
   repoDetails,
@@ -88,8 +90,22 @@ describe("gitStatus", () => {
     const found = await gitStatus(messages, app);
     // No GitHub remote, so gh finds no pull request.
     expect(found).toEqual([
-      { repo: app, name: "app", branch: "feat", changed: 2, unpushed: 1 },
-      { repo: local, name: "local", branch: "main", changed: 0, unpushed: 0 },
+      {
+        repo: app,
+        name: "app",
+        branch: "feat",
+        shared: true,
+        changed: 2,
+        unpushed: 1,
+      },
+      {
+        repo: local,
+        name: "local",
+        branch: "main",
+        shared: true,
+        changed: 0,
+        unpushed: 0,
+      },
     ]);
   });
 
@@ -180,5 +196,15 @@ describe("discardFile", () => {
     await writeFile(join(root, "keep.txt"), "x\n");
     await expect(discardFile(root, "keep.txt")).rejects.toThrow("not a repo");
     expect(await readFile(join(root, "keep.txt"), "utf8")).toBe("x\n");
+  });
+});
+
+describe("conversationGitStatus", () => {
+  it("knows nothing yet of a conversation whose session isn't open", async () => {
+    const ctx = {
+      agents: new Map([["opening", { workdir: root }]]),
+    } as unknown as HostContext;
+    expect(await conversationGitStatus(ctx, "opening")).toBeNull();
+    expect(await conversationGitStatus(ctx, "unknown")).toBeNull();
   });
 });

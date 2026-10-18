@@ -1,23 +1,31 @@
 import { useState, type KeyboardEvent } from "react";
 import type { UserMessage } from "../../shared/agentTypes";
+import { withFiles } from "../../shared/attachedFiles";
+import { withComments } from "../../shared/sentComments";
 import type { MessageEdit } from "@/components/conversation/shared";
-import { userParts } from "@/lib/rewind";
+import { readUserMessage } from "@/lib/userMessage";
 
 /**
  * One user message being edited in place: its text while editing, ↵ sends it
- * in the message's place (⇧↵ a new line), Esc cancels. Its images go with it.
+ * in the message's place (⇧↵ a new line), Esc cancels. Its images, files and
+ * diff comments go with it.
  */
 export function useMessageEdit(message: UserMessage, edit: MessageEdit | null) {
   const [text, setText] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const { images } = userParts(message);
+  const { images, files, comments } = readUserMessage(message);
   const entryId = message.entryId;
 
+  const empty =
+    !text?.trim() && !images.length && !files.length && !comments.length;
+
   const submit = async () => {
-    if (!edit || edit.disabled || !entryId || text === null || sending) return;
-    if (!text.trim() && !images.length) return;
+    if (!edit || edit.disabled || !entryId || text === null) return;
+    if (sending || empty) return;
     setSending(true);
-    const sent = await edit.edit(entryId, text, images);
+    // Attached as the composer does: files, then comments.
+    const full = withComments(withFiles(text, files), comments);
+    const sent = await edit.edit(entryId, full, images);
     setSending(false);
     if (sent) setText(null);
   };
@@ -28,7 +36,7 @@ export function useMessageEdit(message: UserMessage, edit: MessageEdit | null) {
     images,
     sending,
     setText,
-    start: () => setText(userParts(message).text),
+    start: () => setText(readUserMessage(message).text),
     cancel: () => setText(null),
     submit,
     onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => {

@@ -53,12 +53,16 @@ function ranked<T>(query: string, items: T[], name: (item: T) => string) {
     .map(([item]) => item);
 }
 
-/** Completions for `mention`: commands, then skills for `/`; images, terminals, then files for `@`. */
+/** Completions for `mention`: commands, then skills for `/`; images, attached files, terminals, then project files for `@`. */
 export function mentionOptions(
   mention: Mention,
   found: {
     skills: SkillInfo[];
     images: number;
+    /** What each attached image is shown as: its file's name, or "Clipboard". */
+    imageNames?: string[];
+    /** The names of the files attached to the message. */
+    attached?: string[];
     terminals: string[];
     files: FileHit[];
   },
@@ -83,9 +87,23 @@ export function mentionOptions(
     (_, i) => `image${i + 1}`,
   );
   return [
-    ...ranked(query, images, (i) => i).map((i) => ({
+    ...ranked(
+      query,
+      images.map((tag, i) => ({ tag, name: found.imageNames?.[i] })),
+      (i) => i.tag,
+    ).map(({ tag, name }) => ({
       kind: "image" as const,
-      insert: `@${i}`,
+      insert: `@${tag}`,
+      ...(name && { detail: name }),
+    })),
+    ...ranked(
+      query,
+      (found.attached ?? []).map((name, i) => ({ tag: `file${i + 1}`, name })),
+      (f) => f.tag,
+    ).map((f) => ({
+      kind: "file" as const,
+      insert: `@${f.tag}`,
+      detail: f.name,
     })),
     ...ranked(query, found.terminals, (t) => t).map((t) => ({
       kind: "terminal" as const,

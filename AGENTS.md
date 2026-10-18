@@ -17,13 +17,14 @@ src/                     React frontend (almost all logic lives here)
   components/            UI only, one component per file; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
     app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle,
-                         Windows' window controls, zoomable images and the markup editor (react-konva) for attached ones
+                         Windows' window controls, the drop overlay, zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner, the update-ready banner
-    files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon)
+    files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon),
+                         diff tabs whose lines take comments (gutter "+", comment box)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
-                         (which also answers the agent's questions), model/effort/approval menus, git status, trust prompt
+                         (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt
     conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces; WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
@@ -40,7 +41,7 @@ src/                     React frontend (almost all logic lives here)
     useProjects.ts       Each open project's and conversation's status (working, waiting, title);
                          ends closed projects' sessions
     useSettings.ts       settings.toml, synced across windows; applies theme
-    useFolderDrop.ts     Drag-and-drop folders onto the window
+    useDrop.ts           Drag-and-drop onto the window: folders open, images and other files attach to the composer
     useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
     useEditorOverlay.ts  The editor pane dragged past the conversation's minimum: drawn over it and the sidebar
     useSidebarWidth.ts   The sidebar's dragged width (localStorage), kept when the editor pane opens or closes
@@ -65,6 +66,11 @@ src/                     React frontend (almost all logic lives here)
                          ⌘P / Ctrl+P opens it on @files with no preview
     useCommandSearch.ts  The command center's results: debounced command_search, folders, @ suggestions
     useDetailsCache.ts   Session details fetched once each, for the command center preview
+    useDiffComments.ts   A diff tab's comments, each straight into its conversation's message: add, edit, delete
+    useCommentSelection.ts The rows a diff comment takes (pressed, dragged or shift-pressed) and its open box
+    useCommentReveal.ts  A diff comment's card scrolled into view and flashed when its composer card is clicked
+    useComposerComments.ts The diff comments in the composer's message: removing, sending, taking back from the queue
+    useComposerSend.ts   Sending the composer's message (text, images, diff comments); stop hands queued ones back
     useOpenFile.ts       Opens a tab (file, diff, subagent…) in any folder, switching to it first
     useFileExists.ts     Whether a path exists, checked once; inline code links only to ones that do
     useXterm.ts          An xterm fitted to its element and themed like the app (read-only and interactive views)
@@ -75,7 +81,8 @@ src/                     React frontend (almost all logic lives here)
     useDraftFrame.ts     Posts a draft artifact page into its frame, which updates it in place
     useBlockLang.ts      A code block's language: its fence's, or bash once an untagged one parses as shell
     useTerminalTabs.ts   The folders' running terminals for the sidebar; Stop ends one, closing its tab doesn't
-    useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request), read every 5s
+    useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request): cached
+                         ones at once, read again in the background, then every 5s (1s while it opens)
     useGitRepoDetails.ts A repository's uncommitted files and unpushed commits, while its composer popover is open
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
@@ -135,6 +142,7 @@ src/                     React frontend (almost all logic lives here)
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     gitStatus.ts         Which of a conversation's repositories the composer shows, and their pull requests' state
+    gitStatusCache.ts    Each conversation's last known repositories (localStorage, newest 200), shown before a read
     transcript.ts        Rebuilds the conversation from pi's session events
     streamBlocks.ts      A streamed message's blocks: text, thinking, tool calls (an artifact's JSON as it's written)
     sessionEntry.ts      A conversation as the app keeps it, built from what opening it returned
@@ -150,8 +158,14 @@ src/                     React frontend (almost all logic lives here)
     about.ts             About text: version line, update button states, the macOS About panel
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
     gitPolicy.ts         Which git and gh tool calls run and which ask (commit and push for review)
-    gitDiff.ts           Unified diffs into diff lines; stepping through their changes
-    diffTabs.ts          Diff tabs beside file tabs (encoded ids, labels), reading a git review
+    drop.ts              Sorts dropped paths: folders, images, small text files sent in full, others by path
+    dropPreview.ts       While a drag hovers: which of four overlays (folder, image, file, both) and what letting go does
+    userMessage.ts       A user message's typed text, images, attached files and diff comments, for its bubble
+    gitDiff.ts           Unified diffs into diff lines; folding unchanged runs (never over a comment); stepping through changes
+    diffTabs.ts          Diff tabs beside file tabs (encoded ids with the conversation that opened one, labels),
+                         reading a git review
+    diffComments.ts      Diff tabs' comments, in memory per conversation until sent or deleted
+    diffCommentMessage.ts A diff comment's lines, and comments in file and line order as a message carries them
     dangerousCommands.ts Regex denylist of risky shell commands that Auto still asks about
     demo.ts              Demo mode (`pnpm run demo`): its folders, host, sidebar rows, scripted typing
     demoHost.ts          The demo's stand-in for the sidecar: scripted answers and replies, nothing runs
@@ -212,7 +226,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   fileIndex.ts           A folder's files for search (git ls-files, else a capped walk)
   sessionRuntime.ts      Each session's own model runtime (passes its cwd to providers); saved model
   draftSession.ts        What a new conversation would start with (models, effort) before one exists
-  worktrees.ts           Each agent's git worktree: start point, open, save and remove, sweep; updateFolder
+  worktrees.ts           Each agent's workspace: open, fork, close, sweep (one worktree, a folder of them, or shared); updateFolder
+  worktreeCheckout.ts    One worktree of one repository: start point, create (fresh or saved), lock and owner, save and remove
+  worktreeGroup.ts       A folder of repositories: the agent's copy of it, a worktree of each and its other files copied
   worktreeExtension.ts   Tells an agent in a worktree where it is and to deliver through a pull request
   worktreeGit.ts         Worktree paths, snapshots of a working state, folderOf / gitWritable
   worktreeClone.ts       Copy-on-write clones of the folder's ignored files into a worktree
@@ -376,6 +392,9 @@ shared/queue.ts          Messages sent mid-run: how they wait, and taking one ba
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
 shared/shellEdits.ts     The files a bash call changed, as its result carries them (used by both)
 shared/featuredModels.ts The model menu's featured (current generation) models, which the router picks from
+shared/attachedFiles.ts  Dropped files in a message: `@path` with its text inline or only its path, and read back
+shared/sentComments.ts   Diff comments in a message: `@path:lines`, the quoted lines, the comment, and read back
+                         for its cards; a message as typed, without them (titles, queue)
 shared/steps.ts          A tool call as a current step ("Editing src/app.ts"), for tasks and the working line
 shared/git.ts            The git and gh tools' names and what a commit or push shows for review
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
@@ -487,6 +506,9 @@ Two places hold persisted data:
 - **File tree's open folders** in the webview's `localStorage`
   (`file-tree-open`): absolute paths, so switching folders or relaunching
   keeps them open (`lib/openFolders.ts`).
+- **Composer git status** in the webview's `localStorage` (`git-status`): each
+  conversation's last known repositories, newest 200, so the composer shows them
+  at once while they're read again (`lib/gitStatusCache.ts`).
 - **Composer history** in the webview's `localStorage` (`composer-history`):
   the newest 100 sent messages, shared by every folder (`lib/history.ts`).
 - **pi's own files** in `~/.ignite/pi`: credentials (`auth.json`),
@@ -537,7 +559,7 @@ in turn, so nothing waits off screen. The `ask_user` tool (`sidecar/askExtension
 channel: its call waits as an approval and, once first in line, its questions
 take over the composer (`useQuestionDeck`, `ComposerQuestion`): options above
 the text box, whose text and images are a note on the picks, or the user's own
-answer when none is picked, with mentions, images and paste as usual. Its row
+answer when none is picked, with mentions, images, dropped files and paste as usual (files go in that question's note, and the conversation's diff comments in the last answer's). Its row
 says "Asking you · 1 of 2", and once answered lists the answers (from the
 result's `details`). `approval_answer` carries the answers (declining leaves
 the choice to the agent). The approval gate never asks about `ask_user` itself. **Manual** asks for every tool call (built-in,
@@ -651,7 +673,11 @@ anything else, for options that run a program or change git's config
 (`-c`, `--upload-pack`, `rebase -x`, `git config` writes…), and for paths
 outside the folder. A commit, push or `gh pr create` waits with a review: its changed files
 (status, +/− counts) and message or commits, each file opening its diff in a
-tab (`git_diff`). A commit called with `push: true` (on a branch) waits
+tab (`git_diff`). A diff tab's lines take comments (the gutter's "+", shift-click
+or drag for a range), each saved straight into the composer's message of the
+conversation that opened it (kept in memory, shown as cards beside its images),
+and the message carries them as `@path:lines` mentions with the quoted
+lines (`shared/sentComments.ts`), shown again as cards in the conversation. A commit called with `push: true` (on a branch) waits
 once, its review naming the branch ("Commit and push to origin/<branch>"), then
 runs `push -u origin <branch>`; other git options than `-C` are refused; a task's runs alone only when both would. A commit or push that continues a branch whose pull request
 was merged (it holds that pull request's head commit but not its merge, none
@@ -691,7 +717,7 @@ The composer completes `/` at the start of a message with the app's
 divider that opens to it; text after it steers the summary; while it runs, a
 bar fills as the summary streams) and the session's
 skills (sent as pi's `/skill:name`, shown again as `/name`), `/fork` (below), and `@`
-anywhere with the message's images (`@image1`), the folder's terminals
+anywhere with the message's images (`@image1`) and dropped files (`@file1`), the folder's terminals
 (`@t1`) and files (`@src/app.ts`). Mentions stay plain text; the system
 prompt says what they name.
 
@@ -868,7 +894,14 @@ its folder, quitting) saves its state as a commit under
 conversation brings it back. Worktrees are locked with the sidecar's pid,
 and each sidecar start sweeps (saves and removes) those whose process is
 gone; on Windows that also retries a worktree whose files were held open.
-Folders outside git (or with no commit yet) are shared instead.
+A folder that isn't a repository but holds some (`~/Projects/app` with
+`server/` and `web/`) gets a copy per conversation at the same kind of path
+(`sidecar/worktreeGroup.ts`): each repository with a commit in it is its own
+worktree, saved and brought back like one, and the folder's other files are
+copied in afresh (the agent's changes to them aren't kept). Other folders
+outside git (or with no commit yet) are shared instead. The composer's
+repository popover tags which, beside the branch (or "No branch yet"): the
+conversation's own worktree, or (a warning) the user's own checkout.
 Trust, saved conversations and cmem stay keyed by the folder (`folderOf`).
 Each session also has its own model runtime (`sidecar/sessionRuntime.ts`):
 pi-claude-bridge registers one provider per session, and a shared runtime

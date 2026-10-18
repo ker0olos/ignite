@@ -5,7 +5,8 @@ import { TrustPrompt } from "@/components/agent/TrustPrompt";
 import { ConversationPane } from "@/components/agent/ConversationPane";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import { useQuestionDeck, useWaitingCalls } from "@/hooks/useQuestionDeck";
-import { askingCall } from "@/lib/questions";
+import { takeComments } from "@/lib/diffCommentMessage";
+import { askingCall, withAnswerComments } from "@/lib/questions";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { shownItems } from "@/lib/routedMessage";
 import type { HostClient } from "@/lib/piHost";
@@ -52,9 +53,16 @@ export function AgentPanel({
   const panes = session.kept.filter((o) => shownItems(o.transcript).length);
   const covered = panes.some((o) => o.session === session.session);
   const waiting = useWaitingCalls(transcript);
+  // Answering, the conversation's diff comments go with the answer, as they would with a message.
   const asking = useQuestionDeck(
     transcript ? askingCall(transcript.items, waiting) : undefined,
-    session.answer,
+    (id, approved, answers, always) =>
+      session.answer(
+        id,
+        approved,
+        answers && withAnswerComments(answers, takeComments(session.session)),
+        always,
+      ),
   );
 
   return (
@@ -67,6 +75,7 @@ export function AgentPanel({
               // The opened conversation replaces its preview drawn afresh, from its newest rows.
               key={o.preview ? `${o.session} preview` : o.session}
               transcript={o.transcript}
+              session={o.session}
               folder={o.folder}
               shown={shown}
               send={shown ? session.send : idle}

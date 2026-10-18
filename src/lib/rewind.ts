@@ -1,10 +1,4 @@
-import type {
-  ImageContent,
-  SessionEvent,
-  TextContent,
-  UserMessage,
-} from "../../shared/agentTypes";
-import { typedSkill } from "../../shared/skills";
+import type { SessionEvent, UserMessage } from "../../shared/agentTypes";
 import type { Item, Transcript } from "@/lib/transcript";
 
 type RewindEvent = Extract<SessionEvent, { type: "message_entry" | "rewound" }>;
@@ -69,18 +63,4 @@ export function canRewind(t: Transcript, waitingOnFork: boolean): boolean {
     t.queued?.length ||
     waitingOnFork
   );
-}
-
-/** A user message's text as the user typed it (a skill as `/name`), and its images. */
-export function userParts(message: UserMessage) {
-  if (typeof message.content === "string")
-    return { text: typedSkill(message.content), images: [] };
-  const text = message.content
-    .filter((b): b is TextContent => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
-  const images = message.content.filter(
-    (b): b is ImageContent => b.type === "image",
-  );
-  return { text: typedSkill(text), images };
 }

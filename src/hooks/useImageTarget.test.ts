@@ -30,4 +30,17 @@ describe("useImageTarget", () => {
     input.unmount();
     expect(shown.result.current).toBeNull();
   });
+
+  it("passes dropped files to the input that takes them, and none to one that doesn't", () => {
+    const addFile = vi.fn();
+    const files = renderHook(() =>
+      useProvideImageTarget("Add to conversation", vi.fn(), addFile),
+    );
+    const shown = renderHook(() => useImageTarget());
+    act(() => shown.result.current!.addFile!({ path: "/d/a.pdf" }));
+    expect(addFile).toHaveBeenCalledWith({ path: "/d/a.pdf" });
+    files.unmount();
+    renderHook(() => useProvideImageTarget("Add to task", vi.fn()));
+    expect(shown.result.current?.addFile).toBeUndefined();
+  });
 });

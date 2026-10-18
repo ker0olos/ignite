@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { CodeLines } from "@/components/conversation/CodeLines";
+import { CommentableLines } from "@/components/files/CommentableLines";
 import { ChangeNav } from "@/components/files/ChangeNav";
 import { PathCrumbs } from "@/components/files/PathCrumbs";
 import { useChangeNav } from "@/hooks/useChangeNav";
+import { useDiffComments } from "@/hooks/useDiffComments";
 import { rangeLabel, type DiffTab } from "@/lib/diffTabs";
 import { parseUnifiedDiff } from "@/lib/gitDiff";
 import type { HostClient } from "@/lib/piHost";
@@ -12,17 +13,20 @@ import type { Settings } from "@/lib/settings";
 type Loaded =
   { lines: ReturnType<typeof parseUnifiedDiff> } | { message: string };
 
-/** Read-only, syntax-highlighted view of one file's diff at some range, with a breadcrumb. */
+/** Read-only, syntax-highlighted view of one file's diff at some range, with a breadcrumb; its lines take comments for the conversation's message. */
 export function DiffView({
   tab,
   host,
   themes,
   editor,
+  shown,
 }: {
   tab: DiffTab;
   host: HostClient | null;
   themes: CodeThemes;
   editor: Settings["editor"];
+  /** The conversation shown, which a diff no conversation opened comments to. */
+  shown: string | null;
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -30,6 +34,7 @@ export function DiffView({
     loaded && "lines" in loaded ? loaded.lines : null,
     scroller,
   );
+  const comments = useDiffComments(tab, shown);
 
   useEffect(() => {
     if (!host) return;
@@ -66,13 +71,12 @@ export function DiffView({
       ) : (
         <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
           {loaded && (
-            <CodeLines
+            <CommentableLines
               lines={loaded.lines}
               path={tab.path}
-              max={Infinity}
+              comments={comments}
               editor={editor}
-              codeThemes={themes}
-              className="rounded-none border-0"
+              themes={themes}
             />
           )}
         </div>

@@ -14,7 +14,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createWorkspaces, startPoint, updateFolder } from "./worktrees.ts";
+import { createWorkspaces, updateFolder } from "./worktrees.ts";
+import { startPoint } from "./worktreeCheckout.ts";
 import { folderOf, gitAccess, worktreePath } from "./worktreeGit.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
 import { checkpointRef } from "./checkpoints.ts";
@@ -133,8 +134,9 @@ describe("workspaces", () => {
         join(own, "config.worktree"),
         join(own, "locked"),
       ],
+      common: [join(repo, ".git")],
     });
-    expect(gitAccess(repo, root)).toEqual({ allow: [], deny: [] });
+    expect(gitAccess(repo, root)).toEqual({ allow: [], deny: [], common: [] });
   });
 
   it("maps back to the user's folder when that is itself a linked worktree", async () => {

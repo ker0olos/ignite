@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
+import { withFiles } from "../../../shared/attachedFiles";
 import { QuestionAnswers } from "./QuestionAnswers";
 
 it("shows each question with its choices, note and images", () => {
@@ -37,4 +38,21 @@ it("says when a question was answered with images alone", () => {
   );
   expect(screen.getByText("Answered with images")).toBeTruthy();
   expect(screen.getByText("2 images")).toBeTruthy();
+});
+
+it("shows files in a note as cards, not their text", () => {
+  render(
+    <QuestionAnswers
+      answers={[
+        {
+          question: "Which file?",
+          choices: [],
+          note: withFiles("", [{ path: "/d/report.pdf" }]),
+        },
+      ]}
+    />,
+  );
+  expect(screen.getByText("Answered with files")).toBeTruthy();
+  expect(screen.getByText("report.pdf")).toBeTruthy();
+  expect(screen.queryByText(/attached_files/)).toBeNull();
 });

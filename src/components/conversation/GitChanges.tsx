@@ -1,13 +1,22 @@
+import { useContext } from "react";
 import type { GitReview } from "../../../shared/git";
 import { GitChangeRow } from "@/components/conversation/GitChangeRow";
 import { GitReviewHeader } from "@/components/conversation/GitReviewHeader";
 import { GitReviewPlace } from "@/components/conversation/GitReviewPlace";
 import { ScrollMoreChip } from "@/components/conversation/ScrollMoreChip";
 import { useHiddenBelow } from "@/hooks/useHiddenBelow";
+import { ConversationIdContext } from "@/components/conversation/shared";
 import { cn } from "@/lib/utils";
 
-/** A commit or push's review: its message or commits, then its changed files. */
-export function GitChanges({ review }: { review: GitReview }) {
+/** A commit or push's review: its message or commits, then its changed files; their diffs' comments go to `session`, by default the conversation it shows in. */
+export function GitChanges({
+  review,
+  session,
+}: {
+  review: GitReview;
+  session?: string | null;
+}) {
+  const shownIn = useContext(ConversationIdContext);
   const { ref, hidden, update } = useHiddenBelow<HTMLDivElement>(review.files);
 
   return (
@@ -43,6 +52,7 @@ export function GitChanges({ review }: { review: GitReview }) {
                   repo={review.repo}
                   range={review.range}
                   file={file}
+                  session={session === undefined ? shownIn : session}
                 />
               ))}
             </div>

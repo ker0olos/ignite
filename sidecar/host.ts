@@ -157,7 +157,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   git_status: async (ctx, r) => {
     const repos = await conversationGitStatus(ctx, r.session);
     const cwd = ctx.agents.get(r.session)?.cwd;
-    if (cwd && repos.some((g) => g.pr?.state === "MERGED"))
+    if (cwd && repos?.some((g) => g.pr?.state === "MERGED"))
       await finishTask(ctx, cwd, r.session);
     return repos;
   },

@@ -55,19 +55,29 @@ export async function cloneIgnored(
   into: string,
   flags: string[] | null = CLONE_FLAGS[process.platform] ?? null,
 ) {
-  for (const [parent, entries] of byParent(await ignoredEntries(repo))) {
+  await cloneEntries(repo, await ignoredEntries(repo), into, flags);
+}
+
+/** Clones `entries` (paths relative to `from`) to the same places under `into`; only files where the platform can't clone. */
+export async function cloneEntries(
+  from: string,
+  entries: string[],
+  into: string,
+  flags: string[] | null = CLONE_FLAGS[process.platform] ?? null,
+) {
+  for (const [parent, group] of byParent(entries)) {
     const dest = join(into, parent);
     await mkdir(dest, { recursive: true });
-    for (let i = 0; i < entries.length; i += BATCH) {
-      const batch = entries.slice(i, i + BATCH);
+    for (let i = 0; i < group.length; i += BATCH) {
+      const batch = group.slice(i, i + BATCH);
       const cloned =
         flags &&
-        (await exec("cp", [...flags, ...batch.map((e) => join(repo, e)), dest])
+        (await exec("cp", [...flags, ...batch.map((e) => join(from, e)), dest])
           .then(() => true)
           .catch(() => false));
       if (cloned) continue;
       for (const e of batch) {
-        await copyIfFile(join(repo, e), join(into, e)).catch(() => {});
+        await copyIfFile(join(from, e), join(into, e)).catch(() => {});
       }
     }
   }

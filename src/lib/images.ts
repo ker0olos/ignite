@@ -2,6 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import type { ImageContent } from "../../shared/agentTypes";
 import { pngImage } from "@/lib/markup";
+import { basename } from "@/lib/paths";
 import { isRemote } from "@/lib/remote";
 
 const TYPES: Record<string, string> = {
@@ -11,6 +12,22 @@ const TYPES: Record<string, string> = {
   gif: "image/gif",
   webp: "image/webp",
 };
+
+// The file an image came from, beside the image itself: a message carries only its bytes.
+const names = new WeakMap<ImageContent, string>();
+
+/** `image`, remembered as the file `name` it came from. */
+export function named(image: ImageContent, name: string): ImageContent {
+  names.set(image, name);
+  return image;
+}
+
+/** The file name an image came from (with its extension), or undefined for one from the clipboard or drawn. */
+export const imageName = (image: ImageContent) => names.get(image);
+
+/** The image type a path's extension names, or null when it isn't one the agent takes. */
+export const imageType = (path: string): string | null =>
+  TYPES[path.split(".").pop()?.toLowerCase() ?? ""] ?? null;
 
 /** An image block for the agent, from raw bytes. */
 export function toImage(bytes: Uint8Array, mimeType: string): ImageContent {
@@ -36,9 +53,9 @@ export async function pickImages(
   if (!paths) return [];
   return Promise.all(
     paths.map(async (path) =>
-      toImage(
-        await readFile(path),
-        TYPES[path.split(".").pop()!.toLowerCase()] ?? "image/png",
+      named(
+        toImage(await readFile(path), imageType(path) ?? "image/png"),
+        basename(path),
       ),
     ),
   );
@@ -50,25 +67,27 @@ function browserPick() {
     input.type = "file";
     input.accept = Object.values(TYPES).join(",");
     input.multiple = true;
-    input.onchange = () => void fileImages(input.files ?? []).then(resolve);
+    input.onchange = () =>
+      void fileImages(input.files ?? [], true).then(resolve);
     input.oncancel = () => resolve([]);
     input.click();
   });
 }
 
-/** The images among `files`, read; other files are left out. */
-function fileImages(files: Iterable<File>) {
+/** The images among `files`, read (`keepNames`: each named by its file); other files are left out. */
+function fileImages(files: Iterable<File>, keepNames = false) {
   const images = [...files].filter((f) =>
     Object.values(TYPES).includes(f.type),
   );
   return Promise.all(
-    images.map(async (f) =>
-      toImage(new Uint8Array(await f.arrayBuffer()), f.type),
-    ),
+    images.map(async (f) => {
+      const image = toImage(new Uint8Array(await f.arrayBuffer()), f.type);
+      return keepNames ? named(image, f.name) : image;
+    }),
   );
 }
 
-/** The images in a paste (screenshots, copied files). */
+/** The images in a paste (screenshots, copied files), all unnamed: they come from the clipboard. */
 export const pastedImages = (data: DataTransfer) => fileImages(data.files);
 
 /** A data URL to show an image block. */

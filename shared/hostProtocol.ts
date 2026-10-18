@@ -323,7 +323,8 @@ export type HostResponses = SkillResponses &
     memory_changed: undefined;
     set_trust: undefined;
     git_diff: string;
-    git_status: GitRepoStatus[];
+    /** null until the conversation's session is open (its worktree isn't known yet). */
+    git_status: GitRepoStatus[] | null;
     git_repo_details: GitRepoDetails;
     git_discard: undefined;
     app_version: AppVersion;

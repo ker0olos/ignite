@@ -13,14 +13,16 @@ export type DiffTab = {
   range: string;
   path: string;
   status: GitChange["status"];
+  /** The conversation that opened it, which its comments go to; none for a new one. */
+  session?: string;
 };
 
 const PREFIX = "diff:";
 
 /** Encodes a diff tab as a tab id, distinct from a plain file path. */
 export function diffTabId(tab: DiffTab): string {
-  const { repo, range, path, status } = tab;
-  return PREFIX + JSON.stringify({ repo, range, path, status });
+  const { repo, range, path, status, session } = tab;
+  return PREFIX + JSON.stringify({ repo, range, path, status, session });
 }
 
 /** Decodes a tab id back to a diff tab, or null for a file path or malformed id. */
@@ -28,9 +30,11 @@ export function readDiffTab(id: string): DiffTab | null {
   if (!id.startsWith(PREFIX)) return null;
   try {
     const parsed = JSON.parse(id.slice(PREFIX.length));
-    const { repo, range, path, status } = parsed as Partial<DiffTab>;
+    const { repo, range, path, status, session } = parsed as Partial<DiffTab>;
     if (!repo || !range || !path || !status) return null;
-    return { repo, range, path, status };
+    return typeof session === "string"
+      ? { repo, range, path, status, session }
+      : { repo, range, path, status };
   } catch {
     return null;
   }

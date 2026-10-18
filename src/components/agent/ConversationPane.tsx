@@ -3,6 +3,7 @@ import { Conversation } from "@/components/conversation/Conversation";
 import {
   AskingStepContext,
   ContinueContext,
+  ConversationIdContext,
   MessageEditContext,
   RunningContext,
   SkipWaitContext,
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
  */
 export const ConversationPane = memo(function ConversationPane({
   transcript,
+  session,
   folder,
   shown,
   send,
@@ -36,6 +38,8 @@ export const ConversationPane = memo(function ConversationPane({
   rewind,
 }: {
   transcript: Transcript;
+  /** Its id; null for a new one. */
+  session: string | null;
   /** Edits one of its user messages; unset while hidden. */
   rewind?: MessageEdit["edit"];
   folder: string;
@@ -70,31 +74,33 @@ export const ConversationPane = memo(function ConversationPane({
         !shown && "invisible",
       )}
     >
-      <SkipWaitContext.Provider value={skipWait}>
-        <ContinueContext.Provider
-          value={running ? null : () => void send("Continue")}
-        >
-          <RunningContext.Provider value={running}>
-            <AskingStepContext.Provider value={askingStep}>
-              <MessageEditContext.Provider value={edit ?? null}>
-                <Conversation
-                  transcript={transcript}
-                  folder={folder}
-                  shown={shown}
-                  editor={editor}
-                  codeThemes={codeThemes}
-                  showThinking={showThinking}
-                  stickyUserMessages={stickyUserMessages}
-                  scrollRef={ref}
-                  waiting={waiting}
-                  onApprove={onApprove}
-                  waitingOnFork={waitingOnFork}
-                />
-              </MessageEditContext.Provider>
-            </AskingStepContext.Provider>
-          </RunningContext.Provider>
-        </ContinueContext.Provider>
-      </SkipWaitContext.Provider>
+      <ConversationIdContext.Provider value={session}>
+        <SkipWaitContext.Provider value={skipWait}>
+          <ContinueContext.Provider
+            value={running ? null : () => void send("Continue")}
+          >
+            <RunningContext.Provider value={running}>
+              <AskingStepContext.Provider value={askingStep}>
+                <MessageEditContext.Provider value={edit ?? null}>
+                  <Conversation
+                    transcript={transcript}
+                    folder={folder}
+                    shown={shown}
+                    editor={editor}
+                    codeThemes={codeThemes}
+                    showThinking={showThinking}
+                    stickyUserMessages={stickyUserMessages}
+                    scrollRef={ref}
+                    waiting={waiting}
+                    onApprove={onApprove}
+                    waitingOnFork={waitingOnFork}
+                  />
+                </MessageEditContext.Provider>
+              </AskingStepContext.Provider>
+            </RunningContext.Provider>
+          </ContinueContext.Provider>
+        </SkipWaitContext.Provider>
+      </ConversationIdContext.Provider>
     </main>
   );
 });

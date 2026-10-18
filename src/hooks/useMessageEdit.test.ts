@@ -2,6 +2,8 @@ import { act, renderHook } from "@testing-library/react";
 import type { KeyboardEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { UserMessage } from "../../shared/agentTypes";
+import { withFiles } from "../../shared/attachedFiles";
+import { withComments } from "../../shared/sentComments";
 import type { MessageEdit } from "@/components/conversation/shared";
 import { useMessageEdit } from "./useMessageEdit";
 
@@ -99,6 +101,25 @@ describe("useMessageEdit", () => {
     act(() => none.result.current.start());
     await act(() => none.result.current.submit());
     expect(none.result.current.editing).toBe(true);
+  });
+
+  it("keeps a message's files and diff comments with its edited text", async () => {
+    const files = [{ path: "src/app.ts" }];
+    const comments = [
+      {
+        path: "src/app.ts",
+        lines: [{ kind: "add" as const, num: 3, text: "x" }],
+        text: "why?",
+      },
+    ];
+    const sent = (text: string) =>
+      withComments(withFiles(text, files), comments);
+    const { result, edit } = setup({}, { ...MESSAGE, content: sent("Fix it") });
+    act(() => result.current.start());
+    expect(result.current.text).toBe("Fix it");
+    act(() => result.current.setText("Fix it well"));
+    await act(() => result.current.submit());
+    expect(edit!.edit).toHaveBeenCalledWith("u1", sent("Fix it well"), []);
   });
 
   it("sends an edit with only images", async () => {

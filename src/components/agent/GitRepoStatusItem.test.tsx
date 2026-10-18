@@ -23,6 +23,7 @@ it("opens the repository's files and commits without submitting the composer", a
       <GitRepoStatusItem
         host={{ request } as unknown as HostClient}
         status={status}
+        session={null}
       />
     </form>,
   );
@@ -35,4 +36,45 @@ it("opens the repository's files and commits without submitting the composer", a
     repo: "/w/motr-expo",
   });
   expect(submit).not.toHaveBeenCalled();
+});
+
+it("tags the conversation's own worktree, and warns when it's the user's checkout", async () => {
+  const request = vi.fn().mockResolvedValue({ files: [], commits: [] });
+  const host = { request } as unknown as HostClient;
+  const { unmount } = render(
+    <GitRepoStatusItem
+      session={null}
+      host={host}
+      status={{ ...status, branch: undefined, checkout: "/Users/me/motr-expo" }}
+    />,
+  );
+  fireEvent.click(screen.getByText("motr-expo"));
+  expect(await screen.findByText("No branch yet")).toBeTruthy();
+  expect(screen.getByText("Worktree")).toBeTruthy();
+  expect(screen.queryByText("Your checkout")).toBeNull();
+  unmount();
+
+  render(
+    <GitRepoStatusItem
+      session={null}
+      host={host}
+      status={{ ...status, shared: true }}
+    />,
+  );
+  fireEvent.click(screen.getByText("motr-expo"));
+  expect(await screen.findByText("Your checkout")).toBeTruthy();
+  expect(screen.getByText("feat/server")).toBeTruthy();
+});
+
+it("says a detached checkout of the user's is detached, not new", async () => {
+  const request = vi.fn().mockResolvedValue({ files: [], commits: [] });
+  render(
+    <GitRepoStatusItem
+      session={null}
+      host={{ request } as unknown as HostClient}
+      status={{ ...status, branch: undefined, shared: true }}
+    />,
+  );
+  fireEvent.click(screen.getByText("motr-expo"));
+  expect(await screen.findByText("detached HEAD")).toBeTruthy();
 });

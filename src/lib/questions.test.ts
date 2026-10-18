@@ -12,9 +12,13 @@ import {
   readQuestions,
   toAnswers,
   toggle,
+  answerLabel,
+  withAnswerComments,
   typesText,
 } from "./questions";
 import type { Item } from "./transcript";
+import { readFiles } from "../../shared/attachedFiles";
+import { readComments } from "../../shared/sentComments";
 
 const options = [{ label: "SQLite" }, { label: "JSON file" }];
 const image = { type: "image" as const, data: "x", mimeType: "image/png" };
@@ -87,6 +91,24 @@ describe("toAnswers", () => {
       { question: "Where?", choices: ["SQLite"], images: [image] },
       { question: "How?", choices: [], images: [image] },
     ]);
+  });
+
+  it("puts dropped files in the note, beside picks, an own answer, or alone", () => {
+    const pdf = { path: "/d/a.pdf" };
+    const drafts: Draft[] = [
+      { picked: ["SQLite"], text: "fast", images: [], files: [pdf] },
+      { picked: [], text: "Postgres", images: [], files: [pdf] },
+    ];
+    const [picked, own] = toAnswers(questions, drafts);
+    expect(picked.choices).toEqual(["SQLite"]);
+    expect(readFiles(picked.note!)).toEqual({ text: "fast", files: [pdf] });
+    expect(own.choices).toEqual(["Postgres"]);
+    expect(readFiles(own.note!)).toEqual({ text: "", files: [pdf] });
+    const alone = toAnswers(questions, [
+      { picked: [], text: "", images: [], files: [pdf] },
+    ])[0];
+    expect(alone.choices).toEqual([]);
+    expect(readFiles(alone.note!).files).toEqual([pdf]);
   });
 
   it("leaves unanswered questions to the agent", () => {
@@ -206,5 +228,41 @@ describe("pickHint", () => {
   it("names the key with the platform's modifier", () => {
     expect(pickHint(0, true)).toBe("⌥1");
     expect(pickHint(2, false)).toBe("Alt+3");
+  });
+});
+
+describe("withAnswerComments", () => {
+  const comment = {
+    path: "a.ts",
+    lines: [{ kind: "add" as const, num: 1, text: "x" }],
+    text: "Why?",
+  };
+
+  it("adds the diff comments to the last answer's note", () => {
+    const answers = [
+      { question: "Where?", choices: ["SQLite"] },
+      { question: "How?", choices: ["Fast"], note: "soon" },
+    ];
+    const sent = withAnswerComments(answers, [comment]);
+    expect(sent[0]).toEqual(answers[0]);
+    expect(readComments(sent[1].note!)).toEqual({
+      text: "soon",
+      comments: [comment],
+    });
+  });
+
+  it("changes nothing without comments or answers", () => {
+    const answers = [{ question: "Where?", choices: [] }];
+    expect(withAnswerComments(answers, [])).toBe(answers);
+    expect(withAnswerComments([], [comment])).toEqual([]);
+  });
+});
+
+describe("answerLabel", () => {
+  it("says the choices, else what it was answered with, else left to the agent", () => {
+    expect(answerLabel(["A", "B"])).toBe("A, B");
+    expect(answerLabel([], 1, 1)).toBe("Answered with files");
+    expect(answerLabel([], 2)).toBe("Answered with images");
+    expect(answerLabel([])).toBe("Left to the agent");
   });
 });

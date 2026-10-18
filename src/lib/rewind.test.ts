@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentMessage, UserMessage } from "../../shared/agentTypes";
-import {
-  applyRewindEvent,
-  canRewind,
-  editableEntries,
-  userParts,
-} from "./rewind";
+import { applyRewindEvent, canRewind, editableEntries } from "./rewind";
 import { applyEvent, EMPTY, fromHistory, type Item } from "./transcript";
 
 const user = (text: string, timestamp: number, entryId?: string) =>
@@ -124,29 +119,5 @@ describe("canRewind", () => {
 
   it("refuses while it waits on a fork", () => {
     expect(canRewind(EMPTY, true)).toBe(false);
-  });
-});
-
-describe("userParts", () => {
-  it("reads text, a skill as typed, and images", () => {
-    const image = {
-      type: "image" as const,
-      data: "AA==",
-      mimeType: "image/png",
-    };
-    expect(userParts(user("hi", 1))).toEqual({ text: "hi", images: [] });
-    expect(
-      userParts({
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: '<skill name="review" location="x">\nR\n</skill>\n\nnow',
-          },
-          image,
-        ],
-        timestamp: 1,
-      }),
-    ).toEqual({ text: "/review now", images: [image] });
   });
 });

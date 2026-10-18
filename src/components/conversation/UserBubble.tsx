@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import type { UserMessage } from "../../../shared/agentTypes";
 import { ZoomableImage } from "@/components/app/ZoomableImage";
-import { userParts } from "@/lib/rewind";
+import { SentCommentCard } from "@/components/conversation/SentCommentCard";
+import { SentFileCard } from "@/components/conversation/SentFileCard";
+import { readUserMessage } from "@/lib/userMessage";
 
-/** The user's turn: text bubble and any attached images, right-aligned; `action` (Edit) beside the text. */
+/** The user's turn: text bubble, any attached images, files and diff comments, right-aligned; `action` (Edit) beside the text. */
 export function UserBubble({
   message,
   action,
@@ -11,8 +13,8 @@ export function UserBubble({
   message: UserMessage;
   action?: ReactNode;
 }) {
-  const { text, images } = userParts(message);
-  if (!text && !images.length) return null;
+  const { text, images, files, comments } = readUserMessage(message);
+  if (!text && !images.length && !files.length && !comments.length) return null;
   return (
     <div className="group flex flex-col items-end gap-2">
       {images.length > 0 && (
@@ -24,6 +26,20 @@ export function UserBubble({
               image={image}
               className="max-h-40 max-w-60 rounded-lg border object-contain"
             />
+          ))}
+        </div>
+      )}
+      {files.length > 0 && (
+        <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
+          {files.map((f, i) => (
+            <SentFileCard key={i} file={f} />
+          ))}
+        </div>
+      )}
+      {comments.length > 0 && (
+        <div className="flex w-full max-w-[85%] flex-col items-end gap-1.5">
+          {comments.map((c, i) => (
+            <SentCommentCard key={i} comment={c} />
           ))}
         </div>
       )}
