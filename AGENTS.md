@@ -221,7 +221,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   fileIndex.ts           A folder's files for search (git ls-files, else a capped walk)
   sessionRuntime.ts      Each session's own model runtime (passes its cwd to providers); saved model
   draftSession.ts        What a new conversation would start with (models, effort) before one exists
-  worktrees.ts           Each agent's git worktree: start point, open, save and remove, sweep; updateFolder
+  worktrees.ts           Each agent's workspace: open, fork, close, sweep (one worktree, a folder of them, or shared); updateFolder
+  worktreeCheckout.ts    One worktree of one repository: start point, create (fresh or saved), lock and owner, save and remove
+  worktreeGroup.ts       A folder of repositories: the agent's copy of it, a worktree of each and its other files copied
   worktreeExtension.ts   Tells an agent in a worktree where it is and to deliver through a pull request
   worktreeGit.ts         Worktree paths, snapshots of a working state, folderOf / gitWritable
   worktreeClone.ts       Copy-on-write clones of the folder's ignored files into a worktree
@@ -866,7 +868,14 @@ its folder, quitting) saves its state as a commit under
 conversation brings it back. Worktrees are locked with the sidecar's pid,
 and each sidecar start sweeps (saves and removes) those whose process is
 gone; on Windows that also retries a worktree whose files were held open.
-Folders outside git (or with no commit yet) are shared instead.
+A folder that isn't a repository but holds some (`~/Projects/app` with
+`server/` and `web/`) gets a copy per conversation at the same kind of path
+(`sidecar/worktreeGroup.ts`): each repository with a commit in it is its own
+worktree, saved and brought back like one, and the folder's other files are
+copied in afresh (the agent's changes to them aren't kept). Other folders
+outside git (or with no commit yet) are shared instead. The composer's
+repository popover tags which, beside the branch (or "No branch yet"): the
+conversation's own worktree, or (a warning) the user's own checkout.
 Trust, saved conversations and cmem stay keyed by the folder (`folderOf`).
 Each session also has its own model runtime (`sidecar/sessionRuntime.ts`):
 pi-claude-bridge registers one provider per session, and a shared runtime
