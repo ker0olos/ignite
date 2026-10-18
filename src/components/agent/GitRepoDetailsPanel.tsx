@@ -8,11 +8,14 @@ import { prState } from "@/lib/gitStatus";
 /** What a repository's pill opens: its branch, uncommitted files (each opening its diff), unpushed commits and pull request. */
 export function GitRepoDetailsPanel({
   status,
+  session,
   details,
   error,
   onDiscard,
 }: {
   status: GitRepoStatus;
+  /** The conversation the diffs' comments go to. */
+  session: string | null;
   details: GitRepoDetails | null;
   error: string | null;
   onDiscard: (path: string) => void;
@@ -44,6 +47,7 @@ export function GitRepoDetailsPanel({
               repo={status.repo}
               range="HEAD"
               file={file}
+              session={session}
               onRevert={() => onDiscard(file.path)}
             />
           ))}

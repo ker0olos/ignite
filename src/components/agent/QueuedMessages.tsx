@@ -1,6 +1,6 @@
 import { ArrowUp, Pencil, X } from "lucide-react";
 import type { QueuedMessage, Unqueue } from "../../../shared/queue";
-import { typedSkill } from "../../../shared/skills";
+import { typedMessage } from "../../../shared/sentComments";
 import { Kbd } from "@/components/agent/Kbd";
 import { isMac } from "@/lib/window";
 import type { Queued } from "@/lib/queue";
@@ -41,7 +41,7 @@ export function QueuedMessages({
             </span>
           )}
           <span className="min-w-0 flex-1 truncate text-foreground/80">
-            {typedSkill(q.text) || "Image"}
+            {typedMessage(q.text) || "Image"}
           </span>
           <button
             type="button"

@@ -1,4 +1,5 @@
 import type { QueueKind, QueuedMessage } from "../../shared/queue";
+import { readComments } from "../../shared/sentComments";
 import { typedSkill } from "../../shared/skills";
 
 type Key = {
@@ -32,7 +33,7 @@ const sendNow = (meta: boolean, anyQueued: boolean) =>
 
 /** The composer's text with taken-back messages above what's being typed. */
 export function takenText(taken: QueuedMessage[], typed: string) {
-  return [...taken.map((m) => typedSkill(m.text)), typed]
+  return [...taken.map((m) => typedSkill(readComments(m.text).text)), typed]
     .filter(Boolean)
     .join("\n\n");
 }

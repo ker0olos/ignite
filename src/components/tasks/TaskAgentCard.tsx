@@ -46,6 +46,7 @@ export function TaskAgentCard({
         return (
           <TaskPrReview
             review={task.review.review}
+            session={task.session}
             onAnswer={(approved) =>
               actions.answer(task.review!.toolCallId, approved)
             }

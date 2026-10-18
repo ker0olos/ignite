@@ -1,21 +1,26 @@
+import type { ReactNode } from "react";
 import type { Editor } from "@/components/conversation/shared";
 import type { Token } from "@/lib/highlight";
 import type { DiffLine } from "@/lib/toolRows";
 import { cn } from "@/lib/utils";
 
-/** One numbered line of CodeLines, tinted when added or removed. */
+/** One numbered line of CodeLines, tinted when added or removed; a diff tab's has a gutter (its comment button) and shows selected. */
 export function CodeLine({
   line,
   row,
   tokens,
   marks,
   editor,
+  gutter,
+  selected,
 }: {
   line: DiffLine;
   row: number;
   tokens: Token[] | undefined;
   marks: boolean;
   editor: Editor;
+  gutter?: ReactNode;
+  selected?: boolean;
 }) {
   if (line.kind === "gap")
     return (
@@ -28,11 +33,13 @@ export function CodeLine({
     <div
       data-row={row}
       className={cn(
-        "flex min-w-fit",
+        "group/line flex min-w-fit",
         line.kind === "add" && "bg-success/15",
         line.kind === "del" && "bg-destructive/15",
+        selected && "bg-primary/15",
       )}
     >
+      {gutter}
       <span className="w-10 shrink-0 pr-2 text-right text-muted-foreground select-none">
         {line.num}
       </span>

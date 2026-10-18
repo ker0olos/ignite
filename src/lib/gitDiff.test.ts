@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  keepUnfolded,
   changeStarts,
   foldUnchanged,
   nextChange,
@@ -147,5 +148,25 @@ describe("withoutDiffstat", () => {
     expect(withoutDiffstat(output)).toBe(
       "Updating d1e54d6..8197447\nFast-forward",
     );
+  });
+});
+
+describe("keepUnfolded", () => {
+  it("opens up only the folds holding a row to keep", () => {
+    const rows = [
+      { index: 0 },
+      { from: 1, to: 4 },
+      { index: 4 },
+      { from: 5, to: 7 },
+    ];
+    expect(keepUnfolded(rows, (r) => r === 2)).toEqual([
+      { index: 0 },
+      { index: 1 },
+      { index: 2 },
+      { index: 3 },
+      { index: 4 },
+      { from: 5, to: 7 },
+    ]);
+    expect(keepUnfolded(rows, () => false)).toEqual(rows);
   });
 });

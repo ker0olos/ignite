@@ -20,6 +20,17 @@ describe("diffTabId / readDiffTab", () => {
     expect(readDiffTab(diffTabId(tab))).toEqual(tab);
   });
 
+  it("round-trips the conversation that opened it", () => {
+    const opened = { ...tab, session: "s-1" };
+    expect(diffTabId(opened)).not.toBe(diffTabId(tab));
+    expect(readDiffTab(diffTabId(opened))).toEqual(opened);
+  });
+
+  it("drops a conversation that isn't a string", () => {
+    const id = `diff:${JSON.stringify({ ...tab, session: 5 })}`;
+    expect(readDiffTab(id)).toEqual(tab);
+  });
+
   it("returns null for a plain file path", () => {
     expect(readDiffTab("/repo/src/foo.ts")).toBeNull();
   });

@@ -1,4 +1,4 @@
-import { createContext } from "react";
+import { createContext, type ReactNode } from "react";
 import type { ToolCall } from "../../../shared/agentTypes";
 import type { QuestionAnswer } from "../../../shared/questions";
 import type { ToolRun } from "@/lib/transcript";
@@ -24,6 +24,17 @@ export type ToolProps = {
   ) => void;
 };
 
+/** What a diff tab adds to its rows (comments); the conversation's diffs pass none. */
+export type RowExtras = {
+  /** At the row's start: its comment button. */
+  gutter: (row: number) => ReactNode;
+  /** Under the row: its comments and comment box. */
+  below: (row: number) => ReactNode;
+  selected: (row: number) => boolean;
+  /** Rows a fold must not hide (ones with comments under them). */
+  keep: (row: number) => boolean;
+};
+
 /** Ends a running bash call so the agent carries on, false when none ran; null where nothing can (a subagent's calls). */
 export const SkipWaitContext = createContext<
   ((toolCallId: string) => Promise<boolean>) | null
@@ -34,6 +45,9 @@ export const RunningContext = createContext(false);
 
 /** Which of the composer's questions shows, for its call's "Asking you" line. */
 export const AskingStepContext = createContext(0);
+
+/** The id of the conversation rows show in, null for a new one. */
+export const ConversationIdContext = createContext<string | null>(null);
 
 /** Sends "Continue" after a failed run; null while one runs, or where nothing can send. */
 export const ContinueContext = createContext<(() => void) | null>(null);

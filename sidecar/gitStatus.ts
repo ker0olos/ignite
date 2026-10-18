@@ -139,14 +139,14 @@ export async function gitStatus(
   return Promise.all(repos.map(statusOf));
 }
 
-/** An open conversation's repositories; none before it opens. */
+/** An open conversation's repositories; null before it opens. */
 export async function conversationGitStatus(
   ctx: HostContext,
   session: string,
-): Promise<GitRepoStatus[]> {
+): Promise<GitRepoStatus[] | null> {
   const agent = ctx.agents.get(session);
   // Until it opens, workdir is still the user's folder, not its worktree.
-  if (!agent?.session) return [];
+  if (!agent?.session) return null;
   return gitStatus(agent.session.messages, agent.workdir);
 }
 

@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { CodeLine } from "@/components/conversation/CodeLine";
 import { FoldedLines } from "@/components/conversation/FoldedLines";
 import { MoreLines } from "@/components/conversation/MoreLines";
-import type { Editor } from "@/components/conversation/shared";
-import { foldUnchanged } from "@/lib/gitDiff";
+import type { Editor, RowExtras } from "@/components/conversation/shared";
+import { foldUnchanged, keepUnfolded } from "@/lib/gitDiff";
 import { highlightLines, type Token } from "@/lib/highlight";
 import type { DiffLine } from "@/lib/toolRows";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -17,6 +17,7 @@ export function CodeLines({
   editor,
   codeThemes,
   className,
+  extras,
 }: {
   lines: DiffLine[];
   path: string;
@@ -24,6 +25,7 @@ export function CodeLines({
   editor: Editor;
   codeThemes: CodeThemes;
   className?: string;
+  extras?: RowExtras;
 }) {
   const [all, setAll] = useState(false);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
@@ -31,6 +33,8 @@ export function CodeLines({
   const code = lines.map((l) => (l.kind === "gap" ? "" : l.text)).join("\n");
   const marks = lines.some((l) => l.kind === "add" || l.kind === "del");
   const shown = all ? lines : lines.slice(0, max);
+  const folded = foldUnchanged(shown, expanded);
+  const rows = extras ? keepUnfolded(folded, extras.keep) : folded;
 
   useEffect(() => {
     let cancelled = false;
@@ -51,7 +55,7 @@ export function CodeLines({
         )}
         style={{ fontFamily: editor.font_family }}
       >
-        {foldUnchanged(shown, expanded).map((row) =>
+        {rows.map((row) =>
           "from" in row ? (
             <FoldedLines
               key={`fold-${row.from}`}
@@ -59,14 +63,18 @@ export function CodeLines({
               onExpand={() => setExpanded((s) => new Set(s).add(row.from))}
             />
           ) : (
-            <CodeLine
-              key={row.index}
-              line={shown[row.index]}
-              row={row.index}
-              tokens={tokens?.[row.index]}
-              marks={marks}
-              editor={editor}
-            />
+            <Fragment key={row.index}>
+              <CodeLine
+                line={shown[row.index]}
+                row={row.index}
+                tokens={tokens?.[row.index]}
+                marks={marks}
+                editor={editor}
+                gutter={extras?.gutter(row.index)}
+                selected={extras?.selected(row.index)}
+              />
+              {extras?.below(row.index)}
+            </Fragment>
           ),
         )}
       </div>

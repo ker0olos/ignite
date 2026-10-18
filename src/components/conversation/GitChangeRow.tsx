@@ -14,16 +14,19 @@ const STATUS_CLASS: Record<GitChange["status"], string> = {
   U: "text-muted-foreground",
 };
 
-/** One changed file: its icon, name, folder, added/removed counts and status, opening its diff; with `onRevert`, a button discarding its changes. */
+/** One changed file: its icon, name, folder, added/removed counts and status, opening its diff (for `session`'s comments); with `onRevert`, a button discarding its changes. */
 export function GitChangeRow({
   repo,
   range,
   file,
+  session,
   onRevert,
 }: {
   repo: string;
   range: string;
   file: GitChange;
+  /** The conversation the diff's comments go to. */
+  session: string | null;
   onRevert?: () => void;
 }) {
   const openTab = useOpenTab();
@@ -36,7 +39,13 @@ export function GitChangeRow({
       className="group flex cursor-default items-center gap-2 rounded px-1.5 text-[13px] hover:bg-accent"
       onClick={() =>
         openTab(
-          diffTabId({ repo, range, path: file.path, status: file.status }),
+          diffTabId({
+            repo,
+            range,
+            path: file.path,
+            status: file.status,
+            session: session ?? undefined,
+          }),
         )
       }
     >
