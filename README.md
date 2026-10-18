@@ -66,12 +66,11 @@ once. Made for macOS; and others.
 In Auto mode, shell commands run without asking inside the OS sandbox
 ([sandbox-runtime](https://github.com/anthropics/sandbox-runtime): Seatbelt
 on macOS, bubblewrap on Linux; on Windows every command asks unless you turn
-on its alpha sandbox). They write only in the project, temp folders and
-package caches, can't read credentials, and online may only read public sites
-(registries and git hosts fully). A blocked command asks before running
-outside. Risky commands, edits outside the project, MCP changes, commits and
-pushes still ask. File tools and MCP servers aren't sandboxed, and it stops
-mistakes, not attackers.
+on its alpha sandbox).  
+In Sandbox mode, the agent writes only in the project, its scratchpad and
+package caches, It can't read credentials, and has can only read from selected online sites.  
+A blocked command asks before running outside (Risky commands, edits outside the project, MCP changes, commits and
+pushes ask).
 
 ## Install
 
