@@ -1,4 +1,5 @@
 import { renderHook } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useStickToBottom } from "./useStickToBottom";
 import type { Item } from "@/lib/transcript";
@@ -183,5 +184,27 @@ describe("useStickToBottom", () => {
     show(true);
     expect(el.scrollTop).toBe(400);
     expect(stuck.current).toBe(false);
+  });
+
+  it("is at the bottom before the first paint, not after it", () => {
+    const el = document.createElement("main");
+    let top = 0;
+    Object.defineProperty(el, "scrollTop", {
+      get: () => top,
+      set: (v: number) => (top = Math.min(v, 800)),
+    });
+    Object.defineProperty(el, "scrollHeight", { get: () => 1000 });
+    Object.defineProperty(el, "clientHeight", { get: () => 200 });
+    Object.defineProperty(el, "clientWidth", { get: () => 800 });
+    const scrollRef = { current: el };
+    const contentRef = { current: document.createElement("div") };
+    let painted: number | undefined;
+    renderHook(() => {
+      useStickToBottom(scrollRef, contentRef, undefined, true);
+      useLayoutEffect(() => {
+        painted ??= el.scrollTop;
+      });
+    });
+    expect(painted).toBe(800);
   });
 });

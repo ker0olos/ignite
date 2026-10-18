@@ -11,7 +11,9 @@ import {
   type MessageEdit,
   type ToolProps,
 } from "@/components/conversation/shared";
+import { useStickToBottom } from "@/hooks/useStickToBottom";
 import type { CodeThemes } from "@/lib/codeThemes";
+import { shownItems } from "@/lib/routedMessage";
 import type { Transcript } from "@/lib/transcript";
 import { canRewind } from "@/lib/rewind";
 import { cn } from "@/lib/utils";
@@ -58,6 +60,10 @@ export const ConversationPane = memo(function ConversationPane({
   stickyUserMessages: boolean;
 }) {
   const ref = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // Here, not in Conversation: <main>'s ref is attached only after its children's layout effects.
+  const items = shownItems(transcript);
+  useStickToBottom(ref, contentRef, items.at(-1), shown);
   const running = !!transcript.running;
   const disabled = !canRewind(transcript, waitingOnFork);
   const edit = useMemo(
@@ -84,6 +90,7 @@ export const ConversationPane = memo(function ConversationPane({
                 <MessageEditContext.Provider value={edit ?? null}>
                   <Conversation
                     transcript={transcript}
+                    items={items}
                     folder={folder}
                     shown={shown}
                     editor={editor}
@@ -91,6 +98,7 @@ export const ConversationPane = memo(function ConversationPane({
                     showThinking={showThinking}
                     stickyUserMessages={stickyUserMessages}
                     scrollRef={ref}
+                    contentRef={contentRef}
                     waiting={waiting}
                     onApprove={onApprove}
                     waitingOnFork={waitingOnFork}

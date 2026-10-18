@@ -1,14 +1,12 @@
-import { type RefObject, useRef } from "react";
+import type { RefObject } from "react";
 import type { Editor, ToolProps } from "@/components/conversation/shared";
 import { RowBoundary } from "@/components/conversation/RowBoundary";
 import { RowView } from "@/components/conversation/RowView";
 import { RunIndicator } from "@/components/conversation/RunIndicator";
 import { WaitingCallsContext } from "@/hooks/useWaitingPlace";
 import { useOlderRows } from "@/hooks/useOlderRows";
-import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { workingLine, writingText } from "@/lib/runStep";
-import { shownItems } from "@/lib/routedMessage";
-import type { Transcript } from "@/lib/transcript";
+import type { Item, Transcript } from "@/lib/transcript";
 import { toRows } from "@/lib/toolRows";
 import { editableEntries } from "@/lib/rewind";
 import type { CodeThemes } from "@/lib/codeThemes";
@@ -16,18 +14,22 @@ import type { CodeThemes } from "@/lib/codeThemes";
 /** The conversation so far, auto-scrolling unless the user has scrolled up. */
 export function Conversation({
   transcript,
+  items,
   folder,
   editor,
   codeThemes,
   showThinking,
   stickyUserMessages,
   scrollRef,
+  contentRef,
   onApprove,
   waitingOnFork,
   shown,
   waiting,
 }: {
   transcript: Transcript;
+  /** Its items as shown (shownItems). */
+  items: Item[];
   /** Hidden, kept rendered: it draws no working line. */
   shown: boolean;
   /** Its waiting calls in the order they began to wait; only the first takes the keyboard, none while hidden. */
@@ -40,12 +42,10 @@ export function Conversation({
   editor: Editor;
   codeThemes: CodeThemes;
   scrollRef: RefObject<HTMLElement | null>;
+  contentRef: RefObject<HTMLDivElement | null>;
   onApprove: ToolProps["onApprove"];
 }) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const items = shownItems(transcript);
   const last = items.at(-1);
-  useStickToBottom(scrollRef, contentRef, last, shown);
 
   const working = workingLine(transcript, folder, showThinking, waitingOnFork);
   const rows = toRows(items, transcript.tools);

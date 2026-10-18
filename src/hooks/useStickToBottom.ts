@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
+import { type RefObject, useLayoutEffect, useRef } from "react";
 import type { Item } from "@/lib/transcript";
 
 const NEAR_BOTTOM_PX = 32;
@@ -30,7 +30,8 @@ export function useStickToBottom(
     if (shown) restore.current?.();
   }, [shown]);
 
-  useEffect(() => {
+  // A layout effect, so a pane mounted in a transition is at the bottom before it paints.
+  useLayoutEffect(() => {
     const el = scrollRef.current;
     const content = contentRef.current;
     if (!el || !content) return;
