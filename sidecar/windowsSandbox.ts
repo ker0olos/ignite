@@ -164,6 +164,6 @@ export async function createWindowsSandbox(home = homedir()): Promise<Sandbox> {
     // The proxy records its denials as they happen; files blocked show only in the output.
     explain: async (id, output) =>
       SandboxManager.annotateStderrWithSandboxFailures(id, output),
-    sendRefused: refusedRequest,
+    sendRefused: (id) => refusedRequest(SandboxManager, id),
   };
 }
