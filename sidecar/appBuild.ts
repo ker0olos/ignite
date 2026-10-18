@@ -90,7 +90,15 @@ export async function ensureDist(dir: string, mods: string): Promise<string> {
   const out = join(buildDir(dir), name);
   if (existsSync(out)) return out;
   const vite = join(dir, "node_modules", "vite", "bin", "vite.js");
-  const args = [vite, "build", "--outDir", `${out}.tmp`, "--emptyOutDir"];
+  const args = [
+    vite,
+    "build",
+    "--outDir",
+    `${out}.tmp`,
+    "--emptyOutDir",
+    "--logLevel",
+    "warn",
+  ];
   await run(process.execPath, args, dir, viteEnv(mods));
   await rename(`${out}.tmp`, out);
   for (const old of await readdir(buildDir(dir))) {
@@ -172,6 +180,24 @@ async function sameRust(clone: string, from: string, sha: string) {
     .catch(() => false);
 }
 
+// The checkout `from`'s binary when the Rust side didn't change, else CI's, else built here.
+async function binaryFor(
+  clone: string,
+  dir: string,
+  from: string,
+  sha: string,
+  warn: (text: string) => void,
+  step: Step,
+) {
+  const binary = binaryOf(from);
+  if (existsSync(binary) && (await sameRust(clone, from, sha))) {
+    step("Copying the app's binary from the version before…");
+    return placeBinary(dir, binary);
+  }
+  step("Downloading the app's binary…");
+  await makeBinary(dir, warn);
+}
+
 /** Removes a version's worktree and folder; a missing one is fine. */
 export async function removeVersion(clone: string, dir: string) {
   // Its link to the shared packages first, so nothing below follows it into them.
@@ -203,15 +229,14 @@ export async function buildVersion(
   step(`Checking out ${sha.slice(0, 7)} in ${dir}…`);
   await git(clone, ["worktree", "add", "--detach", dir, sha]);
   try {
-    await linkPackages(dir, { step });
-    const binary = binaryOf(from);
-    if (existsSync(binary) && (await sameRust(clone, from, sha))) {
-      step("Copying the app's binary from the version before…");
-      await placeBinary(dir, binary);
-    } else {
-      step("Downloading the app's binary…");
-      await makeBinary(dir, warn);
-    }
+    // Both settle before a failure is thrown, so neither writes into the folder as it's removed.
+    const failed = (
+      await Promise.allSettled([
+        linkPackages(dir, { step }),
+        binaryFor(clone, dir, from, sha, warn, step),
+      ])
+    ).find((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (failed) throw failed.reason;
     step("Building the frontend…");
     await ensureDist(dir, mods);
   } catch (error) {
