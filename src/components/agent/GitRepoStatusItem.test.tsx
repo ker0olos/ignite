@@ -43,6 +43,7 @@ it("tags the conversation's own worktree, and warns when it's the user's checkou
   const host = { request } as unknown as HostClient;
   const { unmount } = render(
     <GitRepoStatusItem
+      session={null}
       host={host}
       status={{ ...status, branch: undefined, checkout: "/Users/me/motr-expo" }}
     />,
@@ -54,7 +55,11 @@ it("tags the conversation's own worktree, and warns when it's the user's checkou
   unmount();
 
   render(
-    <GitRepoStatusItem host={host} status={{ ...status, shared: true }} />,
+    <GitRepoStatusItem
+      session={null}
+      host={host}
+      status={{ ...status, shared: true }}
+    />,
   );
   fireEvent.click(screen.getByText("motr-expo"));
   expect(await screen.findByText("Your checkout")).toBeTruthy();
@@ -65,6 +70,7 @@ it("says a detached checkout of the user's is detached, not new", async () => {
   const request = vi.fn().mockResolvedValue({ files: [], commits: [] });
   render(
     <GitRepoStatusItem
+      session={null}
       host={{ request } as unknown as HostClient}
       status={{ ...status, branch: undefined, shared: true }}
     />,
