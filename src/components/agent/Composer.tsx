@@ -62,7 +62,7 @@ export function Composer({
   const input = useRef<HTMLTextAreaElement>(null);
   const options = useRef<HTMLDivElement>(null);
   const { text, setText, images, setImages, attach, remove, replace, paste } =
-    useComposerDraft(asking, input);
+    useComposerDraft(asking, input, session.session);
   const mentions = useMentions({
     host,
     folder,

@@ -3,6 +3,7 @@ import { Conversation } from "@/components/conversation/Conversation";
 import {
   AskingStepContext,
   ContinueContext,
+  ConversationIdContext,
   RunningContext,
   SkipWaitContext,
   type Editor,
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
  */
 export const ConversationPane = memo(function ConversationPane({
   transcript,
+  session,
   folder,
   shown,
   send,
@@ -32,6 +34,8 @@ export const ConversationPane = memo(function ConversationPane({
   stickyUserMessages,
 }: {
   transcript: Transcript;
+  /** Its id; null for a new one. */
+  session: string | null;
   folder: string;
   shown: boolean;
   send: (text: string) => unknown;
@@ -59,29 +63,31 @@ export const ConversationPane = memo(function ConversationPane({
         !shown && "invisible",
       )}
     >
-      <SkipWaitContext.Provider value={skipWait}>
-        <ContinueContext.Provider
-          value={running ? null : () => void send("Continue")}
-        >
-          <RunningContext.Provider value={running}>
-            <AskingStepContext.Provider value={askingStep}>
-              <Conversation
-                transcript={transcript}
-                folder={folder}
-                shown={shown}
-                editor={editor}
-                codeThemes={codeThemes}
-                showThinking={showThinking}
-                stickyUserMessages={stickyUserMessages}
-                scrollRef={ref}
-                waiting={waiting}
-                onApprove={onApprove}
-                waitingOnFork={waitingOnFork}
-              />
-            </AskingStepContext.Provider>
-          </RunningContext.Provider>
-        </ContinueContext.Provider>
-      </SkipWaitContext.Provider>
+      <ConversationIdContext.Provider value={session}>
+        <SkipWaitContext.Provider value={skipWait}>
+          <ContinueContext.Provider
+            value={running ? null : () => void send("Continue")}
+          >
+            <RunningContext.Provider value={running}>
+              <AskingStepContext.Provider value={askingStep}>
+                <Conversation
+                  transcript={transcript}
+                  folder={folder}
+                  shown={shown}
+                  editor={editor}
+                  codeThemes={codeThemes}
+                  showThinking={showThinking}
+                  stickyUserMessages={stickyUserMessages}
+                  scrollRef={ref}
+                  waiting={waiting}
+                  onApprove={onApprove}
+                  waitingOnFork={waitingOnFork}
+                />
+              </AskingStepContext.Provider>
+            </RunningContext.Provider>
+          </ContinueContext.Provider>
+        </SkipWaitContext.Provider>
+      </ConversationIdContext.Provider>
     </main>
   );
 });

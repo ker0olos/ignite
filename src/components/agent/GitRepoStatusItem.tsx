@@ -40,9 +40,11 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export function GitRepoStatusItem({
   host,
   status,
+  session,
 }: {
   host: HostClient | null;
   status: GitRepoStatus;
+  session: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const { details, error, discard } = useGitRepoDetails(host, status, open);
@@ -92,6 +94,7 @@ export function GitRepoStatusItem({
       <PopoverContent align="start" side="top" className="w-96 gap-0 p-0">
         <GitRepoDetailsPanel
           status={status}
+          session={session}
           details={details}
           error={error}
           onDiscard={discard}

@@ -67,6 +67,7 @@ export function AgentPanel({
               // The opened conversation replaces its preview drawn afresh, from its newest rows.
               key={o.preview ? `${o.session} preview` : o.session}
               transcript={o.transcript}
+              session={o.session}
               folder={o.folder}
               shown={shown}
               send={shown ? session.send : idle}

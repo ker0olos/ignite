@@ -19,9 +19,12 @@ import { cn } from "@/lib/utils";
 export function GitStatusLinks({
   host,
   repos,
+  session,
 }: {
   host: HostClient | null;
   repos: GitRepoStatus[];
+  /** The conversation they belong to. */
+  session: string | null;
 }) {
   const [box, space] = useElementSize();
   const [row, needed] = useElementSize();
@@ -29,7 +32,12 @@ export function GitStatusLinks({
   if (shown.length === 0) return null;
   const folded = needed.width > space.width;
   const items = shown.map((status) => (
-    <GitRepoStatusItem key={status.repo} host={host} status={status} />
+    <GitRepoStatusItem
+      key={status.repo}
+      host={host}
+      status={status}
+      session={session}
+    />
   ));
   return (
     <div ref={box} className="relative flex min-w-0 flex-1 items-center">

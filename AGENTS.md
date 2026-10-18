@@ -20,7 +20,8 @@ src/                     React frontend (almost all logic lives here)
                          Windows' window controls, zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner, the update-ready banner
-    files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon)
+    files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon),
+                         diff tabs whose lines take comments (gutter "+", comment box, Send N comments)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
                          (which also answers the agent's questions), model/effort/approval menus, git status, trust prompt
@@ -63,6 +64,9 @@ src/                     React frontend (almost all logic lives here)
                          ⌘P / Ctrl+P opens it on @files with no preview
     useCommandSearch.ts  The command center's results: debounced command_search, folders, @ suggestions
     useDetailsCache.ts   Session details fetched once each, for the command center preview
+    useDiffComments.ts   A diff tab's comments, kept per conversation: add, edit, delete, send to its composer
+    useCommentSelection.ts The rows a diff comment takes (pressed, dragged or shift-pressed) and its open box
+    useComposerText.ts   Makes the composer where text for its conversation goes (diff comments), after the draft
     useOpenFile.ts       Opens a tab (file, diff, subagent…) in any folder, switching to it first
     useFileExists.ts     Whether a path exists, checked once; inline code links only to ones that do
     useXterm.ts          An xterm fitted to its element and themed like the app (read-only and interactive views)
@@ -147,7 +151,11 @@ src/                     React frontend (almost all logic lives here)
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
     gitPolicy.ts         Which git and gh tool calls run and which ask (commit and push for review)
     gitDiff.ts           Unified diffs into diff lines; stepping through their changes
-    diffTabs.ts          Diff tabs beside file tabs (encoded ids, labels), reading a git review
+    diffTabs.ts          Diff tabs beside file tabs (encoded ids with the conversation that opened one, labels),
+                         reading a git review
+    diffComments.ts      Diff tabs' comments, in memory per conversation until sent or deleted
+    diffCommentMessage.ts Diff comments as the message they add: `path:lines`, the quoted lines, the comment
+    composerText.ts      Each conversation's composer that text can be added to; text for a hidden one waits
     dangerousCommands.ts Regex denylist of risky shell commands that Auto still asks about
     demo.ts              Demo mode (`pnpm run demo`): its folders, host, sidebar rows, scripted typing
     demoHost.ts          The demo's stand-in for the sidecar: scripted answers and replies, nothing runs
@@ -642,7 +650,9 @@ anything else, for options that run a program or change git's config
 (`-c`, `--upload-pack`, `rebase -x`, `git config` writes…), and for paths
 outside the folder. A commit, push or `gh pr create` waits with a review: its changed files
 (status, +/− counts) and message or commits, each file opening its diff in a
-tab (`git_diff`). A commit called with `push: true` (on a branch) waits
+tab (`git_diff`). A diff tab's lines take comments (the gutter's "+", shift-click
+or drag for a range), kept in memory for the conversation that opened it; "Send
+N comments" adds them to that conversation's composer draft, showing it first. A commit called with `push: true` (on a branch) waits
 once, its review naming the branch ("Commit and push to origin/<branch>"), then
 runs `push -u origin <branch>`; other git options than `-C` are refused; a task's runs alone only when both would. A commit or push that continues a branch whose pull request
 was merged (it holds that pull request's head commit but not its merge, none
