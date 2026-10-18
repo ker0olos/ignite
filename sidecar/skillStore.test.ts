@@ -258,3 +258,46 @@ describe("sessionSkills", () => {
     ]);
   });
 });
+
+describe("addToSkill", () => {
+  it("adds to the end of the app's own skill, in place", async () => {
+    await skill(join(agentDir, "skills", "notes"), "notes");
+    await createSkillStore(agentDir, home).addToSkill(
+      "notes",
+      "## More\nStep.\n",
+    );
+    expect(
+      await readFile(join(agentDir, "skills", "notes", "SKILL.md"), "utf8"),
+    ).toBe(
+      "---\nname: notes\ndescription: notes.\n---\n\nDo notes.\n\n\n## More\nStep.\n",
+    );
+  });
+
+  it("copies a built-in skill with its files first, so the copy replaces it", async () => {
+    const store = createSkillStore(agentDir, home);
+    await store.addToSkill("code-review", "## Also\nCheck tests.");
+    const copy = join(agentDir, "skills", "code-review", "SKILL.md");
+    expect(await readFile(copy, "utf8")).toMatch(
+      /\n\n## Also\nCheck tests\.\n$/,
+    );
+    const [loaded] = store.appSkills().filter((s) => s.name === "code-review");
+    expect(loaded.filePath).toBe(copy);
+  });
+
+  it("starts a new skill with a description, and refuses one without", async () => {
+    const store = createSkillStore(agentDir, home);
+    await store.addToSkill(
+      "release-notes",
+      "Keep it short.",
+      'When "shipping"',
+    );
+    const [made] = store.appSkills().filter((s) => s.name === "release-notes");
+    expect(made.description).toBe('When "shipping"');
+    expect(await readFile(made.filePath, "utf8")).toContain(
+      "\n\nKeep it short.\n",
+    );
+    await expect(store.addToSkill("nope", "x")).rejects.toThrow(
+      "no skill nope",
+    );
+  });
+});

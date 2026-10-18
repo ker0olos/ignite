@@ -9,7 +9,7 @@ import type {
 } from "../shared/hostProtocol.ts";
 import type { SubagentStatus } from "../shared/agentStatus.ts";
 import type { SavedSession } from "../shared/conversations.ts";
-import type { ProposedLesson } from "../shared/lessons.ts";
+import type { Proposal } from "../shared/lessons.ts";
 import type {
   AgentMessage,
   ImageContent,
@@ -252,8 +252,8 @@ export type Agent = {
   checkpoint?: Promise<unknown>;
   /** How the user corrected it since its last settled run, for the reflector. */
   corrections?: string[];
-  /** Lessons the reflector proposed, until the user keeps or discards them. */
-  proposals?: ProposedLesson[];
+  /** Lessons and skill additions the reflector proposed, until the user keeps or discards them. */
+  proposals?: Proposal[];
 };
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };

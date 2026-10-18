@@ -1,12 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { HostMessage } from "../../shared/hostProtocol";
-import type { Lesson, ProposedLesson } from "../../shared/lessons";
+import type { Lesson, Proposal } from "../../shared/lessons";
 import type { HostClient } from "@/lib/piHost";
 import { useLessonProposals } from "./useLessonProposals";
 import { useLessons } from "./useLessons";
 
-const proposal: ProposedLesson = {
+const proposal: Proposal = {
+  kind: "lesson",
   id: "p1",
   text: "Never force-push",
   level: "tool_call",

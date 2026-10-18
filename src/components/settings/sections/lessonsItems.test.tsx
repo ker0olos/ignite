@@ -47,6 +47,15 @@ describe("lessonsItems", () => {
             tool: "git",
             hits: 0,
           },
+          {
+            id: "d",
+            text: "No -f either",
+            level: "tool_call",
+            tool: "git",
+            match: "push.*-f",
+            regex: true,
+            hits: 0,
+          },
         ],
       }),
     });
@@ -54,13 +63,15 @@ describe("lessonsItems", () => {
       "Run tests",
       "No force-push",
       "Pull first",
+      "No -f either",
     ]);
     expect(items[1].keywords).toContain("tempo git --force");
     const { container } = render(<>{items.map((i) => i.hint)}</>);
     expect(container.textContent).toBe(
       "Every folderEvery conversation" +
         "tempoBlocksgitwith“--force”came up 2×" +
-        "Every folderBeforegit",
+        "Every folderBeforegit" +
+        "Every folderBlocksgitmatching/push.*-f/",
     );
   });
 

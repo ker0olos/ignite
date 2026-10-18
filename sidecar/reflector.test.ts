@@ -140,3 +140,112 @@ describe("reflect", () => {
     expect(await reflect(unpriced, ["x"], [])).toEqual([]);
   });
 });
+
+describe("skill proposals", () => {
+  const skills = ["migrations"];
+
+  it("adds to a listed skill, or starts a new one when it has a description", () => {
+    const found = parseProposals(
+      JSON.stringify([
+        { skill: "migrations", add: "## Generate\nAsk first.", evidence: "e" },
+        {
+          skill: "Release Notes!",
+          description: "When writing release notes",
+          add: "Keep it short.",
+        },
+      ]),
+      skills,
+    );
+    expect(found).toMatchObject([
+      {
+        kind: "skill",
+        skill: "migrations",
+        add: "## Generate\nAsk first.",
+        evidence: "e",
+      },
+      {
+        kind: "skill",
+        skill: "release-notes",
+        description: "When writing release notes",
+        add: "Keep it short.",
+        evidence: "",
+      },
+    ]);
+    expect(found[0]).not.toHaveProperty("description");
+  });
+
+  it("drops one with nothing to add, no usable name, or a new skill without a description", () => {
+    const found = parseProposals(
+      JSON.stringify([
+        { skill: "migrations", add: " " },
+        { skill: "!!!", description: "d", add: "x" },
+        { skill: "unknown", add: "x" },
+      ]),
+      skills,
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("lists the skills it may add to, with the content of used ones", () => {
+    const input = reflectorInput(
+      ["x"],
+      [],
+      [],
+      [
+        { name: "migrations", description: "DB changes", content: "# Steps" },
+        { name: "idle", description: "Other" },
+      ],
+    );
+    expect(input).toContain(
+      "- migrations: DB changes\n  Its content now:\n# Steps",
+    );
+    expect(input).toContain("- idle: Other");
+    expect(reflectorInput([], [], [])).toContain(
+      "Skills you may add to:\n(none)",
+    );
+  });
+
+  it("passes the skills' names along to parse the reply", async () => {
+    const s = session(async () =>
+      answer('[{"skill": "migrations", "add": "Ask first."}]'),
+    );
+    const found = await reflect(
+      s,
+      ["x"],
+      [],
+      [{ name: "migrations", description: "DB" }],
+    );
+    expect(found).toMatchObject([{ kind: "skill", skill: "migrations" }]);
+  });
+});
+
+describe("regex proposals", () => {
+  const lesson = (match: string) => ({
+    text: `No ${match}`,
+    level: "tool_call",
+    tool: "git",
+    match,
+    regex: true,
+  });
+
+  it("keeps a regex, leaving its speed to Keep", () => {
+    const found = parseProposals(
+      JSON.stringify([lesson("push.*--force"), lesson("(a+)+$")]),
+    );
+    expect(found).toMatchObject([
+      { match: "push.*--force", regex: true },
+      { match: "(a+)+$", regex: true },
+    ]);
+  });
+
+  it("only reminds when the regex is invalid or matches anything", () => {
+    const found = parseProposals(
+      JSON.stringify([lesson("push("), lesson("^.*")]),
+    );
+    expect(found.map((p) => p.kind === "lesson" && p.text)).toEqual([
+      "No push(",
+      "No ^.*",
+    ]);
+    for (const p of found) expect(p).not.toHaveProperty("match");
+  });
+});

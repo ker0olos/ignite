@@ -16,6 +16,7 @@ import {
   removeLesson,
   type Lesson,
 } from "./lessons.ts";
+import { regexSpeed } from "./lessonRegex.ts";
 
 let file: string;
 beforeEach(() => {
@@ -191,5 +192,84 @@ describe("lessonFor", () => {
     const input = { tool: "create_issue", args: "{}" };
     expect(lessonFor([issue], "mcp__github", input, new Set())?.id).toBe("i");
     expect(lessonFor([issue], "mcp", input, new Set())?.id).toBe("i");
+  });
+});
+
+describe("regex lessons", () => {
+  const force = lesson({
+    id: "f",
+    match: "push.*(-f|--force)(\\s|$)",
+    regex: true,
+  });
+
+  it("blocks every spelling a regex catches, and only those", () => {
+    const call = (...args: string[]) =>
+      lessonFor([force], "git", { args }, new Set())?.id;
+    expect(call("push", "-f")).toBe("f");
+    expect(call("push", "origin", "main", "--force")).toBe("f");
+    expect(call("push", "--force-with-lease")).toBe(undefined);
+    expect(call("pull", "-f")).toBe(undefined);
+  });
+
+  it("sees a whole call, across lines, unless it's quadratic", () => {
+    const late = { args: ["push", "x".repeat(5_000), "-f"] };
+    expect(lessonFor([force], "git", late, new Set())?.id).toBe("f");
+    const slow = { ...force, quadratic: true };
+    expect(lessonFor([slow], "git", late, new Set())).toBe(undefined);
+    const lines = { command: "git push origin main \\\n  --force" };
+    expect(
+      lessonFor([{ ...force, tool: "bash" }], "bash", lines, new Set())?.id,
+    ).toBe("f");
+  });
+
+  it("skips a broken saved regex", () => {
+    const broken = lesson({ id: "b", match: "push(", regex: true });
+    expect(lessonFor([broken], "git", { args: ["push("] }, new Set())).toBe(
+      undefined,
+    );
+  });
+
+  it("saves a regex marked by its speed, and refuses one that's invalid, too broad or slow", () => {
+    const add = (match: string) =>
+      addLesson(file, {
+        text: "A",
+        level: "tool_call",
+        tool: "git",
+        match,
+        regex: true,
+      });
+    expect(add("push.*(-f|--force)(\\s|$)")).toMatchObject({
+      regex: true,
+      quadratic: true,
+    });
+    expect(add("--no-verify\\b")).not.toHaveProperty("quadratic");
+    expect(() => add("push(")).toThrow("isn't a valid regex");
+    expect(() => add("^.*")).toThrow("would block every call");
+    expect(() => add("...")).toThrow("would block every call");
+    expect(() => add("(a+)+$")).toThrow("could hang");
+  });
+
+  it("refuses a regex the checker can't judge", () => {
+    const unknown = () =>
+      ({ status: "unknown", error: { kind: "timeout" } }) as never;
+    expect(regexSpeed("push", unknown)).toBe(
+      "`match` couldn't be checked for speed (timeout). Write a simpler regex.",
+    );
+  });
+
+  it("keeps plain text plain", () => {
+    const saved = addLesson(file, {
+      text: "A",
+      level: "tool_call",
+      tool: "git",
+      match: "a.c",
+    });
+    expect(saved).not.toHaveProperty("regex");
+    expect(lessonFor([saved], "git", { args: ["abc"] }, new Set())).toBe(
+      undefined,
+    );
+    expect(list([force])).toBe(
+      "- [f] (git: /push.*(-f|--force)(\\s|$)/) Don't",
+    );
   });
 });

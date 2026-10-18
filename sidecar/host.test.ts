@@ -2530,6 +2530,7 @@ describe("tool approval", () => {
   it("reflects on a denied call once the run settles, and offers what it learned", async () => {
     const { ask, request, sent, session, reopen } = await opened();
     const proposal = {
+      kind: "lesson" as const,
       id: "p1",
       text: "Ask before deleting",
       level: "system_prompt" as const,

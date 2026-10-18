@@ -1,7 +1,12 @@
 /** The user's corrections of a conversation, reflected on once its run settles (see reflector.ts). */
+import { readFileSync } from "node:fs";
 import { serializeConversation } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "../shared/agentTypes.ts";
-import { LESSON_ADD_TOOL, LESSON_REMOVE_TOOL } from "../shared/lessons.ts";
+import {
+  LESSON_ADD_TOOL,
+  LESSON_REMOVE_TOOL,
+  type Proposal,
+} from "../shared/lessons.ts";
 import { ASK_TOOL } from "../shared/questions.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
@@ -13,7 +18,8 @@ import {
   readLessons,
   removeLesson,
 } from "./lessons.ts";
-import { reflect } from "./reflector.ts";
+import { changeSkills } from "./hostMcp.ts";
+import { reflect, type ReflectorSkill } from "./reflector.ts";
 
 const CALL_CHARS = 500;
 const DROPPED_CHARS = 4_000;
@@ -74,6 +80,37 @@ const push = (ctx: HostContext, agent: Agent) =>
     lessons: agent.proposals ?? [],
   });
 
+const textOf = (p: Proposal) =>
+  p.kind === "skill" ? `${p.skill}: ${p.add}` : p.text;
+
+const readOrNot = (file: string) => {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    return undefined;
+  }
+};
+
+// A skill's content goes along when the run used it (read its file, or ran `/name`, which carries its path).
+function skillsFor(
+  ctx: HostContext,
+  messages: AgentMessage[],
+): ReflectorSkill[] {
+  const run = JSON.stringify(messages);
+  let skills;
+  try {
+    skills = ctx.skills.appSkills();
+  } catch {
+    // Unreadable skills: the reflector proposes lessons only.
+    return [];
+  }
+  return skills.map((s) => {
+    const used = run.includes(JSON.stringify(s.filePath).slice(1, -1));
+    const content = used ? readOrNot(s.filePath) : undefined;
+    return { name: s.name, description: s.description, content };
+  });
+}
+
 /** Reflects on the corrections since the last settled run, and proposes what it learned. */
 export async function reflectOn(
   ctx: HostContext,
@@ -85,13 +122,18 @@ export async function reflectOn(
   if (!corrections?.length || !s) return;
   agent.corrections = [];
   const existing = [
-    ...lessonsFor(readLessons(file), agent.cwd),
-    ...(agent.proposals ?? []),
-  ].map((l) => l.text);
-  const all = await reflect(s, corrections, existing);
+    ...lessonsFor(readLessons(file), agent.cwd).map((l) => l.text),
+    ...(agent.proposals ?? []).map(textOf),
+  ];
+  const all = await reflect(
+    s,
+    corrections,
+    existing,
+    skillsFor(ctx, s.messages),
+  );
   // Another reflection may have proposed the same while this one ran.
-  const pending = new Set(agent.proposals?.map((l) => l.text));
-  const found = all.filter((l) => !pending.has(l.text));
+  const pending = new Set(agent.proposals?.map(textOf));
+  const found = all.filter((p) => !pending.has(textOf(p)));
   if (!found.length || ctx.agents.get(agent.id) !== agent) return;
   agent.proposals = [...(agent.proposals ?? []), ...found];
   push(ctx, agent);
@@ -100,8 +142,21 @@ export async function reflectOn(
 const proposals = (ctx: HostContext, session: string) =>
   ctx.agents.get(session)?.proposals ?? [];
 
-/** Saves (`keep`) or discards a proposed lesson; returns those left. */
-export function answerProposal(
+async function save(ctx: HostContext, agent: Agent, p: Proposal, file: string) {
+  if (p.kind === "skill") {
+    // Sessions reload, as for an imported skill, so the next run reads it.
+    await changeSkills(ctx, () =>
+      ctx.skills.addToSkill(p.skill, p.add, p.description),
+    );
+    return;
+  }
+  const { text, level, tool, match, regex } = p;
+  const folder = p.folderOnly ? agent.cwd : undefined;
+  addLesson(file, { text, level, tool, match, regex, folder });
+}
+
+/** Saves (`keep`) or discards a proposal; returns those left. */
+export async function answerProposal(
   ctx: HostContext,
   session: string,
   id: string,
@@ -109,14 +164,10 @@ export function answerProposal(
   file = LESSONS_FILE,
 ) {
   const agent = ctx.agents.get(session);
-  const lesson = agent?.proposals?.find((l) => l.id === id);
-  if (!agent || !lesson) return proposals(ctx, session);
-  if (keep) {
-    const { text, level, tool, match } = lesson;
-    const folder = lesson.folderOnly ? agent.cwd : undefined;
-    addLesson(file, { text, level, tool, match, folder });
-  }
-  agent.proposals = agent.proposals!.filter((l) => l.id !== id);
+  const proposal = agent?.proposals?.find((l) => l.id === id);
+  if (!agent || !proposal) return proposals(ctx, session);
+  if (keep) await save(ctx, agent, proposal, file);
+  agent.proposals = (agent.proposals ?? []).filter((l) => l.id !== id);
   push(ctx, agent);
   return agent.proposals;
 }

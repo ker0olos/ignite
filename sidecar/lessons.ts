@@ -2,10 +2,14 @@ import { randomUUID } from "node:crypto";
 import { readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import type { Lesson } from "../shared/lessons.ts";
 import { mcpCall } from "../src/lib/mcpToolCall.ts";
+import { regexFlaw, regexMatches, regexSpeed } from "./lessonRegex.ts";
 
 export type { Lesson };
 
-type NewLesson = Pick<Lesson, "text" | "level" | "tool" | "match" | "folder">;
+type NewLesson = Pick<
+  Lesson,
+  "text" | "level" | "tool" | "match" | "regex" | "quadratic" | "folder"
+>;
 
 export const MAX_LESSONS = 30;
 /** The shortest `match` a tool_call lesson takes. */
@@ -52,13 +56,31 @@ function writeLessons(file: string, lessons: Lesson[]) {
 export const lessonsFor = (lessons: Lesson[], folder: string) =>
   lessons.filter((l) => !l.folder || l.folder === folder);
 
-function cleaned({ text, level, tool, match, folder }: NewLesson): NewLesson {
+// A regex is checked for speed here, on save, never as calls run.
+function checkedRegex(match: string) {
+  const flaw = regexFlaw(match);
+  if (flaw) throw new Error(flaw);
+  const speed = regexSpeed(match);
+  if (typeof speed === "string") throw new Error(speed);
+  return { regex: true, ...(speed.quadratic && { quadratic: true }) };
+}
+
+function cleaned(lesson: NewLesson): NewLesson {
+  const { text, level, tool, match, regex, folder } = lesson;
   if (level === "system_prompt") return { text, level, folder };
   if (!tool) throw new Error("A tool_call lesson needs `tool`.");
-  if (match !== undefined && match.trim().length < MIN_MATCH)
+  if (match === undefined) return { text, level, tool, folder };
+  if (match.trim().length < MIN_MATCH)
     throw new Error(`\`match\` needs at least ${MIN_MATCH} characters.`);
-  return { text, level, tool, match, folder };
+  const kind = regex ? checkedRegex(match) : {};
+  return { text, level, tool, match, ...kind, folder };
 }
+
+const matches = (l: Lesson, text: string) => {
+  if (!l.match) return false;
+  if (!l.regex) return text.includes(l.match);
+  return regexMatches(l.match, text, l.quadratic);
+};
 
 /** The lesson `id` among those that apply in `folder`, or throws. */
 export function lessonIn(file: string, folder: string, id: string): Lesson {
@@ -106,7 +128,8 @@ export function recordHit(file: string, id: string, now = Date.now()) {
 export const list = (lessons: Lesson[]) =>
   lessons
     .map((l) => {
-      const on = l.tool ? ` (${l.tool}${l.match ? `: "${l.match}"` : ""})` : "";
+      const match = l.regex ? `/${l.match}/` : `"${l.match}"`;
+      const on = l.tool ? ` (${l.tool}${l.match ? `: ${match}` : ""})` : "";
       return `- [${l.id}]${on} ${l.text}`;
     })
     .join("\n");
@@ -131,7 +154,7 @@ export function callText(value: unknown): string {
 }
 
 /**
- * The lesson a tool call runs into: one whose `match` its arguments contain,
+ * The lesson a tool call runs into: one whose `match` its arguments contain (or, a regex, match),
  * else one with no `match` not yet in `reminded`.
  */
 export function lessonFor(
@@ -146,7 +169,7 @@ export function lessonFor(
   );
   const text = callText(input);
   return (
-    mine.find((l) => l.match && text.includes(l.match)) ??
+    mine.find((l) => matches(l, text)) ??
     mine.find((l) => !l.match && !reminded.has(l.id))
   );
 }

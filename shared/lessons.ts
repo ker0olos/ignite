@@ -11,6 +11,10 @@ export type Lesson = {
   tool?: string;
   /** Text in the call's arguments that marks it as the mistake; such a call is always blocked. */
   match?: string;
+  /** `match` is a JavaScript regex (`.` crossing lines), not plain text. */
+  regex?: boolean;
+  /** Set on save when the regex can take quadratic time: it sees only a call's start. */
+  quadratic?: boolean;
   /** The folder it applies to; none for every folder. */
   folder?: string;
   hits: number;
@@ -20,15 +24,30 @@ export type Lesson = {
 /** A lesson the reflector draws from a run the user corrected; saved only if the user keeps it. */
 export type ProposedLesson = Pick<
   Lesson,
-  "id" | "text" | "level" | "tool" | "match"
+  "id" | "text" | "level" | "tool" | "match" | "regex"
 > & {
+  kind: "lesson";
   folderOnly: boolean;
   /** The moment in the run that calls for it. */
   evidence: string;
 };
 
+/** A section the reflector would add to one of the app's skills, or a new skill with it. */
+export type ProposedSkill = {
+  kind: "skill";
+  id: string;
+  skill: string;
+  /** Set for a new skill: when the agent should load it. */
+  description?: string;
+  /** Markdown added at the end of the skill. */
+  add: string;
+  evidence: string;
+};
+
+export type Proposal = ProposedLesson | ProposedSkill;
+
 export type LessonRequest =
-  /** The conversation's proposed lessons. */
+  /** The conversation's proposals. */
   | { id: number; type: "lesson_proposals"; session: string }
   /** Saves (`keep`) or discards one; resolves to those left. */
   | {
@@ -43,15 +62,15 @@ export type LessonRequest =
   | { id: number; type: "lessons_remove"; lesson: string };
 
 export type LessonResponses = {
-  lesson_proposals: ProposedLesson[];
-  lesson_answer: ProposedLesson[];
+  lesson_proposals: Proposal[];
+  lesson_answer: Proposal[];
   lessons_list: Lesson[];
   lessons_remove: Lesson[];
 };
 
-/** The lessons the reflector proposes for a conversation changed. */
+/** The reflector's proposals for a conversation changed. */
 export type LessonMessage = {
   type: "lesson_proposals";
   session: string;
-  lessons: ProposedLesson[];
+  lessons: Proposal[];
 };

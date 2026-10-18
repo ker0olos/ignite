@@ -66,6 +66,12 @@ const Params = Type.Object({
         "A call containing it is always blocked. Leave it out for a reminder before the tool's first call in each conversation.",
     }),
   ),
+  regex: Type.Optional(
+    Type.Boolean({
+      description:
+        "True when `match` is a JavaScript regex, to catch every spelling of the mistake (e.g. `push.*(-f|--force)(\\s|$)`; not `\\b`, which also matches --force-with-lease). No nested repeats like (a+)+.",
+    }),
+  ),
   folder_only: Type.Optional(
     Type.Boolean({
       description: "True when the lesson is about this folder only.",

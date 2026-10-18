@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import type { ProposedLesson } from "../../shared/lessons";
+import type { Proposal } from "../../shared/lessons";
 import type { HostClient } from "@/lib/piHost";
 
-/** The lessons the reflector proposes for conversation `session`, kept current by the sidecar's pushes. */
+/** The lessons and skill sections the reflector proposes for conversation `session`, kept current by the sidecar's pushes. */
 export function useLessonProposals(
   host: HostClient | null,
   session: string | null | undefined,
 ) {
   const [loaded, setLoaded] = useState<{
     session: string;
-    lessons: ProposedLesson[];
+    lessons: Proposal[];
   } | null>(null);
   const [error, setError] = useState<{ session: string; text: string } | null>(
     null,

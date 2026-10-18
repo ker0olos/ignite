@@ -331,6 +331,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
   lessons.ts             Lessons from the agent's mistakes (~/.ignite/lessons.json): saving, the cap, which a tool call runs into
   lessonExtension.ts     lesson_add / lesson_remove; system_prompt lessons in the prompt, tool_call ones block their call
+  lessonRegex.ts         Regex lessons: refusing too broad or slow ones on save (recheck), running one on a call
   reflector.ts           After a run the user corrected, the cheapest model proposes lessons with their evidence
   hostReflect.ts         The user's corrections (denials, rewinds), reflecting once a run settles, keeping or
                          discarding proposals; Settings' list and remove
@@ -982,8 +983,14 @@ the folder. A `system_prompt` lesson is listed in the system prompt (read once
 per conversation). A `tool_call` lesson names an exact tool (`git`, `bash`,
 `mcp__github`, or an MCP tool like `create_issue`) and is checked on that
 tool's calls, before approval: with `match`, plain text (3+ characters) in the
-call's argument values joined by spaces (`reason` left out), a matching call
-is always blocked with the lesson as the reason; without it, the tool's first
+call's argument values joined by spaces (`reason` left out), or with
+`regex: true` a JavaScript regex (`s` flag, so `.` crosses lines), a matching
+call is always blocked with the lesson as the reason. A regex is checked once,
+on save (`sidecar/lessonRegex.ts`): refused when it's invalid, matches empty
+or ordinary text (it would block every call), or `recheck` (loaded only then)
+finds it worse than quadratic or can't tell; a quadratic one is marked and
+tried on a call's first 4,000 characters only, a linear one on all of it.
+Without `match`, the tool's first
 call in each conversation is held once so the agent reads it. Subagents get
 the same checks.
 
@@ -995,11 +1002,17 @@ outside the sandbox), a call the user wrote over, and a rewind (with the
 dropped part).
 When a run with corrections settles, the cheapest priced model of its provider
 (the router's) reads them, the run's end and the lessons that already apply,
-and proposes at most 3 lessons, each with its evidence, preferring
-`tool_call` over always-on `system_prompt` ones; most corrections teach
-nothing and propose none. The proposals show above the composer (Keep saves
-the lesson, Discard drops it), kept in the sidecar's memory until answered
-or the conversation closes. Settings → Lessons lists every saved lesson
+and proposes at most 3 lessons or skill sections, each with its evidence,
+preferring `tool_call` lessons over always-on `system_prompt` ones, and a
+skill for a procedure tied to a kind of work (it loads only when needed; a
+`subagent` lesson covers how to delegate). It sees the app's skills (their
+names, and the content of those the run used) and may only add a section at
+the end of one, or start a new one (`addToSkill` in `sidecar/skillStore.ts`;
+a built-in skill is copied into `~/.ignite/pi/skills` first, so the copy
+replaces it); the folder's own `.pi` skills are left alone. Most corrections
+teach nothing and propose none. The proposals show above the composer (Keep
+saves the lesson, or adds the section and reloads the sessions; Discard drops
+it), kept in the sidecar's memory until answered or the conversation closes. Settings → Lessons lists every saved lesson
 (where it applies, how often it came up) and removes one.
 
 Claude subscriptions run through the user's own Claude Code via the

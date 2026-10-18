@@ -11,7 +11,9 @@ export function LessonTags({
   lesson,
   hits,
 }: {
-  lesson: Pick<Lesson, "level" | "tool" | "match"> & { folder?: string };
+  lesson: Pick<Lesson, "level" | "tool" | "match" | "regex"> & {
+    folder?: string;
+  };
   hits?: number;
 }) {
   const { level, tool, match, folder } = lesson;
@@ -37,8 +39,10 @@ export function LessonTags({
           <Ban className="size-3 shrink-0" />
           Blocks
           <code className="min-w-0 font-mono break-words">{tool}</code>
-          with
-          <code className="min-w-0 font-mono break-words">“{match}”</code>
+          {lesson.regex ? "matching" : "with"}
+          <code className="min-w-0 font-mono break-words">
+            {lesson.regex ? `/${match}/` : `“${match}”`}
+          </code>
         </span>
       ) : (
         <span className={cn(tag, "bg-muted text-foreground")}>
