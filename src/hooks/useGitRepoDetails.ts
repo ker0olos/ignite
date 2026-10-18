@@ -1,6 +1,6 @@
-import { ask } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useState } from "react";
 import type { GitRepoDetails, GitRepoStatus } from "../../shared/git";
+import { confirmNative } from "@/lib/lifecycle";
 import { basename } from "@/lib/paths";
 import type { HostClient } from "@/lib/piHost";
 
@@ -33,9 +33,9 @@ export function useGitRepoDetails(
 
   const discard = useCallback(
     async (path: string) => {
-      const ok = await ask(
+      const ok = await confirmNative(
         `Are you sure you want to discard changes in '${basename(path)}'?`,
-        { kind: "warning", okLabel: "Discard File", cancelLabel: "Cancel" },
+        "Discard File",
       );
       if (!ok || !host) return;
       try {

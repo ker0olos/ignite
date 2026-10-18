@@ -2,6 +2,7 @@ import type { QuestionAnswer } from "../shared/questions.ts";
 import type { ApprovalAsk } from "./approvalAsk.ts";
 import { tellsApp, type Agent, type HostContext } from "./hostTypes.ts";
 import { pushProjects } from "./hostProjects.ts";
+import { noteDenied } from "./hostReflect.ts";
 import { forgetWaiting, markWaiting, unmarkWaiting } from "./waitingCalls.ts";
 
 /** Keeps a tool call's question, and passes it on if the app follows its conversation. */
@@ -32,7 +33,12 @@ export function answerApproval(
     if (!ask) continue;
     agent.approvals.delete(toolCallId);
     unmarkWaiting(agent.id, toolCallId);
-    if (!approved) ask.declined?.();
+    if (!approved) {
+      ask.declined?.();
+      // Declining to run a sandbox-blocked command outside it isn't the agent's mistake.
+      if (ask.wait !== "ran" && own(agent, toolCallId))
+        noteDenied(agent, toolCallId);
+    }
     ask.answer(approved, answers, always);
     pushProjects(ctx);
   }
@@ -52,14 +58,16 @@ export const waitsOnUser = (agent: Agent) =>
 /** Denies a conversation's waiting tool calls: its run stopped, it closed, or the user `wrote` a message instead. */
 export function denyAll(ctx: HostContext, agent: Agent, wrote = false) {
   if (!agent.approvals.size) return;
-  agent.approvals.forEach((ask, id) =>
+  agent.approvals.forEach((ask, id) => {
+    const instead = wrote && own(agent, id);
+    if (instead) noteDenied(agent, id, true);
     ask.answer(
       false,
       undefined,
       undefined,
-      wrote && own(agent, id) ? WROTE_INSTEAD : undefined,
-    ),
-  );
+      instead ? WROTE_INSTEAD : undefined,
+    );
+  });
   agent.approvals.clear();
   forgetWaiting(agent.id);
   pushProjects(ctx);

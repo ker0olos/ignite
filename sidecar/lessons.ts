@@ -1,27 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import type { Lesson } from "../shared/lessons.ts";
 import { mcpCall } from "../src/lib/mcpToolCall.ts";
+import { regexFlaw, regexMatches, regexSpeed } from "./lessonRegex.ts";
 
-/** A mistake the agent wrote down so it doesn't make it again. */
-export type Lesson = {
-  id: string;
-  text: string;
-  /** tool_call: shown when the agent calls `tool`; system_prompt: in every run's system prompt. */
-  level: "tool_call" | "system_prompt";
-  /** The exact tool name (`git`, `bash`, `mcp__github`) or MCP tool name (`create_issue`). */
-  tool?: string;
-  /** Text in the call's arguments that marks it as the mistake; such a call is always blocked. */
-  match?: string;
-  /** The folder it applies to; none for every folder. */
-  folder?: string;
-  hits: number;
-  lastHit?: number;
-};
+export type { Lesson };
 
-type NewLesson = Pick<Lesson, "text" | "level" | "tool" | "match" | "folder">;
+type NewLesson = Pick<
+  Lesson,
+  "text" | "level" | "tool" | "match" | "regex" | "quadratic" | "folder"
+>;
 
 export const MAX_LESSONS = 30;
-const MIN_MATCH = 3;
+/** The shortest `match` a tool_call lesson takes. */
+export const MIN_MATCH = 3;
+
+/** A new lesson's id. */
+export const lessonId = () => randomUUID().slice(0, 8);
 
 const cache = new Map<string, { mtime: number; lessons: Lesson[] }>();
 
@@ -61,13 +56,31 @@ function writeLessons(file: string, lessons: Lesson[]) {
 export const lessonsFor = (lessons: Lesson[], folder: string) =>
   lessons.filter((l) => !l.folder || l.folder === folder);
 
-function cleaned({ text, level, tool, match, folder }: NewLesson): NewLesson {
+// A regex is checked for speed here, on save, never as calls run.
+function checkedRegex(match: string) {
+  const flaw = regexFlaw(match);
+  if (flaw) throw new Error(flaw);
+  const speed = regexSpeed(match);
+  if (typeof speed === "string") throw new Error(speed);
+  return { regex: true, ...(speed.quadratic && { quadratic: true }) };
+}
+
+function cleaned(lesson: NewLesson): NewLesson {
+  const { text, level, tool, match, regex, folder } = lesson;
   if (level === "system_prompt") return { text, level, folder };
   if (!tool) throw new Error("A tool_call lesson needs `tool`.");
-  if (match !== undefined && match.trim().length < MIN_MATCH)
+  if (match === undefined) return { text, level, tool, folder };
+  if (match.trim().length < MIN_MATCH)
     throw new Error(`\`match\` needs at least ${MIN_MATCH} characters.`);
-  return { text, level, tool, match, folder };
+  const kind = regex ? checkedRegex(match) : {};
+  return { text, level, tool, match, ...kind, folder };
 }
+
+const matches = (l: Lesson, text: string) => {
+  if (!l.match) return false;
+  if (!l.regex) return text.includes(l.match);
+  return regexMatches(l.match, text, l.quadratic);
+};
 
 /** The lesson `id` among those that apply in `folder`, or throws. */
 export function lessonIn(file: string, folder: string, id: string): Lesson {
@@ -90,7 +103,7 @@ export function addLesson(
       `${MAX_LESSONS} lessons already apply here. Merge this into one of them with \`replaces\`:\n${list(scope)}`,
     );
   }
-  const lesson: Lesson = { ...fields, id: randomUUID().slice(0, 8), hits: 0 };
+  const lesson: Lesson = { ...fields, id: lessonId(), hits: 0 };
   writeLessons(file, [...rest, lesson]);
   return lesson;
 }
@@ -115,7 +128,8 @@ export function recordHit(file: string, id: string, now = Date.now()) {
 export const list = (lessons: Lesson[]) =>
   lessons
     .map((l) => {
-      const on = l.tool ? ` (${l.tool}${l.match ? `: "${l.match}"` : ""})` : "";
+      const match = l.regex ? `/${l.match}/` : `"${l.match}"`;
+      const on = l.tool ? ` (${l.tool}${l.match ? `: ${match}` : ""})` : "";
       return `- [${l.id}]${on} ${l.text}`;
     })
     .join("\n");
@@ -140,7 +154,7 @@ export function callText(value: unknown): string {
 }
 
 /**
- * The lesson a tool call runs into: one whose `match` its arguments contain,
+ * The lesson a tool call runs into: one whose `match` its arguments contain (or, a regex, match),
  * else one with no `match` not yet in `reminded`.
  */
 export function lessonFor(
@@ -155,7 +169,7 @@ export function lessonFor(
   );
   const text = callText(input);
   return (
-    mine.find((l) => l.match && text.includes(l.match)) ??
+    mine.find((l) => matches(l, text)) ??
     mine.find((l) => !l.match && !reminded.has(l.id))
   );
 }

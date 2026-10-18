@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { McpServer, ProviderStatus } from "../../../shared/hostProtocol";
 import type { RemoteStatus } from "../../../shared/remote";
 import { McpServerDialog } from "@/components/mcp/McpServerDialog";
@@ -19,6 +19,7 @@ import { filesItems } from "@/components/settings/sections/filesItems";
 import { hotkeysItems } from "@/components/settings/sections/hotkeysItems";
 import { mcpItems } from "@/components/settings/sections/mcpItems";
 import { memoryItems } from "@/components/settings/sections/memoryItems";
+import { lessonsItems } from "@/components/settings/sections/lessonsItems";
 import { providersItems } from "@/components/settings/sections/providersItems";
 import { remoteItems } from "@/components/settings/sections/remoteItems";
 import { skillsItems } from "@/components/settings/sections/skillsItems";
@@ -27,12 +28,11 @@ import { SettingsSections } from "@/components/settings/SettingsSections";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { useAbout } from "@/hooks/useAbout";
 import type { useMcpServers } from "@/hooks/useMcpServers";
+import type { useLessons } from "@/hooks/useLessons";
 import type { useMemory } from "@/hooks/useMemory";
 import { useScrollToNewServer } from "@/hooks/useScrollToNewServer";
 import type { useSkills } from "@/hooks/useSkills";
-import type { CodeTheme } from "@/lib/codeThemes";
-import { listThemes } from "@/lib/codeThemeDiscovery";
-import { listIconThemes, type IconThemeInfo } from "@/lib/iconThemes";
+import { useInstalledThemes } from "@/hooks/useInstalledThemes";
 import type { Settings } from "@/lib/settings";
 
 export type { Section } from "@/components/settings/sections";
@@ -49,6 +49,7 @@ export function SettingsDialog({
   mcp,
   skills,
   memory,
+  lessons,
   about,
   folder,
   remote,
@@ -66,6 +67,7 @@ export function SettingsDialog({
   mcp: ReturnType<typeof useMcpServers>;
   skills: ReturnType<typeof useSkills>;
   memory: ReturnType<typeof useMemory>;
+  lessons: ReturnType<typeof useLessons>;
   about: ReturnType<typeof useAbout>;
   /** The open folder, whose memories the Memory section previews. */
   folder: string | null;
@@ -78,18 +80,10 @@ export function SettingsDialog({
   // The server being edited, "new" while adding one.
   const [editing, setEditing] = useState<McpServer | "new" | null>(null);
   const [query, setQuery] = useState("");
-  const [themes, setThemes] = useState<CodeTheme[]>([]);
-  const [iconThemes, setIconThemes] = useState<IconThemeInfo[]>([]);
+  const { themes, setThemes, iconThemes } = useInstalledThemes(open);
   const search = useRef<HTMLInputElement>(null);
 
   useScrollToNewServer(mcp.servers);
-
-  // Rescan on every open so newly installed themes show up.
-  useEffect(() => {
-    if (!open) return;
-    listThemes(true).then(setThemes);
-    listIconThemes(true).then(setIconThemes);
-  }, [open]);
 
   const items: Item[] = [
     ...providersItems({ providers, providersError, onManageProviders }),
@@ -98,6 +92,7 @@ export function SettingsDialog({
     ...skillsItems({ skills }),
     ...chromeItems({ settings, onChange }),
     ...memoryItems({ memory, folderOpen: !!folder, settings, onChange }),
+    ...lessonsItems({ lessons }),
     ...remoteItems({ settings, onChange, status: remote }),
     ...macItems(settings, onChange),
     ...appearanceItems({

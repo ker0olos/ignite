@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Section } from "@/components/settings/sections";
 import { useAbout } from "@/hooks/useAbout";
+import { useLessons } from "@/hooks/useLessons";
 import { useMemory } from "@/hooks/useMemory";
 import { useSkills } from "@/hooks/useSkills";
 import type { HostClient } from "@/lib/piHost";
@@ -22,6 +23,7 @@ export function useSettingsDialog(
     setOpen,
     section,
     memory: useMemory(host, folder, open),
+    lessons: useLessons(host, open),
     skills: useSkills(host, open),
     about,
     /** Opens the dialog on `section`. */

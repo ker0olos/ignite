@@ -67,6 +67,7 @@
     "react-konva": "^19.3.0",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.13.3",
+    "recheck": "4.6.0-beta.3",
     "remark-gfm": "^4.0.1",
     "shiki": "^4.4.3",
     "sigstore": "5.0.0",

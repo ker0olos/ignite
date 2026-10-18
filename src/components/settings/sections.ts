@@ -5,6 +5,7 @@ import {
   Brain,
   Code,
   Globe,
+  GraduationCap,
   Info,
   Keyboard,
   Laptop,
@@ -48,6 +49,12 @@ export const SECTIONS = {
     icon: Brain,
     brief: "Recall across conversations",
     blurb: "What the agent remembers across conversations, with cmem.",
+  },
+  Lessons: {
+    icon: GraduationCap,
+    brief: "What the agent learned from you",
+    blurb:
+      "What the agent learned from your corrections, read in every conversation they apply to.",
   },
   Remote: {
     icon: Smartphone,

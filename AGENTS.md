@@ -25,11 +25,12 @@ src/                     React frontend (almost all logic lives here)
                          diff tabs whose lines take comments (gutter "+", comment box)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
-                         (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt
+                         (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt, the reflector's proposed lessons
     conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces; WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              Recent cmem observations for the Memory settings
+    lessons/             A lesson's tags (its folder, what brings it up), in Settings and proposals
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
     skills/              Skill and plugin rows, import UI from other apps
     providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos
@@ -97,6 +98,9 @@ src/                     React frontend (almost all logic lives here)
     useAbout.ts          The commit the app runs from; Check for updates, reloading every window,
                          or (launcher) built in the background every 6h, then Restart
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
+    useInstalledThemes.ts The code and icon themes to pick from, scanned again on every open
+    useLessons.ts        Every saved lesson, while Settings is open; removing one
+    useLessonProposals.ts The reflector's proposed lessons for the shown conversation: keep or discard
     useOpenedOnce.ts     Mounts a lazy dialog (Settings, command center) on first open; loads its code soon after startup
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
     useMaximized.ts      Whether the window is maximized, for WindowControls' maximize or restore
@@ -139,7 +143,7 @@ src/                     React frontend (almost all logic lives here)
     menu.ts              macOS menu bar
     inAppMenu.ts         On Windows and Linux the same items as an in-app menu (AppMenuButton), File first and
                          the app's menu last, and its shortcuts' key matching
-    lifecycle.ts         Confirm before quitting or closing a window
+    lifecycle.ts         Every confirmation, in the system's dialog (`confirmNative`): quitting, closing a window…
     piHost.ts            Starts the pi host sidecar; request/response client
     providerGroups.ts    Presents pi's providers as brands (Claude, ChatGPT)
     gitStatus.ts         Which of a conversation's repositories the composer shows, and their pull requests' state
@@ -157,6 +161,7 @@ src/                     React frontend (almost all logic lives here)
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
     skills.ts            Skills settings text: counts
     memory.ts            Memory settings text: cmem status line, relative times
+    lessons.ts           A lesson's folder as its tag names it
     about.ts             About text: version line, update button states, the macOS About panel
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
     gitPolicy.ts         Which git and gh tool calls run and which ask (commit and push for review)
@@ -326,6 +331,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
   lessons.ts             Lessons from the agent's mistakes (~/.ignite/lessons.json): saving, the cap, which a tool call runs into
   lessonExtension.ts     lesson_add / lesson_remove; system_prompt lessons in the prompt, tool_call ones block their call
+  lessonRegex.ts         Regex lessons: refusing too broad or slow ones on save (recheck), running one on a call
+  reflector.ts           After a run the user corrected, the cheapest model proposes lessons with their evidence
+  hostReflect.ts         The user's corrections (denials, rewinds), reflecting once a run settles, keeping or
+                         discarding proposals; Settings' list and remove
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
   taskStore.ts           Each folder's tasks in ~/.ignite/tasks, written one at a time, pushed on change
   todoFile.ts            .todo files' open items (the folder's and its folders'), for the Tasks view; deleting one
@@ -974,10 +983,37 @@ the folder. A `system_prompt` lesson is listed in the system prompt (read once
 per conversation). A `tool_call` lesson names an exact tool (`git`, `bash`,
 `mcp__github`, or an MCP tool like `create_issue`) and is checked on that
 tool's calls, before approval: with `match`, plain text (3+ characters) in the
-call's argument values joined by spaces (`reason` left out), a matching call
-is always blocked with the lesson as the reason; without it, the tool's first
+call's argument values joined by spaces (`reason` left out), or with
+`regex: true` a JavaScript regex (`s` flag, so `.` crosses lines), a matching
+call is always blocked with the lesson as the reason. A regex is checked once,
+on save (`sidecar/lessonRegex.ts`): refused when it's invalid, matches empty
+or ordinary text (it would block every call), or `recheck` (loaded only then)
+finds it worse than quadratic or can't tell; a quadratic one is marked and
+tried on a call's first 4,000 characters only, a linear one on all of it.
+Without `match`, the tool's first
 call in each conversation is held once so the agent reads it. Subagents get
 the same checks.
+
+The reflector (`sidecar/reflector.ts`, after Google's Harness²) catches the
+corrections the agent didn't write down. `sidecar/hostReflect.ts` notes the
+user's corrections of a conversation: a denied call of its own (not a
+subagent's, nor a declined `ask_user`, `task_add`, lesson change or run
+outside the sandbox), a call the user wrote over, and a rewind (with the
+dropped part).
+When a run with corrections settles, the cheapest priced model of its provider
+(the router's) reads them, the run's end and the lessons that already apply,
+and proposes at most 3 lessons or skill sections, each with its evidence,
+preferring `tool_call` lessons over always-on `system_prompt` ones, and a
+skill for a procedure tied to a kind of work (it loads only when needed; a
+`subagent` lesson covers how to delegate). It sees the app's skills (their
+names, and the content of those the run used) and may only add a section at
+the end of one, or start a new one (`addToSkill` in `sidecar/skillStore.ts`;
+a built-in skill is copied into `~/.ignite/pi/skills` first, so the copy
+replaces it); the folder's own `.pi` skills are left alone. Most corrections
+teach nothing and propose none. The proposals show above the composer (Keep
+saves the lesson, or adds the section and reloads the sessions; Discard drops
+it), kept in the sidecar's memory until answered or the conversation closes. Settings → Lessons lists every saved lesson
+(where it applies, how often it came up) and removes one.
 
 Claude subscriptions run through the user's own Claude Code via the
 `pi-claude-bridge` extension (pi provider `claude-bridge`), because Anthropic
@@ -1077,6 +1113,9 @@ Without the variable nothing changes.
 lint`): one component per file, files ≤250 lines, functions ≤120 lines,
   complexity ≤10, nesting ≤4. Split code instead of raising a limit or adding
   to the exemption list.
+- **Confirmations are native.** Every "Are you sure?" (remove, discard, close,
+  quit…) goes through `confirmNative` in `lib/lifecycle.ts`, the system's
+  dialog. Never a shadcn `Dialog`/`AlertDialog` for a yes/no question.
 - **Menus are shadcn.** Every menu, picker and dropdown uses a shadcn component
   (`Select`, `DropdownMenu`, …; add missing ones with `pnpm dlx shadcn@latest add`).
   Never a native `<select>` or a hand-rolled popup.

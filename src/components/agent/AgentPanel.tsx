@@ -2,6 +2,8 @@ import { Composer } from "@/components/agent/Composer";
 import { ConversationSkeleton } from "@/components/agent/ConversationSkeleton";
 import { EmptyConversation } from "@/components/agent/EmptyConversation";
 import { TrustPrompt } from "@/components/agent/TrustPrompt";
+import { LessonProposals } from "@/components/agent/LessonProposals";
+import { useLessonProposals } from "@/hooks/useLessonProposals";
 import { ConversationPane } from "@/components/agent/ConversationPane";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import { useQuestionDeck, useWaitingCalls } from "@/hooks/useQuestionDeck";
@@ -64,6 +66,7 @@ export function AgentPanel({
         always,
       ),
   );
+  const proposed = useLessonProposals(host, session.session);
 
   return (
     <>
@@ -105,6 +108,11 @@ export function AgentPanel({
       {session.trust === "ask" && (
         <TrustPrompt onAnswer={(trusted) => void session.setTrust(trusted)} />
       )}
+      <LessonProposals
+        lessons={proposed.lessons}
+        error={proposed.error}
+        onAnswer={(id, keep) => void proposed.answer(id, keep)}
+      />
       <Composer
         host={host}
         folder={folder}
