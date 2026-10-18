@@ -1,10 +1,15 @@
 import type { ImageContent } from "../shared/agentTypes.ts";
 import type { RewoundFiles } from "../shared/rewind.ts";
 import { titleOf } from "../shared/conversations.ts";
-import { restoreCheckpoint } from "./checkpoints.ts";
+import {
+  restoreCheckpoint,
+  restoreState,
+  takeCheckpoint,
+} from "./checkpoints.ts";
 import { inWorktree, rewindable } from "./hostCheckpoint.ts";
 import { pushProjects, refuseWhileForked } from "./hostProjects.ts";
-import { prompt, settleResume } from "./hostSession.ts";
+import { settleResume } from "./hostSend.ts";
+import { prompt } from "./hostSession.ts";
 import {
   current,
   tellsApp,
@@ -30,14 +35,30 @@ function refuseWhileBusy(ctx: HostContext, agent: Agent, s: Session) {
 }
 
 async function rewindFiles(agent: Agent, entryId: string) {
-  if (!inWorktree(agent)) return "shared" as const;
+  if (!inWorktree(agent)) return { files: "shared" as const };
   await agent.checkpoint;
+  const undo = await takeCheckpoint(agent.workdir);
   const restored = await restoreCheckpoint(agent.workdir, agent.id, entryId);
-  return restored ? ("restored" as const) : ("missing" as const);
+  if (!restored) return { files: "missing" as const };
+  return { files: "restored" as const, undo };
 }
 
-// Its title is its first message's, unless it's a fork (named after its original).
+// Files and conversation go back together: pi refusing to move puts the files back too.
+async function goBack(s: Session, agent: Agent, entryId: string) {
+  const { files, undo } = await rewindFiles(agent, entryId);
+  try {
+    if ((await s.navigateTree(entryId)).cancelled)
+      throw new Error("The conversation couldn't go back to that message.");
+  } catch (error) {
+    if (undo) await restoreState(agent.workdir, undo).catch(() => {});
+    throw error;
+  }
+  return files;
+}
+
+// Its title is its first message's, unless it's a fork (named after its original); its model stays.
 function retitle(ctx: HostContext, agent: Agent, s: Session, text: string) {
+  agent.routed = true;
   if (agent.forkOf) return;
   agent.title = titleOf({ role: "user", content: text, timestamp: 0 });
   // Saved, as the conversation list reads the file's first message, the old branch's.
@@ -81,9 +102,7 @@ export async function rewind(
   if (!rewindable(branch).some((e) => e.id === entryId))
     throw new Error("That message can't be edited any more.");
   const first = branch.find((e) => e.message?.role === "user")?.id === entryId;
-  const files = await rewindFiles(agent, entryId);
-  if ((await s.navigateTree(entryId)).cancelled)
-    throw new Error("The conversation couldn't go back to that message.");
+  const files = await goBack(s, agent, entryId);
   if (first) retitle(ctx, agent, s, text);
   tell(ctx, agent, entryId, files);
   await prompt(ctx, text, images, session);

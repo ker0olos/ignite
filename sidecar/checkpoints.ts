@@ -3,8 +3,11 @@
  * kept as commits under refs of their own, so editing a message can put
  * its worktree back as it was then.
  */
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
-import { git, gitOr, restore, snapshot } from "./worktreeGit.ts";
+import { git, gitOr, snapshot, workingTree } from "./worktreeGit.ts";
 
 const prefix = (id: string) => `refs/${APP_NAME}/checkpoints/${id}/`;
 
@@ -31,10 +34,24 @@ export async function keepCheckpoint(
   return kept !== null;
 }
 
-/**
- * Makes `dir`'s tracked and untracked files match the checkpoint of message
- * `entry` (ignored ones stay), its index at HEAD; false when there's none.
- */
+/** Makes `dir`'s tracked and untracked files match commit `state` (ignored ones stay), its index at HEAD. */
+export async function restoreState(dir: string, state: string) {
+  const top = await git(dir, ["rev-parse", "--show-toplevel"]);
+  const tmp = await mkdtemp(join(tmpdir(), `${APP_NAME}-index-`));
+  const index = join(tmp, "index");
+  try {
+    // Staged with the untracked files first, so read-tree removes those that `state` lacks, deleting nothing if it fails.
+    await workingTree(top, index);
+    await git(top, ["read-tree", "-u", "--reset", state], {
+      GIT_INDEX_FILE: index,
+    });
+  } finally {
+    await rm(tmp, { recursive: true, force: true });
+  }
+  await git(top, ["reset", "-q"]);
+}
+
+/** Restores the checkpoint of message `entry` (see restoreState); false when there's none. */
 export async function restoreCheckpoint(
   dir: string,
   id: string,
@@ -43,10 +60,7 @@ export async function restoreCheckpoint(
   const ref = checkpointRef(id, entry);
   const state = await gitOr(dir, ["rev-parse", "-q", "--verify", ref]);
   if (!state) return false;
-  const top = await git(dir, ["rev-parse", "--show-toplevel"]);
-  // Files added since aren't in the index, so read-tree alone would leave them.
-  await git(top, ["clean", "-fdq"]);
-  await restore(top, state);
+  await restoreState(dir, state);
   return true;
 }
 

@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, copyFile, mkdtemp, rm } from "node:fs/promises";
+import { access, cp, mkdtemp, rm } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import {
@@ -113,7 +113,8 @@ export async function workingTree(
       "--git-path",
       "index",
     ]);
-    await copyFile(index, indexFile).catch(() =>
+    // Its mtime too: git re-reads files changed since it, so a copy dated now would hide a racy edit.
+    await cp(index, indexFile, { preserveTimestamps: true }).catch(() =>
       git(dir, ["read-tree", "HEAD"], env),
     );
   }

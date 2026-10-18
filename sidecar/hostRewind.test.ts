@@ -15,7 +15,8 @@ import type { Agent, HostContext, Session } from "./hostTypes.ts";
 
 const prompt = vi.fn<(...args: unknown[]) => Promise<void>>(async () => {});
 const settleResume = vi.fn<(agent: Agent) => Promise<void>>(async () => {});
-vi.mock("./hostSession.ts", () => ({ prompt, settleResume }));
+vi.mock("./hostSession.ts", () => ({ prompt }));
+vi.mock("./hostSend.ts", () => ({ settleResume }));
 vi.mock("./hostProjects.ts", async (real) => ({
   ...(await real<typeof import("./hostProjects.ts")>()),
   pushProjects: vi.fn(),
@@ -108,6 +109,7 @@ describe("rewind", () => {
     expect(prompt).toHaveBeenCalledWith(ctx, "try three", images, "s1");
     expect(s.setSessionName).not.toHaveBeenCalled();
     expect(agent.title).toBe("First");
+    expect(agent.routed).toBeUndefined();
   });
 
   it("leaves the files when the message has no checkpoint", async () => {
@@ -138,6 +140,7 @@ describe("rewind", () => {
     await rewind(ctx, "s1", "u1", "A new start\nwith details");
     expect(agent.title).toBe("A new start");
     expect(s.setSessionName).toHaveBeenCalledWith("A new start");
+    expect(agent.routed).toBe(true);
   });
 
   it("keeps a fork's name when its first message is edited", async () => {
@@ -146,6 +149,7 @@ describe("rewind", () => {
     await rewind(ctx, "s1", "u1", "A new start");
     expect(agent.title).toBe("First");
     expect(s.setSessionName).not.toHaveBeenCalled();
+    expect(agent.routed).toBe(true);
   });
 
   it.each([
@@ -205,6 +209,24 @@ describe("rewind", () => {
       );
     }
     expect(s.navigateTree).not.toHaveBeenCalled();
+  });
+
+  it("puts the files back when pi won't move, or throws", async () => {
+    const { ctx, s, sent } = setup();
+    const commit = await takeCheckpoint(repo);
+    await keepCheckpoint(repo, "s1", "u2", commit!);
+    writeFileSync(join(repo, "app.ts"), "two\n");
+    s.navigateTree.mockResolvedValueOnce({ cancelled: true });
+    await expect(rewind(ctx, "s1", "u2", "x")).rejects.toThrow(
+      "couldn't go back",
+    );
+    expect(read()).toBe("two\n");
+    s.navigateTree.mockRejectedValueOnce(
+      new Error("Wait for the current response"),
+    );
+    await expect(rewind(ctx, "s1", "u2", "x")).rejects.toThrow("Wait for");
+    expect(read()).toBe("two\n");
+    expect(sent).toEqual([]);
   });
 
   it("sends nothing when pi doesn't move", async () => {

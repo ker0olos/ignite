@@ -17,22 +17,16 @@ import {
 } from "./hostTypes.ts";
 import type { ApprovalAsk } from "./approvalAsk.ts";
 import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
-import {
-  askApproval,
-  denyAll,
-  waitsOnUser,
-  WROTE_INSTEAD,
-} from "./hostApproval.ts";
+import { askApproval, denyAll } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { subagentsIn } from "./hostChildren.ts";
 import { firstTitle } from "../shared/conversations.ts";
 import { pushProjects, refuseWhileForked } from "./hostProjects.ts";
 import { INTERRUPTED, prepareResume } from "./hostResume.ts";
-import { rememberImages } from "./queuedImages.ts";
-import { routeMessage } from "./hostRoute.ts";
 import { follow, reportTo } from "./hostFollow.ts";
 import { forkOf } from "./forks.ts";
-import { checkpointFirst, withEntryIds } from "./hostCheckpoint.ts";
+import { withEntryIds } from "./hostCheckpoint.ts";
+import { hand, takeTurn } from "./hostSend.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -259,16 +253,6 @@ export async function closeAll(ctx: HostContext) {
   await Promise.all([...ctx.agents.values()].map((a) => end(ctx, a, true)));
 }
 
-/** A message written before a cut-off run resumed goes first; one written after waits until that run has started. */
-export async function settleResume(agent: Agent) {
-  const { resume } = agent;
-  if (!resume) return;
-  agent.resume = undefined;
-  // The app holds the rewound conversation; reopening sends it the restored one.
-  if (await resume.cancel(WROTE_INSTEAD)) agent.followed = false;
-  else await resume.started;
-}
-
 // pi's prompt() resolves when the whole run ends; the app follows the run
 // through events, so only a failure is reported here.
 /** Sends a prompt to the shown conversation, or `session`; a failure goes to `onError` if given. */
@@ -283,20 +267,13 @@ export async function prompt(
   const agent = target(ctx, session);
   refuseWhileForked(ctx, session);
   const s = await current(ctx, session);
-  await settleResume(agent!);
-  await agent!.ready;
-  if (s.isStreaming) rememberImages(agent!, text, images);
-  // A message sent mid-run steers the run; a conversation's first one may be routed.
-  else if (!(await routeMessage(ctx, agent!, s, text, images))) return;
-  else await checkpointFirst(agent!);
-  // A message written instead of answering says why, so it steers even when queued.
-  const behavior = waitsOnUser(agent!) ? "steer" : queue;
-  const options = {
-    ...(s.isStreaming && { streamingBehavior: behavior }),
-    ...(images?.length ? { images } : {}),
-    // Writing instead of answering declines what waits, once pi holds the
-    // message: declined earlier, the run's next turn starts without it.
-    preflightResult: () => denyAll(ctx, agent!, true),
-  };
-  s.prompt(text, options).catch(onError ?? reportTo(ctx, agent!));
+  const turn = takeTurn(agent!);
+  await turn.before;
+  let handed = false;
+  try {
+    const out = { text, images, queue, onError };
+    handed = await hand(ctx, agent!, s, out, turn.done);
+  } finally {
+    if (!handed) turn.done();
+  }
 }

@@ -80,11 +80,12 @@ export function followUserMessage(
         },
       });
     }
-    if (taken)
-      agent.checkpoint = Promise.all([
-        agent.checkpoint,
+    if (taken) {
+      const before = agent.checkpoint;
+      agent.checkpoint = Promise.resolve(before).then(() =>
         keep(agent, entry.id, taken),
-      ]);
+      );
+    }
   });
 }
 

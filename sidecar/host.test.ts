@@ -956,6 +956,56 @@ describe("sessions", () => {
     });
   });
 
+  it("holds a second message until pi holds the first, then queues it", async () => {
+    const session = fakeSession();
+    let hold = () => {};
+    // Like pi: held once its run starts, resolved only when that run ends.
+    session.prompt.mockImplementationOnce(
+      (_text, o = {}) =>
+        new Promise<void>(() => {
+          hold = () => {
+            session.isStreaming = true;
+            o.preflightResult?.();
+          };
+        }),
+    );
+    const { request } = setup(fakeRuntime().runtime, async () => session);
+    await request({ id: 1, type: "open_session", cwd: "/work", session: "a" });
+    await request({ id: 2, type: "prompt", session: "a", text: "first" });
+    const second = request({
+      id: 3,
+      type: "prompt",
+      session: "a",
+      text: "next",
+    });
+    await new Promise((done) => setTimeout(done, 20));
+    expect(session.prompt).toHaveBeenCalledTimes(1);
+    hold();
+    await second;
+    expect(session.prompt.mock.calls[1]).toEqual([
+      "next",
+      expect.objectContaining({ streamingBehavior: "steer" }),
+    ]);
+  });
+
+  it("lets the next message go once one fails, or runs as a command", async () => {
+    const session = fakeSession();
+    session.prompt
+      .mockImplementationOnce(async () => {
+        throw new Error("No model.");
+      })
+      .mockImplementationOnce(async (_text, o = {}) => {
+        (o.preflightResult as ((r: string) => void) | undefined)?.("handled");
+      });
+    const { request, sent } = setup(fakeRuntime().runtime, async () => session);
+    await request({ id: 1, type: "open_session", cwd: "/work", session: "a" });
+    await request({ id: 2, type: "prompt", session: "a", text: "one" });
+    await waitFor(sent, "session_error");
+    await request({ id: 3, type: "prompt", session: "a", text: "/cmd" });
+    await request({ id: 4, type: "prompt", session: "a", text: "three" });
+    expect(session.prompt).toHaveBeenCalledTimes(3);
+  });
+
   it("names each user message by its entry, and edits one through rewind", async () => {
     const session = fakeSession();
     const hello = { role: "user", content: "hi", timestamp: 1 } as const;

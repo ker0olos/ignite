@@ -17,6 +17,7 @@ import {
   dropCheckpoints,
   keepCheckpoint,
   restoreCheckpoint,
+  restoreState,
   takeCheckpoint,
 } from "./checkpoints.ts";
 
@@ -94,6 +95,31 @@ describe("checkpoints", () => {
     write(join(repo, "app.ts"), "changed\n");
     expect(await restoreCheckpoint(join(repo, "sub"), "s1", "e1")).toBe(true);
     expect(read(repo, "app.ts")).toBe("one\n");
+  });
+
+  it("sees a same-size edit made the moment after a checkpoint", async () => {
+    await checkpoint();
+    const later = await takeCheckpoint(repo);
+    write(join(repo, "app.ts"), "two\n");
+    expect(await restoreCheckpoint(repo, "s1", "e1")).toBe(true);
+    expect(read(repo, "app.ts")).toBe("one\n");
+    write(join(repo, "app.ts"), "six\n");
+    await restoreState(repo, later!);
+    expect(read(repo, "app.ts")).toBe("one\n");
+  });
+
+  it("deletes nothing when the state can't be read", async () => {
+    write(join(repo, "new.ts"), "new\n");
+    await expect(restoreState(repo, "0".repeat(40))).rejects.toThrow();
+    expect(read(repo, "new.ts")).toBe("new\n");
+  });
+
+  it("puts back any commit of the working state, as the undo of a rewind", async () => {
+    write(join(repo, "app.ts"), "mine\n");
+    const undo = await takeCheckpoint(repo);
+    write(join(repo, "app.ts"), "theirs\n");
+    await restoreState(repo, undo!);
+    expect(read(repo, "app.ts")).toBe("mine\n");
   });
 
   it("leaves the files when the message has no checkpoint", async () => {

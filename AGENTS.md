@@ -199,6 +199,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostTypes.ts           Shared types and HostContext; per-function context instead of closures
   hostAuth.ts            Provider sign-in (status, interaction, login)
   hostSession.ts         Open conversations, several per folder, kept running while hidden (sessionState, setModel, open, close, prompt)
+  hostSend.ts            A message handed to pi: one at a time (each once pi holds the last), routed, checkpointed
   hostProjects.ts        Tells the app which open conversations are working or waiting (pushProjects)
   hostResume.ts          Resumes a run a reload or quit cut off: calls that may have run marked interrupted;
                          a call that waited on the user runs again, asking as before; agent continues

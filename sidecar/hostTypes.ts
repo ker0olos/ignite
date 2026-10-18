@@ -210,6 +210,10 @@ export type Agent = {
   running: boolean;
   /** The user picked its model, so Model Router is off for it. */
   pickedModel?: boolean;
+  /** Its first message was edited, so the router, which already ran, doesn't run again. */
+  routed?: boolean;
+  /** Settles once the message being sent is held by pi (running, queued or handled), or failed. */
+  sending?: Promise<void>;
   /** The new message the router is reading; Stop drops it and hands it back. */
   routing?: {
     text: string;

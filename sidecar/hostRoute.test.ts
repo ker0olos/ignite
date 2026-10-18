@@ -129,6 +129,9 @@ describe("routeMessage", () => {
     const picked = setup();
     picked.agent.pickedModel = true;
     expect(await picked.run()).toBe(true);
+    const edited = setup();
+    edited.agent.routed = true;
+    expect(await edited.run()).toBe(true);
     const own = task({ session: "s1", model: { provider: "p", id: "own" } });
     const withModel = setup([own]);
     expect(await withModel.run()).toBe(true);
