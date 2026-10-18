@@ -23,6 +23,7 @@ it("opens the repository's files and commits without submitting the composer", a
       <GitRepoStatusItem
         host={{ request } as unknown as HostClient}
         status={status}
+        session={null}
       />
     </form>,
   );

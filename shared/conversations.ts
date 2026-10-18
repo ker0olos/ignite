@@ -1,6 +1,6 @@
 /** A folder's saved conversations, as the command center finds, lists and describes them. */
 import type { AgentMessage, UserMessage } from "./agentTypes.ts";
-import { typedSkill } from "./skills.ts";
+import { typedMessage } from "./sentComments.ts";
 import type { Subtask } from "./tasks.ts";
 
 /** A conversation pi saved for a folder. */
@@ -66,7 +66,7 @@ export function titleOf(message: AgentMessage | undefined): string {
     typeof content === "string"
       ? content
       : content?.find((c) => c.type === "text")?.text;
-  return typedSkill((text ?? "").trim())
+  return typedMessage((text ?? "").trim())
     .split("\n")[0]
     .slice(0, TITLE_LENGTH);
 }

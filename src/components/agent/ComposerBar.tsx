@@ -47,7 +47,9 @@ export function ComposerBar({
         canSend={canSend}
         approval={approval}
         modelRouter={modelRouter}
-        git={<GitStatusLinks host={host} repos={repos} />}
+        git={
+          <GitStatusLinks host={host} repos={repos} session={session.session} />
+        }
         question={
           asking && (
             <QuestionActions

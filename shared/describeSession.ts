@@ -6,7 +6,7 @@ import type {
   UserMessage,
 } from "./agentTypes.ts";
 import type { RecentMessage, SessionDetails } from "./conversations.ts";
-import { typedSkill } from "./skills.ts";
+import { typedMessage } from "./sentComments.ts";
 import { TASK_TOOL, type PlanDetails, type Subtask } from "./tasks.ts";
 
 const RECENT = 4;
@@ -48,7 +48,7 @@ function addReply(recent: Draft[], content: Block[]) {
 // An image-only message still ends the reply before it.
 function addUser(recent: Draft[], { content }: UserMessage) {
   const text =
-    typedSkill(textOf(content)) ||
+    typedMessage(textOf(content)) ||
     (typeof content !== "string" && content.length ? "Image" : "");
   if (text) recent.push({ role: "user", text: text.slice(0, TEXT_LENGTH) });
 }
