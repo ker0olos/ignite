@@ -1,15 +1,6 @@
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { confirmNative } from "@/lib/lifecycle";
 
 /** Confirms before removing a server, since the agent loses its tools. */
 export function RemoveButton({
@@ -22,36 +13,18 @@ export function RemoveButton({
   description?: string;
 }) {
   return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Remove ${name}`}
-            title="Remove"
-          />
-        }
-      >
-        <Trash2 />
-      </DialogTrigger>
-      <DialogContent size="sm" showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>Remove {name}?</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>
-            Cancel
-          </DialogClose>
-          <DialogClose
-            render={<Button variant="destructive" />}
-            onClick={onConfirm}
-          >
-            Remove
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={`Remove ${name}`}
+      title="Remove"
+      onClick={() =>
+        void confirmNative(`Remove ${name}? ${description}`, "Remove").then(
+          (ok) => ok && onConfirm(),
+        )
+      }
+    >
+      <Trash2 />
+    </Button>
   );
 }

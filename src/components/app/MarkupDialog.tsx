@@ -1,8 +1,8 @@
 import { lazy, Suspense, useState, type ReactNode } from "react";
 import type { ImageContent } from "../../../shared/agentTypes";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { DiscardMarkupDialog } from "@/components/app/DiscardMarkupDialog";
 import { useImageTarget } from "@/hooks/useImageTarget";
+import { confirmNative } from "@/lib/lifecycle";
 
 // Konva and its React renderer load only once markup opens, not with the app.
 const MarkupEditor = lazy(() =>
@@ -42,8 +42,15 @@ export function MarkupDialog({
   };
   const openChange = (next: boolean) => {
     if (next) onOpenChange(true);
-    else if (dirty) setConfirming(true);
-    else close();
+    else if (!dirty) close();
+    else if (!confirming) {
+      setConfirming(true);
+      void confirmNative(
+        "Discard your markup? The drawing on this image will be lost.",
+        "Discard",
+        "Keep editing",
+      ).then((ok) => (ok ? close() : setConfirming(false)));
+    }
   };
   return (
     <Dialog open={open} onOpenChange={openChange}>
@@ -70,11 +77,6 @@ export function MarkupDialog({
             }}
           />
         </Suspense>
-        <DiscardMarkupDialog
-          open={confirming}
-          onOpenChange={setConfirming}
-          onDiscard={close}
-        />
       </DialogContent>
     </Dialog>
   );
