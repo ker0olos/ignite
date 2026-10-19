@@ -1,15 +1,19 @@
+import type { Ref } from "react";
 import { ResizableHandle } from "@/components/ui/resizable";
 
 /** A 1px divider with a wider grab area that lights up on hover, like VS Code's sashes. */
 export function PaneHandle({
+  elementRef,
   onPointerDown,
   onKeyDown,
 }: {
+  elementRef?: Ref<HTMLDivElement>;
   onPointerDown?: () => void;
   onKeyDown?: () => void;
 }) {
   return (
     <ResizableHandle
+      elementRef={elementRef}
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
       // The border color is translucent; over Liquid Glass the wallpaper would show through it.

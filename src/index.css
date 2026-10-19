@@ -4,6 +4,8 @@
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant glass (&:is(.glass [data-glass] *));
+/* Anywhere while the window has glass, dialogs included (they render outside [data-glass]). */
+@custom-variant frosted (&:is(.glass *));
 
 @theme {
   --animate-caret: caret 1s steps(1) infinite;
@@ -153,7 +155,7 @@
   html {
     @apply font-sans;
   }
-  /* Only the desktop workspace lets the window's glass through; every other screen stays opaque. */
+  /* Only the desktop workspace and the welcome screen let the window's glass through; every other screen stays opaque. */
   .glass body:has([data-glass]) {
     @apply bg-transparent;
   }

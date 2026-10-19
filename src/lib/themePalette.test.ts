@@ -49,6 +49,15 @@ describe("paletteOf", () => {
     });
   });
 
+  it("takes the sidebar's background for the glass, else the editor's", () => {
+    const colors = { "editor.background": "#111111" };
+    expect(paletteOf({ colors }).background).toBe("#111111");
+    expect(
+      paletteOf({ colors: { ...colors, "sideBar.background": "#222222" } })
+        .background,
+    ).toBe("#222222");
+  });
+
   it("falls back to keywords for code, and leaves out what isn't set", () => {
     expect(
       paletteOf({

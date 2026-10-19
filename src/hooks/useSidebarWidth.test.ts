@@ -41,6 +41,21 @@ describe("useSidebarWidth", () => {
     expect(resize).toHaveBeenLastCalledWith("320px");
   });
 
+  it("keeps and saves a width dragged from beside its edge", () => {
+    const { result, resize } = sidebar();
+    const edge = document.createElement("div");
+    result.current.handle.current = edge;
+    act(() => result.current.onResize(size(240)));
+    edge.dataset.separator = "active";
+    act(() => result.current.onResize(size(300)));
+    act(() => result.current.onResize(size(320)));
+    expect(resize).not.toHaveBeenCalled();
+    expect(localStorage.getItem("sidebar-width")).toBe("320");
+    edge.dataset.separator = "inactive";
+    act(() => result.current.onResize(size(200)));
+    expect(resize).toHaveBeenLastCalledWith("320px");
+  });
+
   it.each(["pointerup", "keyup"])(
     "keep and save the width set from its edge, until a moment after %s",
     (type) => {

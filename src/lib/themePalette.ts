@@ -35,8 +35,8 @@ export const ANSI = [
 const ROLES = ["code", "success", "warning", "destructive", ...ANSI] as const;
 type Role = (typeof ROLES)[number];
 
-/** The app's accent and terminal colours a theme sets; the app keeps its own for the rest. */
-export type Palette = Partial<Record<Role, string>>;
+/** The app's accent and terminal colours a theme sets, and the background that tints the window's glass; the app keeps its own for the rest. */
+export type Palette = Partial<Record<Role, string>> & { background?: string };
 
 // Editor color keys per role, first found wins.
 const COLOR_KEYS = {
@@ -61,9 +61,12 @@ function scopeColor(theme: ThemeData, scope: string) {
   return rule?.settings?.foreground;
 }
 
-/** The palette a theme's colors and token colors give: strings tint inline code. */
+/** The palette a theme's colors and token colors give: strings tint inline code, its sidebar (else editor) background the glass. */
 export function paletteOf(theme: ThemeData): Palette {
   const palette: Palette = {};
+  const background =
+    theme.colors?.["sideBar.background"] ?? theme.colors?.["editor.background"];
+  if (background) palette.background = background;
   const code = scopeColor(theme, "string") ?? scopeColor(theme, "keyword");
   if (code) palette.code = code;
   for (const [role, keys] of Object.entries(COLOR_KEYS)) {

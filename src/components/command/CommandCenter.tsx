@@ -106,7 +106,7 @@ export function CommandCenter({
       <DialogContent
         showCloseButton={false}
         className={cn(
-          "top-[12%] max-w-none max-sm:top-[4%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-none",
+          "top-[12%] max-w-none max-sm:top-[4%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-none frosted:bg-popover/45 frosted:backdrop-blur-2xl frosted:backdrop-saturate-150",
           layout.width,
         )}
       >

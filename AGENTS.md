@@ -1188,8 +1188,12 @@ start empty; the settings folder moves with the name.
   `setGlass` marks `<html>` with `glass` only while it's there, and only then
   does the page go transparent (`glass:` variant); panes that must stay
   opaque say `glass:bg-background`.
-  The glass takes light or dark from the window, so the theme sets it too.
-  Only the desktop workspace (`data-glass`) lets it through; other screens
-  stay opaque. Only macOS windows are transparent: `tauri.macos.conf.json`
+  The glass takes light or dark from the window, so the theme sets it too,
+  and its tint from the shown code theme's sidebar (else editor) background
+  at 40% strength (`glassTint`), in the Sidebar material.
+  Only the desktop workspace and the welcome screen (`data-glass`) let it
+  through; other screens stay opaque. Dialogs render outside them, so
+  Settings and the ⌘K command center are frosted instead (CSS blur, the
+  `frosted:` variant, any time the window has glass). Only macOS windows are transparent: `tauri.macos.conf.json`
   repeats the whole main window, since platform configs merge-patch and
   replace the `windows` array (`window.test.ts` keeps the copies equal).

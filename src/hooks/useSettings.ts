@@ -3,8 +3,8 @@ import { codeThemesFor, type ThemeKind } from "@/lib/codeThemes";
 import { DEMO_FOLDER } from "@/lib/demo";
 import { useApplyIconTheme } from "@/hooks/useIconTheme";
 import { importTheme, themeKind } from "@/lib/codeThemeLoad";
-import { applyPalettes, loadPalettes } from "@/lib/themePalette";
-import { setGlass, setWindowTheme } from "@/lib/window";
+import { applyPalettes, loadPalettes, type Palette } from "@/lib/themePalette";
+import { glassTint, setGlass, setWindowTheme } from "@/lib/window";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -22,6 +22,8 @@ import {
 export function useSettings(demo = !!DEMO_FOLDER) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [loaded, setLoaded] = useState(demo);
+  // The shown theme's color for the glass, once its palette is read.
+  const [tint, setTint] = useState<string | undefined>();
 
   useEffect(() => {
     if (demo) return;
@@ -44,12 +46,13 @@ export function useSettings(demo = !!DEMO_FOLDER) {
   useEffect(() => {
     let cancelled = false;
     let kind: ThemeKind | null = null;
+    let palettes: Record<ThemeKind, Palette> | null = null;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () =>
-      document.documentElement.classList.toggle(
-        "dark",
-        kind ? kind === "dark" : media.matches,
-      );
+    const apply = () => {
+      const dark = kind ? kind === "dark" : media.matches;
+      document.documentElement.classList.toggle("dark", dark);
+      setTint(glassTint(palettes?.[dark ? "dark" : "light"].background));
+    };
     apply();
     themeKind(theme).then((k) => {
       if (cancelled) return;
@@ -57,8 +60,11 @@ export function useSettings(demo = !!DEMO_FOLDER) {
       apply();
       setWindowTheme(k).catch(() => {});
     });
-    loadPalettes(codeThemesFor(theme)).then((palettes) => {
-      if (!cancelled) applyPalettes(palettes);
+    loadPalettes(codeThemesFor(theme)).then((found) => {
+      if (cancelled) return;
+      palettes = found;
+      applyPalettes(found);
+      apply();
     });
     media.addEventListener("change", apply);
     return () => {
@@ -73,8 +79,8 @@ export function useSettings(demo = !!DEMO_FOLDER) {
   // In a browser (remote access) there is no window to glaze; the page stays opaque.
   const glass = settings.mac.liquid_glass;
   useEffect(() => {
-    if (loaded) setGlass(glass).catch(() => {});
-  }, [loaded, glass]);
+    if (loaded) setGlass(glass, tint).catch(() => {});
+  }, [loaded, glass, tint]);
 
   /** Shows the change now; resolves once it's saved. */
   function updateSettings(next: Settings) {
