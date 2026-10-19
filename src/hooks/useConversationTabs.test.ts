@@ -18,7 +18,9 @@ type Props = {
 
 // The sidecar answers nothing here: the layout stays as cached, and no terminals are listed.
 const host = {
-  request: vi.fn(async () => undefined),
+  request: vi.fn(async (r: { type: string }) =>
+    r.type === "terminal_list" ? [] : undefined,
+  ),
   subscribe: () => () => {},
 } as unknown as HostClient;
 
