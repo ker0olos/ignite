@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { basename, dirname, relativeTo, sortedByName, tildify } from "./paths";
+import {
+  basename,
+  dirname,
+  isUnder,
+  relativeTo,
+  sortedByName,
+  tildify,
+} from "./paths";
 
 describe("basename", () => {
   it("returns the last segment", () => {
@@ -76,6 +83,15 @@ describe("sortedByName", () => {
       "/work/Ignition",
       "/work/motr",
     ]);
+  });
+});
+
+describe("isUnder", () => {
+  it("goes by the root's separator, so a POSIX name with a backslash isn't inside", () => {
+    expect(isUnder("/wt/a/x", "/wt/a")).toBe(true);
+    expect(isUnder("/wt/a\\x", "/wt/a")).toBe(false);
+    expect(isUnder("C:\\wt\\a\\x", "C:\\wt\\a")).toBe(true);
+    expect(isUnder("/wt/ab", "/wt/a")).toBe(false);
   });
 });
 

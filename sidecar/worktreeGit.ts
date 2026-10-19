@@ -10,6 +10,7 @@ import {
   join,
   relative,
   resolve,
+  sep,
 } from "node:path";
 import { promisify } from "node:util";
 import { APP_NAME } from "../src/lib/app.ts";
@@ -316,3 +317,7 @@ export function remoteName(url: string): string | null {
   );
   return m ? m[1].replace(/^\d+\//, "") : null;
 }
+
+/** Whether `path` is `dir` or inside it. */
+export const within = (path: string, dir: string) =>
+  path === dir || path.startsWith(dir + sep);

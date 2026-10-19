@@ -5,14 +5,22 @@ import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { Conversations } from "@/hooks/useConversations";
 import { childTabId } from "@/lib/childTabs";
 import { cacheLayout } from "@/lib/worktreeLayout";
+import type { HostClient } from "@/lib/piHost";
 import { useConversationTabs } from "./useConversationTabs";
 
 type Props = {
   session: string | null;
   workdir?: string | null;
   listed?: string[];
+  forksOf?: Record<string, string[]>;
   started?: { folder: string; session: string; workdir: string } | null;
 };
+
+// The sidecar answers nothing here: the layout stays as cached, and no terminals are listed.
+const host = {
+  request: vi.fn(async () => undefined),
+  subscribe: () => () => {},
+} as unknown as HostClient;
 
 function setup() {
   const conversations = {
@@ -25,10 +33,11 @@ function setup() {
       session,
       workdir = session && `/wt/${session}`,
       listed = ["s1", "s2"],
+      forksOf = {},
       started = null,
     }: Props) =>
       useConversationTabs(
-        null,
+        host,
         "/work",
         ["/work"],
         {
@@ -39,7 +48,11 @@ function setup() {
         } as unknown as ReturnType<typeof useAgentSession>,
         conversations,
         vi.fn(),
-        () => listed.map((session) => ({ session })),
+        () =>
+          listed.map((session) => ({
+            session,
+            forks: (forksOf[session] ?? []).map((f) => ({ session: f })),
+          })),
       ),
     { initialProps: { session: "s1" } as Props },
   );
@@ -162,4 +175,12 @@ it("looks for ignored files in the started conversation's worktree again once th
   await waitFor(() =>
     expect(result.current.tabs.files).toEqual(["/wt/s3/.env"]),
   );
+});
+
+it("keeps the tabs of a fork, which the list shows under its original", () => {
+  const { result, rerender } = setup();
+  rerender({ session: "f1", listed: ["s1"], forksOf: { s1: ["f1"] } });
+  act(() => result.current.tabs.open("/wt/f1/a.ts"));
+  rerender({ session: "s1", listed: ["s1"], forksOf: { s1: ["f1"] } });
+  expect(result.current.tabs.isOpen("/wt/f1/a.ts")).toBe(true);
 });

@@ -44,10 +44,15 @@ export function FolderConversations({
       ? rows.filter((r, i) => i < max || r.session === shown)
       : rows;
   const hidden = rows.length - visible.length;
+  // A row's conversation and its forks: their terminals show under it.
+  const family = (r: TaggedAgentStatus) => [
+    r.session,
+    ...(r.forks ?? []).map((f) => f.session),
+  ];
   const terminals = terminalsByOwner(
     childActions.terminals(cwd),
     childActions.terminalOwner,
-    visible.map((r) => r.session),
+    visible.flatMap(family),
   );
   const terminalRows = (list: string[]) => (
     <FolderTerminals
@@ -97,7 +102,7 @@ export function FolderConversations({
               childActions.onStopBackground(agent.session, pid)
             }
           />
-          {terminalRows(terminals.of(agent.session))}
+          {terminalRows(family(agent).flatMap(terminals.of))}
         </Fragment>
       ))}
       {terminalRows(terminals.rest)}

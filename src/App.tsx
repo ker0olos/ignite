@@ -63,7 +63,7 @@ export default function App() {
     agent,
     shownConversations,
     addFolder,
-    shownRows(list.rows),
+    shownRows(list.allRows),
   );
   const command = useCommandCenter();
   const rows = (cwd: string) =>

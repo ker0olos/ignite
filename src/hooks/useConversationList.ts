@@ -84,6 +84,8 @@ export function useConversationList(
   return {
     /** The folder's listed conversations, in order, with what each is doing. */
     rows: (cwd: string) => rowsOf(listed, agents, cwd, tags.map, tags.filter),
+    /** The folder's listed conversations whatever the tag filter, forks under their original. */
+    allRows: (cwd: string) => rowsOf(listed, agents, cwd, tags.map),
     /** Every tag used by the listed conversations. */
     tags: allTags(listed, tags.map),
     /** Tags currently filtering the sidebar. */

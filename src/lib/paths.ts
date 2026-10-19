@@ -23,10 +23,12 @@ export const sortedByName = (paths: string[]) =>
     (a, b) => byName.compare(basename(a), basename(b)) || byName.compare(a, b),
   );
 
-/** Whether `path` is `root` or inside it, with either separator. */
-export const isInside = (path: string, root: string) =>
-  path === root || path.startsWith(`${root}/`) || path.startsWith(`${root}\\`);
+/** Whether `path` is `root` or inside it, by the root's separator (a Windows root's `\\`); approvals use approvalPolicy's own check. */
+export function isUnder(path: string, root: string) {
+  const sep = root.includes("\\") ? "\\" : "/";
+  return path === root || path.startsWith(root + sep);
+}
 
 /** `path` relative to `root` when inside it (or it), else as given. */
 export const relativeTo = (path: string, root: string) =>
-  isInside(path, root) ? path.slice(root.length + 1) : path;
+  isUnder(path, root) ? path.slice(root.length + 1) : path;

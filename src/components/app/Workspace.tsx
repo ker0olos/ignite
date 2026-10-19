@@ -112,6 +112,7 @@ export function Workspace({
       <AgentPanel
         host={host}
         folder={folder}
+        root={root}
         session={session}
         codeThemes={codeThemes}
         editor={editor}

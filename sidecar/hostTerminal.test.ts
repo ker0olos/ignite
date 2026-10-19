@@ -46,11 +46,7 @@ it("starts in the fallback before a first message, or for a conversation that is
   const agent = { cwd: "/repo", workdir: "/wt/s1", placed: Promise.resolve() };
   const ctx = ctxWith({ s1: agent }, "s1");
   expect(await terminalDir(ctx, "/repo", null, "/repo")).toBe("/repo");
-  vi.useFakeTimers();
-  const gone = terminalDir(ctx, "/repo", "gone", "/repo");
-  await vi.advanceTimersByTimeAsync(5000);
-  expect(await gone).toBe("/repo");
-  vi.useRealTimers();
+  expect(await terminalDir(ctx, "/repo", "gone", "/repo")).toBe("/repo");
 });
 
 const releasing = (removes: boolean) => {
@@ -88,18 +84,6 @@ it("doesn't wait for a worktree's terminals to exit when quitting", async () => 
   await releaseWorkspace(ctx, agent, true);
   expect(terminalsStartedIn(dir)).toEqual([]);
   expect(Date.now() - started).toBeLessThan(1000);
-});
-
-it("waits for a conversation the app named to be opened", async () => {
-  const agents = new Map<string, object>();
-  const ctx = { agents, shown: null } as unknown as HostContext;
-  const dir = terminalDir(ctx, "/repo", "s1", "/repo");
-  agents.set("s1", {
-    cwd: "/repo",
-    workdir: "/wt/s1",
-    placed: Promise.resolve(),
-  });
-  expect(await dir).toBe("/wt/s1");
 });
 
 it("ends a worktree's terminals, and starts none there until it's removed", async () => {

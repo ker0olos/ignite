@@ -29,18 +29,25 @@ export function cacheLayout(folder: string, layout: WorktreeLayout) {
   }
 }
 
-/** Where a conversation's files are: the folder before its first message, else its worktree (from its reply or the folder's layout); null while unknown. */
+/** Where a conversation's files are: the folder before its first message or while the folder's isn't known yet, else its worktree (from its reply or the folder's layout); null until then. */
 export function conversationRoot(
   folder: string | null,
   session: string | null | undefined,
   workdir: string | null,
   layout: WorktreeLayout | undefined,
 ): string | null {
-  if (folder === null || session === undefined) return null;
-  if (session === null) return folder;
+  if (folder === null) return null;
+  if (session == null) return folder;
   if (workdir) return workdir;
   if (layout === undefined) return null;
   if (layout === null) return folder;
   const sep = layout.base.includes("\\") ? "\\" : "/";
   return [layout.base, session, layout.prefix].filter(Boolean).join(sep);
 }
+
+/** Where a shown or kept conversation's paths resolve: its worktree once open, the shown one's known root while it opens, else its folder. */
+export const paneRoot = (
+  pane: { session: string; folder: string; workdir: string | null },
+  shown: string | null,
+  root: string | null,
+) => pane.workdir ?? (pane.session === shown ? root : null) ?? pane.folder;

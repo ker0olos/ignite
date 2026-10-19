@@ -25,12 +25,13 @@ async function worktreeCopies(tabs: string[], folder: string, root: string) {
   return Object.fromEntries(pairs.flat());
 }
 
-/** Hands tabs opened while the folder's conversation was unknown to the one it shows; returns the handoff for one a first message started. */
+/** Hands tabs opened while the folder's conversation was unknown (the folder showed) to the one it shows; returns the handoff for one a first message started. */
 export function useTabHandoff(
   all: TabSets,
   setAll: Dispatch<SetStateAction<TabSets>>,
   folder: string | null,
   key: string | null,
+  root: string | null,
 ) {
   const latest = useRef(all);
   useEffect(() => {
@@ -38,14 +39,27 @@ export function useTabHandoff(
   });
   const was = useRef(key);
 
+  // Renames `key`'s tabs among `tabs` to their copies in worktree `root`; returns those it has none of yet.
+  const toWorktree = useCallback(
+    async (key: string, tabs: string[], folder: string, root: string) => {
+      const names = await worktreeCopies(tabs, folder, root);
+      if (Object.keys(names).length) setAll((a) => renameTabs(a, key, names));
+      return tabs.filter((t) => !(t in names));
+    },
+    [setAll],
+  );
+
   useEffect(() => {
     const before = was.current;
     was.current = key;
     if (folder === null || key === null) return;
     const loading = tabsKey(folder, undefined);
-    if (before === loading && key !== loading)
-      setAll((a) => handTabs(a, loading, key));
-  }, [folder, key, setAll]);
+    if (before !== loading || key === loading) return;
+    const tabs = tabsUnder(latest.current, loading);
+    setAll((a) => handTabs(a, loading, key));
+    // Its files, opened from the folder, switch to the worktree's copies once known.
+    if (root && root !== folder) void toWorktree(key, tabs, folder, root);
+  }, [folder, key, root, setAll, toWorktree]);
 
   // The tabs opened before the first message (the folder's files) go to the conversation it started, in its worktree;
   // ignored files (.env, builds) are looked for again once `ready` (they're copied in after it starts).
@@ -61,16 +75,11 @@ export function useTabHandoff(
       const tabs = tabsUnder(latest.current, draft);
       setAll((a) => handTabs(a, draft, started));
       if (workdir === folder) return;
-      const toWorktree = async (left: string[]) => {
-        const names = await worktreeCopies(left, folder, workdir);
-        if (Object.keys(names).length)
-          setAll((a) => renameTabs(a, started, names));
-        return left.filter((t) => !(t in names));
-      };
-      void toWorktree(tabs).then(async (left) => {
-        if (left.length && ready) await ready.then(() => toWorktree(left));
+      void toWorktree(started, tabs, folder, workdir).then(async (left) => {
+        if (left.length && ready)
+          await ready.then(() => toWorktree(started, left, folder, workdir));
       });
     },
-    [setAll],
+    [setAll, toWorktree],
   );
 }

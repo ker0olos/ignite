@@ -84,6 +84,24 @@ describe("terminal", () => {
     expect(gone.dir).toBeUndefined();
   });
 
+  it("tells the app when it ends a terminal that had exited, with its own code", async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-")));
+    const sent: TerminalMessage[] = [];
+    const t = openTerminal(cwd, 80, 24, (m) => sent.push(m), dir);
+    opened.push(t.terminal);
+    writeTerminal(t.terminal, "exit 3\r");
+    await vi.waitFor(() =>
+      expect(
+        terminalsIn(cwd).find((i) => i.terminal === t.terminal)?.running,
+      ).toBe(false),
+    );
+    sent.length = 0;
+    await endTerminal(t.terminal);
+    expect(sent).toEqual([
+      { type: "terminal_exit", terminal: t.terminal, exitCode: 3 },
+    ]);
+  });
+
   it("names the folder's terminals by their place, so closing one renames the rest", async () => {
     const [first, second] = [open(), open()];
     expect(terminalsIn(cwd).map((t) => t.name)).toEqual(["t1", "t2"]);

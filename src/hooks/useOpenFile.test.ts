@@ -89,4 +89,29 @@ describe("useOpenFile", () => {
     rerender({ current: "/other", root: "/wt/x" });
     await waitFor(() => expect(openTab).toHaveBeenCalledWith("/wt/x/b.ts"));
   });
+
+  it("waits in another folder through the conversation it shows first, for the one asked for", () => {
+    const { result, rerender, openTab } = setup({
+      current: "/a",
+      session: "s",
+    });
+    act(() => result.current("/b", "child:x", "x"));
+    // Folder b first shows the conversation it showed last.
+    rerender({ current: "/b", session: "y" });
+    expect(openTab).not.toHaveBeenCalled();
+    rerender({ current: "/b", session: "x" });
+    expect(openTab).toHaveBeenCalledWith("child:x");
+  });
+
+  it("drops a tab for another folder once the user leaves that folder", () => {
+    const { result, rerender, openTab } = setup({
+      current: "/a",
+      session: "s",
+    });
+    act(() => result.current("/b", "child:x", "x"));
+    rerender({ current: "/b", session: "y" });
+    rerender({ current: "/c", session: "z" });
+    rerender({ current: "/b", session: "x" });
+    expect(openTab).not.toHaveBeenCalled();
+  });
 });

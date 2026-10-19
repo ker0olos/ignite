@@ -1,20 +1,20 @@
-import { sep } from "node:path";
 import type { TerminalRequest } from "../shared/terminal.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
 import { endTerminal, openTerminal, terminalsStartedIn } from "./terminal.ts";
+import { within } from "./worktreeGit.ts";
 
 type Open = Extract<TerminalRequest, { type: "terminal_open" }>;
 
 // Worktrees being removed: a terminal asked for in one starts in its folder.
 const removing = new Set<string>();
-const beingRemoved = (dir: string) =>
-  [...removing].some((r) => dir === r || dir.startsWith(r + sep));
+const beingRemoved = (dir: string) => [...removing].some((r) => within(dir, r));
 
 /** Ends the terminals started in `dir` (a worktree about to go), waiting for them unless quitting; none starts there until `removed()`. */
 export async function closeTerminalsIn(dir: string, wait = true) {
   removing.add(dir);
-  const ending = terminalsStartedIn(dir).map(endTerminal);
-  if (wait) await Promise.all(ending);
+  // One failing to end never leaves the worktree marked as being removed.
+  const ending = Promise.allSettled(terminalsStartedIn(dir).map(endTerminal));
+  if (wait) await ending;
   return () => void removing.delete(dir);
 }
 
@@ -36,13 +36,6 @@ export async function releaseWorkspace(
   removed?.();
 }
 
-// ponytail: polls for a conversation the app asked to open just before; an event would avoid the wait.
-async function registered(ctx: HostContext, id: string) {
-  for (let i = 0; i < 50 && !ctx.agents.has(id); i++)
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  return ctx.agents.get(id);
-}
-
 /** Where a terminal for `session` of `cwd` starts: its worktree, once made; none yet (null): `fallback`; unknown (undefined): the shown one's. */
 export async function terminalDir(
   ctx: HostContext,
@@ -51,13 +44,8 @@ export async function terminalDir(
   fallback: string,
 ) {
   const id = session === undefined ? ctx.shown : session;
-  // One the app named may not be open yet (just shown after a relaunch).
-  const agent =
-    id === null
-      ? undefined
-      : session === undefined
-        ? ctx.agents.get(id)
-        : await registered(ctx, id);
+  // The app asks to open a conversation before it shows it, so one it names here is already registered.
+  const agent = id === null ? undefined : ctx.agents.get(id);
   if (!agent || agent.cwd !== cwd) return fallback;
   await agent.placed;
   return agent.workdir;

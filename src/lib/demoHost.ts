@@ -235,6 +235,9 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
       opened(`demo-${++made}`, undefined, r.cwd),
     read_session: (r: { session: string }) => find(r.session)?.messages ?? [],
     session_details: (r: { session: string }) => detailsOf(find(r.session)),
+    // The demo's conversations share their folder; nothing runs in a worktree.
+    worktree_layout: () => null,
+    worktree_ready: () => undefined,
     session_state: () => DEMO_STATE,
     draft_state: () => DEMO_STATE,
     set_model: () => DEMO_STATE,

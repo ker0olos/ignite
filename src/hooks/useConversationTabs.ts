@@ -18,31 +18,28 @@ async function inRoot(root: string, folder: string, path: string) {
     : ((await worktreeCopy(own, folder, root)) ?? own);
 }
 
+type Listed = (
+  cwd: string,
+) => { session: string; forks?: { session: string }[] }[];
+
+/** Every open conversation of a folder, forks included. */
+const openSessions = (listed: Listed, cwd: string) =>
+  listed(cwd).flatMap((r) => [
+    r.session,
+    ...(r.forks ?? []).map((f) => f.session),
+  ]);
+
 /** Drops the tabs of a conversation that leaves its folder's list (closed anywhere, a task's ended by the sidecar). */
 function useForgetUnlisted(
   folders: string[],
-  listed: (cwd: string) => { session: string }[],
+  listed: Listed,
   forget: (folder: string, session?: string) => void,
 ) {
   const was = useRef<Record<string, string[]>>({});
-  // One line per folder: its path, a tab, its conversations; an effect reads it only when it changes.
-  const now = folders
-    .map(
-      (f) =>
-        `${f}\t${listed(f)
-          .map((r) => r.session)
-          .join(" ")}`,
-    )
-    .join("\n");
+  // Every render: compares with the lists the last one saw.
   useEffect(() => {
-    const lists: Record<string, string[]> = Object.fromEntries(
-      now
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => {
-          const [folder, sessions] = line.split("\t");
-          return [folder, sessions ? sessions.split(" ") : []];
-        }),
+    const lists = Object.fromEntries(
+      folders.map((f) => [f, openSessions(listed, f)]),
     );
     for (const [folder, before] of Object.entries(was.current)) {
       const list = lists[folder];
@@ -51,7 +48,7 @@ function useForgetUnlisted(
       for (const s of before) if (!list.includes(s)) forget(folder, s);
     }
     was.current = lists;
-  }, [now, forget]);
+  });
 }
 
 /** The shown conversation's tabs, root and terminals, and opening a tab in any folder or conversation. */
@@ -62,14 +59,17 @@ export function useConversationTabs(
   agent: ReturnType<typeof useAgentSession>,
   conversations: Conversations,
   select: (folder: string) => void,
-  /** A folder's listed (open) conversations. */
-  listed: (cwd: string) => { session: string }[],
+  /** A folder's listed (open) conversations, whatever the sidebar's tag filter. */
+  listed: Listed,
 ) {
   // Unknown (undefined) until the folder shows a conversation, or none yet (null).
   const session = agent.session ?? (agent.none ? null : undefined);
   const layout = useWorktreeLayout(host, current);
-  const root = conversationRoot(current, session, agent.workdir, layout);
-  const fileTabs = useTabs(current, session);
+  // With no sidecar nothing opens: the folder's own files show.
+  const root = host
+    ? conversationRoot(current, session, agent.workdir, layout)
+    : current;
+  const fileTabs = useTabs(current, session, root);
   const terminals = useTerminalTabs(host, folders, {
     files: fileTabs.terminalTabs,
     close: fileTabs.close,
@@ -98,7 +98,7 @@ export function useConversationTabs(
   }, [started, adopt, host]);
   useForgetUnlisted(folders, listed, forget);
   const isListed = (cwd: string, session: string) =>
-    listed(cwd).some((r) => r.session === session);
+    openSessions(listed, cwd).includes(session);
   return {
     tabs,
     /** The shown conversation (null before a first message, undefined while unknown) and where its files are (null while unknown). */

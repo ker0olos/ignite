@@ -3,15 +3,19 @@ import { useCallback, useEffect, useRef } from "react";
 /** A tab id, or one made from the shown conversation's root (its worktree, else the folder). */
 type Tab = string | ((root: string) => string | Promise<string>);
 
-/** `from`: the conversation shown when it was asked for, which may still show while `session` opens. */
+/**
+ * `from`: the folder and conversation shown when it was asked for; `reached`:
+ * its folder has shown since.
+ */
 type Pending = {
   folder: string;
   tab: Tab;
   session?: string;
-  from: string | null;
+  from: { folder: string | null; session: string | null };
+  reached?: boolean;
 };
 
-/** Opens a tab in any folder, or with `session` in that conversation, once it shows (dropped if another shows first). */
+/** Opens a tab in any folder, or with `session` in that conversation, once it shows; dropped if the user moves on first. */
 export function useOpenFile(
   current: string | null,
   shown: { session: string | null; root: string | null },
@@ -28,13 +32,19 @@ export function useOpenFile(
       (p.session === undefined || p.session === session),
     [current, root, session],
   );
+  // Moved on: left its folder once there, or (asked from that folder) showed yet another conversation there.
+  // Another folder first shows its last conversation, so only leaving it counts.
   const passed = useCallback(
-    (p: Pending) =>
-      p.session !== undefined &&
-      p.folder === current &&
-      session !== null &&
-      session !== p.session &&
-      session !== p.from,
+    (p: Pending) => {
+      if (p.folder !== current) return !!p.reached;
+      return (
+        p.session !== undefined &&
+        p.from.folder === current &&
+        session !== null &&
+        session !== p.session &&
+        session !== p.from.session
+      );
+    },
     [current, session],
   );
 
@@ -52,14 +62,16 @@ export function useOpenFile(
       pending.current = null;
       return;
     }
+    if (waiting.folder === current) waiting.reached = true;
     if (!ready(waiting)) return;
     pending.current = null;
     openNow(waiting.tab);
-  }, [ready, passed, openNow]);
+  }, [current, ready, passed, openNow]);
 
   return useCallback(
     (folder: string, tab: Tab, target?: string) => {
-      const p = { folder, tab, session: target, from: session };
+      const from = { folder: current, session };
+      const p: Pending = { folder, tab, session: target, from };
       if (ready(p)) return openNow(tab);
       pending.current = p;
       if (folder !== current) select(folder);

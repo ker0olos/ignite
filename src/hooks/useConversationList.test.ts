@@ -67,6 +67,11 @@ describe("useConversationList", () => {
     await waitFor(() => expect(result.current.tags).toEqual(["bug", "design"]));
     act(() => result.current.toggleTagFilter("bug"));
     expect(result.current.rows("/a").map((r) => r.session)).toEqual(["1"]);
+    // What's open, for the tabs, ignores the sidebar's filter.
+    expect(result.current.allRows("/a").map((r) => r.session)).toEqual([
+      "1",
+      "2",
+    ]);
     act(() => result.current.setConversationTags("2", ["bug", "later"]));
     expect(result.current.rows("/a").map((r) => r.session)).toEqual(["1", "2"]);
     await waitFor(() =>

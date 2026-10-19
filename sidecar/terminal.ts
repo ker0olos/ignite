@@ -1,7 +1,6 @@
 /** The user's terminals: a login shell in a PTY each, mirrored into a headless xterm the folder's agents read. */
 import { existsSync } from "node:fs";
 import { userInfo } from "node:os";
-import { sep } from "node:path";
 import xterm from "@xterm/headless";
 import serialize from "@xterm/addon-serialize";
 import type { IPty } from "node-pty";
@@ -14,12 +13,12 @@ import { APP_NAME } from "../src/lib/app.ts";
 import {
   commandLine,
   foregroundGroup,
-  exitOf,
+  endPty,
   headlessTerminal,
-  killTree,
   spawnPty,
   terminalEnv,
 } from "./ptyShell.ts";
+import { within } from "./worktreeGit.ts";
 
 type Terminal = {
   info: Omit<TerminalInfo, "name">;
@@ -161,18 +160,18 @@ export function writeTerminal(id: string, data: string) {
 /** The terminals whose shell started in `dir` or a folder in it. */
 export const terminalsStartedIn = (dir: string) =>
   [...registry.all]
-    .filter(([, t]) => t.info.dir === dir || t.info.dir?.startsWith(dir + sep))
+    .filter(([, t]) => t.info.dir !== undefined && within(t.info.dir, dir))
     .map(([id]) => id);
 
 /** Ends terminal `id` and what it started, telling the app; resolves once it exited, or after a few seconds. */
 export async function endTerminal(id: string) {
   const t = find(id);
-  const { running } = t.info;
-  const exited = running ? exitOf(t.pty, 3000) : undefined;
-  if (running) killTree(t.pty.pid);
+  const { running, exitCode = -1 } = t.info;
+  const exited = running ? endPty(t.pty, 3000) : undefined;
   closeTerminal(id);
-  // One that exited already told the app, with its own code.
-  if (running) t.send({ type: "terminal_exit", terminal: id, exitCode: -1 });
+  // Even one that had exited: the app reads the list again, dropping its tab.
+  const code = running ? -1 : exitCode;
+  t.send({ type: "terminal_exit", terminal: id, exitCode: code });
   await exited;
 }
 

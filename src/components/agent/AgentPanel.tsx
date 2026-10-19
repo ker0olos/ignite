@@ -14,6 +14,7 @@ import { shownItems } from "@/lib/routedMessage";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
 import type { Approval, ModelRouter } from "@/components/agent/Composer";
+import { paneRoot } from "@/lib/worktreeLayout";
 
 type Session = ReturnType<typeof useAgentSession>;
 
@@ -26,6 +27,7 @@ const NONE: string[] = [];
 export function AgentPanel({
   host,
   folder,
+  root,
   session,
   codeThemes,
   editor,
@@ -37,6 +39,8 @@ export function AgentPanel({
 }: {
   host: HostClient | null;
   folder: string;
+  /** Where the shown conversation's files are, known before its session opens; null while unknown. */
+  root: string | null;
   session: Session;
   codeThemes: CodeThemes;
   editor: Settings["editor"];
@@ -79,8 +83,7 @@ export function AgentPanel({
               key={o.preview ? `${o.session} preview` : o.session}
               transcript={o.transcript}
               session={o.session}
-              // Paths the agent names are its worktree's.
-              folder={o.workdir ?? o.folder}
+              folder={paneRoot(o, session.session, root)}
               shown={shown}
               send={shown ? session.send : idle}
               skipWait={session.skipWait}

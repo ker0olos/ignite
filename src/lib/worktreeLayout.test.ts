@@ -1,13 +1,18 @@
 import { beforeEach, expect, it } from "vitest";
-import { cacheLayout, cachedLayout, conversationRoot } from "./worktreeLayout";
+import {
+  cacheLayout,
+  cachedLayout,
+  conversationRoot,
+  paneRoot,
+} from "./worktreeLayout";
 
 beforeEach(() => localStorage.clear());
 
 const layout = { base: "/wt/app-1234", prefix: "" };
 
-it("is the folder before a first message, and unknown before the folder's conversation is", () => {
+it("is the folder before a first message, and while the folder's conversation isn't known yet", () => {
   expect(conversationRoot("/app", null, null, layout)).toBe("/app");
-  expect(conversationRoot("/app", undefined, null, layout)).toBeNull();
+  expect(conversationRoot("/app", undefined, null, layout)).toBe("/app");
   expect(conversationRoot(null, "s1", "/wt/x", layout)).toBeNull();
 });
 
@@ -35,4 +40,12 @@ it("remembers each folder's layout", () => {
   cacheLayout("/plain", null);
   expect(cachedLayout("/app")).toEqual(layout);
   expect(cachedLayout("/plain")).toBeNull();
+});
+
+it("resolves a pane's paths in its worktree, the shown one's root while it opens, else its folder", () => {
+  const pane = { session: "s1", folder: "/app", workdir: null };
+  expect(paneRoot({ ...pane, workdir: "/wt/s1" }, "s1", "/x")).toBe("/wt/s1");
+  expect(paneRoot(pane, "s1", "/wt/s1")).toBe("/wt/s1");
+  expect(paneRoot(pane, "s2", "/wt/s2")).toBe("/app");
+  expect(paneRoot(pane, "s1", null)).toBe("/app");
 });

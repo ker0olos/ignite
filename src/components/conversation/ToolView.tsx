@@ -67,7 +67,8 @@ function toolTitle(call: ToolCall) {
 }
 
 function pathArg(call: ToolCall, folder: string) {
-  return relativeTo(String(call.arguments.path ?? ""), folder);
+  const path = String(call.arguments.path ?? "");
+  return path === folder ? "." : relativeTo(path, folder);
 }
 
 function questionsArg(call: ToolCall) {

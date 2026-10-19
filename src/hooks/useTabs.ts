@@ -28,10 +28,11 @@ function useEverySame(list: string[]) {
 export function useTabs(
   folder: string | null,
   session: string | null | undefined,
+  root: string | null = folder,
 ) {
   const [all, setAll] = useState<TabSets>({});
   const key = folder === null ? null : tabsKey(folder, session);
-  const adopt = useTabHandoff(all, setAll, folder, key);
+  const adopt = useTabHandoff(all, setAll, folder, key, root);
   const latest = useRef(all);
   useEffect(() => {
     latest.current = all;

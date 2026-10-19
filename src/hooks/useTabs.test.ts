@@ -116,14 +116,28 @@ describe("useTabs", () => {
     expect(result.current.files).toEqual([]);
   });
 
-  it("gives the tabs opened while the folder's conversation was unknown to the one it shows", () => {
+  it("gives the tabs opened while the folder's conversation was unknown to the one it shows, its files in its worktree", async () => {
+    fakeFs({ "/wt/s/a": "" });
     const { result, rerender } = renderHook(
-      ({ session }) => useTabs("/repo", session),
-      { initialProps: { session: undefined as string | null | undefined } },
+      ({ session, root }) => useTabs("/repo", session, root),
+      {
+        initialProps: {
+          session: undefined as string | null | undefined,
+          root: "/repo",
+        },
+      },
     );
     act(() => result.current.open("child:term"));
-    rerender({ session: "s" });
-    expect(result.current.files).toEqual(["child:term"]);
+    act(() => result.current.open("/repo/a"));
+    act(() => result.current.open("/repo/untracked"));
+    rerender({ session: "s", root: "/wt/s" });
+    await waitFor(() =>
+      expect(result.current.files).toEqual([
+        "child:term",
+        "/wt/s/a",
+        "/repo/untracked",
+      ]),
+    );
   });
 
   it("lists every conversation's terminal tabs, the same array while they stay", () => {

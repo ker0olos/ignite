@@ -16,6 +16,8 @@ export function useWorktreeLayout(
     host
       .request({ type: "worktree_layout", cwd: folder })
       .then((layout) => {
+        // A host that doesn't answer it (an older sidecar) leaves it unknown.
+        if (layout === undefined) return;
         cacheLayout(folder, layout);
         if (live) setRead((all) => ({ ...all, [folder]: layout }));
       })
