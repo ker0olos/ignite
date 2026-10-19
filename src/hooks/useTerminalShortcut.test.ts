@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { HostClient } from "@/lib/piHost";
-import { childTabId } from "@/lib/childTabs";
+import { childTabId, isStarting, terminalOf } from "@/lib/childTabs";
 import { useTerminalShortcut } from "./useTerminalShortcut";
 
 const press = (init: KeyboardEventInit) => {
@@ -15,35 +15,48 @@ const press = (init: KeyboardEventInit) => {
   return e;
 };
 
-function setup(view: "conversation" | "tasks" = "conversation") {
+function setup(view: "conversation" | "tasks" = "conversation", fails = false) {
   const request = vi.fn((r: { type: string }) =>
-    Promise.resolve(
-      r.type === "terminal_open"
-        ? { terminal: "t1", cwd: "/w", running: true }
-        : undefined,
-    ),
+    fails
+      ? Promise.reject(new Error("no shell"))
+      : Promise.resolve(
+          r.type === "terminal_open"
+            ? { terminal: "t1", cwd: "/w", running: true }
+            : undefined,
+        ),
   );
   const host = { request } as unknown as HostClient;
   const open = vi.fn();
+  const rename = vi.fn();
+  const closeEverywhere = vi.fn();
   const hook = renderHook(() =>
-    useTerminalShortcut(host, "/w", view, { open }),
+    useTerminalShortcut(host, "/w", "/wt", "s1", view, {
+      open,
+      rename,
+      closeEverywhere,
+    }),
   );
-  return { request, open, ...hook };
+  return { request, open, rename, closeEverywhere, ...hook };
 }
 
 describe("useTerminalShortcut", () => {
-  it("opens a terminal tab on ⌘J or ⌘1, also with Shift or Ctrl", async () => {
-    const { request, open } = setup();
+  it("opens a terminal tab on ⌘J or ⌘1, also with Shift or Ctrl: starting at once, then the shell's", async () => {
+    const { request, open, rename } = setup();
     const e = press({ metaKey: true });
     expect(e.defaultPrevented).toBe(true);
-    await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+    const standIn = open.mock.calls[0][0] as string;
+    expect(isStarting(terminalOf(standIn)!)).toBe(true);
+    await waitFor(() => expect(rename).toHaveBeenCalledTimes(1));
     expect(request).toHaveBeenCalledWith({
       type: "terminal_open",
       cwd: "/w",
+      dir: "/wt",
+      session: "s1",
       cols: 80,
       rows: 24,
     });
-    expect(open).toHaveBeenCalledWith(
+    expect(rename).toHaveBeenCalledWith(
+      standIn,
       childTabId({ kind: "terminal", session: "", terminal: "t1" }),
     );
     press({ metaKey: true, shiftKey: true });
@@ -51,7 +64,16 @@ describe("useTerminalShortcut", () => {
     press({ metaKey: true, code: "Digit1", key: "1" });
     // Dvorak: J is on another key.
     press({ metaKey: true, code: "KeyC", key: "j" });
-    await waitFor(() => expect(open).toHaveBeenCalledTimes(5));
+    expect(new Set(open.mock.calls.map(([t]) => t)).size).toBe(5);
+    await waitFor(() => expect(rename).toHaveBeenCalledTimes(5));
+  });
+
+  it("drops the starting tab when the shell can't start", async () => {
+    const { open, closeEverywhere } = setup("conversation", true);
+    press({ metaKey: true });
+    await waitFor(() =>
+      expect(closeEverywhere).toHaveBeenCalledWith(open.mock.calls[0][0]),
+    );
   });
 
   it("ignores other keys, Alt, and a bare J", () => {
@@ -64,7 +86,7 @@ describe("useTerminalShortcut", () => {
   });
 
   it("runs a command in a new terminal tab", async () => {
-    const { request, open, result } = setup();
+    const { request, rename, result } = setup();
     result.current!("echo hi\necho bye");
     await waitFor(() =>
       expect(request).toHaveBeenCalledWith({
@@ -73,14 +95,19 @@ describe("useTerminalShortcut", () => {
         data: "{\recho hi\recho bye\r}\r",
       }),
     );
-    expect(open).toHaveBeenCalledWith(
+    expect(rename).toHaveBeenCalledWith(
+      expect.any(String),
       childTabId({ kind: "terminal", session: "", terminal: "t1" }),
     );
   });
 
   it("has nothing to run with no sidecar", () => {
     const { result } = renderHook(() =>
-      useTerminalShortcut(null, "/w", "conversation", { open: vi.fn() }),
+      useTerminalShortcut(null, "/w", "/w", null, "conversation", {
+        open: vi.fn(),
+        rename: vi.fn(),
+        closeEverywhere: vi.fn(),
+      }),
     );
     expect(result.current).toBe(null);
   });

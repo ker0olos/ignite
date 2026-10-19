@@ -47,7 +47,9 @@ type AppWorkspaceProps = {
   host: HostClient | null;
   terminals: ReturnType<typeof useTerminalTabs>;
   /** Opens a tab in any folder, selecting it first. */
-  openIn: (folder: string, tab: string) => void;
+  openIn: (folder: string, tab: string, session?: string) => void;
+  /** Opens a terminal's tab in the conversation that has it. */
+  openTerminal: (cwd: string, terminal: string) => void;
   about: ReturnType<typeof useAbout>;
 };
 
@@ -71,6 +73,7 @@ export function AppWorkspace({
   host,
   terminals,
   openIn,
+  openTerminal,
   tags,
   tagFilter,
   onToggleTagFilter,
@@ -117,7 +120,7 @@ export function AppWorkspace({
           ),
           onOpenTab: (cwd, shown, tab) => {
             conversations.show(cwd, shown);
-            openIn(cwd, tab);
+            openIn(cwd, tab, shown);
           },
           onClear: (tab) => tabs.close(tab),
           onStopBackground: (shown, pid) =>
@@ -126,11 +129,11 @@ export function AppWorkspace({
               .catch(() => {}),
           terminals: terminals.running,
           terminalLabel: terminals.label,
-          onOpenTerminal: (cwd, terminal) =>
-            openIn(
-              cwd,
+          terminalOwner: (terminal) =>
+            tabs.ownerOf(
               childTabId({ kind: "terminal", session: "", terminal }),
             ),
+          onOpenTerminal: openTerminal,
           onStopTerminal: terminals.stop,
         },
       }}

@@ -107,11 +107,12 @@ const userMessage = (text: string): UserMessage => ({
 const opened = (
   session: string,
   c: DemoConversation | undefined,
+  cwd: string,
 ): OpenedSession => ({
   ...DEMO_STATE,
   session,
-  // Its own worktree, as in a git folder: editing a message puts its files back.
-  workdir: `~/.ignite/worktrees/${session}`,
+  // The demo's files are the folder's; nothing runs in a worktree.
+  workdir: cwd,
   trust: "trusted",
   messages: messagesOf(c),
   running: c?.running ?? false,
@@ -224,13 +225,14 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
             ]),
       ]);
     }
-    return opened(id, c);
+    return opened(id, c, r.cwd);
   }
 
   const answers: Record<string, (r: never) => unknown> = {
     ...settingsAnswers(),
     open_session: open,
-    new_session: () => opened(`demo-${++made}`, undefined),
+    new_session: (r: { cwd: string }) =>
+      opened(`demo-${++made}`, undefined, r.cwd),
     read_session: (r: { session: string }) => find(r.session)?.messages ?? [],
     session_details: (r: { session: string }) => detailsOf(find(r.session)),
     session_state: () => DEMO_STATE,

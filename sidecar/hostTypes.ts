@@ -199,6 +199,8 @@ export type Agent = {
   /** Null while it opens. */
   session: Session | null;
   opening: Promise<Session>;
+  /** Settles once `workdir` is final (its worktree made), or making it failed: early in `opening`. */
+  placed: Promise<void>;
   /**
    * The app holds its messages and gets all its events, so opening it again
    * needn't send them. Off until the app opens it, and after any change made

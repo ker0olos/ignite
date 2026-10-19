@@ -9,6 +9,8 @@ export type TerminalInfo = {
   /** What users and agents call it: its place among the folder's terminals, oldest first (t1, t2…). */
   name: string;
   cwd: string;
+  /** Where its shell started, when not the folder: a conversation's worktree. */
+  dir?: string;
   running: boolean;
   exitCode?: number;
   /** The command line running in it, while one is (not at the shell's prompt). */
@@ -19,11 +21,14 @@ export type TerminalInfo = {
 export type TerminalSnapshot = { screen: string; exitCode?: number };
 
 export type TerminalRequest =
-  /** Starts the user's login shell in `cwd` (the folder, not an agent's worktree). */
+  /** Starts the user's login shell in `dir` (the shown conversation's worktree) or else `cwd`, listed under folder `cwd`. */
   | {
       id: number;
       type: "terminal_open";
       cwd: string;
+      dir?: string;
+      /** The conversation it's for: its worktree once it's open, waited for while it opens. */
+      session?: string;
       cols: number;
       rows: number;
     }

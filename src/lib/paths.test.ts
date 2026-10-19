@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { basename, dirname, sortedByName, tildify } from "./paths";
+import { basename, dirname, relativeTo, sortedByName, tildify } from "./paths";
 
 describe("basename", () => {
   it("returns the last segment", () => {
@@ -76,5 +76,13 @@ describe("sortedByName", () => {
       "/work/Ignition",
       "/work/motr",
     ]);
+  });
+});
+
+describe("relativeTo", () => {
+  it("is the path inside the root, else the path as given", () => {
+    expect(relativeTo("/wt/a/src/x.ts", "/wt/a")).toBe("src/x.ts");
+    expect(relativeTo("/wt/a", "/wt/a")).toBe("");
+    expect(relativeTo("/wt/ab/x.ts", "/wt/a")).toBe("/wt/ab/x.ts");
   });
 });

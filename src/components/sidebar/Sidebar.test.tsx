@@ -26,6 +26,7 @@ const sidebar = (
   render(
     <Sidebar
       folder="/work/ignition"
+      root="/work/ignition"
       actions={null}
       selected={null}
       onOpenFile={vi.fn()}
@@ -39,7 +40,7 @@ const sidebar = (
         conversations: {
           show: vi.fn(),
           create: vi.fn(),
-          close: vi.fn(async () => {}),
+          close: vi.fn(async () => true),
           dismiss: vi.fn(),
           details: vi.fn(async () => null),
         },
@@ -54,6 +55,7 @@ const sidebar = (
           onClear: vi.fn(),
           terminals: () => [],
           terminalLabel: () => ({}),
+          terminalOwner: () => null,
           onOpenTerminal: vi.fn(),
           onStopTerminal: vi.fn(),
         },

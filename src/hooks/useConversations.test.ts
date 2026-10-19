@@ -12,7 +12,7 @@ function setup(fail = false) {
   const shown = {
     show: vi.fn(),
     create: vi.fn(),
-    close: vi.fn(async () => {}),
+    close: vi.fn(async () => true),
   };
   const select = vi.fn();
   const forget = vi.fn();
@@ -48,9 +48,13 @@ describe("useConversations", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it("closes another folder's conversation in the sidecar, even if that fails", async () => {
+  it("closes another folder's conversation in the sidecar, saying whether it did", async () => {
     const { request, result } = setup(true);
-    await act(() => result.current.close("/other", "s9", ["s9"]));
+    let closed: boolean | undefined;
+    await act(async () => {
+      closed = await result.current.close("/other", "s9", ["s9"]);
+    });
+    expect(closed).toBe(false);
     expect(request).toHaveBeenCalledWith({
       type: "close_session",
       cwd: "/other",

@@ -5,6 +5,7 @@ import {
   childTabId,
   childTabs,
   readChildTab,
+  terminalsByOwner,
   type ChildTab,
 } from "./childTabs";
 import { tabLabel } from "./diffTabs";
@@ -100,5 +101,19 @@ describe("terminalOf", () => {
     const tab = childTabId({ kind: "terminal", session: "", terminal: "t1" });
     expect(terminalOf(tab)).toBe("t1");
     expect(terminalOf("/f/app.ts")).toBeNull();
+  });
+});
+
+describe("terminalsByOwner", () => {
+  it("splits terminals by the listed conversation holding their tab, the rest apart", () => {
+    const owners: Record<string, string> = { t1: "a", t2: "b", t3: "gone" };
+    const split = terminalsByOwner(
+      ["t1", "t2", "t3", "t4"],
+      (t) => owners[t] ?? null,
+      ["a", "b"],
+    );
+    expect(split.of("a")).toEqual(["t1"]);
+    expect(split.of("b")).toEqual(["t2"]);
+    expect(split.rest).toEqual(["t3", "t4"]);
   });
 });

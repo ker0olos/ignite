@@ -8,6 +8,7 @@ import { TasksView } from "@/components/tasks/TasksView";
 import type { ProjectListProps } from "@/components/sidebar/FolderList";
 import { useTerminalShortcut } from "@/hooks/useTerminalShortcut";
 import { useNarrow } from "@/hooks/useNarrow";
+import { basename } from "@/lib/paths";
 import { OpenTabContext } from "@/hooks/useOpenTab";
 import { RunInTerminalContext } from "@/hooks/useRunInTerminal";
 import type { useAgentSession } from "@/hooks/useAgentSession";
@@ -42,7 +43,8 @@ type WorkspaceProps = {
 
 /**
  * Everything shown for an open folder: sidebar, full-height agent panel, and
- * an editor pane that appears while files are open. Tab state lives in App so
+ * an editor pane that appears while files are open. Files, terminals and tabs
+ * are the shown conversation's worktree's, once it has one. Tab state lives in App so
  * the menu (⌘W) can reach it. On a phone, one pane at a time (MobileWorkspace).
  */
 export function Workspace({
@@ -63,12 +65,21 @@ export function Workspace({
   ...panel
 }: WorkspaceProps) {
   const { active, open: openFile } = tabs;
+  const root = session.root ?? folder;
   const narrow = useNarrow();
   const [view, setView] = useState<WorkspaceView>("conversation");
-  const runIn = useTerminalShortcut(host, folder, view, tabs);
+  const runIn = useTerminalShortcut(
+    host,
+    folder,
+    root,
+    session.session,
+    view,
+    tabs,
+  );
   const sidebar = (
     <Sidebar
       folder={folder}
+      root={root}
       actions={actions}
       projectList={projectList}
       banner={banner}
@@ -106,7 +117,7 @@ export function Workspace({
     );
   const { terminalLabel } = projectList.childActions;
   const pane = {
-    folder,
+    folder: root,
     tabs,
     codeThemes,
     editor,
@@ -118,7 +129,12 @@ export function Workspace({
     <OpenTabContext.Provider value={openFile}>
       <RunInTerminalContext.Provider value={runIn}>
         {narrow ? (
-          <MobileWorkspace {...pane} sidebar={sidebar} agent={agent} />
+          <MobileWorkspace
+            {...pane}
+            sidebar={sidebar}
+            agent={agent}
+            name={basename(folder)}
+          />
         ) : (
           <DesktopWorkspace
             {...pane}

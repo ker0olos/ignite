@@ -11,6 +11,7 @@ import { basename } from "@/lib/paths";
 /** Left column: title-bar strip beside the traffic lights, every folder, then the shown folder's files. */
 export function Sidebar({
   folder,
+  root,
   actions,
   banner,
   viewSwitch,
@@ -19,8 +20,10 @@ export function Sidebar({
   resizableProjectSplit,
   showTree,
   ...treeProps
-}: Omit<ComponentProps<typeof FileTree>, "root"> & {
+}: Omit<ComponentProps<typeof FileTree>, "root" | "folder"> & {
   folder: string;
+  /** The file tree's root: the shown conversation's worktree, else the folder. */
+  root: string;
   actions: ReactNode;
   /** Shown above the folder name, e.g. a sign-in warning. */
   banner?: ReactNode;
@@ -71,7 +74,7 @@ export function Sidebar({
         files={
           showTree ? (
             <div className="always-bounce px-2 pb-2">
-              <FileTree root={folder} {...treeProps} />
+              <FileTree root={root} folder={folder} {...treeProps} />
             </div>
           ) : null
         }

@@ -31,4 +31,25 @@ describe("close", () => {
     expect(asked).toContain("close_session");
     expect(drop).not.toHaveBeenCalled();
   });
+
+  it("says whether the sidecar ended it", async () => {
+    const setError = vi.fn();
+    const switchWith = (request: () => Promise<unknown>) =>
+      renderHook(() =>
+        useSessionSwitch({
+          host: { request } as unknown as HostClient,
+          folder: "/f",
+          put: vi.fn(() => true),
+          preview: vi.fn(),
+          reshow: vi.fn(() => true),
+          drop: vi.fn(),
+          setError,
+        }),
+      ).result.current;
+    const ok = switchWith(() => Promise.resolve());
+    expect(await ok.close("a", "b", ["a", "b"])).toBe(true);
+    const failing = switchWith(() => Promise.reject(new Error("busy")));
+    expect(await failing.close("a", "b", ["a", "b"])).toBe(false);
+    expect(setError).toHaveBeenCalledWith("busy");
+  });
 });

@@ -22,3 +22,9 @@ export const sortedByName = (paths: string[]) =>
   [...paths].sort(
     (a, b) => byName.compare(basename(a), basename(b)) || byName.compare(a, b),
   );
+
+/** `path` relative to `root` when inside it (or it), else as given. */
+export const relativeTo = (path: string, root: string) =>
+  path === root || path.startsWith(`${root}/`)
+    ? path.slice(root.length + 1)
+    : path;

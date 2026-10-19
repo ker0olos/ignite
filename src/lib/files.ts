@@ -1,4 +1,4 @@
-import { readDir, readFile } from "@tauri-apps/plugin-fs";
+import { exists, readDir, readFile } from "@tauri-apps/plugin-fs";
 import { withoutGitIgnored } from "./gitignore";
 import type { CodeThemes } from "./codeThemes";
 import { highlight } from "./highlight";
@@ -48,4 +48,11 @@ export async function readForView(
   } catch {
     return { message: "Couldn't read this file." };
   }
+}
+
+/** `path` (under `folder`) at the same place in worktree `root`, when the worktree has it; null otherwise. */
+export async function worktreeCopy(path: string, folder: string, root: string) {
+  if (!path.startsWith(`${folder}/`)) return null;
+  const there = root + path.slice(folder.length);
+  return (await exists(there).catch(() => false)) ? there : null;
 }

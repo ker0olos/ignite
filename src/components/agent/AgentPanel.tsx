@@ -79,7 +79,8 @@ export function AgentPanel({
               key={o.preview ? `${o.session} preview` : o.session}
               transcript={o.transcript}
               session={o.session}
-              folder={o.folder}
+              // Paths the agent names are its worktree's.
+              folder={o.workdir ?? o.folder}
               shown={shown}
               send={shown ? session.send : idle}
               skipWait={session.skipWait}

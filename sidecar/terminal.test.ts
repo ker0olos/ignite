@@ -7,11 +7,13 @@ import type { TerminalMessage } from "../shared/terminal.ts";
 import {
   closeIdleTerminal,
   closeTerminal,
+  endTerminal,
   openTerminal,
   readTerminals,
   resizeTerminal,
   terminalSnapshot,
   terminalsIn,
+  terminalsStartedIn,
   unseenTerminals,
   writeTerminal,
 } from "./terminal.ts";
@@ -47,6 +49,39 @@ describe("terminal", () => {
     expect(terminalsIn(cwd)).toEqual([
       { terminal: id, name: "t1", cwd, running: true },
     ]);
+  });
+
+  it("starts in a conversation's worktree, listed under its folder", async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-")));
+    const info = openTerminal(cwd, 80, 24, () => {}, dir);
+    opened.push(info.terminal);
+    expect(terminalsIn(cwd)).toEqual([
+      { terminal: info.terminal, name: "t1", cwd, dir, running: true },
+    ]);
+    writeTerminal(info.terminal, "pwd\r");
+    await vi.waitFor(() => expect(screen(info.terminal)).toContain(`\n${dir}`));
+    expect(readTerminals("reader", cwd, 50, "t1")).toMatch(
+      new RegExp(`^Terminal t1 in ${dir}`),
+    );
+  });
+
+  it("ends a worktree's terminals, telling the app, and starts in the folder once it's gone", async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-")));
+    const sent: TerminalMessage[] = [];
+    const inside = openTerminal(cwd, 80, 24, (m) => sent.push(m), dir);
+    const other = open();
+    opened.push(inside.terminal);
+    expect(terminalsStartedIn(dir)).toEqual([inside.terminal]);
+    await endTerminal(inside.terminal);
+    expect(terminalsIn(cwd).map((t) => t.terminal)).toEqual([other]);
+    expect(sent).toContainEqual({
+      type: "terminal_exit",
+      terminal: inside.terminal,
+      exitCode: -1,
+    });
+    const gone = openTerminal(cwd, 80, 24, () => {}, join(dir, "removed"));
+    opened.push(gone.terminal);
+    expect(gone.dir).toBeUndefined();
   });
 
   it("names the folder's terminals by their place, so closing one renames the rest", async () => {

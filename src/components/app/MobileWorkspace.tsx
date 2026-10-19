@@ -7,7 +7,6 @@ import type { useTabs } from "@/hooks/useTabs";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { tabLabel } from "@/lib/diffTabs";
 import type { HostClient } from "@/lib/piHost";
-import { basename } from "@/lib/paths";
 import type { Settings } from "@/lib/settings";
 import type { TerminalLabel } from "@/lib/childTabs";
 
@@ -25,6 +24,7 @@ export function MobileWorkspace({
   terminalLabel,
   sidebar,
   agent,
+  name,
 }: {
   folder: string;
   tabs: ReturnType<typeof useTabs>;
@@ -35,6 +35,8 @@ export function MobileWorkspace({
   terminalLabel?: (terminal: string) => TerminalLabel;
   sidebar: ReactNode;
   agent: ReactNode;
+  /** The folder's name, the bar's title with no tab open (`folder` is the conversation's worktree). */
+  name: string;
 }) {
   const [open, setOpen] = useState(false);
   const { active } = tabs;
@@ -48,11 +50,7 @@ export function MobileWorkspace({
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <MobileBar
-        title={
-          active
-            ? tabLabel(active, folder, terminalLabel).name
-            : basename(folder)
-        }
+        title={active ? tabLabel(active, folder, terminalLabel).name : name}
         onMenu={() => setOpen(true)}
         onBack={active ? () => tabs.close(active) : undefined}
       />

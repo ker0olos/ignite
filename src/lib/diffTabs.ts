@@ -5,7 +5,7 @@ import {
   readChildTab,
   type TerminalLabel,
 } from "@/lib/childTabs";
-import { basename } from "@/lib/paths";
+import { basename, relativeTo } from "@/lib/paths";
 
 /** A file's diff at some range, opened as a tab alongside file paths. */
 export type DiffTab = {
@@ -51,12 +51,6 @@ export function rangeLabel(range: string): string {
   if (single) return short(single[1]);
   const pair = /^([0-9a-f]{4,64})\.\.\.?([0-9a-f]{4,64})$/.exec(range);
   return pair ? `${short(pair[1])}..${short(pair[2])}` : range;
-}
-
-function relativeTo(path: string, folder: string): string {
-  return path === folder || path.startsWith(folder + "/")
-    ? path.slice(folder.length + 1)
-    : path;
 }
 
 /** How a tab strip shows one tab: a file path, a diff at some range, or a conversation's subagent or background command. */

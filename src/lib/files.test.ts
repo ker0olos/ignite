@@ -4,10 +4,12 @@ import { fakeFs } from "@/test/fakeFs";
 // files.ts imports gitignore.ts, whose caches must not leak between tests.
 let listDir: typeof import("./files").listDir;
 let readForView: typeof import("./files").readForView;
+let worktreeCopy: typeof import("./files").worktreeCopy;
 let MAX_VIEW_BYTES: number;
 beforeEach(async () => {
   vi.resetModules();
-  ({ listDir, readForView, MAX_VIEW_BYTES } = await import("./files"));
+  ({ listDir, readForView, worktreeCopy, MAX_VIEW_BYTES } =
+    await import("./files"));
 });
 
 describe("listDir", () => {
@@ -88,5 +90,17 @@ describe("readForView", () => {
     expect(await view("/gone.ts")).toEqual({
       message: "Couldn't read this file.",
     });
+  });
+});
+
+describe("worktreeCopy", () => {
+  it("is the folder's file in the worktree when the worktree has it", async () => {
+    fakeFs({ "/wt/s/src/a.ts": "" });
+    expect(await worktreeCopy("/work/src/a.ts", "/work", "/wt/s")).toBe(
+      "/wt/s/src/a.ts",
+    );
+    expect(await worktreeCopy("/work/notes.md", "/work", "/wt/s")).toBeNull();
+    expect(await worktreeCopy("/workshop/a.ts", "/work", "/wt/s")).toBeNull();
+    expect(await worktreeCopy("child:{}", "/work", "/wt/s")).toBeNull();
   });
 });
