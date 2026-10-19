@@ -55,8 +55,9 @@ once. Made for macOS; and others.
   to a file.
 - Skills and MCP servers import from Claude Code, Codex, Cursor and Claude
   Desktop in one click.
-- With [cmem](https://cmem.ai), agents remember what they learned about a
-  project.
+- Agents remember what earlier conversations did and learned in a folder,
+  and can import what Claude Code and others recorded with
+  [cmem](https://cmem.ai).
 - Code shows in any theme from VS Code, VSCodium, Cursor or Windsurf.
 - Use it from your phone on the same Wi-Fi:
   Settings → Remote, then scan the QR code.

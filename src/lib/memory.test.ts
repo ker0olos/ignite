@@ -1,20 +1,28 @@
-import { describe, expect, it } from "vitest";
-import { memoryDescription, platformName, timeAgo } from "./memory";
+import { expect, it } from "vitest";
+import {
+  memoryDescription,
+  platformName,
+  kindFilters,
+  timeAgo,
+  totalOf,
+} from "./memory";
 import { APP_NAME } from "./app";
 
-describe("memoryDescription", () => {
-  it("explains why cmem can't run", () => {
-    expect(memoryDescription(undefined, true, true)).toMatch(/Checking/);
-    expect(memoryDescription("not-installed", true, true)).toMatch(/Install/);
-    expect(memoryDescription("stopped", true, true)).toMatch(/isn't running/);
-    expect(memoryDescription("excluded", true, true)).toMatch(/excluded/);
-  });
+it("says what memory does, or that it's off", () => {
+  expect(memoryDescription(false, true)).toMatch(/^Off/);
+  expect(memoryDescription(true, true)).toMatch(/this folder/);
+  expect(memoryDescription(true, false)).toMatch(/each folder/);
+});
 
-  it("says what it does while running", () => {
-    expect(memoryDescription("running", false, true)).toMatch(/^Off/);
-    expect(memoryDescription("running", true, true)).toMatch(/this folder/);
-    expect(memoryDescription("running", true, false)).toMatch(/each folder/);
-  });
+it("filters by type, most kept first, after All", () => {
+  expect(kindFilters({ bugfix: 2, discovery: 5, mine: 1, change: 0 })).toEqual([
+    { kind: null, label: "All", count: 8 },
+    { kind: "discovery", label: "Discoveries", count: 5 },
+    { kind: "bugfix", label: "Fixes", count: 2 },
+    { kind: "mine", label: "mine", count: 1 },
+  ]);
+  expect(kindFilters({})).toEqual([{ kind: null, label: "All", count: 0 }]);
+  expect(totalOf({ bugfix: 2, change: 3 })).toBe(5);
 });
 
 it("names the tool that recorded an observation", () => {

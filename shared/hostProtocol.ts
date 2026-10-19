@@ -175,7 +175,7 @@ export type HostRequest =
       tail?: number;
     }
   | ({ id: number; type: "command_search" } & CommandSearch)
-  /** What a saved conversation did: model, cost, files, cmem's summary… */
+  /** What a saved conversation did: model, cost, files… */
   | { id: number; type: "session_details"; cwd: string; session: string }
   | { id: number; type: "session_state"; session?: string }
   /**
@@ -244,8 +244,15 @@ export type HostRequest =
     }
   | SkillRequest
   | Lessons.LessonRequest
-  | { id: number; type: "memory_status"; cwd?: string }
-  /** The memory setting was saved; reloads the session to add or drop cmem's tools. */
+  /** The folder's memories for Settings: its latest, or `query`'s best matches, of `kind` only when given. */
+  | {
+      id: number;
+      type: "memory_status";
+      cwd?: string;
+      query?: string;
+      kind?: string;
+    }
+  /** The memory setting was saved; reloads the session to add or drop the memory tools. */
   | { id: number; type: "memory_changed" }
   /** Saves the folder's trust; trusting it reloads the session. */
   | { id: number; type: "set_trust"; cwd: string; trusted: boolean }

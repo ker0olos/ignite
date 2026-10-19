@@ -157,7 +157,9 @@ describe("loadSettings", () => {
 
   it("reads memory settings", async () => {
     fakeFs({ [FILE]: "[memory]\ncmem = false\n" });
-    expect((await loadSettings()).memory).toEqual({ cmem: false });
+    expect((await loadSettings()).memory).toEqual({ enabled: false });
+    fakeFs({ [FILE]: "[memory]\nenabled = false\n" });
+    expect((await loadSettings()).memory).toEqual({ enabled: false });
   });
 
   it("reads the Manual approval mode, full access and the Windows sandbox", async () => {
@@ -286,7 +288,7 @@ describe("saveSettings", () => {
       resizable_split: true,
     },
     composer: { git_status: false },
-    memory: { cmem: false },
+    memory: { enabled: false },
     approval: { mode: "manual", full_access: false, windows_sandbox: false },
     subagents: { enabled: false, max: 4 },
     power: { keep_awake: false, keep_screen_awake: true },

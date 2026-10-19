@@ -1,60 +1,46 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowUpRight, Settings2 } from "lucide-react";
-import type { MemoryStatus } from "../../../shared/memory";
-import { ObservationRow } from "@/components/memory/ObservationRow";
-import { Button } from "@/components/ui/button";
+import { KindFilters } from "@/components/memory/KindFilters";
+import { MemoryList } from "@/components/memory/MemoryList";
+import { MemorySearch } from "@/components/memory/MemorySearch";
+import type { useMemory } from "@/hooks/useMemory";
+import { totalOf } from "@/lib/memory";
 import { basename } from "@/lib/paths";
 
-/** The open folder's latest memories, with links into cmem's viewer. */
+function heading(folder: string | null, searching: boolean) {
+  if (!folder) return "Recent memories";
+  return `${searching ? "Matches" : "Recent memories"} in ${basename(folder)}`;
+}
+
+/** The open folder's memories: a search, type filters and its latest. */
 export function MemoryPreview({
   folder,
-  status: { observations, viewerUrl },
+  memory: { status, query, setQuery, kind, setKind },
 }: {
   folder: string | null;
-  /** Shown while cmem runs, so `viewerUrl` is set. */
-  status: MemoryStatus;
+  memory: ReturnType<typeof useMemory>;
 }) {
-  // cmem's settings are a dialog inside its viewer, with no URL of their own.
-  const openViewer = () => openUrl(viewerUrl ?? "").catch(() => {});
+  if (!status) return null;
+  const { observations, counts } = status;
+  const count = totalOf(counts);
+  const searching = query.trim() !== "";
+  const filtered = searching || kind !== null;
   return (
-    <div className="mt-4">
-      <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-        {folder ? `Recent memories in ${basename(folder)}` : "Recent memories"}
-      </h3>
-      <div className="overflow-hidden rounded-lg border bg-card">
-        {observations.length ? (
-          <ul className="divide-y">
-            {observations.map((o) => (
-              <ObservationRow key={o.id} observation={o} />
-            ))}
-          </ul>
-        ) : (
-          <p className="px-4 py-6 text-center text-[13px] text-muted-foreground">
-            {folder
-              ? "Nothing remembered for this folder yet. Memories appear here as the agent works."
-              : "Open a folder to see what's remembered about it."}
-          </p>
-        )}
-        <div className="flex items-center justify-end gap-1 border-t bg-muted/40 px-2 py-1.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            onClick={openViewer}
-          >
-            <Settings2 />
-            Configure
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            onClick={openViewer}
-          >
-            See all memories
-            <ArrowUpRight />
-          </Button>
-        </div>
+    <div className="mt-4 space-y-3">
+      {folder && (
+        <MemorySearch folder={folder} query={query} onChange={setQuery} />
+      )}
+      {folder && (count > 0 || filtered) && (
+        <KindFilters counts={counts} kind={kind} onChange={setKind} />
+      )}
+      <div>
+        <h3 className="mb-2 flex justify-between text-xs font-medium text-muted-foreground">
+          <span>{heading(folder, searching)}</span>
+          {folder && count > 0 && <span>{count.toLocaleString()} in all</span>}
+        </h3>
+        <MemoryList
+          observations={observations}
+          hasFolder={!!folder}
+          filtered={filtered}
+        />
       </div>
     </div>
   );

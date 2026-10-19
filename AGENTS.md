@@ -29,7 +29,7 @@ src/                     React frontend (almost all logic lives here)
     conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces; WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
-    memory/              Recent cmem observations for the Memory settings
+    memory/              The Memory settings' extras: search, type filters with counts, the folder's memories (each opens to its facts and files)
     lessons/             A lesson's tags (its folder, what brings it up), in Settings and proposals
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
     skills/              Skill and plugin rows, import UI from other apps
@@ -103,7 +103,7 @@ src/                     React frontend (almost all logic lives here)
     useComposerDraft.ts  The composer's text and images: the question's while one shows, else the message's
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useSkills.ts         The app's skills and plugins, and other apps' to import, while Settings is open
-    useMemory.ts         cmem's status and the folder's recent memories, while Settings is open
+    useMemory.ts         The folder's memories while Settings is open: its latest, or a search's matches, of one type
     useAbout.ts          The commit the app runs from; Check for updates, reloading every window,
                          or (launcher) built in the background every 6h, then Restart
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
@@ -169,7 +169,7 @@ src/                     React frontend (almost all logic lives here)
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
     skills.ts            Skills settings text: counts
-    memory.ts            Memory settings text: cmem status line, relative times
+    memory.ts            Memory settings text: the switch's line, the type filters, relative times
     lessons.ts           A lesson's folder as its tag names it
     about.ts             About text: version line, update button states, the macOS About panel
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
@@ -338,8 +338,14 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          the only skills sessions load besides the folder's own
   skills/                Built-in skills (code-review, security-review, design-references), loaded after the app's; a skill of the same name replaces one
   skillCatalog.ts        Other apps' skills to import: Claude Code, Codex, Cursor, ~/.agents, Claude Code plugins
-  cmem.ts           cmem: finds its worker, the app's on/off setting, recent observations
-  cmemExtension.ts  Records sessions in cmem and adds its recalled context to the prompt
+  memory.ts              The memory's on/off setting; what the Memory settings show; cmem's import at start
+  memoryDb.ts            The memory (~/.ignite/memory.db, node:sqlite): observations and summaries per folder, FTS5
+  memorySearch.ts        Reading it: a folder's latest, full-text search, by id, around one
+  memoryContext.ts       What a new conversation recalls: an index of the folder's latest memories
+  memoryExtension.ts     The recalled index in the system prompt; memory_search, memory_get, memory_timeline
+  memoryWriter.ts        After a run, the cheapest model writes down its observations and summary
+  hostMemory.ts          Each conversation's run, written to the memory once it settles
+  memoryImport.ts        Imports cmem's memories from its database (no worker), only what isn't in yet
   lessons.ts             Lessons from the agent's mistakes (~/.ignite/lessons.json): saving, the cap, which a tool call runs into
   lessonExtension.ts     lesson_add / lesson_remove; system_prompt lessons in the prompt, tool_call ones block their call
   lessonRegex.ts         Regex lessons: refusing too broad or slow ones on save (recheck), running one on a call
@@ -388,6 +394,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   mcpCatalog.ts          Other apps' MCP servers to import
   claudeCodeMcpAuth.ts   Claude Code's saved MCP sign-ins, copied when its URL servers are imported
   testMcpServer.ts       A one-tool stdio MCP server for tests
+  testMemory.ts          A memory for tests, of folder /work/app
   remote.ts              Remote access: browsers share this sidecar; replies routed by id, events to all
   remoteServer.ts        Its HTTP server: proxies the UI from Vite, WebSocket; its links (network, Tailscale)
   types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
@@ -403,7 +410,7 @@ shared/skills.ts         Skills, plugins and importable skills as they cross the
 shared/mcpCatalog.ts     MCP presets and other apps' servers the MCP settings offer
 shared/mcpServers.ts     MCP servers as they cross the wire (re-exported by hostProtocol.ts)
 shared/terminal.ts       The user's terminals: requests, output events, terminal_read's name
-shared/memory.ts         cmem status and observations as they cross the wire
+shared/memory.ts         Memory kinds (cmem's), the Memory settings' status as it crosses the wire
 shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
 shared/commandSearch.ts  Ranks conversations and files for the command center (sidecar and demo)
 shared/adb.ts            The adb tool's arguments: its command, host paths, calls that never exit
@@ -495,9 +502,10 @@ Two places hold persisted data:
   (on by default) lists, after the approval menu, the conversation's
   repositories with uncommitted files, unpushed commits or an open pull
   request; off, nothing is read.
-- **Memory settings** (`[memory]`): `cmem` (on by default) records
-  sessions in cmem, recalls its memories and gives the agent cmem's search
-  tools. Recording checks it before each run; the tools follow a reload.
+- **Memory settings** (`[memory]`): `enabled` (on by default; once `cmem`,
+  still read) records what conversations do, recalls it in later ones and
+  gives the agent the memory tools. Recording and recall check it before each
+  run; the tools follow a reload.
 - **Subagent settings** (`[subagents]`): `enabled` (on by default) gives
   the agent the `subagent` tool; `max` (default 2) caps how many of a
   conversation's run at once; it may start any number, and the rest queue
@@ -931,7 +939,7 @@ copied in afresh (the agent's changes to them aren't kept). Other folders
 outside git (or with no commit yet) are shared instead. The composer's
 repository popover tags which, beside the branch (or "No branch yet"): the
 conversation's own worktree, or (a warning) the user's own checkout.
-Trust, saved conversations and cmem stay keyed by the folder (`folderOf`).
+Trust, saved conversations and memories stay keyed by the folder (`folderOf`).
 Each session also has its own model runtime (`sidecar/sessionRuntime.ts`):
 pi-claude-bridge registers one provider per session, and a shared runtime
 sent every session's Claude calls through one of them, in `process.cwd()`.
@@ -969,24 +977,38 @@ plugins' skills), Codex, Cursor and `~/.agents/skills` by copying them
 (symlinks followed); other apps' files are only read. Changes reload the
 sessions, like an MCP change.
 
-When [cmem](https://cmem.ai) (claude-mem, also used by Codex, Cursor and
-other agents) is installed and its worker is running,
-`sidecar/cmemExtension.ts` does what its agent hooks do, over the worker's
-local HTTP API (port from `~/.claude-mem/worker.pid`): each prompt, tool
-result and finished run is recorded under platform `ignite`, and the
-folder's recalled context (from every agent, not just this app) is appended
-to the system prompt. The Memory settings section turns it on or off
-(`[memory] cmem`), shows its status and previews the folder's latest memories. It honours
-`CLAUDE_MEM_EXCLUDED_PROJECTS`, which the worker itself doesn't check.
-While it's on, `mcpExtension.ts` also adds cmem's own MCP server (`cmem`,
-`mcp-server.cjs` beside the running worker's script, so any agent's install
-works) to the adapter's config: eager, with `search`, `timeline` and
-`get_observations` as direct tools. Its work-state tools, and the work-state
-section of its recalled context, are left out: plans and to-dos live in tasks. It isn't in mcp.json, so the MCP page
-doesn't list it; toggling the setting sends `memory_changed`, which reloads
-the session like an MCP change.
+The agent remembers what conversations did (`~/.ignite/memory.db`,
+`node:sqlite` with an FTS5 index), in the shape
+[cmem](https://cmem.ai) (claude-mem) keeps: observations typed `bugfix`,
+`feature`, `refactor`, `change`, `discovery`, `decision`, `security_alert`,
+`security_note` or `sensitive`, each with a title, subtitle, facts,
+narrative, concepts and files, and each run's summary (request, investigated,
+learned, completed, next steps, notes), all keyed by folder. Once a run
+settles, `sidecar/hostMemory.ts` hands it to `sidecar/memoryWriter.ts`: the
+cheapest priced model of the conversation's provider (the router's) reads it,
+with the titles the conversation already recorded, and writes what's worth
+knowing later, one call per run (a run past 60,000 characters takes a call
+per chunk, keeping the last one's summary); `<private>` text, the memory
+tools and plan or lesson calls are left out. A new conversation's system
+prompt (read once, for its cache) gets an index of its folder's 50 latest
+observations and 10 latest summaries, one line each (id, time, mark, title)
+by day, within 10,000 characters (`sidecar/memoryContext.ts`). The agent
+reads one in full with `memory_get`, finds older ones with `memory_search`
+(every word, by stem and prefix, then any word; by kind and date) and sees
+the work around one with `memory_timeline`; the index goes in as the `memory`
+prompt section (`systemPromptOptions.sections`), since claude-bridge passes
+Claude Code only pi's sections, never text an extension adds to the prompt.
+Subagents get none of it. The Memory settings section turns it on or off
+and lists the folder's latest memories, searched (as `memory_search` does)
+and filtered by type (with each type's count), each opening to its facts and
+files. cmem is only a compatibility layer: each sidecar start quietly imports
+what isn't in yet from `~/.claude-mem/claude-mem.db` (`sidecar/memoryImport.ts`,
+read only, no worker; nothing shows it): each session maps to the folder it
+was worked in, else its project's usual one (an Ignite worktree's to its
+folder), and a type of the model's own becomes `change`, so Claude Code's
+memories keep coming in while cmem records them there.
 
-Separately from cmem, the agent keeps lessons from its own mistakes
+Separately from its memory, the agent keeps lessons from its own mistakes
 (`sidecar/lessonExtension.ts`, `~/.ignite/lessons.json`). The system prompt
 tells it to call `lesson_add` whenever it's corrected or promises to do
 something differently; lessons save without asking, for every folder or only

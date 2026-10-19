@@ -189,8 +189,8 @@ export function lockReason(worktree: string): string | null {
   }
 }
 
-/** The agent's worktree that `dir` is in, or null. */
-function worktreeOf(dir: string, root = WORKTREES): string | null {
+/** The app's worktree `dir` is in, or null when it isn't in one. */
+export function worktreeOf(dir: string, root = WORKTREES): string | null {
   const rel = relative(root, dir);
   if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
   const [repoKey, id] = rel.split(/[\\/]/);

@@ -32,14 +32,15 @@ import type {
 } from "./hostTypes.ts";
 import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
 import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
-import { memoryStatus } from "./cmem.ts";
+import { memoryStatus } from "./memory.ts";
+import { rememberRun } from "./hostMemory.ts";
 import { conversationGitStatus } from "./gitStatus.ts";
 import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
 import type { Task } from "../shared/tasks.ts";
 
-const MEMORY = { state: "stopped", observations: [] } as const;
-vi.mock("./cmem.ts", () => ({ memoryStatus: vi.fn(async () => MEMORY) }));
+const MEMORY = { counts: {}, observations: [] };
+vi.mock("./memory.ts", () => ({ memoryStatus: vi.fn(() => MEMORY) }));
 vi.mock("./gitStatus.ts", async (original) => ({
   ...(await original<typeof import("./gitStatus.ts")>()),
   conversationGitStatus: vi.fn(async () => []),
@@ -51,6 +52,11 @@ vi.mock("./router.ts", async (original) => ({
 }));
 // The real one calls the conversation's provider.
 vi.mock("./reflector.ts", () => ({ reflect: vi.fn(async () => []) }));
+// Runs would otherwise be written to the real ~/.ignite/memory.db.
+vi.mock("./hostMemory.ts", () => ({
+  followRun: vi.fn(),
+  rememberRun: vi.fn(async () => {}),
+}));
 // The real one writes to pi's folder in the user's home.
 vi.mock("./waitingCalls.ts", () => ({
   readWaiting: vi.fn(() => ({})),
@@ -1773,7 +1779,7 @@ describe("sessions", () => {
     expect(b.reload).toHaveBeenCalledOnce();
     expect(a.reload).not.toHaveBeenCalled();
     a.emit({ type: "agent_settled" });
-    expect(a.reload).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(a.reload).toHaveBeenCalledOnce());
   });
 
   it("forwards a hidden folder's events, so the app keeps it current", async () => {
@@ -2257,7 +2263,7 @@ describe("project trust", () => {
     await request({ id: 2, type: "set_trust", cwd: "/work", trusted: true });
     expect(session.reload).not.toHaveBeenCalled();
     session.emit({ type: "agent_settled" } as SessionEvent);
-    expect(session.reload).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(session.reload).toHaveBeenCalledOnce());
   });
 
   it("saves a refusal without reloading", async () => {
@@ -3097,8 +3103,48 @@ describe("MCP servers", () => {
     await request({ id: 2, type: "mcp_remove", name: "docs" });
     expect(session.reload).not.toHaveBeenCalled();
     session.emit({ type: "agent_settled" } as SessionEvent);
-    expect(session.reload).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(session.reload).toHaveBeenCalledTimes(1));
     session.emit({ type: "agent_settled" } as SessionEvent);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(session.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("reloads only once the run's memory is written, and not into a new run", async () => {
+    let written = () => {};
+    vi.mocked(rememberRun).mockImplementationOnce(
+      () => new Promise<void>((resolve) => (written = resolve)),
+    );
+    const { request, session } = await withSession();
+    session.isStreaming = true;
+    await request({ id: 2, type: "mcp_remove", name: "docs" });
+    session.emit({ type: "agent_settled" } as SessionEvent);
+    session.emit({ type: "agent_start" } as SessionEvent);
+    written();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(session.reload).not.toHaveBeenCalled();
+    session.emit({ type: "agent_settled" } as SessionEvent);
+    await vi.waitFor(() => expect(session.reload).toHaveBeenCalledTimes(1));
+  });
+
+  it("lets the memory finish before any reload, and never reloads a closed conversation", async () => {
+    let written = () => {};
+    const writing = () => new Promise<void>((resolve) => (written = resolve));
+    vi.mocked(rememberRun).mockImplementationOnce(writing);
+    const { request, session } = await withSession();
+    session.emit({ type: "agent_settled" } as SessionEvent);
+    const removed = request({ id: 2, type: "mcp_remove", name: "docs" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(session.reload).not.toHaveBeenCalled();
+    written();
+    await removed;
+    expect(session.reload).toHaveBeenCalledTimes(1);
+
+    vi.mocked(rememberRun).mockImplementationOnce(writing);
+    session.emit({ type: "agent_settled" } as SessionEvent);
+    const again = request({ id: 3, type: "mcp_remove", name: "docs" });
+    await request({ id: 4, type: "close_session", cwd: "/work" });
+    written();
+    await again;
     expect(session.reload).toHaveBeenCalledTimes(1);
   });
 
@@ -3109,10 +3155,19 @@ describe("MCP servers", () => {
     expect(responses()[0]).toMatchObject({ ok: true });
   });
 
-  it("reports cmem's status for the folder", async () => {
+  it("reports the folder's memory", async () => {
     const { request, responses } = await withSession();
-    await request({ id: 2, type: "memory_status", cwd: "/work/app" });
-    expect(memoryStatus).toHaveBeenCalledWith("/work/app");
+    await request({
+      id: 2,
+      type: "memory_status",
+      cwd: "/work/app",
+      query: "timer",
+      kind: "bugfix",
+    });
+    expect(memoryStatus).toHaveBeenCalledWith("/work/app", {
+      query: "timer",
+      kind: "bugfix",
+    });
     expect(responses()[0]).toMatchObject({ ok: true, data: MEMORY });
   });
 
