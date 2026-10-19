@@ -49,7 +49,11 @@ export function ended(t: Transcript): Transcript {
 export type Starting = {
   folder: string;
   message: UserMessage;
+  /** The id the app picked for its conversation, known before it opens. */
+  id?: string;
   session?: string;
+  /** pi has it: the sidecar says whether it runs. */
+  handed?: boolean;
 };
 
 /** Whether pi has added a conversation's first message, or anything else (its run failed first). */

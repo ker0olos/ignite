@@ -1269,6 +1269,25 @@ describe("sessions", () => {
     });
   });
 
+  it("starts a new conversation under the app's id, only an unused UUID", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime, async () =>
+      fakeSession(),
+    );
+    const id = "0b5c8a2e-6f1d-4c3a-9e7b-2d4f6a8c0e1b";
+    await request({ id: 1, type: "new_session", cwd: "/a", session: id });
+    await request({ id: 2, type: "new_session", cwd: "/a", session: id });
+    await request({ id: 3, type: "new_session", cwd: "/a", session: "../x" });
+    const refused = {
+      ok: false,
+      error: "A new conversation needs an unused UUID.",
+    };
+    expect(responses()).toMatchObject([
+      { ok: true, data: { session: id } },
+      refused,
+      refused,
+    ]);
+  });
+
   it("names a reopened conversation after its first saved message", async () => {
     const session = fakeSession();
     session.messages = [

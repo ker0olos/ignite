@@ -16,6 +16,16 @@ export function sessionFor(folder: string, workdir: string, id: string) {
   return SessionManager.create(workdir, dir, { id });
 }
 
+const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+
+/** A new conversation's id: the app's, which names files so must be a UUID no conversation has, else a fresh one. */
+export function newId(ctx: HostContext, session?: string) {
+  if (session === undefined) return ctx.sessions.create();
+  if (!UUID.test(session) || ctx.agents.has(session))
+    throw new Error("A new conversation needs an unused UUID.");
+  return session;
+}
+
 /** About the last `n` messages (all by default), never starting on a tool result cut off from its call. */
 export function lastMessages(messages: AgentMessage[], n = Infinity) {
   let from = Math.max(0, messages.length - n);

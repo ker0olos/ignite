@@ -16,7 +16,7 @@ import type { MemoryStatus } from "./memory.ts";
 import type {
   CommandSearch,
   CommandSearchResult,
-  ForkSession,
+  NewSession,
   SessionDetails,
 } from "./conversations.ts";
 import type * as Lessons from "./lessons.ts";
@@ -156,7 +156,7 @@ export type HostRequest =
       known?: string;
     }
   /** Starts another conversation in the folder and shows it: empty, or a copy of one (see ForkSession). */
-  | { id: number; type: "new_session"; cwd: string; fork?: ForkSession }
+  | NewSession
   /**
    * Ends a conversation, or without `session` all of the folder's; their
    * waiting tool calls are denied. Saved conversations stay.

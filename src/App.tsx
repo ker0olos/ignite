@@ -50,7 +50,7 @@ export default function App() {
   const agent = useAgentSession(host, current, providers.statuses);
   const session = shownSession(agent, providers.hostError);
   const mcp = useMcpServers(host, current);
-  const list = useConversationList(host);
+  const list = useConversationList(host, agent.firstMessage);
   const shownConversations = useConversations(host, current, agent, {
     select: addFolder,
     dismiss: dismissFolder,

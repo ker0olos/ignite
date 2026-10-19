@@ -76,8 +76,8 @@ export function useComposerBegin({
   const [pending, setPending] = useState<Pending>({});
 
   const opening = useCallback(
-    async (host: HostClient, cwd: string) => {
-      const s = await host.request({ type: "new_session", cwd });
+    async (host: HostClient, cwd: string, session?: string) => {
+      const s = await host.request({ type: "new_session", cwd, session });
       start(s);
       starting.started(s.session);
       onBegin?.(s.session, s.workdir);
@@ -94,11 +94,15 @@ export function useComposerBegin({
     async (text: string, images: ImageContent[]) => {
       if (!opened || !folder) return;
       const typed = { text, ...(images.length && { images }) };
-      starting.show(folder, userMessage(text, images), typed);
+      // Missing over remote access's plain http: the sidecar picks one then.
+      const id = crypto.randomUUID?.();
+      starting.show(folder, userMessage(text, images), typed, id);
       try {
-        const to = await opening(opened, folder);
-        if (!starting.taken())
+        const to = await opening(opened, folder, id);
+        if (!starting.taken()) {
           await opened.request(promptRequest(text, images, to));
+          starting.handed();
+        }
       } catch (e) {
         starting.drop();
         throw e;

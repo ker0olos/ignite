@@ -45,7 +45,7 @@ import {
 import { backgroundOutput, stopBackground } from "./backgroundBash.ts";
 import { watchBackground } from "./hostWait.ts";
 import { skipWait } from "./skipWait.ts";
-import { messagesOf, sessionDetails } from "./sessionStore.ts";
+import { messagesOf, newId, sessionDetails } from "./sessionStore.ts";
 import { listFiles } from "./fileIndex.ts";
 import { createSearch } from "./search.ts";
 import type { TrustStore } from "./trust.ts";
@@ -85,7 +85,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   new_session: async (ctx, r) =>
     r.fork
       ? fork(ctx, r.cwd, r.fork.session, r.fork.task)
-      : open(ctx, r.cwd, ctx.sessions.create()),
+      : open(ctx, r.cwd, newId(ctx, r.session)),
   // The user dismissing a conversation is done with its task.
   close_session: async (ctx, r) => {
     await closeConversation(ctx, r.cwd, r.session);

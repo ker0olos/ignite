@@ -1,5 +1,6 @@
 import type { AgentStatus } from "../../shared/hostProtocol";
-import type { RecentMessage } from "../../shared/conversations";
+import { titleOf, type RecentMessage } from "../../shared/conversations";
+import type { Starting } from "./routedMessage";
 import { normalizedTags, type ConversationTags } from "./conversationTags";
 import type { ConversationOrder } from "./settings";
 
@@ -108,6 +109,23 @@ export function orderedRows(
   order: ConversationOrder,
 ): AgentStatus[] {
   return order === "newest_first" ? [...rows].reverse() : rows;
+}
+
+/** `rows` with the conversation `starting` starts named by its first message until the sidecar names it, and working until pi has the message. */
+export function withFirstMessage<R extends AgentStatus>(
+  rows: R[],
+  starting: Starting | null,
+): R[] {
+  if (!starting) return rows;
+  return rows.map((r) =>
+    r.session === starting.id && !r.title
+      ? {
+          ...r,
+          title: titleOf(starting.message),
+          running: r.running || !starting.handed,
+        }
+      : r,
+  );
 }
 
 /** A conversation's title, or what one is called before its first message. */

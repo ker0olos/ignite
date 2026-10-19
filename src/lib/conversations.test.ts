@@ -4,6 +4,7 @@ import {
   orderedRows,
   replyNote,
   rowsOf,
+  withFirstMessage,
   withRunning,
   without,
   allTags,
@@ -155,6 +156,30 @@ describe("replyNote", () => {
     expect(replyNote(reply(1, 0))).toBe("Ran 1 tool");
     expect(replyNote(reply(0, 1))).toBe("edited 1 file");
     expect(replyNote(reply(0, 0))).toBe("");
+  });
+});
+
+describe("withFirstMessage", () => {
+  const starting = {
+    folder: "/a",
+    id: "new",
+    message: { role: "user" as const, content: "hi\nthere", timestamp: 1 },
+  };
+
+  it("names the starting conversation's row and shows it working until the sidecar does", () => {
+    const rows = [agent("/a", "old", "", false), agent("/a", "new", "", false)];
+    expect(withFirstMessage(rows, starting)).toEqual([
+      rows[0],
+      { ...rows[1], title: "hi", running: true },
+    ]);
+    const named = [agent("/a", "new", "hi", false)];
+    expect(withFirstMessage(named, starting)).toEqual(named);
+    expect(withFirstMessage(rows, null)).toBe(rows);
+    // Once pi has it, the sidecar says whether it runs.
+    expect(withFirstMessage(rows, { ...starting, handed: true })[1]).toEqual({
+      ...rows[1],
+      title: "hi",
+    });
   });
 });
 

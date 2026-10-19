@@ -101,6 +101,8 @@ export function useComposerActions({
   const stop = useCallback(async (): Promise<QueuedMessage[]> => {
     // Still starting: the message comes back unsent.
     if (none) return starting.take();
+    // Stopped while routed, pi never adds it; it mustn't stay shown.
+    if (starting.starting?.session === session) starting.drop();
     const taken = await opened
       ?.request({ type: "abort", ...(session && { session }) })
       .catch(() => []);

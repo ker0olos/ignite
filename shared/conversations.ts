@@ -40,7 +40,16 @@ export type FileHit = { folder: string; path: string };
  * which gets a summary of the fork's work after each of its runs. `task`,
  * the fork's first message, is only for the original's note.
  */
-export type ForkSession = { session: string; task?: string };
+type ForkSession = { session: string; task?: string };
+
+/** `new_session`: `session` is the id the app picked (a UUID), so its sidebar row is known before the reply. */
+export type NewSession = {
+  id: number;
+  type: "new_session";
+  cwd: string;
+  fork?: ForkSession;
+  session?: string;
+};
 
 /** The command center's search: the best matches in `folders`, of `kinds`. */
 export type CommandSearch = {

@@ -29,7 +29,7 @@ async function setup(saved: Record<string, unknown> = {}, remember = true) {
   } as unknown as HostClient;
   const push = (agents: AgentStatus[]) =>
     act(() => listeners.forEach((cb) => cb({ type: "agents", agents })));
-  const hook = renderHook(() => useConversationList(host, remember));
+  const hook = renderHook(() => useConversationList(host, null, remember));
   return { ...hook, push, store };
 }
 

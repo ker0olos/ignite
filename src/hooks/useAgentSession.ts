@@ -129,6 +129,8 @@ export function useAgentSession(
     error,
     /** Its first message is on its way, the conversation still starting; nothing else sends meanwhile. */
     starting: none && first.starting?.folder === folder,
+    /** The first message being sent in any folder, for its sidebar row. */
+    firstMessage: first.starting,
     /** A fork of it is open, or its report is on the way; it takes no messages. */
     waitingOnFork: useForkWait(host, shown),
     send: actions.send,

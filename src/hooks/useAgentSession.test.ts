@@ -677,6 +677,7 @@ describe("several conversations in a folder", () => {
     });
     const s2 = result.current.kept.find((o) => o.session === "s2");
     expect(s2?.transcript.pending?.content).toBe("Another thing");
+    expect(result.current.firstMessage?.handed).toBe(true);
     const message = { ...sent, timestamp: 2 };
     host.emit({
       type: "session_event",
@@ -696,6 +697,18 @@ describe("several conversations in a folder", () => {
     expect(result.current.transcript?.items).toHaveLength(1);
   });
 
+  it("stops showing a first message that Stop took back while it was routed", async () => {
+    const { host, result } = folder();
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    act(() => result.current.create());
+    await act(() => result.current.send("Another thing"));
+    expect(result.current.firstMessage?.session).toBe("s2");
+    await act(() => result.current.stop());
+    expect(types(host).at(-1)).toBe("abort");
+    expect(result.current.firstMessage).toBeNull();
+    expect(result.current.transcript?.pending).toBeUndefined();
+  });
+
   it("shows a first message at once, in a pane of its own, while its conversation starts; sending waits, and a failed start drops it", async () => {
     let fail: (error: Error) => void = () => {};
     const host = fakeHost(async (req) => {
@@ -712,12 +725,19 @@ describe("several conversations in a folder", () => {
     expect(result.current.transcript?.pending?.content).toBe("Another thing");
     const pane = result.current.kept.find((o) => o.session === STARTING_PANE);
     expect(pane?.transcript.pending?.content).toBe("Another thing");
+    // Its id is the app's, so the sidebar knows its row before the reply.
+    const id = result.current.firstMessage?.id;
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(host.request).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "new_session", session: id }),
+    );
     await act(async () => {
       fail(new Error("Disk full"));
       await sending;
     });
     expect(result.current.error).toBe("Disk full");
     expect(result.current.starting).toBe(false);
+    expect(result.current.firstMessage).toBeNull();
     expect(result.current.transcript).toBeNull();
     expect(result.current.kept.map((o) => o.session)).toEqual(["s1"]);
   });

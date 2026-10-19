@@ -18,11 +18,16 @@ export function useStartingMessage(
 
   return {
     starting,
-    /** Shows `message` in `folder` at once, its first (`typed` as the composer had it). */
+    /** Shows `message` in `folder` at once, its first (`typed` as the composer had it), starting conversation `id`. */
     show: useCallback(
-      (folder: string, message: UserMessage, typed: QueuedMessage) => {
+      (
+        folder: string,
+        message: UserMessage,
+        typed: QueuedMessage,
+        id?: string,
+      ) => {
         sent.current = typed;
-        setStarting({ folder, message });
+        setStarting({ folder, message, id });
       },
       [],
     ),
@@ -31,7 +36,12 @@ export function useStartingMessage(
       (session: string) => setStarting((s) => s && { ...s, session }),
       [],
     ),
-    /** It wasn't sent. */
+    /** pi has it. */
+    handed: useCallback(
+      () => setStarting((s) => s && { ...s, handed: true }),
+      [],
+    ),
+    /** It wasn't sent, or Stop ended its run. */
     drop: useCallback(() => setStarting(null), []),
     /** Stop while it starts: takes it back, unsent. */
     take: useCallback((): QueuedMessage[] => {

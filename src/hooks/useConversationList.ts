@@ -6,10 +6,12 @@ import { DEMO_FOLDER } from "@/lib/demo";
 import {
   allTags,
   rowsOf,
+  withFirstMessage,
   withRunning,
   without,
   type Listed,
 } from "@/lib/conversations";
+import type { Starting } from "@/lib/routedMessage";
 import { useConversationTags } from "@/hooks/useConversationTags";
 import { store } from "@/lib/store";
 
@@ -24,10 +26,12 @@ const asAgents = (listed: Listed): AgentStatus[] =>
 /**
  * The conversations listed under each folder: each one the user started or
  * reopened, until they close it, whether it's running or not (it starts
- * again when shown). With `remember`, the list outlives the app.
+ * again when shown). With `remember`, the list outlives the app. A first
+ * message being sent (`starting`) names its row at once.
  */
 export function useConversationList(
   host: HostClient | null,
+  starting: Starting | null = null,
   remember = REMEMBER,
 ) {
   const [pushed, setPushed] = useState<{
@@ -83,7 +87,11 @@ export function useConversationList(
 
   return {
     /** The folder's listed conversations, in order, with what each is doing. */
-    rows: (cwd: string) => rowsOf(listed, agents, cwd, tags.map, tags.filter),
+    rows: (cwd: string) =>
+      withFirstMessage(
+        rowsOf(listed, agents, cwd, tags.map, tags.filter),
+        starting,
+      ),
     /** The folder's listed conversations whatever the tag filter, forks under their original. */
     allRows: (cwd: string) => rowsOf(listed, agents, cwd, tags.map),
     /** Every tag used by the listed conversations. */
