@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import type {
   ModelInfo,
   OpenedSession,
@@ -10,41 +10,15 @@ import type { QueueKind, QueuedMessage, Unqueue } from "../../shared/queue";
 import type { HostClient } from "@/lib/piHost";
 import { useCompact } from "@/hooks/useCompact";
 import { useFork } from "@/hooks/useFork";
+import {
+  promptRequest,
+  useComposerBegin,
+  type Choice,
+  type Pending,
+} from "@/hooks/useComposerBegin";
+import type { useStartingMessage } from "@/hooks/useStartingMessage";
 import { appCommand } from "@/lib/mentions";
 import type { Queued } from "@/lib/queue";
-
-/** Model and effort picked before a folder's first message, applied once its session starts. */
-export type Pending = { model?: ModelInfo; level?: ThinkingLevel };
-
-type Choice =
-  | { type: "set_model"; provider: string; modelId: string }
-  | { type: "set_thinking_level"; level: ThinkingLevel };
-
-const toChoices = ({ model, level }: Pending): Choice[] => [
-  ...(model
-    ? [
-        {
-          type: "set_model" as const,
-          provider: model.provider,
-          modelId: model.id,
-        },
-      ]
-    : []),
-  ...(level ? [{ type: "set_thinking_level" as const, level }] : []),
-];
-
-const promptRequest = (
-  text: string,
-  images: ImageContent[],
-  session: string | null,
-  queue?: QueueKind,
-) => ({
-  type: "prompt" as const,
-  text,
-  ...(images.length > 0 && { images }),
-  ...(session && { session }),
-  ...(queue && { queue }),
-});
 
 /**
  * Sending, stopping, and the model and effort choices, each for `session`
@@ -59,6 +33,7 @@ export function useComposerActions({
   none,
   start,
   onBegin,
+  starting,
   setState,
   setError,
 }: {
@@ -70,22 +45,19 @@ export function useComposerActions({
   start: (s: OpenedSession) => void;
   /** The first message started conversation `session`. */
   onBegin?: (session: string, workdir: string) => void;
+  /** The first message, shown while its conversation starts. */
+  starting: ReturnType<typeof useStartingMessage>;
   setState: (s: SessionState) => void;
   setError: (e: string | null) => void;
 }) {
-  const [pending, setPending] = useState<Pending>({});
-
-  const begin = useCallback(async () => {
-    if (!opened || !folder) return null;
-    const s = await opened.request({ type: "new_session", cwd: folder });
-    start(s);
-    onBegin?.(s.session, s.workdir);
-    for (const choice of toChoices(pending)) {
-      setState(await opened.request({ ...choice, session: s.session }));
-    }
-    setPending({});
-    return s.session;
-  }, [opened, folder, start, onBegin, pending, setState]);
+  const { pending, setPending, begin } = useComposerBegin({
+    opened,
+    folder,
+    start,
+    onBegin,
+    starting,
+    setState,
+  });
 
   const compact = useCompact(opened, none, session, setError);
   const fork = useFork(opened, folder, none ? null : session, start, setError);
@@ -99,8 +71,9 @@ export function useComposerActions({
       if (task !== null) return fork(task, images);
       setError(null);
       try {
-        const to = none ? await begin() : session;
-        await opened.request(promptRequest(text, images, to, queue));
+        await (none
+          ? begin(text, images)
+          : opened.request(promptRequest(text, images, session, queue)));
       } catch (e) {
         setError((e as Error).message);
       }
@@ -121,16 +94,18 @@ export function useComposerActions({
         setError((e as Error).message);
       }
     },
-    [opened, none, session, setState, setError],
+    [opened, none, session, setPending, setState, setError],
   );
 
   /** Stops the run; resolves to the queued messages it took back. */
   const stop = useCallback(async (): Promise<QueuedMessage[]> => {
+    // Still starting: the message comes back unsent.
+    if (none) return starting.take();
     const taken = await opened
       ?.request({ type: "abort", ...(session && { session }) })
       .catch(() => []);
     return taken ?? [];
-  }, [opened, session]);
+  }, [opened, none, session, starting]);
 
   /** Takes a queued message back, moves it up or sends it now (see Unqueue). */
   const unqueue = useCallback(

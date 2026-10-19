@@ -3,9 +3,9 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import ready, { waitsForReady } from "./readyExtension.ts";
-import { setReady, whenReady } from "./worktreeReady.ts";
+import { dropReady, startReady, setReady, whenReady } from "./worktreeReady.ts";
 
 let dir: string;
 beforeEach(async () => {
@@ -40,7 +40,7 @@ it("waits for writes, commands and git, and reads of files not there yet", () =>
 
 it("knows a workspace from anywhere inside it, and lets go once it's ready", async () => {
   let done = () => {};
-  setReady(dir, new Promise<void>((resolve) => (done = resolve)));
+  setReady(dir, () => new Promise<void>((resolve) => (done = resolve)));
   let ready = false;
   const sub = whenReady(join(dir, "sub")).then(() => (ready = true));
   await whenReady(join(tmpdir(), "elsewhere"));
@@ -52,7 +52,7 @@ it("knows a workspace from anywhere inside it, and lets go once it's ready", asy
 
 it("holds a call until the workspace is ready, or the run stops", async () => {
   let done = () => {};
-  setReady(dir, new Promise<void>((resolve) => (done = resolve)));
+  setReady(dir, () => new Promise<void>((resolve) => (done = resolve)));
   const handler = toolCall();
   const stop = new AbortController();
   const settled: string[] = [];
@@ -70,4 +70,41 @@ it("holds a call until the workspace is ready, or the run stops", async () => {
   done();
   await held;
   expect(settled).toEqual(["grep", "write", "bash"]);
+});
+
+it("starts readying a workspace once it's needed, its reply streams, or a while has passed", async () => {
+  vi.useFakeTimers();
+  try {
+    const started: string[] = [];
+    const clone = (name: string) => async () => void started.push(name);
+    setReady(join(dir, "a"), clone("a"));
+    setReady(join(dir, "b"), clone("b"));
+    setReady(join(dir, "c"), clone("c"));
+    expect(started).toEqual([]);
+    await whenReady(join(dir, "a", "src"));
+    startReady(join(dir, "b"));
+    startReady(join(dir, "b"));
+    expect(started).toEqual(["a", "b"]);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(started).toEqual(["a", "b", "c"]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("forgets a clone dropped before it started, even when its time comes, and puts it back if the workspace stays", async () => {
+  vi.useFakeTimers();
+  try {
+    const clone = vi.fn(async () => {});
+    setReady(dir, clone);
+    const keep = await dropReady(dir);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await whenReady(dir);
+    expect(clone).not.toHaveBeenCalled();
+    keep();
+    await whenReady(dir);
+    expect(clone).toHaveBeenCalledOnce();
+  } finally {
+    vi.useRealTimers();
+  }
 });

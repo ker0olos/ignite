@@ -8,12 +8,14 @@ import {
   readdirSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { whenReady } from "./worktreeReady.ts";
 import { createWorkspaces } from "./worktrees.ts";
 import {
   folderOf,
@@ -72,13 +74,17 @@ describe("groupRepos", () => {
 });
 
 describe("a folder of repositories", () => {
-  it("gets its own copy: each repository a detached worktree, its other files copied", async () => {
+  it("gets its own copy: each repository a detached worktree, its other files copied (its instructions before the session opens)", async () => {
+    write(join(folder, "docs", "plan.md"), "plan\n");
+    symlinkSync("CLAUDE.md", join(folder, "AGENTS.md"));
     const ws = await createWorkspaces(root).open(folder, "a");
-    await ws.ready;
+    expect(read(ws.dir, "CLAUDE.md")).toBe("notes\n");
+    expect(read(ws.dir, "AGENTS.md")).toBe("notes\n");
+    await whenReady(ws.dir);
     expect(ws.dir).toBe(worktreePath(folder, "a", root));
     expect(read(ws.dir, "server", "app.ts")).toBe("server\n");
     expect(read(ws.dir, "web", "app.ts")).toBe("web\n");
-    expect(read(ws.dir, "CLAUDE.md")).toBe("notes\n");
+    expect(read(ws.dir, "docs", "plan.md")).toBe("plan\n");
     expect(existsSync(join(ws.dir, "empty"))).toBe(false);
     expect(git(join(ws.dir, "web"), "branch", "--show-current")).toBe("");
     expect(

@@ -5,10 +5,11 @@ import { useComposerActions } from "@/hooks/useComposerActions";
 import { useDraftState } from "@/hooks/useDraftState";
 import { useForkWait } from "@/hooks/useForkWait";
 import { useSessionCache } from "@/hooks/useSessionCache";
-import { view } from "@/lib/sessionEntry";
+import { view, withStartingPane } from "@/lib/sessionEntry";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
 import { useSessionSwitch } from "@/hooks/useSessionSwitch";
 import { useStartedConversation } from "@/hooks/useStartedConversation";
+import { useStartingMessage } from "@/hooks/useStartingMessage";
 import { useRewind } from "@/hooks/useRewind";
 
 const NO_SKILLS: never[] = [];
@@ -105,6 +106,7 @@ export function useAgentSession(
   const none = current?.session === null;
   // The conversation the folder's first message last started, for the tabs opened before it.
   const { started, onBegin } = useStartedConversation(folder);
+  const first = useStartingMessage(shown, view(current, null).transcript);
   const actions = useComposerActions({
     opened,
     folder,
@@ -112,18 +114,21 @@ export function useAgentSession(
     none,
     start: putOpened,
     onBegin,
+    starting: first,
     setState,
     setError,
   });
 
   const draft = useDraftState(opened, none, actions.pending, statuses);
-  const seen = view(current, draft);
+  const seen = view(current, draft, first.starting);
   const skills = seen.state?.skills ?? NO_SKILLS;
   const rewind = useRewind(opened, shown, skills, setError);
 
   return {
     ...seen,
     error,
+    /** Its first message is on its way, the conversation still starting; nothing else sends meanwhile. */
+    starting: none && first.starting?.folder === folder,
     /** A fork of it is open, or its report is on the way; it takes no messages. */
     waitingOnFork: useForkWait(host, shown),
     send: actions.send,
@@ -137,7 +142,7 @@ export function useAgentSession(
     /** The shown conversation's id; the folder may have others open. */
     session: shown,
     /** Recently shown conversations (any folder), kept rendered so showing one again is instant. */
-    kept: cache.kept,
+    kept: withStartingPane(cache.kept, first.starting, opened, folder),
     ...choices(actions),
     /**
      * Shows one of the conversations of `cwd` (the shown folder by default),

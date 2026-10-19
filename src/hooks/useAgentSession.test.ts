@@ -6,6 +6,7 @@ import type {
   SessionState,
 } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
+import { STARTING_PANE } from "@/lib/sessionEntry";
 import { fromHistory } from "@/lib/transcript";
 import { useAgentSession } from "./useAgentSession";
 
@@ -667,10 +668,23 @@ describe("several conversations in a folder", () => {
     await act(() => result.current.send("Another thing"));
     expect(types(host).slice(-2)).toEqual(["new_session", "prompt"]);
     expect(result.current.session).toBe("s2");
+    const sent = { role: "user", content: "Another thing" };
     expect(result.current.transcript).toEqual({
       ...fromHistory([], false),
       queued: [],
+      running: true,
+      pending: { ...sent, timestamp: expect.any(Number) },
     });
+    const s2 = result.current.kept.find((o) => o.session === "s2");
+    expect(s2?.transcript.pending?.content).toBe("Another thing");
+    const message = { ...sent, timestamp: 2 };
+    host.emit({
+      type: "session_event",
+      session: "s2",
+      event: { type: "message_start", message },
+    });
+    expect(result.current.transcript?.pending).toBeUndefined();
+    expect(result.current.transcript?.items).toHaveLength(1);
     await act(() => result.current.show("s1"));
     expect(host.request).toHaveBeenLastCalledWith({
       type: "open_session",
@@ -680,6 +694,56 @@ describe("several conversations in a folder", () => {
     });
     expect(types(host)).not.toContain("read_session");
     expect(result.current.transcript?.items).toHaveLength(1);
+  });
+
+  it("shows a first message at once, in a pane of its own, while its conversation starts; sending waits, and a failed start drops it", async () => {
+    let fail: (error: Error) => void = () => {};
+    const host = fakeHost(async (req) => {
+      if (req.type === "new_session")
+        return new Promise((_, reject) => (fail = reject));
+      return { ...STATE, session: "s1", messages: [hello] };
+    });
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    act(() => result.current.create());
+    let sending = Promise.resolve();
+    act(() => void (sending = result.current.send("Another thing")));
+    expect(result.current.starting).toBe(true);
+    expect(result.current.transcript?.pending?.content).toBe("Another thing");
+    const pane = result.current.kept.find((o) => o.session === STARTING_PANE);
+    expect(pane?.transcript.pending?.content).toBe("Another thing");
+    await act(async () => {
+      fail(new Error("Disk full"));
+      await sending;
+    });
+    expect(result.current.error).toBe("Disk full");
+    expect(result.current.starting).toBe(false);
+    expect(result.current.transcript).toBeNull();
+    expect(result.current.kept.map((o) => o.session)).toEqual(["s1"]);
+  });
+
+  it("hands a first message back unsent when stopped while its conversation starts", async () => {
+    let opened: (session: unknown) => void = () => {};
+    const host = fakeHost(async (req) => {
+      if (req.type === "new_session")
+        return new Promise((resolve) => (opened = resolve));
+      return { ...STATE, session: "s1", messages: [hello] };
+    });
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    act(() => result.current.create());
+    let sending = Promise.resolve();
+    act(() => void (sending = result.current.send("Another thing")));
+    let taken: unknown[] = [];
+    await act(async () => void (taken = await result.current.stop()));
+    expect(taken).toEqual([{ text: "Another thing" }]);
+    expect(result.current.starting).toBe(false);
+    await act(async () => {
+      opened({ ...STATE, session: "s2" });
+      await sending;
+    });
+    expect(types(host)).not.toContain("prompt");
+    expect(types(host)).not.toContain("abort");
   });
 
   it("applies only the shown conversation's events", async () => {

@@ -5,7 +5,7 @@ import { NewTaskSubtasks } from "@/components/tasks/NewTaskSubtasks";
 import { NewTaskChoices } from "@/components/tasks/NewTaskChoices";
 import { Button } from "@/components/ui/button";
 import type { ModelRouter } from "@/components/agent/Composer";
-import type { Pending } from "@/hooks/useComposerActions";
+import type { Pending } from "@/hooks/useComposerBegin";
 import { useProvideImageTarget } from "@/hooks/useImageTarget";
 import { useDraftState } from "@/hooks/useDraftState";
 import type { HostClient } from "@/lib/piHost";

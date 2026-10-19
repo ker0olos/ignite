@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { SessionState } from "../../shared/hostProtocol";
 import type { HostClient } from "@/lib/piHost";
-import type { Pending } from "@/hooks/useComposerActions";
+import type { Pending } from "@/hooks/useComposerBegin";
 import { cacheState } from "@/lib/sessionStateCache";
 
 /**

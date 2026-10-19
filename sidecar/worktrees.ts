@@ -14,11 +14,12 @@ import {
   isNew,
   lock,
   owner,
+  prefetch,
   remove,
   tidy,
 } from "./worktreeCheckout.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
-import { setReady, whenReady } from "./worktreeReady.ts";
+import { dropReady, setReady } from "./worktreeReady.ts";
 import type { WorktreeLayout } from "../shared/git.ts";
 import {
   git,
@@ -39,10 +40,7 @@ import {
 
 export type { Workspace };
 
-const shared = (folder: string): Workspace => ({
-  dir: folder,
-  ready: Promise.resolve(),
-});
+const shared = (folder: string): Workspace => ({ dir: folder });
 
 async function repoFor(folder: string) {
   const repo = await gitOr(folder, ["rev-parse", "--show-toplevel"]);
@@ -66,9 +64,12 @@ async function release(
   if (sweeping ? who !== "gone" || (await isNew(path)) : who === "alive")
     return;
   await removing?.();
-  // Clones still going in would recreate folders after the delete.
-  await whenReady(path);
-  await (group ? removeGroup(path, id) : remove(path, id));
+  const keep = await dropReady(path);
+  await (group ? removeGroup(path, id) : remove(path, id)).catch((error) => {
+    // Kept (it couldn't be saved): it still needs its ignored files.
+    keep();
+    throw error;
+  });
 }
 
 /** Agents' worktrees under `root`. */
@@ -87,7 +88,7 @@ export function createWorkspaces(root = WORKTREES) {
       if (existsSync(path)) {
         // Another window's, still in use, stays its; else (a crash) it's ours now.
         if (owner(path) !== "alive") await lock(found.repo, path);
-        return { dir, ready: Promise.resolve() };
+        return { dir };
       }
       try {
         await create(found.repo, path, id);
@@ -96,9 +97,8 @@ export function createWorkspaces(root = WORKTREES) {
         throw error;
       }
       // ponytail: a failed clone leaves the agent without some ignored files.
-      const ready = cloneIgnored(found.repo, path).catch(() => {});
-      setReady(path, ready);
-      return { dir, ready };
+      setReady(path, () => cloneIgnored(found.repo, path).catch(() => {}));
+      return { dir };
     },
 
     /** Starts conversation `to`'s worktree(s) as a copy of `from`'s files (open or saved), detached at its commit. */
@@ -114,12 +114,16 @@ export function createWorkspaces(root = WORKTREES) {
     /** Where `folder`'s conversations work, by id, without opening any; null when they share the folder. */
     async layout(folder: string): Promise<WorktreeLayout> {
       const found = await repoFor(folder);
+      const repos = found ? [found.repo] : await groupRepos(folder);
+      // The folder is showing: fetched now, for the conversation it may start.
+      for (const repo of repos) void prefetch(repo);
       if (found) {
         const prefix = found.prefix.replace(/\/$/, "").split("/").join(sep);
         return { base: worktreeBase(found.repo, root), prefix };
       }
-      const group = (await groupRepos(folder)).length > 0;
-      return group ? { base: worktreeBase(folder, root), prefix: "" } : null;
+      return repos.length
+        ? { base: worktreeBase(folder, root), prefix: "" }
+        : null;
     },
 
     /** Saves and deletes conversation `id`'s workspace, unless another window still uses it. */

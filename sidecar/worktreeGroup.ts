@@ -3,8 +3,15 @@
  * `server/` and `web/`): each conversation gets its own copy of it, every
  * repository in it a worktree of the user's, its other files copied in.
  */
-import { existsSync } from "node:fs";
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { constants, existsSync } from "node:fs";
+import {
+  copyFile,
+  mkdir,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import {
   create,
@@ -16,7 +23,7 @@ import {
   tidy,
 } from "./worktreeCheckout.ts";
 import { cloneEntries, cloneIgnored } from "./worktreeClone.ts";
-import { setReady, whenReady } from "./worktreeReady.ts";
+import { setReady } from "./worktreeReady.ts";
 import {
   gitOr,
   groupCheckouts,
@@ -26,8 +33,8 @@ import {
   WORKTREES,
 } from "./worktreeGit.ts";
 
-/** Where an agent works; `ready` settles once its ignored files are in place. */
-export type Workspace = { dir: string; ready: Promise<void> };
+/** Where an agent works (its ignored files come in later; see worktreeReady.ts). */
+export type Workspace = { dir: string };
 
 /** The repositories (with a commit) directly in `folder`, by their own paths. */
 export async function groupRepos(folder: string): Promise<string[]> {
@@ -61,19 +68,37 @@ export async function groupOwner(path: string) {
 
 // ponytail: other files are copied in afresh, so the agent's changes to them aren't kept.
 // A repository with no commit yet stays out: copying its .git would have the agent commit to a copy.
-async function copyLoose(folder: string, path: string) {
-  const names = await readdir(folder).catch(() => []);
-  await cloneEntries(
-    folder,
-    names.filter((n) => !existsSync(join(folder, n, ".git"))),
-    path,
+// Files come in at once, as pi reads the folder's instructions (CLAUDE.md) when
+// the session opens; the folders it returns are cloned after.
+async function copyLooseFiles(folder: string, path: string) {
+  const names = (await readdir(folder).catch(() => [])).filter(
+    (n) => !existsSync(join(folder, n, ".git")),
   );
+  // stat follows links, so a CLAUDE.md linked to AGENTS.md counts as a file.
+  const isFile = await Promise.all(
+    names.map((n) =>
+      stat(join(folder, n)).then(
+        (s) => s.isFile(),
+        () => false,
+      ),
+    ),
+  );
+  await Promise.all(
+    names
+      .filter((_, i) => isFile[i])
+      .map((n) =>
+        copyFile(
+          join(folder, n),
+          join(path, n),
+          constants.COPYFILE_FICLONE,
+        ).catch(() => {}),
+      ),
+  );
+  return names.filter((_, i) => !isFile[i]);
 }
 
 /** Saves each worktree in the workspace under conversation `id`, then deletes it all. Throws, keeping it, when one can't be saved. */
 export async function removeGroup(path: string, id: string) {
-  // Copies still going in would recreate folders after the delete.
-  await whenReady(path);
   leave(path);
   for (const checkout of groupCheckouts(path)) await remove(checkout, id);
   await rm(path, { recursive: true, force: true });
@@ -97,7 +122,6 @@ export async function openGroup(
   await mkdir(path, { recursive: true });
   await writeFile(repoFile(path), folder);
   const missing = repos.filter((r) => !existsSync(join(path, basename(r))));
-  // In parallel: each waits up to a few seconds on its remote's fetch.
   const made = await Promise.allSettled(
     missing.map((repo) => create(repo, join(path, basename(repo)), id, false)),
   );
@@ -115,14 +139,14 @@ export async function openGroup(
     if (!missing.includes(repo) && owner(checkout) !== "alive")
       await lock(repo, checkout);
   }
-  const ready = Promise.all([
-    ...missing.map((repo) =>
-      cloneIgnored(repo, join(path, basename(repo))).catch(() => {}),
-    ),
-    fresh ? copyLoose(folder, path).catch(() => {}) : null,
-  ]).then(() => {});
-  setReady(path, ready);
-  return { dir: path, ready };
+  const looseFolders = fresh ? await copyLooseFiles(folder, path) : [];
+  // One at a time: in parallel they starve Claude Code's start of the disk.
+  setReady(path, async () => {
+    for (const repo of missing)
+      await cloneIgnored(repo, join(path, basename(repo))).catch(() => {});
+    await cloneEntries(folder, looseFolders, path).catch(() => {});
+  });
+  return { dir: path };
 }
 
 /** Where a gh call (in `cwd`) works: in a copy of a folder of repositories, the worktree its -R names; else `cwd`. */

@@ -4,7 +4,13 @@ import type { HostClient } from "@/lib/piHost";
 import { shownItems } from "@/lib/routedMessage";
 import { fromHistory } from "@/lib/transcript";
 import { cacheState } from "@/lib/sessionStateCache";
-import { toOpened, toStarting, view } from "./sessionEntry";
+import {
+  STARTING_PANE,
+  toOpened,
+  toStarting,
+  view,
+  withStartingPane,
+} from "./sessionEntry";
 
 it("shows a first message the router is still reading, timed from its send", () => {
   const message = { role: "user" as const, content: "Fix it", timestamp: 7 };
@@ -102,4 +108,27 @@ it("knows where the agent works once it's open, not while it starts", () => {
   expect(toOpened(host, "/f", opened, kept).workdir).toBe("/wt/s1");
   expect(view(toStarting(host, "/f", "s1", []), null).workdir).toBeNull();
   expect(view({ host, folder: "/f", session: null }, null).workdir).toBeNull();
+});
+
+it("shows a first message in a pane of its own, only in its folder, then in its conversation's", () => {
+  const host = {} as HostClient;
+  const message = { role: "user" as const, content: "Go", timestamp: 1 };
+  const s1 = {
+    host,
+    folder: "/f",
+    session: "s1",
+    workdir: null,
+    state: null,
+    trust: null,
+    transcript: fromHistory([], false),
+  };
+  const starting = { folder: "/f", message };
+  const panes = withStartingPane([s1], starting, host, "/f");
+  expect(panes.map((o) => o.session)).toEqual(["s1", STARTING_PANE]);
+  expect(panes[1].transcript.pending).toBe(message);
+  expect(withStartingPane([s1], starting, host, "/other")).toEqual([s1]);
+  const known = { ...starting, session: "s1" };
+  const mapped = withStartingPane([s1], known, host, "/other");
+  expect(mapped[0].transcript.pending).toBe(message);
+  expect(withStartingPane([s1], null, host, "/f")).toEqual([s1]);
 });
