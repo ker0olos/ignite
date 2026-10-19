@@ -132,7 +132,7 @@ export function SettingsDialog({
     >
       <DialogContent
         initialFocus={search}
-        className="flex h-[min(560px,85vh)] w-[min(760px,90vw)] max-w-none gap-0 overflow-hidden p-0 max-sm:h-[90dvh] max-sm:w-[95vw] max-sm:flex-col sm:max-w-none"
+        className="flex h-[min(720px,85vh)] w-[min(980px,90vw)] max-w-none gap-0 overflow-hidden p-0 max-sm:h-[90dvh] max-sm:w-[95vw] max-sm:flex-col sm:max-w-none frosted:bg-popover/45 frosted:backdrop-blur-2xl frosted:backdrop-saturate-150"
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <SettingsNav

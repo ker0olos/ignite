@@ -28,7 +28,7 @@ export function SettingsNav({
 }) {
   const q = query.trim();
   return (
-    <nav className="flex w-52 shrink-0 flex-col gap-0.5 overflow-y-auto border-r bg-sidebar p-2 max-sm:w-full max-sm:overflow-visible max-sm:border-r-0 max-sm:border-b">
+    <nav className="flex w-52 shrink-0 flex-col gap-0.5 overflow-y-auto border-r bg-sidebar p-2 frosted:bg-transparent max-sm:w-full max-sm:overflow-visible max-sm:border-r-0 max-sm:border-b">
       {/* On a phone: search on its own line, clear of the dialog's close button. */}
       <label className="sticky top-0 z-10 mb-2 flex h-7 shrink-0 items-center gap-1.5 max-sm:mr-10 rounded-md border bg-background px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/50">
         <Search className="size-3.5 shrink-0" />

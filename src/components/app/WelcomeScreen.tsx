@@ -16,7 +16,7 @@ export function WelcomeScreen({
   onSelectFolder: (path: string) => void;
 }) {
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col" data-glass>
       <div
         data-tauri-drag-region
         className="flex h-13 shrink-0 items-center justify-end px-2"

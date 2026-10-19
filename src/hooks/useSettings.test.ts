@@ -7,8 +7,14 @@ import {
   saveSettings,
   type Settings,
 } from "@/lib/settings";
+import { setGlass } from "@/lib/window";
 import { fakeFs } from "@/test/fakeFs";
 import { useSettings } from "./useSettings";
+
+vi.mock("@/lib/window", async (original) => ({
+  ...(await original<typeof import("@/lib/window")>()),
+  setGlass: vi.fn(async () => {}),
+}));
 
 /** jsdom has no matchMedia; this fake lets tests flip the system appearance. */
 function fakeSystemAppearance(dark: boolean) {
@@ -152,6 +158,18 @@ describe("useSettings", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(writes).toEqual([]);
     });
+  });
+
+  it("tints the glass with the shown theme's background", async () => {
+    fakeFs(toml("github-dark"));
+    fakeSystemAppearance(false);
+    renderHook(() => useSettings());
+    await waitFor(() =>
+      expect(setGlass).toHaveBeenLastCalledWith(
+        true,
+        expect.stringMatching(/^#[0-9a-f]{6}66$/i),
+      ),
+    );
   });
 
   it("saves changes to settings.toml", async () => {

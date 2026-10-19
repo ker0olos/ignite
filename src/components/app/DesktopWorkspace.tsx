@@ -52,6 +52,7 @@ export function DesktopWorkspace({
         {sidebar}
       </ResizablePanel>
       <PaneHandle
+        elementRef={sidebarWidth.handle}
         onPointerDown={sidebarWidth.hold}
         onKeyDown={sidebarWidth.hold}
       />

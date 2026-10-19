@@ -20,19 +20,36 @@ const SIDEBAR_GLASS = 16;
 
 let glassWanted = false;
 
+// 40% of the theme's color: much more darkens the glass to near black.
+const TINT_ALPHA = "66";
+
+/** A theme color as the glass's tint: `#rrggbb` (or `#rgb`, any alpha dropped) at TINT_ALPHA; undefined for anything else. */
+export function glassTint(color: string | undefined): string | undefined {
+  if (!color || !/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(color))
+    return undefined;
+  const short = color.length <= 5;
+  const hex = color.slice(1, short ? 4 : 7);
+  const full = short ? [...hex].map((c) => c + c).join("") : hex;
+  return `#${full}${TINT_ALPHA}`;
+}
+
 /**
- * Puts Liquid Glass (vibrancy before macOS 26) behind the window, or takes it
- * away. <html> has `glass`, which turns the page transparent where it should
+ * Puts Liquid Glass (vibrancy before macOS 26) behind the window, tinted with
+ * `tint` when given, or takes it away. <html> has `glass`, which turns the page transparent where it should
  * show, only while the glass is there.
  */
-export async function setGlass(on: boolean) {
+export async function setGlass(on: boolean, tint?: string) {
   // A browser on a Mac (remote access) has no window glass behind the page.
   if (!isMac() || isRemote()) return;
   glassWanted = on;
   if (!on) document.documentElement.classList.remove("glass");
   await invoke("plugin:liquid-glass|set_liquid_glass_effect", {
     window: getCurrentWindow().label,
-    config: { enabled: on, variant: SIDEBAR_GLASS },
+    config: {
+      enabled: on,
+      variant: SIDEBAR_GLASS,
+      ...(tint && { tintColor: tint }),
+    },
   });
   // A later call may have turned it off while this one waited.
   if (glassWanted) document.documentElement.classList.add("glass");

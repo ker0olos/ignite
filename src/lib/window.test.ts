@@ -6,6 +6,7 @@ import {
   NEW_WINDOW_OPTIONS,
   fitToScreenAndShow,
   openNewWindow,
+  glassTint,
   setGlass,
   setWindowTheme,
 } from "./window";
@@ -120,6 +121,17 @@ describe("setGlass", () => {
     expect(glazed()).toBe(true);
   });
 
+  it("tints the glass when asked", async () => {
+    as(mac);
+    const calls = fakeWindow(null);
+    await setGlass(true, "#0d111766");
+    expect(calls[0].args).toMatchObject({
+      config: { enabled: true, tintColor: "#0d111766" },
+    });
+    await setGlass(true);
+    expect(calls[1].args).not.toHaveProperty("config.tintColor");
+  });
+
   it("never glazes a browser on a Mac (remote access), nor the desktop window from it", async () => {
     as(mac);
     vi.mocked(isRemote).mockReturnValue(true);
@@ -165,6 +177,17 @@ describe("setGlass", () => {
     expect(calls).toEqual([]);
     expect(glazed()).toBe(false);
   });
+});
+
+it("turns a theme color into the glass's tint", () => {
+  expect(glassTint("#0D1117")).toBe("#0D111766");
+  expect(glassTint("#abc")).toBe("#aabbcc66");
+  expect(glassTint("#28283680")).toBe("#28283666");
+  expect(glassTint("#abcd")).toBe("#aabbcc66");
+  expect(glassTint("#12345")).toBeUndefined();
+  expect(glassTint("#1234567")).toBeUndefined();
+  expect(glassTint("rgb(0, 0, 0)")).toBeUndefined();
+  expect(glassTint(undefined)).toBeUndefined();
 });
 
 describe("setWindowTheme", () => {
