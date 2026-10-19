@@ -1,15 +1,17 @@
-import { createElement } from "react";
-import { X } from "lucide-react";
+import { FileTab } from "@/components/app/FileTab";
+import type { TabDragState } from "@/hooks/useTabDrag";
 import type { TerminalLabel } from "@/lib/childTabs";
 import { tabLabel } from "@/lib/diffTabs";
-import { FileIcon } from "@/components/files/FileIcon";
+import type { Dock } from "@/lib/tabs";
 import { cn } from "@/lib/utils";
 
-/** The editor pane's tab strip: one tab per open file, diff, subagent or background command. */
+/** A dock's tab strip: one tab per open file, diff, subagent or background command; tabs drag to reorder or to the other dock. */
 export function FileTabs({
   files,
   active,
   folder,
+  dock,
+  drag,
   onSelect,
   onClose,
   terminalLabel,
@@ -17,64 +19,46 @@ export function FileTabs({
   files: string[];
   active: string;
   folder: string;
+  dock: Dock;
+  drag?: TabDragState;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
   terminalLabel?: (terminal: string) => TerminalLabel;
 }) {
+  const dragged = drag?.drag;
+  const drop = dragged?.drop?.dock === dock ? dragged.drop.index : null;
+  const side = dock === "side";
   return (
     <div
-      data-tauri-drag-region
-      data-slot="file-tabs"
-      className="flex shrink-0 flex-wrap items-end gap-0.5 border-b pt-4 pr-2 pl-[max(0.5rem,var(--tabs-inset,0px))]"
+      data-tauri-drag-region={side || undefined}
+      data-slot={side ? "file-tabs" : "docked-tabs"}
+      className={cn(
+        "flex shrink-0 flex-wrap items-end gap-0.5 border-b pr-2",
+        // Beside the conversation, each wrapped row's tabs stretch to fill it.
+        side
+          ? "pt-4 pl-[max(0.5rem,var(--tabs-inset,0px))] *:grow"
+          : "pt-2.5 pl-2",
+      )}
     >
-      {files.map((path) => {
-        const label = tabLabel(path, folder, terminalLabel);
-        return (
-          <div
-            key={path}
-            title={label.title}
-            className={cn(
-              "group flex h-9 max-w-full min-w-0 items-center gap-1.5 rounded-t-md border border-b-0 pr-1.5 pl-3 text-[13px]",
-              path === active
-                ? "border-transparent bg-accent text-foreground"
-                : "border-border/60 text-muted-foreground hover:bg-accent/40 hover:text-foreground",
-            )}
-          >
-            <button
-              onClick={() => onSelect(path)}
-              className="flex min-w-0 items-center gap-1.5 whitespace-nowrap"
-            >
-              {label.icon ? (
-                createElement(label.icon, { className: "size-3.5 shrink-0" })
-              ) : (
-                <FileIcon name={label.iconPath} className="size-3.5 shrink-0" />
-              )}
-              <span className="truncate">{label.name}</span>
-              {label.detail && (
-                <span className="min-w-0 truncate text-xs text-muted-foreground italic">
-                  ({label.detail})
-                </span>
-              )}
-              {label.status && (
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {label.status}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => onClose(path)}
-              aria-label={`Close ${label.name}`}
-              className={cn(
-                "shrink-0 rounded p-0.5 hover:bg-foreground/10",
-                path !== active &&
-                  "invisible group-hover:visible pointer-coarse:visible",
-              )}
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        );
-      })}
+      {files.map((path, i) => (
+        <FileTab
+          key={path}
+          path={path}
+          label={tabLabel(path, folder, terminalLabel)}
+          active={path === active}
+          dragged={dragged?.tab === path}
+          marker={
+            drop === i
+              ? "before"
+              : drop === files.length && i === files.length - 1
+                ? "after"
+                : null
+          }
+          onPointerDown={(e) => drag?.start(path, e)}
+          onSelect={() => onSelect(path)}
+          onClose={() => onClose(path)}
+        />
+      ))}
     </div>
   );
 }

@@ -112,7 +112,9 @@ export function AppWorkspace({
         onClearTagFilter,
         onSetConversationTags,
         childActions: {
-          activeTab: tabs.active,
+          shownTabs: [tabs.side.active, tabs.bottom.active].filter(
+            (t) => t !== null,
+          ),
           onOpenTab: (cwd, shown, tab) => {
             conversations.show(cwd, shown);
             openIn(cwd, tab);

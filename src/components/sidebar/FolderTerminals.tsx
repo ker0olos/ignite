@@ -6,13 +6,13 @@ import { childTabId, terminalTitle, type TerminalLabel } from "@/lib/childTabs";
 export function FolderTerminals({
   terminals,
   label,
-  activeTab,
+  shownTabs,
   onOpen,
   onStop,
 }: {
   terminals: string[];
   label: (terminal: string) => TerminalLabel;
-  activeTab: string | null;
+  shownTabs: string[];
   onOpen: (terminal: string) => void;
   onStop: (terminal: string) => void;
 }) {
@@ -23,9 +23,9 @@ export function FolderTerminals({
       name={terminalTitle(label(terminal))}
       detail={label(terminal).name ?? ""}
       running
-      selected={
-        activeTab === childTabId({ kind: "terminal", session: "", terminal })
-      }
+      selected={shownTabs.includes(
+        childTabId({ kind: "terminal", session: "", terminal }),
+      )}
       onOpen={() => onOpen(terminal)}
       onStop={() => onStop(terminal)}
       onClear={() => {}}

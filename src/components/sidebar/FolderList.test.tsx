@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import type { AgentStatus } from "../../../shared/hostProtocol";
 import type { Conversations } from "@/hooks/useConversations";
@@ -34,7 +34,7 @@ const AGENT_TAB = childTabId({
 
 function setup(
   shown: string | null = "a",
-  activeTab: string | null = null,
+  shownTabs: string[] = [],
   conversationLimit = { enabled: false, max: 5 },
   rowMap = ROWS,
 ) {
@@ -47,7 +47,7 @@ function setup(
   };
   const onDismiss = vi.fn();
   const childActions = {
-    activeTab,
+    shownTabs,
     onOpenTab: vi.fn(),
     onStopBackground: vi.fn(),
     onClear: vi.fn(),
@@ -170,7 +170,7 @@ it("lists a folder's running terminals by their command, opening and stopping ea
 });
 
 it("selects the row whose tab is active", () => {
-  setup("a", AGENT_TAB);
+  setup("a", [AGENT_TAB]);
   expect(selected()).toEqual(["agent-1haiku", "Fix bug"]);
 });
 
@@ -181,8 +181,20 @@ const WATCH_TAB = childTabId({
   command: "npm run watch",
 });
 
+it("keeps a finished row while its tab shows in either dock", () => {
+  setup("a", [AGENT_TAB]);
+  expect(
+    screen.queryByRole("button", { name: "Clear npm run watch" }),
+  ).toBeNull();
+  cleanup();
+  setup("a", [AGENT_TAB, WATCH_TAB]);
+  expect(
+    screen.getByRole("button", { name: "Clear npm run watch" }),
+  ).toBeTruthy();
+});
+
 it("clears a finished row, not a running one", () => {
-  const { childActions } = setup("a", WATCH_TAB);
+  const { childActions } = setup("a", [WATCH_TAB]);
   fireEvent.click(screen.getByRole("button", { name: "Clear npm run watch" }));
   expect(childActions.onClear).toHaveBeenCalledWith(WATCH_TAB);
   expect(
@@ -205,7 +217,7 @@ it("collapses conversations past the configured maximum and expands them", () =>
       row("/proj", "c", "Three"),
     ],
   };
-  setup("a", null, { enabled: true, max: 2 }, manyRows);
+  setup("a", [], { enabled: true, max: 2 }, manyRows);
   expect(screen.getByText("One")).toBeTruthy();
   expect(screen.getByText("Two")).toBeTruthy();
   expect(screen.queryByText("Three")).toBeNull();
@@ -227,7 +239,7 @@ it("keeps the selected conversation visible when it is past the collapsed maximu
       row("/proj", "c", "Three"),
     ],
   };
-  setup("c", null, { enabled: true, max: 1 }, manyRows);
+  setup("c", [], { enabled: true, max: 1 }, manyRows);
   expect(screen.getByText("One")).toBeTruthy();
   expect(screen.queryByText("Two")).toBeNull();
   expect(screen.getByText("Three")).toBeTruthy();

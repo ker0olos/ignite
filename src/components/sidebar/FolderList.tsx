@@ -10,8 +10,8 @@ import type { TerminalLabel } from "@/lib/childTabs";
 
 /** Opening and stopping what runs under a conversation. */
 export type ChildActions = {
-  /** The shown folder's active tab. */
-  activeTab: string | null;
+  /** The shown folder's showing tabs, one per dock. */
+  shownTabs: string[];
   /** Shows conversation `session` of `cwd` and opens `tab` beside it. */
   onOpenTab: (cwd: string, session: string, tab: string) => void;
   onStopBackground: (session: string, pid: number) => void;
@@ -131,7 +131,7 @@ export function FolderList({
           <FolderTerminals
             terminals={childActions.terminals(path)}
             label={childActions.terminalLabel}
-            activeTab={path === folder ? childActions.activeTab : null}
+            shownTabs={path === folder ? childActions.shownTabs : []}
             onOpen={(terminal) => childActions.onOpenTerminal(path, terminal)}
             onStop={childActions.onStopTerminal}
           />

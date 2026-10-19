@@ -61,6 +61,7 @@ export function MobileWorkspace({
           <EditorPane
             folder={folder}
             tabs={tabs}
+            dock={tabs.focus}
             active={active}
             codeThemes={codeThemes}
             editor={editor}
