@@ -1,38 +1,59 @@
-import { useCallback, useState } from "react";
-import { closeTab, openTab, type Tabs } from "@/lib/tabs";
-
-const NO_TABS: Tabs = { files: [], active: null };
+import { useCallback, useMemo, useState } from "react";
+import {
+  activateDocked,
+  closeDocked,
+  moveTab,
+  NO_DOCKS,
+  openDocked,
+  type Dock,
+  type Docks,
+} from "@/lib/tabs";
 
 /**
- * Open file tabs for `folder`. Switching folders starts with no tabs; the
- * previous folder's tabs are dropped, not restored.
+ * Open tabs for `folder`, beside the conversation or docked under it. `files`
+ * and `active` span both docks (`active` is the focused dock's). Switching
+ * folders starts with no tabs; the previous folder's tabs are dropped, not restored.
  */
 export function useTabs(folder: string | null) {
-  const [state, setState] = useState({ folder, ...NO_TABS });
-  const tabs: Tabs = state.folder === folder ? state : NO_TABS;
+  const [state, setState] = useState({ folder, ...NO_DOCKS });
+  const docks: Docks = state.folder === folder ? state : NO_DOCKS;
+  const { side, bottom, focus } = docks;
 
   const update = useCallback(
-    (change: (tabs: Tabs) => Tabs) =>
+    (change: (docks: Docks) => Docks) =>
       setState((s) => ({
         folder,
-        ...change(s.folder === folder ? s : NO_TABS),
+        ...change(s.folder === folder ? s : NO_DOCKS),
       })),
     [folder],
   );
 
+  const files = useMemo(
+    () => [...side.files, ...bottom.files],
+    [side.files, bottom.files],
+  );
+
   return {
-    files: tabs.files,
-    active: tabs.active,
+    files,
+    active: docks[focus].active,
+    side,
+    bottom,
+    focus,
     open: useCallback(
-      (path: string) => update((t) => openTab(t, path)),
+      (path: string) => update((d) => openDocked(d, path)),
       [update],
     ),
     close: useCallback(
-      (path: string) => update((t) => closeTab(t, path)),
+      (path: string) => update((d) => closeDocked(d, path)),
       [update],
     ),
     activate: useCallback(
-      (path: string) => update((t) => ({ ...t, active: path })),
+      (path: string) => update((d) => activateDocked(d, path)),
+      [update],
+    ),
+    move: useCallback(
+      (path: string, to: Dock, index: number) =>
+        update((d) => moveTab(d, path, to, index)),
       [update],
     ),
   };

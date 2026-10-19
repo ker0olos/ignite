@@ -1,5 +1,6 @@
 import type { ComponentProps } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
+import { AgentColumn } from "@/components/app/AgentColumn";
 import { EditorOverlay } from "@/components/app/EditorOverlay";
 import { EditorPane } from "@/components/app/EditorPane";
 import type { MobileWorkspace } from "@/components/app/MobileWorkspace";
@@ -7,8 +8,9 @@ import { PaneHandle } from "@/components/app/PaneHandle";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useEditorOverlay } from "@/hooks/useEditorOverlay";
 import { useSidebarWidth } from "@/hooks/useSidebarWidth";
+import { useTabDrag } from "@/hooks/useTabDrag";
 
-/** The resizable panes: sidebar, conversation and, while tabs are open, the editor (which can draw over them). */
+/** The resizable panes: sidebar, conversation (tabs can dock under it) and, while tabs are open beside it, the editor (which can draw over them). */
 export function DesktopWorkspace({
   sidebar,
   agent,
@@ -17,7 +19,8 @@ export function DesktopWorkspace({
 }: ComponentProps<typeof MobileWorkspace> & {
   agentMinWidth: number;
 }) {
-  const { active } = pane.tabs;
+  const { active } = pane.tabs.side;
+  const drag = useTabDrag(pane.tabs.move);
   const overlay = useEditorOverlay(agentMinWidth, !!active);
   const sidebarWidth = useSidebarWidth();
   // Pane sizes persist, saved separately for with and without the editor.
@@ -59,7 +62,7 @@ export function DesktopWorkspace({
         minSize={`${agentMinWidth}px`}
       >
         <div data-pane="agent" className="relative flex h-full flex-col">
-          {agent}
+          <AgentColumn {...pane} agent={agent} drag={drag} />
         </div>
       </ResizablePanel>
       {active && <PaneHandle onPointerDown={() => overlay.follow()} />}
@@ -71,7 +74,7 @@ export function DesktopWorkspace({
             onDragEdge={() => overlay.follow(true)}
             onClose={overlay.close}
           >
-            <EditorPane {...pane} active={active} />
+            <EditorPane {...pane} dock="side" drag={drag} active={active} />
           </EditorOverlay>
         </ResizablePanel>
       )}

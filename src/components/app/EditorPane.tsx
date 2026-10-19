@@ -3,18 +3,22 @@ import { ChildView } from "@/components/children/ChildView";
 import { DiffView } from "@/components/files/DiffView";
 import { FileView } from "@/components/files/FileView";
 import type { useAgentSession } from "@/hooks/useAgentSession";
+import type { TabDragState } from "@/hooks/useTabDrag";
 import type { useTabs } from "@/hooks/useTabs";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { readChildTab } from "@/lib/childTabs";
 import { readDiffTab } from "@/lib/diffTabs";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
+import type { Dock } from "@/lib/tabs";
 import type { TerminalLabel } from "@/lib/childTabs";
 
-/** Open file, diff, subagent and background tabs, and the active one's view. */
+/** A dock's open file, diff, subagent and background tabs, and the active one's view. */
 export function EditorPane({
   folder,
   tabs,
+  dock,
+  drag,
   active,
   codeThemes,
   editor,
@@ -24,6 +28,8 @@ export function EditorPane({
 }: {
   folder: string;
   tabs: ReturnType<typeof useTabs>;
+  dock: Dock;
+  drag?: TabDragState;
   active: string;
   codeThemes: CodeThemes;
   editor: Settings["editor"];
@@ -35,11 +41,16 @@ export function EditorPane({
   const diffTab = readDiffTab(active);
   const childTab = readChildTab(active);
   return (
-    <div className="flex h-full min-w-0 flex-col glass:bg-background">
+    <div
+      data-tab-dock={dock}
+      className="flex h-full min-w-0 flex-col glass:bg-background"
+    >
       <FileTabs
-        files={tabs.files}
+        files={tabs[dock].files}
         active={active}
         folder={folder}
+        dock={dock}
+        drag={drag}
         onSelect={tabs.activate}
         onClose={tabs.close}
         terminalLabel={terminalLabel}

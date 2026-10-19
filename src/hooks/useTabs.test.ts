@@ -27,6 +27,24 @@ describe("useTabs", () => {
     expect(result.current.active).toBe("/repo/b");
   });
 
+  it("moves a tab under the conversation and back", () => {
+    const { result } = renderHook(() => useTabs("/repo"));
+    act(() => result.current.open("/repo/a"));
+    act(() => result.current.open("/repo/b"));
+    act(() => result.current.move("/repo/a", "bottom", 0));
+    expect(result.current.side.files).toEqual(["/repo/b"]);
+    expect(result.current.bottom).toEqual({
+      files: ["/repo/a"],
+      active: "/repo/a",
+    });
+    expect(result.current.files).toEqual(["/repo/b", "/repo/a"]);
+    expect(result.current.active).toBe("/repo/a");
+
+    act(() => result.current.move("/repo/a", "side", 0));
+    expect(result.current.side.files).toEqual(["/repo/a", "/repo/b"]);
+    expect(result.current.bottom.files).toEqual([]);
+  });
+
   it("drops the tabs when the folder changes", () => {
     const { result, rerender } = renderHook(({ folder }) => useTabs(folder), {
       initialProps: { folder: "/repo" as string | null },

@@ -17,7 +17,7 @@ src/                     React frontend (almost all logic lives here)
   shadcn.css             shadcn's variants and utilities (its package's tailwind.css), copied so the CLI isn't a dependency
   components/            UI only, one component per file; logic worth testing lives in lib/ or hooks/
     ui/                  shadcn/ui components (CLI-generated)
-    app/                 Welcome screen (open and recent projects), Workspace layout, file tabs, pane handle,
+    app/                 Welcome screen (open and recent projects), Workspace layout, file tabs (beside the conversation or docked under it), pane handle,
                          Windows' window controls, the drop overlay, zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner, the update banner (installing, then restart)
@@ -44,7 +44,8 @@ src/                     React frontend (almost all logic lives here)
                          ends closed projects' sessions
     useSettings.ts       settings.toml, synced across windows; applies theme
     useDrop.ts           Drag-and-drop onto the window: folders open, images and other files attach to the composer
-    useTabs.ts           Open file tabs, reset per folder (⌘W closes one)
+    useTabs.ts           Open file tabs, beside the conversation or docked under it, reset per folder (⌘W closes one)
+    useTabDrag.ts        Dragging a tab by pointer: reorders it, or moves it to the other dock
     useEditorOverlay.ts  The editor pane dragged past the conversation's minimum: drawn over it and the sidebar
     useSidebarWidth.ts   The sidebar's dragged width (localStorage), kept when the editor pane opens or closes
     useProviders.ts      Provider status, sign-in and sign-out via the pi host
@@ -131,7 +132,7 @@ src/                     React frontend (almost all logic lives here)
     codeThemeDiscovery.ts Finds themes: Shiki bundle, VS Code-family editors, custom files
     codeThemeLoad.ts     Resolves a theme id to Shiki data, and imports an editor theme
     themePalette.ts      The theme's colors for inline code, success, warning and errors
-    tabs.ts              Open/close logic for file tabs
+    tabs.ts              Open/close logic for file tabs, and moving them between the two docks
     recent.ts            Recent-folders list logic
     conversationTags.ts  Conversation tags: splitting typed text, adding, removing, suggestions
     commandQuery.ts      Command center query: `@folder`, `@convos`/`@files`/`@folders`, result picks

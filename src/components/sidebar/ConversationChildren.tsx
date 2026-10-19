@@ -2,23 +2,23 @@ import type { AgentStatus } from "../../../shared/hostProtocol";
 import { ChildRow } from "@/components/sidebar/ChildRow";
 import { childTabs } from "@/lib/childTabs";
 
-/** A conversation's subagents and background commands under its row, while they run; a finished one only while its tab is active. */
+/** A conversation's subagents and background commands under its row, while they run; a finished one only while its tab shows. */
 export function ConversationChildren({
   agent,
-  activeTab,
+  shownTabs,
   onOpenTab,
   onStopBackground,
   onClear,
 }: {
   agent: AgentStatus;
-  /** The shown folder's active tab, to select its row. */
-  activeTab: string | null;
+  /** The shown folder's showing tabs, to select their rows. */
+  shownTabs: string[];
   onOpenTab: (tab: string) => void;
   onStopBackground: (pid: number) => void;
   onClear: (tab: string) => void;
 }) {
   return childTabs(agent)
-    .filter(({ id, running }) => running || id === activeTab)
+    .filter(({ id, running }) => running || shownTabs.includes(id))
     .map(({ id, tab, label, running }) => (
       <ChildRow
         key={id}
@@ -26,7 +26,7 @@ export function ConversationChildren({
         name={label.name}
         detail={tab.kind === "agent" ? label.detail : undefined}
         running={running}
-        selected={id === activeTab}
+        selected={shownTabs.includes(id)}
         onOpen={() => onOpenTab(id)}
         onStop={
           tab.kind === "background"

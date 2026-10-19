@@ -68,7 +68,7 @@ export function FolderConversations({
           />
           <ConversationChildren
             agent={agent}
-            activeTab={childActions.activeTab}
+            shownTabs={childActions.shownTabs}
             onOpenTab={(tab) => childActions.onOpenTab(cwd, agent.session, tab)}
             onClear={childActions.onClear}
             onStopBackground={(pid) =>

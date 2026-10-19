@@ -48,7 +48,7 @@ const sidebar = (
         onDismiss: vi.fn(),
         onHistory: vi.fn(),
         childActions: {
-          activeTab: null,
+          shownTabs: [],
           onOpenTab: vi.fn(),
           onStopBackground: vi.fn(),
           onClear: vi.fn(),
