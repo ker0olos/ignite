@@ -3,6 +3,7 @@ import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { describe, expect, it, vi } from "vitest";
 import {
   confirmBeforeClose,
+  confirmCloseConversation,
   confirmCloseTerminal,
   confirmQuit,
 } from "./lifecycle";
@@ -86,6 +87,17 @@ describe("confirmCloseTerminal", () => {
     expect(await confirmCloseTerminal()).toBe(false);
     expect(confirm).toHaveBeenCalledWith(
       "Close this terminal? Whatever runs in it stops.",
+    );
+  });
+});
+
+describe("confirmCloseConversation", () => {
+  it("asks before closing a conversation, by its title", async () => {
+    vi.mocked(isRemote).mockReturnValue(true);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    expect(await confirmCloseConversation("Fix bug")).toBe(true);
+    expect(confirm).toHaveBeenCalledWith(
+      'Close "Fix bug"? It stays saved, and History opens it again.',
     );
   });
 });

@@ -1,9 +1,20 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import type { AgentStatus } from "../../../shared/hostProtocol";
 import type { Conversations } from "@/hooks/useConversations";
 import { childTabId } from "@/lib/childTabs";
+import { confirmCloseConversation } from "@/lib/lifecycle";
 import { FolderList } from "./FolderList";
+
+vi.mock("@/lib/lifecycle", () => ({
+  confirmCloseConversation: vi.fn(async () => true),
+}));
 
 const row = (cwd: string, session: string, title: string, running = false) => ({
   cwd,
@@ -123,10 +134,18 @@ it("shows a conversation when it's clicked, even in another folder", () => {
   expect(conversations.show).toHaveBeenCalledWith("/other", "c");
 });
 
-it("closes a conversation, passing the others in its folder", () => {
+it("closes a conversation once asked, passing the others in its folder", async () => {
   const { conversations } = setup();
+  vi.mocked(confirmCloseConversation).mockResolvedValueOnce(false);
   fireEvent.click(screen.getByRole("button", { name: "Close Fix bug" }));
-  expect(conversations.close).toHaveBeenCalledWith("/proj", "a", ["a", "b"]);
+  await waitFor(() =>
+    expect(confirmCloseConversation).toHaveBeenCalledWith("Fix bug"),
+  );
+  expect(conversations.close).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Close Fix bug" }));
+  await waitFor(() =>
+    expect(conversations.close).toHaveBeenCalledWith("/proj", "a", ["a", "b"]),
+  );
 });
 
 it("opens a new conversation in a folder when it's clicked", () => {
