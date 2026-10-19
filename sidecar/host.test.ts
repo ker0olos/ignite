@@ -2430,7 +2430,7 @@ describe("workspaces", () => {
     );
   });
 
-  it("holds the first prompt until the workspace has its dependencies", async () => {
+  it("sends the first message without waiting for the workspace's dependencies", async () => {
     const session = fakeSession();
     let settle = () => {};
     const { request, workspaces } = withWorktrees(async () => session);
@@ -2444,12 +2444,10 @@ describe("workspaces", () => {
       cwd: "/work",
       session: "/work:saved",
     });
-    const sending = request({ id: 2, type: "prompt", text: "hi" });
-    await Promise.resolve();
-    expect(session.prompt).not.toHaveBeenCalled();
-    settle();
-    await sending;
+    await request({ id: 2, type: "prompt", text: "hi" });
+    // Sent while the workspace's ignored files are still being cloned in.
     expect(session.prompt).toHaveBeenCalled();
+    settle();
   });
 });
 

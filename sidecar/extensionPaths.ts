@@ -13,6 +13,8 @@ const webSearch = sibling("./webSearchExtension.ts");
 const waitFirst = sibling("./waitFirstExtension.ts");
 // Before approval, so a call a lesson blocks never asks.
 const lessons = sibling("./lessonExtension.ts");
+// After the extensions that block calls, so a refused call never waits first.
+const ready = sibling("./readyExtension.ts");
 // Last, so it judges tool calls as the other extensions left them.
 const approval = sibling("./approvalExtension.ts");
 
@@ -37,6 +39,7 @@ export const SESSION_EXTENSIONS = [
   waitFirst,
   lessons,
   sibling("./taskExtension.ts"),
+  ready,
   approval,
   // After approval: snapshots only calls that will run, and sees a rerun outside the sandbox.
   sibling("./shellEditsExtension.ts"),
@@ -49,5 +52,6 @@ export const SUBAGENT_EXTENSIONS = [
   exploring,
   waitFirst,
   lessons,
+  ready,
   approval,
 ];

@@ -16,6 +16,7 @@ import {
   tidy,
 } from "./worktreeCheckout.ts";
 import { cloneEntries, cloneIgnored } from "./worktreeClone.ts";
+import { setReady, whenReady } from "./worktreeReady.ts";
 import {
   gitOr,
   groupCheckouts,
@@ -72,15 +73,12 @@ async function copyLoose(folder: string, path: string) {
 /** Saves each worktree in the workspace under conversation `id`, then deletes it all. Throws, keeping it, when one can't be saved. */
 export async function removeGroup(path: string, id: string) {
   // Copies still going in would recreate folders after the delete.
-  await copying.get(path);
+  await whenReady(path);
   leave(path);
   for (const checkout of groupCheckouts(path)) await remove(checkout, id);
   await rm(path, { recursive: true, force: true });
   await tidy(dirname(path));
 }
-
-// Each open copy's ignored and loose files, while they're still being copied in.
-const copying = new Map<string, Promise<unknown>>();
 
 // A worktree that failed partway: gone, and unregistered, so the next open makes it again.
 async function discard(repo: string, checkout: string) {
@@ -123,8 +121,7 @@ export async function openGroup(
     ),
     fresh ? copyLoose(folder, path).catch(() => {}) : null,
   ]).then(() => {});
-  copying.set(path, ready);
-  void ready.then(() => copying.get(path) === ready && copying.delete(path));
+  setReady(path, ready);
   return { dir: path, ready };
 }
 

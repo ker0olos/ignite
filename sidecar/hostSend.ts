@@ -41,7 +41,6 @@ export async function hand(
   done: () => void,
 ) {
   await settleResume(agent);
-  await agent.ready;
   if (s.isStreaming) rememberImages(agent, text, images);
   // A message sent mid-run steers the run; a conversation's first one may be routed.
   else if (!(await routeMessage(ctx, agent, s, text, images))) return false;

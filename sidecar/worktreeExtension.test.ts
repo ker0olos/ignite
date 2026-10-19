@@ -33,13 +33,17 @@ describe("groupGuidance", () => {
 });
 
 describe("the worktree extension", () => {
-  it("tells an agent in the user's own folder how to use git there", async () => {
-    let handler: (event: object, ctx: object) => Promise<unknown> = async () =>
-      "unset";
+  type Handler = (event: object, ctx: object) => Promise<unknown>;
+  const load = () => {
+    const handlers = new Map<string, Handler>();
     worktreeGuidance({
-      on: (_: string, h: typeof handler) => (handler = h),
+      on: (name: string, h: Handler) => handlers.set(name, h),
     } as unknown as ExtensionAPI);
-    const result = (await handler(
+    return handlers;
+  };
+
+  it("tells an agent in the user's own folder how to use git there", async () => {
+    const result = (await load().get("before_agent_start")!(
       { systemPrompt: "base" },
       { cwd: "/work" },
     )) as { systemPrompt: string };

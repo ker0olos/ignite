@@ -2,6 +2,7 @@ import type { TerminalRequest } from "../shared/terminal.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
 import { endTerminal, openTerminal, terminalsStartedIn } from "./terminal.ts";
 import { within } from "./worktreeGit.ts";
+import { whenReady } from "./worktreeReady.ts";
 
 type Open = Extract<TerminalRequest, { type: "terminal_open" }>;
 
@@ -63,6 +64,10 @@ export const worktreeHandlers = {
   terminal_open: terminalOpen,
   worktree_layout: (ctx: HostContext, r: { cwd: string }) =>
     ctx.workspaces.layout(r.cwd),
-  worktree_ready: async (ctx: HostContext, r: { session: string }) =>
-    void (await ctx.agents.get(r.session)?.ready),
+  worktree_ready: async (ctx: HostContext, r: { session: string }) => {
+    const agent = ctx.agents.get(r.session);
+    if (!agent) return;
+    await agent.placed;
+    await whenReady(agent.workdir);
+  },
 };

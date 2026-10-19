@@ -23,6 +23,7 @@ import {
   worktreePath,
 } from "./worktreeGit.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
+import { setReady } from "./worktreeReady.ts";
 import { checkpointRef } from "./checkpoints.ts";
 
 let base: string;
@@ -81,6 +82,19 @@ describe("workspaces", () => {
     let there = false;
     await ws.close(repo, "a", async () => void (there = existsSync(dir)));
     expect(there).toBe(true);
+    expect(existsSync(dir)).toBe(false);
+  });
+
+  it("lets a worktree's clone finish before removing it", async () => {
+    const ws = createWorkspaces(root);
+    const { dir } = await ws.open(repo, "a");
+    let cloned = () => {};
+    setReady(dir, new Promise<void>((resolve) => (cloned = resolve)));
+    const closing = ws.close(repo, "a");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(existsSync(dir)).toBe(true);
+    cloned();
+    await closing;
     expect(existsSync(dir)).toBe(false);
   });
 
@@ -143,9 +157,23 @@ describe("workspaces", () => {
       write(join(repo, "node_modules", "dep", "index.js"), "dep\n");
       const into = join(base, "into");
       mkdirSync(into);
-      await cloneIgnored(repo, into, flags);
+      await cloneIgnored(repo, into, flags, false);
       expect(read(into, ".env")).toBe("KEY=1\n");
       expect(existsSync(join(into, "node_modules"))).toBe(false);
+    },
+  );
+
+  it.runIf(process.platform === "darwin")(
+    "clones a whole ignored folder in one call, and falls back to cp where it can't",
+    async () => {
+      write(join(repo, "node_modules", "dep", "index.js"), "dep\n");
+      write(join(repo, ".env"), "KEY=1\n");
+      const into = join(base, "into");
+      // .env is there already, so clonefile refuses it and cp copies it over.
+      write(join(into, ".env"), "stale\n");
+      await cloneIgnored(repo, into);
+      expect(read(into, "node_modules", "dep", "index.js")).toBe("dep\n");
+      expect(read(into, ".env")).toBe("KEY=1\n");
     },
   );
 

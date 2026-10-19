@@ -18,6 +18,7 @@ import {
   tidy,
 } from "./worktreeCheckout.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
+import { setReady, whenReady } from "./worktreeReady.ts";
 import type { WorktreeLayout } from "../shared/git.ts";
 import {
   git,
@@ -65,6 +66,8 @@ async function release(
   if (sweeping ? who !== "gone" || (await isNew(path)) : who === "alive")
     return;
   await removing?.();
+  // Clones still going in would recreate folders after the delete.
+  await whenReady(path);
   await (group ? removeGroup(path, id) : remove(path, id));
 }
 
@@ -93,7 +96,9 @@ export function createWorkspaces(root = WORKTREES) {
         throw error;
       }
       // ponytail: a failed clone leaves the agent without some ignored files.
-      return { dir, ready: cloneIgnored(found.repo, path).catch(() => {}) };
+      const ready = cloneIgnored(found.repo, path).catch(() => {});
+      setReady(path, ready);
+      return { dir, ready };
     },
 
     /** Starts conversation `to`'s worktree(s) as a copy of `from`'s files (open or saved), detached at its commit. */

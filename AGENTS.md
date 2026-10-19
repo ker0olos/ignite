@@ -248,6 +248,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   worktreeExtension.ts   Tells an agent in a worktree where it is and to deliver through a pull request
   worktreeGit.ts         Worktree paths, snapshots of a working state, folderOf / gitWritable
   worktreeClone.ts       Copy-on-write clones of the folder's ignored files into a worktree
+  worktreeReady.ts       Each workspace's readiness (its ignored files cloned in), by path, shared with extensions
+  readyExtension.ts      Holds writes, commands, git and reads of missing files until the workspace is ready
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
   hostAnswers.ts         Requests that get no response: prompt answers, approval answers, skip wait
   hostQueue.ts           Messages sent mid-run: stop takes them back; one taken back, moved up or sent now
@@ -914,9 +916,15 @@ so agents in one folder never edit each other's files or the user's. It
 starts detached at the remote's default branch, freshly fetched (the
 folder's HEAD without a remote), so the user's uncommitted work never ends
 up in its commits. The folder's ignored files (`node_modules`, builds,
-`.env`) are cloned copy-on-write (`cp -c` on APFS, `--reflink` on
-Btrfs/XFS, so they cost almost no disk until changed) while pi loads, and
-the first prompt waits for them. Where the filesystem can't clone (Windows,
+`.env`) are cloned copy-on-write (on APFS each whole with clonefile(2),
+called through `osascript`, about ten times faster than `cp -c`'s file-by-file
+walk, which stays the fallback; `--reflink` on Btrfs/XFS), so they cost almost
+no disk until changed. That goes on in the background: the conversation and
+its first message start at once, and only the calls that need those files
+wait for them (`sidecar/readyExtension.ts`, subagents' too: `write`, `edit`,
+`bash`, `git`, and a `read` of a file not there yet), letting go if the run
+stops; removing the worktree waits for it too (`sidecar/worktreeReady.ts`,
+by workspace path). Where the filesystem can't clone (Windows,
 ext4, other volumes), only ignored files are copied; ignored folders are
 skipped and the agent installs and builds its own, since a copy costs their
 full size and a link would let it write into the user's (Windows has no

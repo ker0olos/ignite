@@ -22,7 +22,7 @@ import { claudeLoggedIn } from "./hostAuth.ts";
 import { subagentsIn } from "./hostChildren.ts";
 import { firstTitle } from "../shared/conversations.ts";
 import { pushProjects, refuseWhileForked } from "./hostProjects.ts";
-import { INTERRUPTED, prepareResume } from "./hostResume.ts";
+import { prepareResume } from "./hostResume.ts";
 import { follow, reportTo } from "./hostFollow.ts";
 import { forkOf } from "./forks.ts";
 import { withEntryIds } from "./hostCheckpoint.ts";
@@ -100,17 +100,12 @@ export async function open(
   const started = ctx.agents.get(id);
   const agent = started ?? start(ctx, cwd, id);
   const s = await agent.opening;
-  // After the reply, so the app is following the session when the run starts;
-  // and like a prompt, once the worktree's ignored files are in.
+  // After the reply, so the app is following the session when the run starts.
   const resume = started ? null : prepareResume(s);
   if (resume) {
     agent.resume = resume;
-    const failed = async (error: unknown) => {
-      await resume.cancel(INTERRUPTED);
-      throw error;
-    };
     setTimeout(() =>
-      agent.ready.then(resume.begin, failed).catch(reportTo(ctx, agent)),
+      Promise.resolve().then(resume.begin).catch(reportTo(ctx, agent)),
     );
   }
   // Servers now have a status, even before the adapter reports any.
@@ -163,7 +158,6 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
     cwd,
     workdir: cwd,
     title: "",
-    ready: Promise.resolve(),
     session: null,
     running: false,
     unsubscribe: () => {},
@@ -217,7 +211,7 @@ async function inWorkspace(
 ) {
   const making = ctx.workspaces.open(agent.cwd, agent.id);
   agent.placed = making.then(
-    (ws) => void Object.assign(agent, { workdir: ws.dir, ready: ws.ready }),
+    (ws) => void (agent.workdir = ws.dir),
     () => {},
   );
   const ws = await making.catch((error: unknown) => {

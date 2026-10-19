@@ -14,6 +14,38 @@ const CLONE_FLAGS: Partial<Record<NodeJS.Platform, string[]>> = {
 };
 const BATCH = 200;
 
+// cp -c clones file by file: 73k files in a node_modules take about 10s even
+// copy-on-write. clonefile(2) clones a whole folder in one call (about 1s), and
+// osascript, always on a Mac, is how Node reaches it.
+const CLONEFILE = `const CLONE_NOFOLLOW = 1;
+ObjC.bindFunction("clonefile", ["int", ["char *", "char *", "unsigned int"]]);
+function run(argv) {
+  const failed = [];
+  for (let i = 0; i < argv.length; i += 2)
+    if ($.clonefile(argv[i], argv[i + 1], CLONE_NOFOLLOW) !== 0) failed.push(argv[i]);
+  return JSON.stringify(failed);
+}`;
+
+/** Clones each of `entries` whole with clonefile(2), a folder in one call; returns those it couldn't. */
+async function cloneWhole(from: string, entries: string[], into: string) {
+  const failed = new Set<string>();
+  for (let i = 0; i < entries.length; i += BATCH) {
+    const batch = entries.slice(i, i + BATCH);
+    const args = batch.flatMap((e) => [join(from, e), join(into, e)]);
+    const out = await exec("osascript", [
+      "-l",
+      "JavaScript",
+      "-e",
+      CLONEFILE,
+      ...args,
+    ])
+      .then((r) => JSON.parse(r.stdout) as string[])
+      .catch(() => null);
+    for (const path of out ?? batch.map((e) => join(from, e))) failed.add(path);
+  }
+  return entries.filter((e) => failed.has(join(from, e)));
+}
+
 /** The repository's ignored files and folders (node_modules, builds, .env…), relative to it. */
 async function ignoredEntries(repo: string): Promise<string[]> {
   const out = await git(repo, [
@@ -54,20 +86,20 @@ export async function cloneIgnored(
   repo: string,
   into: string,
   flags: string[] | null = CLONE_FLAGS[process.platform] ?? null,
+  whole = process.platform === "darwin",
 ) {
-  await cloneEntries(repo, await ignoredEntries(repo), into, flags);
+  await cloneEntries(repo, await ignoredEntries(repo), into, flags, whole);
 }
 
-/** Clones `entries` (paths relative to `from`) to the same places under `into`; only files where the platform can't clone. */
-export async function cloneEntries(
+// cp -c clones each batch; where it can't, only files are copied.
+async function cloneByFile(
   from: string,
   entries: string[],
   into: string,
-  flags: string[] | null = CLONE_FLAGS[process.platform] ?? null,
+  flags: string[] | null,
 ) {
   for (const [parent, group] of byParent(entries)) {
     const dest = join(into, parent);
-    await mkdir(dest, { recursive: true });
     for (let i = 0; i < group.length; i += BATCH) {
       const batch = group.slice(i, i + BATCH);
       const cloned =
@@ -81,4 +113,18 @@ export async function cloneEntries(
       }
     }
   }
+}
+
+/** Clones `entries` (paths relative to `from`) to the same places under `into`, `whole` ones in one call each (macOS); only files where the platform can't clone. */
+export async function cloneEntries(
+  from: string,
+  entries: string[],
+  into: string,
+  flags: string[] | null = CLONE_FLAGS[process.platform] ?? null,
+  whole = process.platform === "darwin",
+) {
+  for (const parent of byParent(entries).keys())
+    await mkdir(join(into, parent), { recursive: true });
+  const rest = flags && whole ? await cloneWhole(from, entries, into) : entries;
+  await cloneByFile(from, rest, into, flags);
 }

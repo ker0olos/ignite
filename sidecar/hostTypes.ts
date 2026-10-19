@@ -194,8 +194,6 @@ export type Agent = {
   workdir: string;
   /** Its first user message, which names it in the sidebar. */
   title: string;
-  /** Settles once its worktree has the folder's ignored files (dependencies, builds). */
-  ready: Promise<void>;
   /** Null while it opens. */
   session: Session | null;
   opening: Promise<Session>;
