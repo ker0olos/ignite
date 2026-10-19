@@ -63,10 +63,23 @@ describe("fitToScreenAndShow", () => {
   it("shows the window only after sizing it, so it never flashes", async () => {
     const calls = fakeWindow(retina);
     await fitToScreenAndShow();
-    expect(commands(calls).slice(-1)).toEqual(["plugin:window|show"]);
+    expect(commands(calls).slice(-2)).toEqual([
+      "plugin:window|show",
+      "plugin:window|set_focus",
+    ]);
     expect(commands(calls).indexOf("plugin:window|set_size")).toBeLessThan(
       commands(calls).indexOf("plugin:window|show"),
     );
+  });
+
+  it("leaves focus alone on a reload", async () => {
+    const entries = vi
+      .spyOn(performance, "getEntriesByType")
+      .mockReturnValue([{ type: "reload" } as PerformanceNavigationTiming]);
+    const calls = fakeWindow(retina);
+    await fitToScreenAndShow();
+    entries.mockRestore();
+    expect(commands(calls)).not.toContain("plugin:window|set_focus");
   });
 
   it("maximizes on Windows, without the system title bar the app draws its own of", async () => {
@@ -80,6 +93,7 @@ describe("fitToScreenAndShow", () => {
       "plugin:window|set_decorations",
       "plugin:window|maximize",
       "plugin:window|show",
+      "plugin:window|set_focus",
     ]);
     expect(calls[0].args).toEqual({ label: "main", value: false });
   });

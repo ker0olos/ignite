@@ -89,8 +89,16 @@ export async function fitToScreenAndShow() {
     await win.setPosition(new LogicalPosition(x + STAGE_MANAGER_STRIP, y));
   } finally {
     await win.show();
+    // A start the launcher spawned (a restart into an update) isn't activated by macOS; a reload keeps focus where it is.
+    if (!reloaded()) await win.setFocus();
   }
 }
+
+const reloaded = () =>
+  (
+    performance.getEntriesByType("navigation")[0] as
+      PerformanceNavigationTiming | undefined
+  )?.type === "reload";
 
 /**
  * Options for extra windows. Must mirror the "main" window in tauri.conf.json;
