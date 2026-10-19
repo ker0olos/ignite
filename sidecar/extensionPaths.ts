@@ -20,7 +20,7 @@ const approval = sibling("./approvalExtension.ts");
 export const SESSION_EXTENSIONS = [
   claudeBridge,
   mcpExtension,
-  sibling("./cmemExtension.ts"),
+  sibling("./memoryExtension.ts"),
   sibling("./askExtension.ts"),
   sibling("./subagentExtension.ts"),
   sibling("./gitExtension.ts"),

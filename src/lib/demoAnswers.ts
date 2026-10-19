@@ -72,7 +72,7 @@ const DEMO_SKILLS: SkillEntry[] = [
 const DEMO_SKILL_CATALOG: SkillCatalog = { sources: [] };
 
 const DEMO_MEMORY = (now: number): MemoryStatus => ({
-  state: "running",
+  counts: { feature: 14, decision: 6, bugfix: 9, discovery: 21, change: 17 },
   observations: [
     {
       id: 3,
@@ -81,6 +81,11 @@ const DEMO_MEMORY = (now: number): MemoryStatus => ({
       subtitle: "Colors moved into CSS variables with a dark set",
       createdAt: now - 20 * 60_000,
       platform: "ignite",
+      facts: [
+        "Colors live in CSS variables with a light and a dark set",
+        "theme.ts follows prefers-color-scheme",
+      ],
+      files: ["src/theme.ts", "src/styles.css"],
     },
     {
       id: 2,
@@ -88,6 +93,8 @@ const DEMO_MEMORY = (now: number): MemoryStatus => ({
       title: "Settings stay in localStorage",
       createdAt: now - 3 * 3_600_000,
       platform: "claude",
+      facts: ["Only the chosen durations are saved, no account needed"],
+      files: ["src/settings.ts"],
     },
     {
       id: 1,
@@ -95,6 +102,8 @@ const DEMO_MEMORY = (now: number): MemoryStatus => ({
       title: "Break timer showed 04:59 first",
       createdAt: now - 6 * 86_400_000,
       platform: "codex",
+      facts: ["The first tick rendered before the countdown was set"],
+      files: ["src/timer.ts", "tests/timer.test.ts"],
     },
   ],
 });

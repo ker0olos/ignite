@@ -20,6 +20,7 @@ import { createClaudeCode, forgetClaudePath } from "./claudeCode.ts";
 import { codexBackend, withCodexLogin } from "./credentials.ts";
 import { createHeadlessUI } from "./headlessUI.ts";
 import { createHost } from "./host.ts";
+import { importOnStart } from "./memory.ts";
 import type { McpStatusSnapshot, Runtime, Session } from "./hostTypes.ts";
 import { sessionFor, sessions } from "./sessionStore.ts";
 import { createWorkspaces } from "./worktrees.ts";
@@ -184,7 +185,7 @@ async function openSession(
 
 // In memory, with its own settings so choosing its model never becomes the
 // default. Its tool calls reach the app through the main session's bus.
-// ponytail: no MCP servers or cmem in subagents; add their extensions if needed.
+// ponytail: no MCP servers or memory in subagents; add their extensions if needed.
 async function openSubagent(
   folder: string,
   cwd: string,
@@ -292,3 +293,5 @@ process.stdin.on("end", async () => {
 
 send({ type: "ready" });
 log("ready");
+// After ready, so the app never waits on it.
+setTimeout(() => void importOnStart(), 0);

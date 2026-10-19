@@ -254,6 +254,12 @@ export type Agent = {
   checkpoint?: Promise<unknown>;
   /** How the user corrected it since its last settled run, for the reflector. */
   corrections?: string[];
+  /** Its running run's messages are those after this time (its last message's before it), for the memory. */
+  runAfter?: number;
+  /** Settles once the memory has written down its last settled run. */
+  remembering?: Promise<void>;
+  /** Ended: closed, or the app quit. */
+  closed?: boolean;
   /** Lessons and skill additions the reflector proposed, until the user keeps or discards them. */
   proposals?: Proposal[];
 };
@@ -319,6 +325,14 @@ export function isShown(ctx: HostContext, agent: Agent): boolean {
 
 /** Reloads its session, which may change its messages without an event: the app gets them again. */
 export async function reload(agent: Agent) {
+  // The memory's writer may still be calling the session's model; a reload would cut it off.
+  await agent.remembering;
+  if (agent.closed) return;
+  // A run that started meanwhile reloads once it settles, like any other.
+  if (agent.running) {
+    agent.reloadWhenSettled = true;
+    return;
+  }
   agent.followed = false;
   await agent.session?.reload();
 }

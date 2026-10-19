@@ -31,7 +31,7 @@ import { mcpServers, changeMcp, changeSkills } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
 import { describeError } from "./wire.ts";
-import { memoryStatus } from "./cmem.ts";
+import { memoryStatus } from "./memory.ts";
 import { answered } from "./hostAnswers.ts";
 import { setTrust } from "./hostTrust.ts";
 import { compact, stop, unqueue } from "./hostQueue.ts";
@@ -149,8 +149,9 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     changeSkills(ctx, () => ctx.skills.importSkills(r.source, r.names)),
   ...lessonHandlers,
   ...worktreeHandlers,
-  memory_status: (_ctx, r) => memoryStatus(r.cwd),
-  // The MCP extension reads the setting on (re)load, like mcp.json.
+  memory_status: (_ctx, r) =>
+    memoryStatus(r.cwd, { query: r.query, kind: r.kind }),
+  // The memory extension reads the setting on (re)load, like mcp.json.
   memory_changed: (ctx) => changeMcp(ctx, async () => {}).then(() => {}),
   set_trust: (ctx, r) => setTrust(ctx, r.cwd, r.trusted),
   git_diff: (_ctx, r) => fileDiff(r.repo, r.range, r.path),

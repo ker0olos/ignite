@@ -50,8 +50,8 @@ export type Settings = {
   };
   /** `git_status`: the composer lists the conversation's repositories with unfinished git work. */
   composer: { git_status: boolean };
-  /** `cmem`: record sessions in cmem and recall its memories. */
-  memory: { cmem: boolean };
+  /** `enabled`: record what conversations do, and recall it in later ones. */
+  memory: { enabled: boolean };
   /**
    * `mode`: "auto" asks only before risky tool calls, "manual" before all.
    * `full_access`: Auto runs every tool call without asking or the sandbox.
@@ -102,7 +102,7 @@ export const DEFAULT_SETTINGS: Settings = {
     resizable_split: true,
   },
   composer: { git_status: true },
-  memory: { cmem: true },
+  memory: { enabled: true },
   approval: { mode: "auto", full_access: false, windows_sandbox: false },
   subagents: { enabled: true, max: 2 },
   power: { keep_awake: true, keep_screen_awake: false },
@@ -237,6 +237,11 @@ const LEGACY_THEMES: Record<string, string> = {
 /** Relative to the home directory. */
 export const SETTINGS_DIR = `.${APP_NAME}`;
 export const SETTINGS_FILE = `${SETTINGS_DIR}/settings.toml`;
+// Memory was cmem's switch, `cmem`, before the app kept its own.
+const readMemory = (memory?: { enabled?: unknown; cmem?: unknown }) => ({
+  enabled: (memory?.enabled ?? memory?.cmem) !== false,
+});
+
 const HOME = { baseDir: BaseDirectory.Home };
 const CHANGED = "settings://changed";
 
@@ -270,7 +275,7 @@ export async function loadSettings(): Promise<Settings> {
     conversation: readConversation(raw.conversation),
     sidebar: readSidebar(raw.sidebar),
     composer: { git_status: raw.composer?.git_status !== false },
-    memory: { ...DEFAULT_SETTINGS.memory, ...raw.memory },
+    memory: readMemory(raw.memory),
     approval: readApproval(raw.approval),
     subagents: readSubagents(raw.subagents),
     power: { ...DEFAULT_SETTINGS.power, ...raw.power },

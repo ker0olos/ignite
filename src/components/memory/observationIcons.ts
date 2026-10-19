@@ -1,6 +1,7 @@
 import {
   Bug,
   Compass,
+  EyeOff,
   Lock,
   PenLine,
   RefreshCw,
@@ -10,7 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-/** Icons for cmem's observation kinds in its default "code" mode. */
+/** Each kind of memory's icon. */
 export const OBSERVATION_ICONS: Record<string, LucideIcon | undefined> = {
   bugfix: Bug,
   feature: Sparkles,
@@ -20,4 +21,5 @@ export const OBSERVATION_ICONS: Record<string, LucideIcon | undefined> = {
   decision: Scale,
   security_alert: ShieldAlert,
   security_note: Lock,
+  sensitive: EyeOff,
 };

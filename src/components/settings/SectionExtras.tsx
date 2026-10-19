@@ -1,5 +1,5 @@
 import { McpExtras } from "@/components/mcp/McpExtras";
-import { MemoryExtras } from "@/components/memory/MemoryExtras";
+import { MemoryPreview } from "@/components/memory/MemoryPreview";
 import type { Section } from "@/components/settings/sections";
 import { SkillsExtras } from "@/components/skills/SkillsExtras";
 import type { useMcpServers } from "@/hooks/useMcpServers";
@@ -22,7 +22,7 @@ export function SectionExtras({
 }) {
   switch (section) {
     case "Memory":
-      return <MemoryExtras memory={memory} folder={folder} />;
+      return <MemoryPreview memory={memory} folder={folder} />;
     case "Skills":
       return <SkillsExtras skills={skills} />;
     case "MCP":

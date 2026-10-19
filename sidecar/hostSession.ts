@@ -244,6 +244,7 @@ export async function close(ctx: HostContext, cwd: string, id?: string) {
 
 async function end(ctx: HostContext, agent: Agent, quitting = false) {
   ctx.agents.delete(agent.id);
+  agent.closed = true;
   // Quitting leaves them waiting, to ask again on the next launch (hostResume.ts).
   if (!quitting) denyAll(ctx, agent);
   agent.routing?.controller.abort();

@@ -1,23 +1,53 @@
-/** claude-mem (cmem) as the app and the sidecar exchange it. */
+/** The agent's memory across conversations, as the app and the sidecar exchange it. */
 
-/** Something claude-mem recorded, as its worker lists it. */
+/** What an observation records; cmem's "code" mode kinds, so its memories import as they are. */
+export const OBSERVATION_TYPES = [
+  "bugfix",
+  "feature",
+  "refactor",
+  "change",
+  "discovery",
+  "decision",
+  "security_alert",
+  "security_note",
+  "sensitive",
+] as const;
+
+/** What kind of knowledge an observation holds. */
+export const CONCEPTS = [
+  "how-it-works",
+  "why-it-exists",
+  "what-changed",
+  "problem-solution",
+  "gotcha",
+  "pattern",
+  "trade-off",
+] as const;
+
+/** A run's summary, kept beside its observations. */
+export const SUMMARY_TYPE = "summary";
+
+/** Something remembered, as Settings lists it. */
 export type MemoryObservation = {
   id: number;
-  /** claude-mem's kind: "bugfix", "feature", "decision", "discovery"… */
+  /** One of OBSERVATION_TYPES, or SUMMARY_TYPE. */
   type: string;
   title: string;
   subtitle?: string;
   /** Milliseconds since the epoch. */
   createdAt: number;
-  /** The tool that recorded it: "claude", "codex", this app's name… */
+  /** The agent that did the work: "claude", "codex", this app's name… */
   platform: string;
+  /** Standalone statements of what it found or did. */
+  facts: string[];
+  /** The files it read or changed, from the folder's root. */
+  files: string[];
 };
 
-/** claude-mem on this Mac, for the open folder if any. */
+/** The memory for the open folder, if any. */
 export type MemoryStatus = {
-  state: "not-installed" | "stopped" | "excluded" | "running";
-  /** The worker's web viewer, while it runs. */
-  viewerUrl?: string;
-  /** The open folder's latest observations, newest first. */
+  /** How many of each type it keeps, summaries left out. */
+  counts: Record<string, number>;
+  /** Its latest, newest first, or the best matches for a search; of one type when asked. */
   observations: MemoryObservation[];
 };
