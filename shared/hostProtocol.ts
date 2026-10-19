@@ -105,6 +105,8 @@ export type OpenedSession = SessionState & {
   session: string;
   /** Where its agent works: its own git worktree, or the folder itself. */
   workdir: string;
+  /** How often its worktree was made again after its space was freed, so its files are read again. */
+  remade?: number;
   trust: ProjectTrust;
   /** The conversation so far; left out when the app already follows it (`known`). */
   messages?: AgentMessage[];

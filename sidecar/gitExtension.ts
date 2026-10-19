@@ -12,6 +12,7 @@ import { GH_TOOL, GIT_TOOL, type GitReview } from "../shared/git.ts";
 import type { ApprovalRequest } from "../shared/hostProtocol.ts";
 import { autonomous, prUrl } from "../shared/tasks.ts";
 import {
+  delivers,
   ghApproval,
   gitApproval,
   splitGit,
@@ -159,12 +160,6 @@ async function waitsOn(
     (await taskMayRun(pi, args, cwd)) &&
     (!then || (await taskMayRun(pi, then, cwd)));
   return { auto, manual, alone };
-}
-
-/** Whether a call puts the agent's work on the remote: a push, or a merged pull request. */
-export function delivers(tool: Tool, args: string[]): boolean {
-  if (tool === GH_TOOL) return args[0] === "pr" && args[1] === "merge";
-  return splitGit(args).command === "push";
 }
 
 // An agent in its own worktree: the user's folder follows the remote when it can.

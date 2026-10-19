@@ -5,12 +5,15 @@ import type {
   AgentMessage,
   AssistantMessage,
   ToolCall,
+  ToolResultMessage,
 } from "../shared/agentTypes.ts";
 import {
+  GH_TOOL,
   GIT_TOOL,
   type GitRepoDetails,
   type GitRepoStatus,
 } from "../shared/git.ts";
+import { delivers } from "../src/lib/gitPolicy.ts";
 import { gh } from "./gitMerged.ts";
 import { placeOf } from "./gitPlace.ts";
 import type { HostContext } from "./hostTypes.ts";
@@ -18,7 +21,7 @@ import { changes, commitsIn, repoOf } from "./gitReview.ts";
 import { untrackedChanges } from "./gitUntracked.ts";
 import { CHANGES_FILES } from "./taskSteps.ts";
 import { remoteDefault } from "./worktreeCheckout.ts";
-import { folderOf, git, gitOr } from "./worktreeGit.ts";
+import { folderOf, git, gitOr, within } from "./worktreeGit.ts";
 
 // gh asks GitHub; the app polls every few seconds.
 const PR_TTL_MS = 30_000;
@@ -150,6 +153,47 @@ export async function gitStatus(
   const found = await Promise.all(touchedDirs(messages, workdir).map(rootOf));
   const repos = [...new Set(found)].filter((r): r is string => !!r);
   return Promise.all(repos.map(statusOf));
+}
+
+// A folder of repositories' other files aren't saved with its worktrees.
+// ponytail: only edit and write calls count; bash changes to those files aren't seen.
+async function editedOutsideGit(messages: AgentMessage[], workdir: string) {
+  const dirs = toolCalls(messages).flatMap(({ name, arguments: a }) =>
+    CHANGES_FILES.has(name) && typeof a.path === "string"
+      ? [dirname(resolve(workdir, a.path))]
+      : [],
+  );
+  const inside = dirs.filter((d) => within(d, workdir));
+  return (await Promise.all(inside.map(rootOf))).includes(null);
+}
+
+// A commit with `push: true` pushes in the same call.
+const pushes = ({ name, arguments: a }: ToolCall) =>
+  (name === GIT_TOOL || name === GH_TOOL) &&
+  Array.isArray(a.args) &&
+  (a.push === true || delivers(name, a.args as string[]));
+
+/** Whether the conversation pushed its work and nothing in its repositories is uncommitted or unpushed since. */
+export async function delivered(
+  messages: AgentMessage[],
+  workdir: string,
+): Promise<boolean> {
+  const ok = new Set(
+    messages
+      .filter((m): m is ToolResultMessage => m.role === "toolResult")
+      .flatMap((m) => (m.isError ? [] : [m.toolCallId])),
+  );
+  if (!toolCalls(messages).some((c) => ok.has(c.id) && pushes(c))) return false;
+  if (await editedOutsideGit(messages, workdir)) return false;
+  const found = await Promise.all(touchedDirs(messages, workdir).map(rootOf));
+  const repos = [...new Set(found)].filter((r): r is string => !!r);
+  const pending = await Promise.all(
+    repos.map(async (repo) => {
+      const status = ["--no-optional-locks", "status", "--porcelain"];
+      return (await gitOr(repo, status)) !== "" || (await unpushed(repo)) > 0;
+    }),
+  );
+  return repos.length > 0 && !pending.includes(true);
 }
 
 /** An open conversation's repositories; null before it opens. */

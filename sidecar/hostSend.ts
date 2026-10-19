@@ -3,6 +3,7 @@ import type { QueueKind } from "../shared/queue.ts";
 import { denyAll, waitsOnUser, WROTE_INSTEAD } from "./hostApproval.ts";
 import { checkpointFirst } from "./hostCheckpoint.ts";
 import { reportTo } from "./hostFollow.ts";
+import { revive } from "./hostFree.ts";
 import { routeMessage } from "./hostRoute.ts";
 import type { Agent, HostContext, Session } from "./hostTypes.ts";
 import { rememberImages } from "./queuedImages.ts";
@@ -41,6 +42,7 @@ export async function hand(
   done: () => void,
 ) {
   await settleResume(agent);
+  await revive(ctx, agent);
   await agent.ready;
   if (s.isStreaming) rememberImages(agent, text, images);
   // A message sent mid-run steers the run; a conversation's first one may be routed.

@@ -127,9 +127,9 @@ export function leave(path: string) {
 
 /**
  * Saves the worktree's state (and branch) under conversation `id`, then
- * deletes it. Throws, keeping it, when the state can't be saved.
+ * deletes it, its checkpoints too unless `keep`. Throws, keeping it, when the state can't be saved.
  */
-export async function remove(path: string, id = basename(path)) {
+export async function remove(path: string, id = basename(path), keep = false) {
   leave(path);
   const repo = repoOf(path);
   if (!repo) {
@@ -140,7 +140,7 @@ export async function remove(path: string, id = basename(path)) {
   const branch = await gitOr(path, ["symbolic-ref", "-q", "--short", "HEAD"]);
   const message = `${APP_NAME} snapshot${branch ? `\n\nbranch: ${branch}` : ""}`;
   await git(repo, ["update-ref", stateRef(id), await snapshot(path, message)]);
-  await dropCheckpoints(repo, id);
+  if (!keep) await dropCheckpoints(repo, id);
   await gitOr(repo, ["worktree", "unlock", path]);
   // Windows can't delete a file another process holds open; then a later
   // sweep tries again, as the lock names a process that's gone by then.

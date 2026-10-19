@@ -24,6 +24,7 @@ import { firstTitle } from "../shared/conversations.ts";
 import { pushProjects, refuseWhileForked } from "./hostProjects.ts";
 import { INTERRUPTED, prepareResume } from "./hostResume.ts";
 import { follow, reportTo } from "./hostFollow.ts";
+import { revive, showOnly } from "./hostFree.ts";
 import { forkOf } from "./forks.ts";
 import { withEntryIds } from "./hostCheckpoint.ts";
 import { hand, takeTurn } from "./hostSend.ts";
@@ -90,16 +91,17 @@ export async function open(
   known?: string,
 ): Promise<OpenedSession | null> {
   if (id === undefined) {
-    ctx.shown = null;
+    showOnly(ctx, null);
     await pushMcpServers(ctx);
     return null;
   }
-  ctx.shown = id;
+  showOnly(ctx, id);
   ctx.lastShown.set(cwd, id);
   ctx.checking.clear();
   const started = ctx.agents.get(id);
   const agent = started ?? start(ctx, cwd, id);
   const s = await agent.opening;
+  await revive(ctx, agent);
   // After the reply, so the app is following the session when the run starts;
   // and like a prompt, once the worktree's ignored files are in.
   const resume = started ? null : prepareResume(s);
@@ -123,6 +125,7 @@ export async function open(
     ...state,
     session: id,
     workdir: agent.workdir,
+    remade: agent.remade,
     trust: ctx.trust.get(cwd),
     ...messages,
     running: s.isStreaming || !!agent.routing,
@@ -255,6 +258,8 @@ async function end(ctx: HostContext, agent: Agent, quitting = false) {
   await s.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
   s.dispose();
   // Its work stays saved with the conversation; see worktrees.ts.
+  await agent.freed;
+  await agent.placed.catch(() => {});
   await releaseWorkspace(ctx, agent, quitting);
 }
 

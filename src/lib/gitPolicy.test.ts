@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ghApproval, gitApproval, splitGit, taskRunsAlone } from "./gitPolicy";
+import {
+  delivers,
+  ghApproval,
+  gitApproval,
+  splitGit,
+  taskRunsAlone,
+} from "./gitPolicy";
 
 const place = { cwd: "/Users/me/app", home: "/Users/me" };
 const git = (line: string) => gitApproval(line.split(" "), place);
@@ -183,5 +189,15 @@ describe("taskRunsAlone", () => {
   it("treats an unknown default branch as main and master only", () => {
     expect(taskRunsAlone(["push"], "dev", null)).toBe(true);
     expect(taskRunsAlone(["push"], "main", null)).toBe(false);
+  });
+});
+
+describe("delivers", () => {
+  it("spots calls that put the agent's work on the remote", () => {
+    expect(delivers("git", ["push", "-u", "origin", "fix/x"])).toBe(true);
+    expect(delivers("git", ["-C", "sub", "push"])).toBe(true);
+    expect(delivers("gh", ["pr", "merge", "3", "--merge"])).toBe(true);
+    expect(delivers("git", ["commit", "-m", "x"])).toBe(false);
+    expect(delivers("gh", ["pr", "create"])).toBe(false);
   });
 });

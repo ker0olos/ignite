@@ -201,6 +201,10 @@ export type Agent = {
   opening: Promise<Session>;
   /** Settles once `workdir` is final (its worktree made), or making it failed: early in `opening`. */
   placed: Promise<void>;
+  /** Set while its worktree is freed (hostFree.ts): settles once it's saved and removed. */
+  freed?: Promise<void>;
+  /** How often its worktree was made again after being freed, so the app reads its files again. */
+  remade?: number;
   /**
    * The app holds its messages and gets all its events, so opening it again
    * needn't send them. Off until the app opens it, and after any change made
@@ -266,7 +270,7 @@ export type HostContext = {
   send: (m: HostMessage) => void;
   openSession: OpenSession;
   sessions: SessionStore;
-  workspaces: Pick<Workspaces, "open" | "close" | "fork" | "layout">;
+  workspaces: Pick<Workspaces, "open" | "close" | "free" | "fork" | "layout">;
   /** The command center's search over folders' conversations and files. */
   search: ReturnType<typeof createSearch>;
   /** The session that shows what a new conversation would start with. */
@@ -317,8 +321,19 @@ export function isShown(ctx: HostContext, agent: Agent): boolean {
   return shown(ctx) === agent;
 }
 
+/** Whether it runs, compacts, waits on the user or has messages waiting to run. */
+export const busy = (agent: Agent, s: Session) =>
+  agent.running ||
+  !!agent.routing ||
+  s.isStreaming ||
+  s.isCompacting ||
+  agent.approvals.size > 0 ||
+  s.pendingMessageCount > 0;
+
 /** Reloads its session, which may change its messages without an event: the app gets them again. */
 export async function reload(agent: Agent) {
+  // A freed worktree has no files to load; it reloads once made again (hostFree.ts).
+  if (agent.freed) return void (agent.reloadWhenSettled = true);
   agent.followed = false;
   await agent.session?.reload();
 }

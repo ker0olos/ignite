@@ -299,6 +299,7 @@ function fakeWorkspaces() {
       ready: Promise.resolve(),
     })),
     close: vi.fn(async () => {}),
+    free: vi.fn(async () => {}),
     fork: vi.fn(async () => {}),
     layout: vi.fn(async () => null),
   };

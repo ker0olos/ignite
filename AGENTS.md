@@ -247,6 +247,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   worktreeGroup.ts       A folder of repositories: the agent's copy of it, a worktree of each and its other files copied
   worktreeExtension.ts   Tells an agent in a worktree where it is and to deliver through a pull request
   worktreeGit.ts         Worktree paths, snapshots of a working state, folderOf / gitWritable
+  hostFree.ts            A delivered conversation's worktree freed while it's idle and hidden, made again when needed
   worktreeClone.ts       Copy-on-write clones of the folder's ignored files into a worktree
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
   hostAnswers.ts         Requests that get no response: prompt answers, approval answers, skip wait
@@ -920,7 +921,13 @@ of its own, pushed with a pull request, and after a successful push or
 tool result tells the agent which. Ending a conversation (closing it or
 its folder, quitting) saves its state as a commit under
 `refs/ignite/sessions/<id>` and removes the worktree; reopening the
-conversation brings it back. Worktrees are locked with the sidecar's pid,
+conversation brings it back. An open conversation whose work is delivered
+(a push, a commit with `push: true` or a merged pull request, nothing
+uncommitted or unpushed since, and no edits to a folder of repositories'
+other files, which aren't saved) frees its worktree the same way once it's idle
+and not shown, unless a terminal or background command uses it
+(`sidecar/hostFree.ts`); showing it or sending it a message makes it again,
+its checkpoints kept until it closes. Worktrees are locked with the sidecar's pid,
 and each sidecar start sweeps (saves and removes) those whose process is
 gone; on Windows that also retries a worktree whose files were held open.
 A folder that isn't a repository but holds some (`~/Projects/app` with

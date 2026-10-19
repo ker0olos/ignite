@@ -12,6 +12,7 @@ import { noteRewound } from "./hostReflect.ts";
 import { settleResume } from "./hostSend.ts";
 import { prompt } from "./hostSession.ts";
 import {
+  busy,
   current,
   tellsApp,
   type Agent,
@@ -21,14 +22,6 @@ import {
 
 const BUSY =
   "Wait for the agent to finish (or stop it) before editing a message.";
-
-const busy = (agent: Agent, s: Session) =>
-  agent.running ||
-  !!agent.routing ||
-  s.isStreaming ||
-  s.isCompacting ||
-  agent.approvals.size > 0 ||
-  s.pendingMessageCount > 0;
 
 function refuseWhileBusy(ctx: HostContext, agent: Agent, s: Session) {
   refuseWhileForked(ctx, agent.id);

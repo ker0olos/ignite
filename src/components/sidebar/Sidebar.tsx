@@ -25,7 +25,7 @@ export function Sidebar({
   folder: string;
   /** The file tree's root: the shown conversation's worktree, else the folder; none while unknown. */
   root: string | null;
-  /** Changes once the conversation's worktree exists (it's known before it's made), so the tree reads it again. */
+  /** Changes once the conversation's worktree exists (it's known before it's made) or is made again after being freed, so the tree reads it again. */
   treeKey: string;
   actions: ReactNode;
   /** Shown above the folder name, e.g. a sign-in warning. */

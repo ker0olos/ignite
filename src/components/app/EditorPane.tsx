@@ -40,6 +40,8 @@ export function EditorPane({
 }) {
   const diffTab = readDiffTab(active);
   const childTab = readChildTab(active);
+  // Read again once a freed worktree is made again.
+  const reread = `${active}:${session.remade ?? 0}`;
   return (
     <div
       data-tab-dock={dock}
@@ -63,7 +65,7 @@ export function EditorPane({
         />
       ) : diffTab ? (
         <DiffView
-          key={active}
+          key={reread}
           tab={diffTab}
           host={session.host}
           themes={codeThemes}
@@ -72,7 +74,7 @@ export function EditorPane({
         />
       ) : (
         <FileView
-          key={active}
+          key={reread}
           path={active}
           root={folder}
           themes={codeThemes}

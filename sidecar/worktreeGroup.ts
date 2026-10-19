@@ -70,11 +70,11 @@ async function copyLoose(folder: string, path: string) {
 }
 
 /** Saves each worktree in the workspace under conversation `id`, then deletes it all. Throws, keeping it, when one can't be saved. */
-export async function removeGroup(path: string, id: string) {
+export async function removeGroup(path: string, id: string, keep = false) {
   // Copies still going in would recreate folders after the delete.
   await copying.get(path);
   leave(path);
-  for (const checkout of groupCheckouts(path)) await remove(checkout, id);
+  for (const checkout of groupCheckouts(path)) await remove(checkout, id, keep);
   await rm(path, { recursive: true, force: true });
   await tidy(dirname(path));
 }

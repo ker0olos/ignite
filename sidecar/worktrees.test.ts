@@ -202,6 +202,19 @@ describe("workspaces", () => {
     expect(existsSync(ws.dir)).toBe(false);
   });
 
+  it("keeps the checkpoints of a worktree freed while open, until it closes", async () => {
+    const workspaces = createWorkspaces(root);
+    const ws = await workspaces.open(repo, "a");
+    const head = git(repo, "rev-parse", "HEAD");
+    git(repo, "update-ref", checkpointRef("a", "e1"), head);
+    const refs = () => git(repo, "for-each-ref", "--format=%(refname)");
+    await workspaces.free(repo, "a");
+    expect(existsSync(ws.dir)).toBe(false);
+    expect(refs()).toContain(checkpointRef("a", "e1"));
+    await workspaces.close(repo, "a");
+    expect(refs()).not.toContain(checkpointRef("a", "e1"));
+  });
+
   it("starts a fork's worktree as a copy of its original's files, on no branch", async () => {
     const workspaces = createWorkspaces(root);
     const ws = await workspaces.open(repo, "a");

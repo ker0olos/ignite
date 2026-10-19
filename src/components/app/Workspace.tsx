@@ -83,7 +83,7 @@ export function Workspace({
     <Sidebar
       folder={folder}
       root={root}
-      treeKey={session.workdir ?? ""}
+      treeKey={`${session.workdir ?? ""}:${session.remade ?? 0}`}
       actions={actions}
       projectList={projectList}
       banner={banner}

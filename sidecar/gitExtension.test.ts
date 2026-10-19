@@ -15,7 +15,6 @@ import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import gitTools, {
   PR_DECLINED,
   USE_TOOLS,
-  delivers,
   needsTools,
 } from "./gitExtension.ts";
 import { resultText, run } from "./gitRun.ts";
@@ -406,16 +405,6 @@ describe("a task's conversation", () => {
     asks[0].answer(true);
     await done;
     expect(updates).toEqual([]);
-  });
-});
-
-describe("delivers", () => {
-  it("spots calls that put the agent's work on the remote", () => {
-    expect(delivers("git", ["push", "-u", "origin", "fix/x"])).toBe(true);
-    expect(delivers("git", ["-C", "sub", "push"])).toBe(true);
-    expect(delivers("gh", ["pr", "merge", "3", "--merge"])).toBe(true);
-    expect(delivers("git", ["commit", "-m", "x"])).toBe(false);
-    expect(delivers("gh", ["pr", "create"])).toBe(false);
   });
 });
 

@@ -10,6 +10,7 @@ import {
   type Place,
 } from "./approvalPolicy.ts";
 import { dangerousCommand } from "./dangerousCommands.ts";
+import { GH_TOOL } from "../../shared/git.ts";
 
 /** Why `args` would reach outside the folder, or null. */
 function outside(args: string[], place: Place): string | null {
@@ -213,4 +214,10 @@ export function ghApproval(args: string[], place: Place): string | null {
   if (group === "api" && apiReads([action ?? "", ...rest])) return null;
   if (GH_READS[group]?.has(action)) return null;
   return "Changes something on GitHub";
+}
+
+/** Whether a git or gh call puts the agent's work on the remote: a push, or a merged pull request. */
+export function delivers(tool: string, args: string[]): boolean {
+  if (tool === GH_TOOL) return args[0] === "pr" && args[1] === "merge";
+  return splitGit(args).command === "push";
 }

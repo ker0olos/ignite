@@ -22,6 +22,8 @@ export type Opened = {
   session: string;
   /** Where its agent works (its worktree, or the folder); null while its session starts. */
   workdir: string | null;
+  /** Changes each time its worktree is made again after its space was freed. */
+  remade?: number;
   /** Null while its session starts, with the transcript already shown. */
   state: SessionState | null;
   trust: ProjectTrust | null;
@@ -64,6 +66,7 @@ export const toOpened = (
   {
     session,
     workdir,
+    remade,
     messages,
     running,
     trust,
@@ -77,7 +80,16 @@ export const toOpened = (
   kept?: Transcript,
 ): Opened => {
   if (!messages && kept) {
-    return { host, folder, session, workdir, state, trust, transcript: kept };
+    return {
+      host,
+      folder,
+      session,
+      workdir,
+      remade,
+      state,
+      trust,
+      transcript: kept,
+    };
   }
   const history = toolRuns.reduce(
     applyEvent,
@@ -96,6 +108,7 @@ export const toOpened = (
     folder,
     session,
     workdir,
+    remade,
     state,
     trust,
     transcript: modelWarning
@@ -120,6 +133,8 @@ type View = {
   none: boolean;
   /** Where the conversation's agent works: its worktree, or the folder. */
   workdir: string | null;
+  /** Changes each time its worktree is made again, so its files are read again. */
+  remade?: number;
 };
 
 /** What the app sees of the entry; in a folder with none, what its first message would start with. */
@@ -133,6 +148,7 @@ export const view = (e: Entry | null, draft: SessionState | null): View =>
         host: e.host,
         none: false,
         workdir: e.workdir,
+        remade: e.remade,
       }
     : {
         state: e ? (draft ?? cachedState(null)) : null,

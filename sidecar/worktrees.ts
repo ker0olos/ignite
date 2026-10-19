@@ -17,6 +17,7 @@ import {
   remove,
   tidy,
 } from "./worktreeCheckout.ts";
+import { dropCheckpoints } from "./checkpoints.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
 import type { WorktreeLayout } from "../shared/git.ts";
 import {
@@ -52,12 +53,13 @@ async function repoFor(folder: string) {
   return { repo, prefix };
 }
 
-/** Saves and deletes the workspace at `path` (one worktree or a folder of them) once no live process holds it. */
+/** Saves and deletes the workspace at `path` (one worktree or a folder of them) once no live process holds it; `keep` keeps its checkpoints. */
 async function release(
   path: string,
   id: string,
   sweeping = false,
   removing?: () => Promise<void>,
+  keep = false,
 ) {
   if (!existsSync(path)) return;
   const group = isGroup(path);
@@ -65,7 +67,7 @@ async function release(
   if (sweeping ? who !== "gone" || (await isNew(path)) : who === "alive")
     return;
   await removing?.();
-  await (group ? removeGroup(path, id) : remove(path, id));
+  await (group ? removeGroup(path, id, keep) : remove(path, id, keep));
 }
 
 /** Agents' worktrees under `root`. */
@@ -121,7 +123,18 @@ export function createWorkspaces(root = WORKTREES) {
     async close(folder: string, id: string, removing?: () => Promise<void>) {
       const found = await repoFor(folder);
       const path = worktreePath(found?.repo ?? folder, id, root);
-      await release(path, id, false, removing);
+      // One freed while open kept its checkpoints.
+      if (existsSync(path)) await release(path, id, false, removing);
+      else
+        for (const repo of found ? [found.repo] : await groupRepos(folder))
+          await dropCheckpoints(repo, id);
+    },
+
+    /** Like `close`, for a conversation that stays open: its checkpoints stay, for editing earlier messages. */
+    async free(folder: string, id: string, removing?: () => Promise<void>) {
+      const found = await repoFor(folder);
+      const path = worktreePath(found?.repo ?? folder, id, root);
+      await release(path, id, false, removing, true);
     },
 
     /** Saves and deletes workspaces whose app process is gone (it crashed or was killed). */

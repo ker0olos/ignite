@@ -1,5 +1,6 @@
 import type { TerminalRequest } from "../shared/terminal.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
+import { revive } from "./hostFree.ts";
 import { endTerminal, openTerminal, terminalsStartedIn } from "./terminal.ts";
 import { within } from "./worktreeGit.ts";
 
@@ -18,18 +19,20 @@ export async function closeTerminalsIn(dir: string, wait = true) {
   return () => void removing.delete(dir);
 }
 
-/** Saves and removes a conversation's worktree, ending the terminals in it first, if it's removed (no other window uses it). */
+/** Saves and removes a conversation's worktree, ending the terminals in it first, if it's removed (no other window uses it); `free` keeps the conversation's checkpoints. */
 export async function releaseWorkspace(
   ctx: HostContext,
   agent: Agent,
   quitting = false,
+  free = false,
 ) {
   const { cwd, id, workdir } = agent;
+  const close = free ? ctx.workspaces.free : ctx.workspaces.close;
   let removed: (() => void) | undefined;
   const closing =
     workdir === cwd
-      ? ctx.workspaces.close(cwd, id)
-      : ctx.workspaces.close(cwd, id, async () => {
+      ? close(cwd, id)
+      : close(cwd, id, async () => {
           removed = await closeTerminalsIn(workdir, !quitting);
         });
   await closing.catch(() => {});
@@ -47,7 +50,7 @@ export async function terminalDir(
   // The app asks to open a conversation before it shows it, so one it names here is already registered.
   const agent = id === null ? undefined : ctx.agents.get(id);
   if (!agent || agent.cwd !== cwd) return fallback;
-  await agent.placed;
+  await revive(ctx, agent);
   return agent.workdir;
 }
 
@@ -63,6 +66,9 @@ export const worktreeHandlers = {
   terminal_open: terminalOpen,
   worktree_layout: (ctx: HostContext, r: { cwd: string }) =>
     ctx.workspaces.layout(r.cwd),
-  worktree_ready: async (ctx: HostContext, r: { session: string }) =>
-    void (await ctx.agents.get(r.session)?.ready),
+  worktree_ready: async (ctx: HostContext, r: { session: string }) => {
+    const agent = ctx.agents.get(r.session);
+    if (agent) await revive(ctx, agent);
+    await agent?.ready;
+  },
 };

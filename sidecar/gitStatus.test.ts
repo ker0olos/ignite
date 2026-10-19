@@ -16,6 +16,7 @@ import { fileDiff } from "./gitReview.ts";
 import type { HostContext } from "./hostTypes.ts";
 import {
   conversationGitStatus,
+  delivered,
   discardFile,
   gitStatus,
   repoDetails,
@@ -206,5 +207,82 @@ describe("conversationGitStatus", () => {
     } as unknown as HostContext;
     expect(await conversationGitStatus(ctx, "opening")).toBeNull();
     expect(await conversationGitStatus(ctx, "unknown")).toBeNull();
+  });
+});
+
+describe("delivered", () => {
+  const call = (
+    name: string,
+    args: Record<string, unknown>,
+    isError = false,
+  ): AgentMessage[] => [
+    ...calls([name, args]),
+    {
+      role: "toolResult",
+      toolCallId: "c0",
+      toolName: name,
+      isError,
+      content: [],
+      timestamp: 0,
+    } as AgentMessage,
+  ];
+  const push = (isError = false) =>
+    call("git", { args: ["push", "-u", "origin", "feat"] }, isError);
+
+  async function pushedApp() {
+    git(root, "init", "-q", "--bare", "-b", "main", "remote.git");
+    git(root, "clone", "-q", "remote.git", "app");
+    const app = join(root, "app");
+    await writeFile(join(app, "a.txt"), "one\n");
+    git(app, "add", ".");
+    git(app, "commit", "-qm", "first");
+    git(app, "push", "-q", "origin", "HEAD:main");
+    return app;
+  }
+
+  it("is false without a push, and when the push failed", async () => {
+    const app = await pushedApp();
+    expect(await delivered([], app)).toBe(false);
+    expect(await delivered(call("git", { args: ["status"] }), app)).toBe(false);
+    expect(await delivered(push(true), app)).toBe(false);
+  });
+
+  it("is true after a successful push, commit with push or merged pull request", async () => {
+    const app = await pushedApp();
+    expect(await delivered(push(), app)).toBe(true);
+    const commit = call("git", { args: ["commit", "-m", "x"], push: true });
+    expect(await delivered(commit, app)).toBe(true);
+    const merge = call("gh", { args: ["pr", "merge", "1"] });
+    expect(await delivered(merge, app)).toBe(true);
+  });
+
+  it("is false with an uncommitted file or an unpushed commit", async () => {
+    const app = await pushedApp();
+    await writeFile(join(app, "new.txt"), "x\n");
+    expect(await delivered(push(), app)).toBe(false);
+    await rm(join(app, "new.txt"));
+    expect(await delivered(push(), app)).toBe(true);
+    git(app, "commit", "-q", "--allow-empty", "-m", "local");
+    expect(await delivered(push(), app)).toBe(false);
+  });
+
+  it("is false after editing a file outside its repositories, as in a folder of them", async () => {
+    const app = await pushedApp();
+    const result = push().slice(1);
+    const edited = (path: string) => [
+      ...calls(["git", { args: ["-C", "app", "push"] }], ["write", { path }]),
+      ...result,
+    ];
+    expect(await delivered(edited("app/b.txt"), root)).toBe(true);
+    expect(await delivered(edited("compose.yml"), root)).toBe(false);
+    expect(await delivered(edited("/elsewhere/notes.md"), app)).toBe(true);
+  });
+
+  it("counts a repository with no remote as pushed", async () => {
+    const app = join(root, "app");
+    await mkdir(app);
+    git(app, "init", "-q", "-b", "main");
+    git(app, "commit", "-q", "--allow-empty", "-m", "first");
+    expect(await delivered(push(), app)).toBe(true);
   });
 });
