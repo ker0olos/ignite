@@ -27,6 +27,7 @@ const sidebar = (
     <Sidebar
       folder="/work/ignition"
       root="/work/ignition"
+      treeKey=""
       actions={null}
       selected={null}
       onOpenFile={vi.fn()}

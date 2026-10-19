@@ -25,13 +25,25 @@ function useForgetUnlisted(
   forget: (folder: string, session?: string) => void,
 ) {
   const was = useRef<Record<string, string[]>>({});
-  const now = JSON.stringify(
-    Object.fromEntries(
-      folders.map((f) => [f, listed(f).map((r) => r.session)]),
-    ),
-  );
+  // One line per folder: its path, a tab, its conversations; an effect reads it only when it changes.
+  const now = folders
+    .map(
+      (f) =>
+        `${f}\t${listed(f)
+          .map((r) => r.session)
+          .join(" ")}`,
+    )
+    .join("\n");
   useEffect(() => {
-    const lists = JSON.parse(now) as Record<string, string[]>;
+    const lists: Record<string, string[]> = Object.fromEntries(
+      now
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => {
+          const [folder, sessions] = line.split("\t");
+          return [folder, sessions ? sessions.split(" ") : []];
+        }),
+    );
     for (const [folder, before] of Object.entries(was.current)) {
       const list = lists[folder];
       // ponytail: a folder whose list empties keeps its tabs (it may be reloading); closing from the sidebar still drops them.
@@ -79,8 +91,11 @@ export function useConversationTabs(
   useEffect(() => {
     if (!started || adopted.current === started.session) return;
     adopted.current = started.session;
-    adopt(started.folder, started.session, started.workdir);
-  }, [started, adopt]);
+    const ready = host
+      ?.request({ type: "worktree_ready", session: started.session })
+      .catch(() => {});
+    adopt(started.folder, started.session, started.workdir, ready);
+  }, [started, adopt, host]);
   useForgetUnlisted(folders, listed, forget);
   const isListed = (cwd: string, session: string) =>
     listed(cwd).some((r) => r.session === session);

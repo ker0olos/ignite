@@ -91,10 +91,12 @@ describe("useTabs", () => {
     rerender({ session: "b" });
     expect(result.current.files).toEqual([]);
     act(() => result.current.open("/wt/b/y"));
-    expect(result.current.everyFile).toEqual(["/wt/a/x", "/wt/b/y"]);
+    expect(result.current.isOpen("/wt/a/x")).toBe(true);
+    expect(result.current.isOpen("/wt/b/y")).toBe(true);
     act(() => result.current.closeEverywhere("/wt/a/x"));
     act(() => result.current.forget("/repo", "b"));
-    expect(result.current.everyFile).toEqual([]);
+    expect(result.current.isOpen("/wt/a/x")).toBe(false);
+    expect(result.current.isOpen("/wt/b/y")).toBe(false);
   });
 
   it("hands the tabs opened before the first message to the conversation it starts, in its worktree", async () => {

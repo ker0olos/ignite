@@ -47,17 +47,28 @@ export function useTabHandoff(
       setAll((a) => handTabs(a, loading, key));
   }, [folder, key, setAll]);
 
-  // The tabs opened before the first message (the folder's files) go to the conversation it started, in its worktree.
+  // The tabs opened before the first message (the folder's files) go to the conversation it started, in its worktree;
+  // ignored files (.env, builds) are looked for again once `ready` (they're copied in after it starts).
   return useCallback(
-    (folder: string, session: string, workdir: string) => {
+    (
+      folder: string,
+      session: string,
+      workdir: string,
+      ready?: Promise<unknown>,
+    ) => {
       const draft = tabsKey(folder, null);
       const started = tabsKey(folder, session);
       const tabs = tabsUnder(latest.current, draft);
       setAll((a) => handTabs(a, draft, started));
       if (workdir === folder) return;
-      void worktreeCopies(tabs, folder, workdir).then((names) => {
+      const toWorktree = async (left: string[]) => {
+        const names = await worktreeCopies(left, folder, workdir);
         if (Object.keys(names).length)
           setAll((a) => renameTabs(a, started, names));
+        return left.filter((t) => !(t in names));
+      };
+      void toWorktree(tabs).then(async (left) => {
+        if (left.length && ready) await ready.then(() => toWorktree(left));
       });
     },
     [setAll],

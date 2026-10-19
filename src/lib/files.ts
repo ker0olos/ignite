@@ -2,6 +2,7 @@ import { exists, readDir, readFile } from "@tauri-apps/plugin-fs";
 import { withoutGitIgnored } from "./gitignore";
 import type { CodeThemes } from "./codeThemes";
 import { highlight } from "./highlight";
+import { isInside } from "./paths";
 
 /** Never shown in the file tree, whatever the Git setting. */
 const ALWAYS_HIDDEN = new Set([".git", ".DS_Store"]);
@@ -52,7 +53,7 @@ export async function readForView(
 
 /** `path` (under `folder`) at the same place in worktree `root`, when the worktree has it; null otherwise. */
 export async function worktreeCopy(path: string, folder: string, root: string) {
-  if (!path.startsWith(`${folder}/`)) return null;
+  if (path === folder || !isInside(path, folder)) return null;
   const there = root + path.slice(folder.length);
   return (await exists(there).catch(() => false)) ? there : null;
 }

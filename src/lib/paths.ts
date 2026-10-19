@@ -23,8 +23,10 @@ export const sortedByName = (paths: string[]) =>
     (a, b) => byName.compare(basename(a), basename(b)) || byName.compare(a, b),
   );
 
+/** Whether `path` is `root` or inside it, with either separator. */
+export const isInside = (path: string, root: string) =>
+  path === root || path.startsWith(`${root}/`) || path.startsWith(`${root}\\`);
+
 /** `path` relative to `root` when inside it (or it), else as given. */
 export const relativeTo = (path: string, root: string) =>
-  path === root || path.startsWith(`${root}/`)
-    ? path.slice(root.length + 1)
-    : path;
+  isInside(path, root) ? path.slice(root.length + 1) : path;

@@ -66,12 +66,12 @@ it("drops a conversation's tabs once it closed, and a dismissed folder's", async
   const { result, conversations } = setup();
   act(() => result.current.tabs.open("/wt/s1/a.ts"));
   await act(() => result.current.conversations.close("/work", "s1", []));
-  expect(result.current.tabs.everyFile).toEqual([]);
+  expect(result.current.tabs.isOpen("/wt/s1/a.ts")).toBe(false);
   expect(conversations.close).toHaveBeenCalledWith("/work", "s1", []);
 
   act(() => result.current.tabs.open("/wt/s1/b.ts"));
   act(() => result.current.conversations.dismiss("/work"));
-  expect(result.current.tabs.everyFile).toEqual([]);
+  expect(result.current.tabs.isOpen("/wt/s1/b.ts")).toBe(false);
   expect(conversations.dismiss).toHaveBeenCalledWith("/work");
 });
 
@@ -90,7 +90,7 @@ it("drops the tabs of a conversation that left the list some other way", () => {
   act(() => result.current.tabs.open("/wt/s1/a.ts"));
   rerender({ session: "s2" });
   rerender({ session: "s2", listed: ["s2"] });
-  expect(result.current.tabs.everyFile).toEqual([]);
+  expect(result.current.tabs.isOpen("/wt/s1/a.ts")).toBe(false);
 });
 
 it("gives the tabs opened before the first message to the conversation it started", async () => {
@@ -143,4 +143,23 @@ it("hands a started conversation the tabs only once, so the next new conversatio
   // The same start seen again (an effect run twice).
   rerender({ session: null, started: { ...started } });
   expect(result.current.tabs.files).toEqual(["child:term"]);
+});
+
+it("looks for ignored files in the started conversation's worktree again once they're copied in", async () => {
+  fakeFs({});
+  const { result, rerender } = setup();
+  rerender({ session: null });
+  act(() => result.current.tabs.open("/work/.env"));
+  let ready = () => {};
+  const copied = new Promise<void>((resolve) => (ready = resolve));
+  act(() => result.current.tabs.adopt("/work", "s3", "/wt/s3", copied));
+  rerender({ session: "s3", listed: ["s1", "s2", "s3"] });
+  await waitFor(() =>
+    expect(result.current.tabs.files).toEqual(["/work/.env"]),
+  );
+  fakeFs({ "/wt/s3/.env": "" });
+  ready();
+  await waitFor(() =>
+    expect(result.current.tabs.files).toEqual(["/wt/s3/.env"]),
+  );
 });

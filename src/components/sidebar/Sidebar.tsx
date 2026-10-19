@@ -12,6 +12,7 @@ import { basename } from "@/lib/paths";
 export function Sidebar({
   folder,
   root,
+  treeKey,
   actions,
   banner,
   viewSwitch,
@@ -24,6 +25,8 @@ export function Sidebar({
   folder: string;
   /** The file tree's root: the shown conversation's worktree, else the folder; none while unknown. */
   root: string | null;
+  /** Changes once the conversation's worktree exists (it's known before it's made), so the tree reads it again. */
+  treeKey: string;
   actions: ReactNode;
   /** Shown above the folder name, e.g. a sign-in warning. */
   banner?: ReactNode;
@@ -74,7 +77,14 @@ export function Sidebar({
         files={
           showTree ? (
             <div className="always-bounce px-2 pb-2">
-              {root && <FileTree root={root} folder={folder} {...treeProps} />}
+              {root && (
+                <FileTree
+                  key={treeKey}
+                  root={root}
+                  folder={folder}
+                  {...treeProps}
+                />
+              )}
             </div>
           ) : null
         }

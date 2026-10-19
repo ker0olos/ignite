@@ -54,8 +54,6 @@ export function useTabs(
 
   return {
     files,
-    /** Every conversation's tabs. */
-    everyFile: useEverySame(everyTab(all)),
     /** Every conversation's terminal tabs, the same array until one opens or closes. */
     terminalTabs: useEverySame(
       [...new Set(everyTab(all).filter((t) => terminalOf(t) !== null))].sort(),

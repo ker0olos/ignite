@@ -22,7 +22,7 @@ import {
   closeAll,
   prompt,
 } from "./hostSession.ts";
-import { terminalOpen } from "./hostTerminal.ts";
+import { worktreeHandlers } from "./hostTerminal.ts";
 import { userPickedModel } from "./hostRoute.ts";
 import { closeConversation, fork } from "./hostFork.ts";
 import { rewind } from "./hostRewind.ts";
@@ -148,6 +148,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   skills_import: (ctx, r) =>
     changeSkills(ctx, () => ctx.skills.importSkills(r.source, r.names)),
   ...lessonHandlers,
+  ...worktreeHandlers,
   memory_status: (_ctx, r) => memoryStatus(r.cwd),
   // The MCP extension reads the setting on (re)load, like mcp.json.
   memory_changed: (ctx) => changeMcp(ctx, async () => {}).then(() => {}),
@@ -173,8 +174,6 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   task_delete: (ctx, r) => deleteTask(ctx, r.cwd, r.taskId),
   task_start: (ctx, r) => startTask(ctx, r.cwd, r.taskId, r.interactive),
   task_resume: (ctx, r) => resumeTask(ctx, r.cwd, r.taskId, r.text),
-  terminal_open: terminalOpen,
-  worktree_layout: (ctx, r) => ctx.workspaces.layout(r.cwd),
   terminal_input: (_ctx, r) => writeTerminal(r.terminal, r.data),
   terminal_resize: (_ctx, r) => resizeTerminal(r.terminal, r.cols, r.rows),
   terminal_close: (_ctx, r) => closeTerminal(r.terminal),

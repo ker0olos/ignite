@@ -84,5 +84,6 @@ describe("relativeTo", () => {
     expect(relativeTo("/wt/a/src/x.ts", "/wt/a")).toBe("src/x.ts");
     expect(relativeTo("/wt/a", "/wt/a")).toBe("");
     expect(relativeTo("/wt/ab/x.ts", "/wt/a")).toBe("/wt/ab/x.ts");
+    expect(relativeTo("C:\\wt\\a\\src\\x.ts", "C:\\wt\\a")).toBe("src\\x.ts");
   });
 });

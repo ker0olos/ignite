@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { WorktreeLayout } from "../../shared/git";
 import type { HostClient } from "@/lib/piHost";
 import { cacheLayout, cachedLayout } from "@/lib/worktreeLayout";
@@ -25,6 +25,11 @@ export function useWorktreeLayout(
     };
   }, [host, folder]);
 
+  // Read once per folder; null (the folder is shared) is a known layout.
+  const cached = useMemo(
+    () => (folder ? cachedLayout(folder) : undefined),
+    [folder],
+  );
   if (!folder) return undefined;
-  return folder in read ? read[folder] : cachedLayout(folder);
+  return folder in read ? read[folder] : cached;
 }

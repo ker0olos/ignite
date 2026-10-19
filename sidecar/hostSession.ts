@@ -255,7 +255,7 @@ async function end(ctx: HostContext, agent: Agent, quitting = false) {
   await s.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
   s.dispose();
   // Its work stays saved with the conversation; see worktrees.ts.
-  await releaseWorkspace(ctx, agent);
+  await releaseWorkspace(ctx, agent, quitting);
 }
 
 /** Ends every conversation, as the app quits. */

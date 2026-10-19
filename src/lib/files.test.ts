@@ -102,5 +102,9 @@ describe("worktreeCopy", () => {
     expect(await worktreeCopy("/work/notes.md", "/work", "/wt/s")).toBeNull();
     expect(await worktreeCopy("/workshop/a.ts", "/work", "/wt/s")).toBeNull();
     expect(await worktreeCopy("child:{}", "/work", "/wt/s")).toBeNull();
+    fakeFs({ "C:\\wt\\s\\a.ts": "" });
+    expect(await worktreeCopy("C:\\work\\a.ts", "C:\\work", "C:\\wt\\s")).toBe(
+      "C:\\wt\\s\\a.ts",
+    );
   });
 });

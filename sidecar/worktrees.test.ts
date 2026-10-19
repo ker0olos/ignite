@@ -75,6 +75,15 @@ describe("workspaces", () => {
     expect(ws.dir).toBe(plain);
   });
 
+  it("calls back just before it removes a conversation's worktree", async () => {
+    const ws = createWorkspaces(root);
+    const { dir } = await ws.open(repo, "a");
+    let there = false;
+    await ws.close(repo, "a", async () => void (there = existsSync(dir)));
+    expect(there).toBe(true);
+    expect(existsSync(dir)).toBe(false);
+  });
+
   it("says where a folder's conversations work before opening any", async () => {
     const ws = createWorkspaces(root);
     const opened = await ws.open(join(repo, "sub"), "a");

@@ -281,8 +281,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   ptyShell.ts            Shells in a PTY (node-pty): spawning, killing its tree, its output as screen text
   ptyBash.ts             Background commands' shell in a PTY: stdin from /dev/null, pagers off
   terminal.ts            The user's terminals: a login shell in a PTY (node-pty), mirrored in a headless xterm
-  hostTerminal.ts        Opening one in the conversation's worktree (waiting while it opens); ending a closed
-                         conversation's before its worktree goes, and none starting there meanwhile
+  hostTerminal.ts        Opening one in the conversation's worktree (waiting until it's made); ending a closed
+                         conversation's just before its worktree is removed; the worktree layout and ready requests
   terminalExtension.ts   terminal_read, and the terminals' new output added to each run;
                          tells the agent what the composer's `@` mentions name
   exploreExtension.ts    Tells the agent how to search the code before answering (parallel calls, follow the flow)

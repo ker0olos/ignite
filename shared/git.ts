@@ -95,7 +95,9 @@ export type GitRequest =
   /** Discards one file's uncommitted changes (`path` relative to `repo`). */
   | { id: number; type: "git_discard"; repo: string; path: string }
   /** Where the folder's conversations' worktrees are, so the app knows one's before it opens. */
-  | { id: number; type: "worktree_layout"; cwd: string };
+  | { id: number; type: "worktree_layout"; cwd: string }
+  /** Settles once an open conversation's worktree has the folder's ignored files (.env, builds). */
+  | { id: number; type: "worktree_ready"; session: string };
 
 export type GitResponses = {
   git_diff: string;
@@ -104,4 +106,5 @@ export type GitResponses = {
   git_repo_details: GitRepoDetails;
   git_discard: undefined;
   worktree_layout: WorktreeLayout;
+  worktree_ready: undefined;
 };
