@@ -9,19 +9,17 @@ import { useDrop } from "@/hooks/useDrop";
 import { useAgentSession } from "@/hooks/useAgentSession";
 import { useAppMenu } from "@/hooks/useAppMenu";
 import { useCommandCenter } from "@/hooks/useCommandCenter";
-import { useOpenFile } from "@/hooks/useOpenFile";
 import { useConnectScreen } from "@/hooks/useConnectScreen";
 import { useFolders } from "@/hooks/useFolders";
 import { useMcpServers } from "@/hooks/useMcpServers";
 import { useConversationList } from "@/hooks/useConversationList";
 import { useConversations } from "@/hooks/useConversations";
+import { useConversationTabs } from "@/hooks/useConversationTabs";
 import { useProviders } from "@/hooks/useProviders";
 import { useRemoteAccess } from "@/hooks/useRemoteAccess";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useSettings } from "@/hooks/useSettings";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
-import { useTabs } from "@/hooks/useTabs";
-import { useTerminalTabs } from "@/hooks/useTerminalTabs";
 import { useTextSize } from "@/hooks/useTextSize";
 import { WindowControls } from "@/components/app/WindowControls";
 import { isRemote } from "@/lib/remote";
@@ -53,17 +51,20 @@ export default function App() {
   const session = shownSession(agent, providers.hostError);
   const mcp = useMcpServers(host, current);
   const list = useConversationList(host);
-  const conversations = useConversations(host, current, agent, {
+  const shownConversations = useConversations(host, current, agent, {
     select: addFolder,
     dismiss: dismissFolder,
     forget: list.forget,
   });
-  const fileTabs = useTabs(current);
-  const terminals = useTerminalTabs(host, shownFolders, fileTabs);
-  const tabs = { ...fileTabs, close: terminals.closeTab };
-  const openIn = useOpenFile(current, tabs.open, addFolder);
-  const openFile = (folder: string, path: string) =>
-    openIn(folder, `${folder}/${path}`);
+  const conversationTabs = useConversationTabs(
+    host,
+    current,
+    shownFolders,
+    agent,
+    shownConversations,
+    addFolder,
+    shownRows(list.allRows),
+  );
   const command = useCommandCenter();
   const rows = (cwd: string) =>
     orderedRows(shownRows(list.rows)(cwd), settings.sidebar.conversation_order);
@@ -81,8 +82,8 @@ export default function App() {
     openSettings: () => openSettings(),
     version: dialog.about.version,
     checkForUpdates: dialog.checkForUpdates,
-    active: tabs.active,
-    closeTab: tabs.close,
+    active: conversationTabs.tabs.active,
+    closeTab: conversationTabs.tabs.close,
   });
 
   if (!loaded) return null;
@@ -106,14 +107,13 @@ export default function App() {
           key={current}
           folder={current}
           folders={shownFolders}
-          {...{ tabs, settings, setSettings, menu, rows, session }}
+          {...{ settings, setSettings, menu, rows, session }}
           tags={list.tags}
           tagFilter={list.tagFilter}
           onToggleTagFilter={list.toggleTagFilter}
           onClearTagFilter={list.clearTagFilter}
           onSetConversationTags={list.setConversationTags}
           {...{
-            conversations,
             home,
             command,
             mcp,
@@ -121,7 +121,8 @@ export default function App() {
             openFolder,
             openSettings,
           }}
-          {...{ host, terminals, openIn }}
+          {...conversationTabs}
+          host={host}
           about={dialog.about}
         />
       ) : (
@@ -141,10 +142,11 @@ export default function App() {
       />
       {isWindows() && !isRemote() && <WindowControls />}
       <AppCommandCenter
-        {...{ command, home, rows, settings, openFile }}
+        {...{ command, home, rows, settings }}
+        openFile={conversationTabs.openFile}
         host={host}
         folders={folders}
-        conversations={conversations}
+        conversations={conversationTabs.conversations}
         openFolder={addFolder}
       />
     </div>

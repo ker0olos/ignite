@@ -7,7 +7,7 @@
  */
 import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import {
   create,
   forkCheckout,
@@ -18,7 +18,14 @@ import {
   tidy,
 } from "./worktreeCheckout.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
-import { git, gitOr, WORKTREES, worktreePath } from "./worktreeGit.ts";
+import type { WorktreeLayout } from "../shared/git.ts";
+import {
+  git,
+  gitOr,
+  WORKTREES,
+  worktreeBase,
+  worktreePath,
+} from "./worktreeGit.ts";
 import {
   forkGroup,
   groupOwner,
@@ -46,12 +53,18 @@ async function repoFor(folder: string) {
 }
 
 /** Saves and deletes the workspace at `path` (one worktree or a folder of them) once no live process holds it. */
-async function release(path: string, id: string, sweeping = false) {
+async function release(
+  path: string,
+  id: string,
+  sweeping = false,
+  removing?: () => Promise<void>,
+) {
   if (!existsSync(path)) return;
   const group = isGroup(path);
   const who = group ? await groupOwner(path) : owner(path);
   if (sweeping ? who !== "gone" || (await isNew(path)) : who === "alive")
     return;
+  await removing?.();
   await (group ? removeGroup(path, id) : remove(path, id));
 }
 
@@ -93,10 +106,22 @@ export function createWorkspaces(root = WORKTREES) {
         await forkGroup(folder, worktreePath(folder, from, root), from, to);
     },
 
-    /** Saves and deletes conversation `id`'s workspace, unless another window still uses it. */
-    async close(folder: string, id: string) {
+    /** Where `folder`'s conversations work, by id, without opening any; null when they share the folder. */
+    async layout(folder: string): Promise<WorktreeLayout> {
       const found = await repoFor(folder);
-      await release(worktreePath(found?.repo ?? folder, id, root), id);
+      if (found) {
+        const prefix = found.prefix.replace(/\/$/, "").split("/").join(sep);
+        return { base: worktreeBase(found.repo, root), prefix };
+      }
+      const group = (await groupRepos(folder)).length > 0;
+      return group ? { base: worktreeBase(folder, root), prefix: "" } : null;
+    },
+
+    /** Saves and deletes conversation `id`'s workspace, unless another window still uses it. */
+    async close(folder: string, id: string, removing?: () => Promise<void>) {
+      const found = await repoFor(folder);
+      const path = worktreePath(found?.repo ?? folder, id, root);
+      await release(path, id, false, removing);
     },
 
     /** Saves and deletes workspaces whose app process is gone (it crashed or was killed). */

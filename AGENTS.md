@@ -21,7 +21,7 @@ src/                     React frontend (almost all logic lives here)
                          Windows' window controls, the drop overlay, zoomable images and the markup editor (react-konva) for attached ones
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner, the update banner (installing, then restart)
-    files/               Lazy directory tree, read-only syntax-highlighted file view, FileIcon (every file icon),
+    files/               Lazy directory tree (the shown conversation's worktree, once it has one), read-only syntax-highlighted file view, FileIcon (every file icon),
                          diff tabs whose lines take comments (gutter "+", comment box)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
@@ -35,6 +35,7 @@ src/                     React frontend (almost all logic lives here)
     skills/              Skill and plugin rows, import UI from other apps
     providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos
     children/            Tabs for what runs under a conversation: a subagent's conversation, a background command's output, the user's interactive terminals
+                         (one starting while its conversation's worktree is made)
     terminal/            TerminalSurface: text drawn as a read-only terminal (xterm)
     tasks/               Tasks view: the checklist, rows that open in place with their status card,
                          the new-task sheet (notes, images, subtasks, model and effort)
@@ -44,13 +45,20 @@ src/                     React frontend (almost all logic lives here)
                          ends closed projects' sessions
     useSettings.ts       settings.toml, synced across windows; applies theme
     useDrop.ts           Drag-and-drop onto the window: folders open, images and other files attach to the composer
-    useTabs.ts           Open file tabs, beside the conversation or docked under it, reset per folder (⌘W closes one)
+    useTabs.ts           Open file tabs, beside the conversation or docked under it, kept per conversation (⌘W closes one)
     useTabDrag.ts        Dragging a tab by pointer: reorders it, or moves it to the other dock
+    useConversationTabs.ts The shown conversation's tabs and the terminals: opening one (⌘P from its worktree),
+                         dropping a closed conversation's, keeping the first message's with the conversation it starts
     useEditorOverlay.ts  The editor pane dragged past the conversation's minimum: drawn over it and the sidebar
     useSidebarWidth.ts   The sidebar's dragged width (localStorage), kept when the editor pane opens or closes
     useProviders.ts      Provider status, sign-in and sign-out via the pi host
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
-    useAgentSession.ts   The folder's shown pi session: conversation, send/stop, trust, model and effort
+    useAgentSession.ts   The folder's shown pi session: conversation, send/stop, trust, model and effort, its worktree
+    useStartedConversation.ts The conversation the folder's first message last started, for its tabs
+    useTabHandoff.ts     The tabs opened while the folder's conversation was unknown, or before its first message,
+                         go to the conversation it turns out to be (the latter's files to its worktree's copies)
+    useWorktreeLayout.ts Where the folder's conversations' worktrees are (cached), so a conversation's root is
+                         known before it opens (lib/worktreeLayout.ts: conversationRoot)
     useSessionSwitch.ts  Showing and closing the shown folder's conversations
     useSessionCache.ts   Every open conversation shown so far, kept current by its events; the one each folder shows
     useOlderRows.ts      A conversation draws its newest rows, older ones as the user scrolls up
@@ -74,7 +82,7 @@ src/                     React frontend (almost all logic lives here)
     useCommentReveal.ts  A diff comment's card scrolled into view and flashed when its composer card is clicked
     useComposerComments.ts The diff comments in the composer's message: removing, sending, taking back from the queue
     useComposerSend.ts   Sending the composer's message (text, images, diff comments); stop hands queued ones back
-    useOpenFile.ts       Opens a tab (file, diff, subagent…) in any folder, switching to it first
+    useOpenFile.ts       Opens a tab (file, diff, subagent…) in any folder or conversation, switching to it first
     useFileExists.ts     Whether a path exists, checked once; inline code links only to ones that do
     useXterm.ts          An xterm fitted to its element and themed like the app (read-only and interactive views)
     useTerminalSession.ts A terminal view's connection to the host: snapshot, live output, keystrokes
@@ -273,6 +281,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   ptyShell.ts            Shells in a PTY (node-pty): spawning, killing its tree, its output as screen text
   ptyBash.ts             Background commands' shell in a PTY: stdin from /dev/null, pagers off
   terminal.ts            The user's terminals: a login shell in a PTY (node-pty), mirrored in a headless xterm
+  hostTerminal.ts        Opening one in the conversation's worktree (waiting until it's made); ending a closed
+                         conversation's just before its worktree is removed; the worktree layout and ready requests
   terminalExtension.ts   terminal_read, and the terminals' new output added to each run;
                          tells the agent what the composer's `@` mentions name
   exploreExtension.ts    Tells the agent how to search the code before answering (parallel calls, follow the flow)
@@ -408,7 +418,8 @@ shared/attachedFiles.ts  Dropped files in a message: `@path` with its text inlin
 shared/sentComments.ts   Diff comments in a message: `@path:lines`, the quoted lines, the comment, and read back
                          for its cards; a message as typed, without them (titles, queue)
 shared/steps.ts          A tool call as a current step ("Editing src/app.ts"), for tasks and the working line
-shared/git.ts            The git and gh tools' names and what a commit or push shows for review
+shared/git.ts            The git and gh tools' names, what a commit or push shows for review, the app's git
+                         requests, and a folder's worktree layout
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON
@@ -710,7 +721,8 @@ no paths outside it) are blocked with a pointer to the grep and read tools
 numbered, so the agent doesn't search the file again before the next one.
 
 The user's own terminals (`sidecar/terminal.ts`) run their login shell in
-the folder (not a worktree) in a PTY, outside the sandbox: `terminal_open`
+the shown conversation's worktree (`dir`; the folder before its first
+message), listed under the folder, in a PTY, outside the sandbox: `terminal_open`
 returns an id, keystrokes go in with `terminal_input`, and output comes back
 as `terminal_data` events (`terminal_snapshot` restores a new view). Each
 also feeds a headless xterm, so agents read the rendered screen, not escape

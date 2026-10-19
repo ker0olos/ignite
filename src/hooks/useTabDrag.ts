@@ -32,11 +32,7 @@ function dropAt(x: number, y: number): TabDrop | null {
   return { dock, index: x > left + width / 2 ? i + 1 : i };
 }
 
-/**
- * Dragging a tab by pointer (not HTML drag and drop, which Tauri's file drop
- * takes over on Windows): it starts past a few pixels, so a press still
- * clicks, and dropping calls `onMove`. Unmounting mid-drag drops nothing.
- */
+/** Dragging a tab by pointer (Tauri's file drop takes over HTML drag and drop on Windows); a press under a few pixels still clicks. */
 export function useTabDrag(
   onMove: (tab: string, dock: Dock, index: number) => void,
 ) {

@@ -2,7 +2,6 @@ import { Fragment, useState } from "react";
 import { ProjectRow } from "@/components/app/ProjectRow";
 import { ConversationTagFilter } from "@/components/sidebar/ConversationTagFilter";
 import { FolderConversations } from "@/components/sidebar/FolderConversations";
-import { FolderTerminals } from "@/components/sidebar/FolderTerminals";
 import type { Conversations } from "@/hooks/useConversations";
 import type { TaggedAgentStatus } from "@/lib/conversations";
 import { sortedByName } from "@/lib/paths";
@@ -19,6 +18,8 @@ export type ChildActions = {
   onClear: (tab: string) => void;
   /** A folder's running terminals. */
   terminals: (cwd: string) => string[];
+  /** The conversation whose tabs hold a terminal's, if any; it's listed under that one. */
+  terminalOwner: (terminal: string) => string | null;
   /** The command running in a terminal, while one is. */
   terminalLabel: (terminal: string) => TerminalLabel;
   onOpenTerminal: (cwd: string, terminal: string) => void;
@@ -127,13 +128,6 @@ export function FolderList({
             max={conversationLimit.max}
             limited={conversationLimit.enabled}
             onToggle={() => toggle(path)}
-          />
-          <FolderTerminals
-            terminals={childActions.terminals(path)}
-            label={childActions.terminalLabel}
-            shownTabs={path === folder ? childActions.shownTabs : []}
-            onOpen={(terminal) => childActions.onOpenTerminal(path, terminal)}
-            onStop={childActions.onStopTerminal}
           />
         </Fragment>
       ))}

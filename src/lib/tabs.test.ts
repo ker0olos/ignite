@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   activateDocked,
   closeDocked,
+  closeEverywhere,
+  everyTab,
+  forgetTabs,
+  handTabs,
   closeTab,
   dockOf,
   moveTab,
@@ -9,6 +13,11 @@ import {
   NO_DOCKS,
   openDocked,
   openTab,
+  renameEverywhere,
+  renameTabs,
+  tabOwner,
+  tabsKey,
+  tabsUnder,
   type Docks,
 } from "./tabs";
 
@@ -134,5 +143,69 @@ describe("docked tabs", () => {
   it("doesn't bring back a tab closed mid-drag", () => {
     const d = docks(["a"], []);
     expect(moveTab(d, "gone", "bottom", 0)).toBe(d);
+  });
+});
+
+describe("each conversation's tabs", () => {
+  const sets = {
+    [tabsKey("/f", "a")]: docks(["x"], ["t"]),
+    [tabsKey("/f", "b")]: docks(["y", "t"], []),
+    [tabsKey("/g", "c")]: docks(["z"], []),
+  };
+
+  it("lists and closes a tab across conversations", () => {
+    expect(everyTab(sets)).toEqual(["x", "t", "y", "t", "z"]);
+    expect(everyTab(closeEverywhere(sets, "t"))).toEqual(["x", "y", "z"]);
+  });
+
+  it("forgets one conversation's tabs, or a whole folder's", () => {
+    expect(Object.keys(forgetTabs(sets, "/f", "a"))).toEqual([
+      tabsKey("/f", "b"),
+      tabsKey("/g", "c"),
+    ]);
+    expect(Object.keys(forgetTabs(sets, "/f"))).toEqual([tabsKey("/g", "c")]);
+  });
+
+  it("hands one key's tabs to another, after its own, none twice", () => {
+    const draft = { ...sets, [tabsKey("/f", null)]: docks(["d"], []) };
+    const handed = handTabs(draft, tabsKey("/f", null), tabsKey("/f", "n"));
+    expect(handed[tabsKey("/f", "n")].side.files).toEqual(["d"]);
+    expect(handed[tabsKey("/f", null)]).toBeUndefined();
+    expect(handTabs(sets, tabsKey("/f", null), tabsKey("/f", "n"))).toBe(sets);
+
+    const merged = handTabs(sets, tabsKey("/f", "b"), tabsKey("/f", "a"));
+    expect(merged[tabsKey("/f", "a")]).toEqual({
+      // b showed t, which a already has (in its other dock).
+      side: { files: ["x", "y"], active: "x" },
+      bottom: { files: ["t"], active: "t" },
+      focus: "side",
+    });
+  });
+
+  it("finds the conversation whose tabs hold a tab, never a draft or loading one", () => {
+    expect(tabOwner(sets, "y")).toBe("b");
+    expect(tabOwner(sets, "nowhere")).toBeNull();
+    const early = {
+      [tabsKey("/f", null)]: docks(["d"], []),
+      [tabsKey("/f", undefined)]: docks(["l"], []),
+    };
+    expect(tabOwner(early, "d")).toBeNull();
+    expect(tabOwner(early, "l")).toBeNull();
+  });
+
+  it("keys a folder whose conversation isn't known apart from one with none yet", () => {
+    expect(tabsKey("/f", undefined)).not.toBe(tabsKey("/f", null));
+  });
+
+  it("renames a tab in every conversation that has it", () => {
+    const renamed = renameEverywhere(sets, { t: "real" });
+    expect(everyTab(renamed)).toEqual(["x", "real", "y", "real", "z"]);
+  });
+
+  it("renames a key's tabs, keeping the shown one shown", () => {
+    const renamed = renameTabs(sets, tabsKey("/f", "b"), { t: "/wt/t" });
+    expect(tabsUnder(renamed, tabsKey("/f", "b"))).toEqual(["y", "/wt/t"]);
+    expect(renamed[tabsKey("/f", "b")].side.active).toBe("/wt/t");
+    expect(renameTabs(sets, "none", {})).toBe(sets);
   });
 });

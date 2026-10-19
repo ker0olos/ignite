@@ -48,6 +48,20 @@ function parse(id: string): (Partial<ChildTab> & { session: string }) | null {
   }
 }
 
+const STARTING = "starting-";
+let starting = 0;
+
+/** A tab for a terminal the sidecar is still starting (waiting for the conversation's worktree), until it's replaced by the real one's. */
+export const startingTerminalTab = () =>
+  childTabId({
+    kind: "terminal",
+    session: "",
+    terminal: `${STARTING}${++starting}`,
+  });
+
+/** Whether a terminal id is a starting one's stand-in. */
+export const isStarting = (terminal: string) => terminal.startsWith(STARTING);
+
 /** The terminal a tab id shows, or null for any other tab. */
 export function terminalOf(id: string): string | null {
   const tab = readChildTab(id);
@@ -110,4 +124,18 @@ export function childTabs(agent: AgentStatus) {
     label: childTabLabel(tab),
     running,
   }));
+}
+
+/** A folder's terminals split by the conversation whose tabs hold them; `rest`: those no listed conversation does. */
+export function terminalsByOwner(
+  terminals: string[],
+  owner: (terminal: string) => string | null,
+  listed: string[],
+) {
+  const of = (session: string) => terminals.filter((t) => owner(t) === session);
+  const rest = terminals.filter((t) => {
+    const o = owner(t);
+    return o === null || !listed.includes(o);
+  });
+  return { of, rest };
 }

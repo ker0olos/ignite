@@ -14,12 +14,12 @@ export function FileTreeEntry({
   depth,
   ...props
 }: TreeProps & { path: string; entry: DirEntry; depth: number }) {
-  const { selected, onOpenFile } = props;
+  const { selected, onOpenFile, rememberAs } = props;
   const [open, setOpen] = useState(
-    () => entry.isDirectory && isFolderOpen(path),
+    () => entry.isDirectory && isFolderOpen(rememberAs(path)),
   );
   const toggle = () => {
-    setFolderOpen(path, !open);
+    setFolderOpen(rememberAs(path), !open);
     setOpen(!open);
   };
   const icon = (

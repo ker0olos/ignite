@@ -20,6 +20,8 @@ export type Opened = {
   host: HostClient;
   folder: string;
   session: string;
+  /** Where its agent works (its worktree, or the folder); null while its session starts. */
+  workdir: string | null;
   /** Null while its session starts, with the transcript already shown. */
   state: SessionState | null;
   trust: ProjectTrust | null;
@@ -45,6 +47,7 @@ export const toStarting = (
   host,
   folder,
   session,
+  workdir: null,
   state: null,
   trust: null,
   transcript: fromHistory(messages, false),
@@ -60,6 +63,7 @@ export const toOpened = (
   folder: string,
   {
     session,
+    workdir,
     messages,
     running,
     trust,
@@ -73,7 +77,7 @@ export const toOpened = (
   kept?: Transcript,
 ): Opened => {
   if (!messages && kept) {
-    return { host, folder, session, state, trust, transcript: kept };
+    return { host, folder, session, workdir, state, trust, transcript: kept };
   }
   const history = toolRuns.reduce(
     applyEvent,
@@ -91,6 +95,7 @@ export const toOpened = (
     host,
     folder,
     session,
+    workdir,
     state,
     trust,
     transcript: modelWarning
@@ -113,6 +118,8 @@ type View = {
   host: HostClient | null;
   /** The folder shows no conversation; one starts only when the user asks. */
   none: boolean;
+  /** Where the conversation's agent works: its worktree, or the folder. */
+  workdir: string | null;
 };
 
 /** What the app sees of the entry; in a folder with none, what its first message would start with. */
@@ -125,6 +132,7 @@ export const view = (e: Entry | null, draft: SessionState | null): View =>
         trust: e.trust,
         host: e.host,
         none: false,
+        workdir: e.workdir,
       }
     : {
         state: e ? (draft ?? cachedState(null)) : null,
@@ -133,4 +141,5 @@ export const view = (e: Entry | null, draft: SessionState | null): View =>
         trust: null,
         host: null,
         none: !!e,
+        workdir: null,
       };

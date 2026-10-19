@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { PathCrumbs } from "@/components/files/PathCrumbs";
 import { readForView, type FileContent } from "@/lib/files";
 import type { CodeThemes } from "@/lib/codeThemes";
+import { relativeTo } from "@/lib/paths";
 import type { Settings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +37,8 @@ export function FileView({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <nav className="flex h-7 shrink-0 items-center gap-1 px-4 text-xs text-muted-foreground">
-        <PathCrumbs path={path.slice(root.length + 1)} />
+        {/* A tab from outside the root (another conversation's worktree) shows its whole path. */}
+        <PathCrumbs path={relativeTo(path, root).replace(/^\//, "")} />
       </nav>
       {loaded && "message" in loaded ? (
         <p className="flex flex-1 items-center justify-center text-[13px] text-muted-foreground">

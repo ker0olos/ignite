@@ -62,9 +62,14 @@ function setup(
     onOpenTab: vi.fn(),
     onStopBackground: vi.fn(),
     onClear: vi.fn(),
-    terminals: (cwd: string) => (cwd === "/other" ? ["t2"] : []),
+    terminals: (cwd: string) =>
+      cwd === "/other" ? ["t2"] : cwd === "/proj" ? ["t3"] : [],
     terminalLabel: (terminal: string) =>
-      terminal === "t2" ? { name: "t1", command: "vite" } : {},
+      terminal === "t2"
+        ? { name: "t1", command: "vite" }
+        : { name: "t2", command: "npm test" },
+    // t3's tab is in conversation a.
+    terminalOwner: (terminal: string) => (terminal === "t3" ? "a" : null),
     onOpenTerminal: vi.fn(),
     onStopTerminal: vi.fn(),
   };
@@ -186,6 +191,15 @@ it("lists a folder's running terminals by their command, opening and stopping ea
   expect(childActions.onOpenTerminal).toHaveBeenCalledWith("/other", "t2");
   fireEvent.click(screen.getByRole("button", { name: "Stop vite" }));
   expect(childActions.onStopTerminal).toHaveBeenCalledWith("t2");
+});
+
+it("lists a terminal under the conversation that has its tab", () => {
+  setup();
+  const text = document.body.textContent ?? "";
+  const at = ["Fix bug", "npm test", "New conversation"].map((s) =>
+    text.indexOf(s),
+  );
+  expect([...at].sort((x, y) => x - y)).toEqual(at);
 });
 
 it("selects the row whose tab is active", () => {

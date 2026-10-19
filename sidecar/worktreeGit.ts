@@ -10,6 +10,7 @@ import {
   join,
   relative,
   resolve,
+  sep,
 } from "node:path";
 import { promisify } from "node:util";
 import { APP_NAME } from "../src/lib/app.ts";
@@ -87,8 +88,13 @@ export const stateRef = (id: string) => `refs/${APP_NAME}/sessions/${id}`;
 
 /** The worktree for conversation `id` in the repository at `repo`. */
 export function worktreePath(repo: string, id: string, root = WORKTREES) {
+  return join(worktreeBase(repo, root), id);
+}
+
+/** The folder `repo`'s conversations' worktrees are in, one per id. */
+export function worktreeBase(repo: string, root = WORKTREES) {
   const hash = createHash("sha256").update(repo).digest("hex").slice(0, 8);
-  return join(root, `${basename(repo)}-${hash}`, id);
+  return join(root, `${basename(repo)}-${hash}`);
 }
 
 /**
@@ -311,3 +317,7 @@ export function remoteName(url: string): string | null {
   );
   return m ? m[1].replace(/^\d+\//, "") : null;
 }
+
+/** Whether `path` is `dir` or inside it. */
+export const within = (path: string, dir: string) =>
+  path === dir || path.startsWith(dir + sep);

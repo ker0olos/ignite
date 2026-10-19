@@ -85,3 +85,100 @@ export function moveTab(
   const files = [...rest.slice(0, at), path, ...rest.slice(at)];
   return { ...left, [to]: { files, active: path }, focus: to };
 }
+
+/** Each conversation's tabs, by `tabsKey`. */
+export type TabSets = Record<string, Docks>;
+
+/** A conversation's tabs' key; `session` null before its first message, undefined while unknown. */
+export const tabsKey = (folder: string, session: string | null | undefined) =>
+  `${folder}\n${session === undefined ? "?" : (session ?? "")}`;
+
+const tabsOf = (d: Docks | undefined) =>
+  d ? [...d.side.files, ...d.bottom.files] : [];
+
+/** Every tab open in any conversation. */
+export const everyTab = (sets: TabSets) => Object.values(sets).flatMap(tabsOf);
+
+/** Closes `path` in every conversation. */
+export function closeEverywhere(sets: TabSets, path: string): TabSets {
+  return Object.fromEntries(
+    Object.entries(sets).map(([k, d]) => [k, closeDocked(d, path)]),
+  );
+}
+
+/** Drops a closed conversation's tabs, or (no `session`) every one of the folder's. */
+export function forgetTabs(
+  sets: TabSets,
+  folder: string,
+  session?: string,
+): TabSets {
+  const gone = (k: string) =>
+    session === undefined
+      ? k.startsWith(`${folder}\n`)
+      : k === tabsKey(folder, session);
+  return Object.fromEntries(Object.entries(sets).filter(([k]) => !gone(k)));
+}
+
+/** `extra`'s tabs added after `d`'s, none twice; `extra`'s shown ones stay shown. */
+function mergeDocks(d: Docks, extra: Docks): Docks {
+  const had = new Set(tabsOf(d));
+  const join = (t: Tabs, more: Tabs): Tabs => {
+    const files = [...t.files, ...more.files.filter((f) => !had.has(f))];
+    const active =
+      more.active && files.includes(more.active) ? more.active : t.active;
+    return { files, active: active ?? files.at(-1) ?? null };
+  };
+  return {
+    side: join(d.side, extra.side),
+    bottom: join(d.bottom, extra.bottom),
+    focus: extra.focus,
+  };
+}
+
+/** Moves the tabs under key `from` to key `to`, after any `to` has. */
+export function handTabs(sets: TabSets, from: string, to: string): TabSets {
+  const moving = sets[from];
+  if (!moving || from === to) return sets;
+  const rest = Object.fromEntries(
+    Object.entries(sets).filter(([k]) => k !== from),
+  );
+  const kept = rest[to];
+  return { ...rest, [to]: kept ? mergeDocks(kept, moving) : moving };
+}
+
+/** Renames key `key`'s tabs by `names` (e.g. a folder's files to its worktree's copies). */
+export function renameTabs(
+  sets: TabSets,
+  key: string,
+  names: Record<string, string>,
+): TabSets {
+  const d = sets[key];
+  if (!d) return sets;
+  const rename = (p: string) => names[p] ?? p;
+  const tabs = (t: Tabs): Tabs => ({
+    files: t.files.map(rename),
+    active: t.active && rename(t.active),
+  });
+  return {
+    ...sets,
+    [key]: { side: tabs(d.side), bottom: tabs(d.bottom), focus: d.focus },
+  };
+}
+
+/** The tab ids under `key` (to rename them). */
+export const tabsUnder = (sets: TabSets, key: string) => tabsOf(sets[key]);
+
+/** The conversation (by id) whose tabs hold `tab`, if any has it; not one before its first message or still loading. */
+export function tabOwner(sets: TabSets, tab: string): string | null {
+  for (const [key, d] of Object.entries(sets)) {
+    const session = key.slice(key.lastIndexOf("\n") + 1);
+    if (session && session !== "?" && tabsOf(d).includes(tab)) return session;
+  }
+  return null;
+}
+
+/** Renames tabs in every conversation, e.g. a starting terminal's stand-in to the terminal. */
+export const renameEverywhere = (
+  sets: TabSets,
+  names: Record<string, string>,
+) => Object.keys(sets).reduce((all, key) => renameTabs(all, key, names), sets);

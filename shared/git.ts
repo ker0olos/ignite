@@ -81,3 +81,30 @@ export function validRange(range: string): boolean {
     /^gh:[\w.-]+\/[\w.-]+:[\w.][\w./-]*\.\.\.[\w.][\w./:-]*$/.test(range)
   );
 }
+
+/** A folder's conversations work in `<base>/<id>/<prefix>` (`prefix`: the folder's place in its repository); null: they share the folder. */
+export type WorktreeLayout = { base: string; prefix: string } | null;
+
+export type GitRequest =
+  /** One file's diff in a review's range (see GitReview). */
+  | { id: number; type: "git_diff"; repo: string; range: string; path: string }
+  /** The repositories an open conversation worked in, as they stand now; none before it opens. */
+  | { id: number; type: "git_status"; session: string }
+  /** A repository's uncommitted files and unpushed commits. */
+  | { id: number; type: "git_repo_details"; repo: string }
+  /** Discards one file's uncommitted changes (`path` relative to `repo`). */
+  | { id: number; type: "git_discard"; repo: string; path: string }
+  /** Where the folder's conversations' worktrees are, so the app knows one's before it opens. */
+  | { id: number; type: "worktree_layout"; cwd: string }
+  /** Settles once an open conversation's worktree has the folder's ignored files (.env, builds). */
+  | { id: number; type: "worktree_ready"; session: string };
+
+export type GitResponses = {
+  git_diff: string;
+  /** null until the conversation's session is open (its worktree isn't known yet). */
+  git_status: GitRepoStatus[] | null;
+  git_repo_details: GitRepoDetails;
+  git_discard: undefined;
+  worktree_layout: WorktreeLayout;
+  worktree_ready: undefined;
+};

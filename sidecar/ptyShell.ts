@@ -62,6 +62,16 @@ export function spawnPty(
   });
 }
 
+/** Ends `pty` and everything it started; resolves once it exited, or after `ms`. */
+export function endPty(pty: IPty, ms: number) {
+  const exited = new Promise<void>((resolve) => {
+    pty.onExit(() => resolve());
+    setTimeout(resolve, ms).unref();
+  });
+  killTree(pty.pid);
+  return exited;
+}
+
 /** Signals `pid` and everything it started. */
 export function killTree(
   pid: number,

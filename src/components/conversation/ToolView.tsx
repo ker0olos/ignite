@@ -30,11 +30,7 @@ import { rowPages } from "@/lib/artifact";
 import { mcpCall } from "@/lib/mcpToolCall";
 import { readQuestions } from "@/lib/questions";
 import { canSkipWait, showsNothingYet } from "@/lib/toolRows";
-
-/** Path relative to the open folder when it's inside it, else as given. */
-function relativePath(path: string, folder: string) {
-  return path.startsWith(folder + "/") ? path.slice(folder.length + 1) : path;
-}
+import { relativeTo } from "@/lib/paths";
 
 function resultText(result: ToolResult | undefined) {
   if (!result) return "";
@@ -71,7 +67,8 @@ function toolTitle(call: ToolCall) {
 }
 
 function pathArg(call: ToolCall, folder: string) {
-  return relativePath(String(call.arguments.path ?? ""), folder);
+  const path = String(call.arguments.path ?? "");
+  return path === folder ? "." : relativeTo(path, folder);
 }
 
 function questionsArg(call: ToolCall) {
@@ -89,7 +86,7 @@ function subagentArg(call: ToolCall) {
 function argsArg(call: ToolCall, folder: string) {
   const args = (call.arguments.args as string[] | undefined) ?? [];
   return args
-    .map((arg) => (arg === folder ? "." : relativePath(arg, folder)))
+    .map((arg) => (arg === folder ? "." : relativeTo(arg, folder)))
     .join(" ");
 }
 

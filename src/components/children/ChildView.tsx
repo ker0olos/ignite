@@ -1,14 +1,16 @@
 import { lazy, Suspense } from "react";
 import { SubagentView } from "@/components/children/SubagentView";
+import { loadTerminalView } from "@/components/children/loadTerminalView";
+import { TerminalStarting } from "@/components/children/TerminalStarting";
 import type { useAgentSession } from "@/hooks/useAgentSession";
-import type { ChildTab } from "@/lib/childTabs";
+import { isStarting, type ChildTab } from "@/lib/childTabs";
 import type { CodeThemes } from "@/lib/codeThemes";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
 
 // xterm loads with the first terminal or background command shown, not with the app.
 const TerminalView = lazy(() =>
-  import("@/components/children/TerminalView").then((m) => ({
+  loadTerminalView().then((m) => ({
     default: m.TerminalView,
   })),
 );
@@ -44,6 +46,9 @@ export function ChildView({
         {...{ folder, session, editor, codeThemes }}
       />
     );
+  }
+  if (tab.kind === "terminal" && isStarting(tab.terminal)) {
+    return <TerminalStarting />;
   }
   return (
     <Suspense>

@@ -8,6 +8,7 @@ import { useSessionCache } from "@/hooks/useSessionCache";
 import { view } from "@/lib/sessionEntry";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
 import { useSessionSwitch } from "@/hooks/useSessionSwitch";
+import { useStartedConversation } from "@/hooks/useStartedConversation";
 import { useRewind } from "@/hooks/useRewind";
 
 const NO_SKILLS: never[] = [];
@@ -102,12 +103,15 @@ export function useAgentSession(
   );
 
   const none = current?.session === null;
+  // The conversation the folder's first message last started, for the tabs opened before it.
+  const { started, onBegin } = useStartedConversation(folder);
   const actions = useComposerActions({
     opened,
     folder,
     session: shown,
     none,
     start: putOpened,
+    onBegin,
     setState,
     setError,
   });
@@ -158,6 +162,8 @@ export function useAgentSession(
     /** Ends a running bash call, the agent carrying on with its output so far; false when none ran. */
     skipWait,
     setTrust,
+    /** The conversation the folder's first message last started, with its worktree. */
+    started,
   };
 }
 

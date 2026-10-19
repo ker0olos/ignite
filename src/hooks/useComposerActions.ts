@@ -58,6 +58,7 @@ export function useComposerActions({
   session,
   none,
   start,
+  onBegin,
   setState,
   setError,
 }: {
@@ -67,6 +68,8 @@ export function useComposerActions({
   none: boolean;
   /** Shows the new conversation (its events apply from here on). */
   start: (s: OpenedSession) => void;
+  /** The first message started conversation `session`. */
+  onBegin?: (session: string, workdir: string) => void;
   setState: (s: SessionState) => void;
   setError: (e: string | null) => void;
 }) {
@@ -76,12 +79,13 @@ export function useComposerActions({
     if (!opened || !folder) return null;
     const s = await opened.request({ type: "new_session", cwd: folder });
     start(s);
+    onBegin?.(s.session, s.workdir);
     for (const choice of toChoices(pending)) {
       setState(await opened.request({ ...choice, session: s.session }));
     }
     setPending({});
     return s.session;
-  }, [opened, folder, start, pending, setState]);
+  }, [opened, folder, start, onBegin, pending, setState]);
 
   const compact = useCompact(opened, none, session, setError);
   const fork = useFork(opened, folder, none ? null : session, start, setError);

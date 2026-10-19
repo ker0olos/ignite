@@ -26,6 +26,8 @@ const sidebar = (
   render(
     <Sidebar
       folder="/work/ignition"
+      root="/work/ignition"
+      treeKey=""
       actions={null}
       selected={null}
       onOpenFile={vi.fn()}
@@ -54,6 +56,7 @@ const sidebar = (
           onClear: vi.fn(),
           terminals: () => [],
           terminalLabel: () => ({}),
+          terminalOwner: () => null,
           onOpenTerminal: vi.fn(),
           onStopTerminal: vi.fn(),
         },

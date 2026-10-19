@@ -16,7 +16,7 @@ export function DesktopWorkspace({
   agent,
   agentMinWidth,
   ...pane
-}: ComponentProps<typeof MobileWorkspace> & {
+}: Omit<ComponentProps<typeof MobileWorkspace>, "name"> & {
   agentMinWidth: number;
 }) {
   const { active } = pane.tabs.side;

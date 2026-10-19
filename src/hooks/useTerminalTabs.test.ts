@@ -16,6 +16,7 @@ const tab = (terminal: string) =>
 function setup(
   listed: Record<string, TerminalInfo[]> = {},
   files: string[] = [],
+  folders = ["/a", "/broken"],
 ) {
   let listener: (m: { type: string }) => void = () => {};
   // The sidecar finds only t1 idle.
@@ -37,8 +38,14 @@ function setup(
   });
   const host = { request, subscribe } as unknown as HostClient;
   const close = vi.fn();
+  const closeEverywhere = vi.fn();
   const hook = renderHook(
-    ({ files }) => useTerminalTabs(host, ["/a", "/broken"], { files, close }),
+    ({ files }) =>
+      useTerminalTabs(host, folders, {
+        files,
+        close,
+        closeEverywhere,
+      }),
     { initialProps: { files } },
   );
   const closed = () =>
@@ -49,6 +56,7 @@ function setup(
   return {
     request,
     close,
+    closeEverywhere,
     closed,
     emit: (m: { type: string }) => listener(m),
     ...hook,
@@ -83,6 +91,28 @@ describe("useTerminalTabs", () => {
     await waitFor(() => expect(closed()).toContain("t2"));
   });
 
+  it("closes a terminal's tabs once its folder stops listing it, never one no listing has had", async () => {
+    const running = (terminal: string) => ({
+      terminal,
+      name: terminal,
+      cwd: "/a",
+      running: true,
+    });
+    const listed = { "/a": [running("t1"), running("t9")] };
+    const shown = [tab("t1"), tab("t9"), tab("t7"), "/a/x.ts"];
+    const { result, emit, closeEverywhere } = setup(listed, shown, ["/a"]);
+    await waitFor(() =>
+      expect(result.current.running("/a")).toEqual(["t1", "t9"]),
+    );
+    expect(closeEverywhere).not.toHaveBeenCalled();
+    listed["/a"] = [running("t1")];
+    act(() => emit({ type: "terminal_exit" }));
+    await waitFor(() =>
+      expect(closeEverywhere).toHaveBeenCalledWith(tab("t9")),
+    );
+    expect(closeEverywhere).toHaveBeenCalledTimes(1);
+  });
+
   it("names each terminal's running command, listed then pushed", async () => {
     const listed = {
       "/a": [
@@ -115,11 +145,12 @@ describe("useTerminalTabs", () => {
     expect(result.current.label("t1").command).toBe("npm run dev");
   });
 
-  it("closes an idle terminal with its tab without asking", async () => {
-    const { result, close, closed } = setup();
+  it("closes an idle terminal with its tab, in every conversation, without asking", async () => {
+    const { result, close, closeEverywhere, closed } = setup();
     await act(() => result.current.closeTab(tab("t1")));
     await act(() => result.current.closeTab("/a/x.ts"));
-    expect(close.mock.calls).toEqual([[tab("t1")], ["/a/x.ts"]]);
+    expect(closeEverywhere.mock.calls).toEqual([[tab("t1")]]);
+    expect(close.mock.calls).toEqual([["/a/x.ts"]]);
     expect(confirm).not.toHaveBeenCalled();
     // The sidecar's idle check already closed it.
     expect(closed()).toEqual([]);
@@ -137,16 +168,16 @@ describe("useTerminalTabs", () => {
         },
       ],
     };
-    const { result, close, closed } = setup(listed);
+    const { result, closeEverywhere, closed } = setup(listed);
     await waitFor(() => expect(result.current.running("/a")).toEqual(["t2"]));
     confirm.mockResolvedValue(false);
     await act(() => result.current.closeTab(tab("t2")));
     expect(confirm).toHaveBeenCalledWith("npm run dev");
-    expect(close).not.toHaveBeenCalled();
+    expect(closeEverywhere).not.toHaveBeenCalled();
     expect(closed()).toEqual([]);
     confirm.mockResolvedValue(true);
     await act(() => result.current.closeTab(tab("t2")));
-    expect(close).toHaveBeenCalledWith(tab("t2"));
+    expect(closeEverywhere).toHaveBeenCalledWith(tab("t2"));
     expect(closed()).toEqual(["t2"]);
     expect(result.current.running("/a")).toEqual([]);
   });
@@ -155,12 +186,12 @@ describe("useTerminalTabs", () => {
     const listed = {
       "/a": [{ terminal: "t1", name: "t1", cwd: "/a", running: true }],
     };
-    const { result, rerender, close, closed } = setup(listed);
+    const { result, rerender, closeEverywhere, closed } = setup(listed);
     rerender({ files: ["/a/x.ts", tab("t1")] });
     await waitFor(() => expect(result.current.running("/a")).toEqual(["t1"]));
     act(() => result.current.stop("t1"));
-    expect(close).toHaveBeenCalledWith(tab("t1"));
-    expect(close).toHaveBeenCalledTimes(1);
+    expect(closeEverywhere).toHaveBeenCalledWith(tab("t1"));
+    expect(closeEverywhere).toHaveBeenCalledTimes(1);
     expect(result.current.running("/a")).toEqual([]);
     expect(closed()).toEqual(["t1"]);
   });

@@ -27,6 +27,7 @@ import { follow, reportTo } from "./hostFollow.ts";
 import { forkOf } from "./forks.ts";
 import { withEntryIds } from "./hostCheckpoint.ts";
 import { hand, takeTurn } from "./hostSend.ts";
+import { releaseWorkspace } from "./hostTerminal.ts";
 import { commandReason } from "./wire.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
@@ -214,20 +215,21 @@ async function inWorkspace(
   agent: Agent,
   open: (workdir: string) => Promise<Session>,
 ) {
-  const ws = await ctx.workspaces
-    .open(agent.cwd, agent.id)
-    .catch((error: unknown) => {
-      throw new Error(
-        `Couldn't set up this conversation's worktree: ${commandReason(error)}`,
-        { cause: error },
-      );
-    });
-  agent.workdir = ws.dir;
-  agent.ready = ws.ready;
+  const making = ctx.workspaces.open(agent.cwd, agent.id);
+  agent.placed = making.then(
+    (ws) => void Object.assign(agent, { workdir: ws.dir, ready: ws.ready }),
+    () => {},
+  );
+  const ws = await making.catch((error: unknown) => {
+    throw new Error(
+      `Couldn't set up this conversation's worktree: ${commandReason(error)}`,
+      { cause: error },
+    );
+  });
   try {
     return await open(ws.dir);
   } catch (error) {
-    await ctx.workspaces.close(agent.cwd, agent.id).catch(() => {});
+    await releaseWorkspace(ctx, agent);
     throw error;
   }
 }
@@ -253,7 +255,7 @@ async function end(ctx: HostContext, agent: Agent, quitting = false) {
   await s.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
   s.dispose();
   // Its work stays saved with the conversation; see worktrees.ts.
-  await ctx.workspaces.close(agent.cwd, agent.id).catch(() => {});
+  await releaseWorkspace(ctx, agent, quitting);
 }
 
 /** Ends every conversation, as the app quits. */

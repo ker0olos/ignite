@@ -93,3 +93,13 @@ it("shows a starting conversation's last known model and effort, not yet ready",
     none: true,
   });
 });
+
+it("knows where the agent works once it's open, not while it starts", () => {
+  const host = {} as HostClient;
+  const opened = { ...known, workdir: "/wt/s1" } as OpenedSession;
+  expect(view(toOpened(host, "/f", opened), null).workdir).toBe("/wt/s1");
+  const kept = fromHistory([], false);
+  expect(toOpened(host, "/f", opened, kept).workdir).toBe("/wt/s1");
+  expect(view(toStarting(host, "/f", "s1", []), null).workdir).toBeNull();
+  expect(view({ host, folder: "/f", session: null }, null).workdir).toBeNull();
+});

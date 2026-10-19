@@ -5,10 +5,12 @@ import { ConversationForks } from "@/components/sidebar/ConversationForks";
 import { ConversationRow } from "@/components/sidebar/ConversationRow";
 import type { ChildActions } from "@/components/sidebar/FolderList";
 import type { Conversations } from "@/hooks/useConversations";
+import { FolderTerminals } from "@/components/sidebar/FolderTerminals";
+import { terminalsByOwner } from "@/lib/childTabs";
 import { conversationTitle, type TaggedAgentStatus } from "@/lib/conversations";
 import { confirmCloseConversation } from "@/lib/lifecycle";
 
-/** One folder's listed conversations, the shown one selected, each with its subagents and background commands. */
+/** One folder's listed conversations, the shown one selected, each with its subagents, background commands and terminals; then the folder's other terminals. */
 export function FolderConversations({
   cwd,
   rows,
@@ -42,6 +44,25 @@ export function FolderConversations({
       ? rows.filter((r, i) => i < max || r.session === shown)
       : rows;
   const hidden = rows.length - visible.length;
+  // A row's conversation and its forks: their terminals show under it.
+  const family = (r: TaggedAgentStatus) => [
+    r.session,
+    ...(r.forks ?? []).map((f) => f.session),
+  ];
+  const terminals = terminalsByOwner(
+    childActions.terminals(cwd),
+    childActions.terminalOwner,
+    visible.flatMap(family),
+  );
+  const terminalRows = (list: string[]) => (
+    <FolderTerminals
+      terminals={list}
+      label={childActions.terminalLabel}
+      shownTabs={childActions.shownTabs}
+      onOpen={(terminal) => childActions.onOpenTerminal(cwd, terminal)}
+      onStop={childActions.onStopTerminal}
+    />
+  );
   const canToggle = limited && (expanded ? rows.length > max : hidden > 0);
 
   return (
@@ -81,8 +102,10 @@ export function FolderConversations({
               childActions.onStopBackground(agent.session, pid)
             }
           />
+          {terminalRows(family(agent).flatMap(terminals.of))}
         </Fragment>
       ))}
+      {terminalRows(terminals.rest)}
       {canToggle && (
         <button
           type="button"

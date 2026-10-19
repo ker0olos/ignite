@@ -1,4 +1,5 @@
 /** The user's terminals: a login shell in a PTY each, mirrored into a headless xterm the folder's agents read. */
+import { existsSync } from "node:fs";
 import { userInfo } from "node:os";
 import xterm from "@xterm/headless";
 import serialize from "@xterm/addon-serialize";
@@ -12,10 +13,12 @@ import { APP_NAME } from "../src/lib/app.ts";
 import {
   commandLine,
   foregroundGroup,
+  endPty,
   headlessTerminal,
   spawnPty,
   terminalEnv,
 } from "./ptyShell.ts";
+import { within } from "./worktreeGit.ts";
 
 type Terminal = {
   info: Omit<TerminalInfo, "name">;
@@ -24,6 +27,8 @@ type Terminal = {
   serializer: InstanceType<typeof serialize.SerializeAddon>;
   /** The PTY's listeners, dropped before the screen is disposed. */
   listeners: { dispose(): void }[];
+  /** Where its output and exit go. */
+  send: (m: TerminalMessage) => void;
   /** Lines the shell has printed, counted by line feeds; what an agent has seen is measured against it. */
   lines: number;
   /** Looking at what runs in the foreground after output; `again` when more came meanwhile. */
@@ -67,26 +72,31 @@ function find(id: string): Terminal {
   return found;
 }
 
-/** Starts the user's shell in `cwd`; its output and exit go to `send`. */
+/** Starts the user's shell in `dir` (else `cwd`), listed under folder `cwd`; its output and exit go to `send`. */
 export function openTerminal(
   cwd: string,
   cols: number,
   rows: number,
   send: (m: TerminalMessage) => void,
+  dir = cwd,
 ): TerminalInfo {
+  // A closed conversation's worktree is gone; its folder stands in.
+  if (!existsSync(dir)) dir = cwd;
   const { file, args } = shell();
-  const pty = spawnPty(file, args, { cwd, env: terminalEnv(), cols, rows });
+  const env = terminalEnv();
+  const pty = spawnPty(file, args, { cwd: dir, env, cols, rows });
   const screen = headlessTerminal({ cols, rows, scrollback: SCROLLBACK });
   const serializer = new serialize.SerializeAddon();
   screen.loadAddon(serializer);
   // Never shaped like a name (t1), which shifts as terminals close.
   const id = `term-${registry.next++}`;
   const t: Terminal = {
-    info: { terminal: id, cwd, running: true },
+    info: { terminal: id, cwd, ...(dir !== cwd && { dir }), running: true },
     pty,
     screen,
     serializer,
     listeners: [],
+    send,
     lines: 0,
     watch: { busy: false, again: false },
   };
@@ -145,6 +155,24 @@ async function checkCommand(t: Terminal, send: (m: TerminalMessage) => void) {
 export function writeTerminal(id: string, data: string) {
   const t = find(id);
   if (t.info.running) t.pty.write(data);
+}
+
+/** The terminals whose shell started in `dir` or a folder in it. */
+export const terminalsStartedIn = (dir: string) =>
+  [...registry.all]
+    .filter(([, t]) => t.info.dir !== undefined && within(t.info.dir, dir))
+    .map(([id]) => id);
+
+/** Ends terminal `id` and what it started, telling the app; resolves once it exited, or after a few seconds. */
+export async function endTerminal(id: string) {
+  const t = find(id);
+  const { running, exitCode = -1 } = t.info;
+  const exited = running ? endPty(t.pty, 3000) : undefined;
+  closeTerminal(id);
+  // Even one that had exited: the app reads the list again, dropping its tab.
+  const code = running ? -1 : exitCode;
+  t.send({ type: "terminal_exit", terminal: id, exitCode: code });
+  await exited;
 }
 
 export function resizeTerminal(id: string, cols: number, rows: number) {
@@ -215,7 +243,7 @@ function screenLines(id: string): string[] {
 }
 
 const header = (info: TerminalInfo) =>
-  `Terminal ${info.name} in ${info.cwd}` +
+  `Terminal ${info.name} in ${info.dir ?? info.cwd}` +
   (info.running ? "" : ` (exited ${info.exitCode})`);
 
 function tail(lines: string[], count: number): string {

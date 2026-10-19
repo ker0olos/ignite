@@ -300,6 +300,7 @@ function fakeWorkspaces() {
     })),
     close: vi.fn(async () => {}),
     fork: vi.fn(async () => {}),
+    layout: vi.fn(async () => null),
   };
 }
 
@@ -2349,14 +2350,26 @@ describe("workspaces", () => {
       cwd: "/work",
       session: "/work:saved",
     });
-    expect(workspaces.close).toHaveBeenCalledWith("/work", "/work:saved");
+    expect(workspaces.close).toHaveBeenCalledWith(
+      "/work",
+      "/work:saved",
+      expect.any(Function),
+    );
     expect(order).toEqual(["dispose", "close"]);
     await request({ id: 3, type: "new_session", cwd: "/work" });
     await request({ id: 5, type: "close_session", cwd: "/work" });
-    expect(workspaces.close).toHaveBeenLastCalledWith("/work", "new1");
+    expect(workspaces.close).toHaveBeenLastCalledWith(
+      "/work",
+      "new1",
+      expect.any(Function),
+    );
     await request({ id: 4, type: "new_session", cwd: "/other" });
     await host.shutdown();
-    expect(workspaces.close).toHaveBeenLastCalledWith("/other", "new2");
+    expect(workspaces.close).toHaveBeenLastCalledWith(
+      "/other",
+      "new2",
+      expect.any(Function),
+    );
   });
 
   it("sends a message written before a cut-off run resumes in its place", async () => {
@@ -2404,7 +2417,11 @@ describe("workspaces", () => {
       session: "/work:saved",
     });
     expect(responses()[0]).toMatchObject({ ok: false, error: "No model." });
-    expect(workspaces.close).toHaveBeenCalledWith("/work", "/work:saved");
+    expect(workspaces.close).toHaveBeenCalledWith(
+      "/work",
+      "/work:saved",
+      expect.any(Function),
+    );
   });
 
   it("holds the first prompt until the workspace has its dependencies", async () => {

@@ -10,13 +10,25 @@ export function FileTreeEntries({
   depth,
   ...props
 }: TreeProps & { dir: string; depth: number }) {
-  const [entries, setEntries] = useState<DirEntry[]>([]);
+  // Each listing is kept with its folder, so one finishing after the root changed shows nothing.
+  const [listed, setListed] = useState<{ dir: string; entries: DirEntry[] }>({
+    dir,
+    entries: [],
+  });
   const { hideGitIgnored } = props;
 
   useEffect(() => {
-    listDir(dir, hideGitIgnored).then(setEntries, () => setEntries([]));
+    let live = true;
+    listDir(dir, hideGitIgnored).then(
+      (entries) => live && setListed({ dir, entries }),
+      () => live && setListed({ dir, entries: [] }),
+    );
+    return () => {
+      live = false;
+    };
   }, [dir, hideGitIgnored]);
 
+  const entries = listed.dir === dir ? listed.entries : [];
   return entries.map((entry) => (
     <FileTreeEntry
       key={entry.name}
