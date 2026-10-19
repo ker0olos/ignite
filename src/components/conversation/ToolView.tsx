@@ -10,6 +10,7 @@ import {
 } from "../../../shared/agentTypes";
 import { ADB_TOOL } from "../../../shared/adb";
 import { GH_TOOL, GIT_TOOL } from "../../../shared/git";
+import { LESSON_ADD_TOOL, LESSON_REMOVE_TOOL } from "../../../shared/lessons";
 import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL } from "../../../shared/subagents";
 import { TASK_ADD_TOOL, TASK_TOOL, readProposed } from "../../../shared/tasks";
@@ -59,6 +60,8 @@ const TOOL_TITLES: Record<string, string> = {
   [TASK_TOOL]: "Plan",
   [BASH_STOP_TOOL]: "Stop",
   [BASH_WAIT_TOOL]: "Wait",
+  [LESSON_ADD_TOOL]: "Lesson",
+  [LESSON_REMOVE_TOOL]: "Remove lesson",
 };
 
 function toolTitle(call: ToolCall) {

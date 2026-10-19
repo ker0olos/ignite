@@ -1,6 +1,8 @@
 import { ASK_TOOL } from "../../../shared/questions";
 import { SUBAGENT_TOOL, readSubagent } from "../../../shared/subagents";
+import { LESSON_ADD_TOOL, readLessonAdded } from "../../../shared/lessons";
 import { readPlan } from "../../../shared/tasks";
+import { LessonCard } from "@/components/conversation/LessonCard";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
 import { PlanCard } from "@/components/conversation/PlanCard";
 import { QuestionAnswers } from "@/components/conversation/QuestionAnswers";
@@ -49,6 +51,11 @@ export function ToolRunOutcome({
   }
   const plan = readPlan(run.result);
   if (plan) return <PlanCard subtasks={plan} />;
+  const lesson =
+    call.name === LESSON_ADD_TOOL
+      ? readLessonAdded(run.result?.details)
+      : undefined;
+  if (lesson) return <LessonCard {...lesson} />;
   const answered = answersOf(call, run);
   if (answered) return <QuestionAnswers answers={answered} />;
   const subagent = subagentOf(call, run);

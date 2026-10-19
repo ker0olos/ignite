@@ -4,14 +4,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { beforeEach, expect, it } from "vitest";
+import { readLessonAdded } from "../shared/lessons.ts";
 import type { ApprovalAsk } from "./approvalAsk.ts";
 import lessons, { LESSON_GUIDANCE } from "./lessonExtension.ts";
-import { addLesson, readLessons } from "./lessons.ts";
+import { addLesson, readLessons, removeLesson } from "./lessons.ts";
 
 type Handler = (event: object, ctx: object) => unknown;
 type Tool = {
   name: string;
-  execute: (...args: unknown[]) => Promise<{ content: { text: string }[] }>;
+  execute: (
+    ...args: unknown[]
+  ) => Promise<{ content: { text: string }[]; details?: unknown }>;
 };
 
 let file: string;
@@ -19,6 +22,7 @@ let handlers: Record<string, Handler>;
 let tools: Record<string, Tool>;
 let asks: ApprovalAsk[];
 let approve: boolean;
+let onAsk: () => void;
 const ctx = { cwd: "/repo" };
 
 beforeEach(() => {
@@ -27,6 +31,7 @@ beforeEach(() => {
   tools = {};
   asks = [];
   approve = true;
+  onAsk = () => {};
   lessons(
     {
       registerTool: (tool: Tool) => (tools[tool.name] = tool),
@@ -34,6 +39,7 @@ beforeEach(() => {
       events: {
         emit: (_channel: string, ask: ApprovalAsk) => {
           asks.push(ask);
+          onAsk();
           ask.answer(approve, undefined, undefined, undefined);
         },
       },
@@ -97,6 +103,10 @@ it("lesson_add saves without asking, for every folder or this one, and lists sim
     tool: "git",
   });
   expect(textOf(first)).toMatch(/^Saved lesson \[\w+\]: A$/);
+  expect(readLessonAdded(first.details)).toEqual({
+    lesson: readLessons(file)[0],
+    replaced: undefined,
+  });
   const second = await run("lesson_add", {
     text: "B",
     level: "tool_call",
@@ -112,11 +122,25 @@ it("lesson_add asks before replacing a lesson", async () => {
   const old = addLesson(file, { text: "Old", level: "system_prompt" });
   approve = false;
   const params = { text: "New", level: "system_prompt", replaces: old.id };
-  expect(textOf(await run("lesson_add", params))).toContain("kept the lesson");
+  const declined = await run("lesson_add", params);
+  expect(textOf(declined)).toContain("kept the lesson");
+  expect(readLessonAdded(declined.details)).toBe(undefined);
   expect(asks[0].request.reason).toContain('"Old" with "New"');
   approve = true;
-  await run("lesson_add", params);
+  const replaced = await run("lesson_add", params);
   expect(readLessons(file).map((l) => l.text)).toEqual(["New"]);
+  expect(readLessonAdded(replaced.details)).toMatchObject({
+    lesson: { text: "New" },
+    replaced: "Old",
+  });
+});
+
+it("lesson_add claims no replace when the old lesson went while the user was asked", async () => {
+  const old = addLesson(file, { text: "Old", level: "system_prompt" });
+  onAsk = () => removeLesson(file, old.id);
+  const params = { text: "New", level: "system_prompt", replaces: old.id };
+  const result = await run("lesson_add", params);
+  expect(readLessonAdded(result.details)?.replaced).toBe(undefined);
 });
 
 it("lesson_remove asks first, and only for lessons that apply here", async () => {

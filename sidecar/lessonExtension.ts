@@ -7,7 +7,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { LESSON_ADD_TOOL, LESSON_REMOVE_TOOL } from "../shared/lessons.ts";
+import {
+  LESSON_ADD_TOOL,
+  LESSON_REMOVE_TOOL,
+  type LessonAdded,
+} from "../shared/lessons.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import {
@@ -85,9 +89,9 @@ const Params = Type.Object({
   ),
 });
 
-const done = (text: string) => ({
+const done = (text: string, details?: LessonAdded) => ({
   content: [{ type: "text" as const, text }],
-  details: undefined,
+  details,
 });
 
 const confirm = (
@@ -114,12 +118,16 @@ function registerAdd(pi: ExtensionAPI, file: string) {
     async execute(id, params, signal, _onUpdate, ctx) {
       const { folder_only, replaces, ...fields } = params;
       const folder = folderOf(ctx.cwd);
-      if (replaces) {
-        const old = lessonIn(file, folder, replaces);
+      const old = replaces ? lessonIn(file, folder, replaces) : undefined;
+      if (old) {
         const ask = `Replace the lesson "${old.text}" with "${fields.text}"?`;
         if (!(await confirm(pi, id, ask, signal))) return done(DECLINED);
       }
       const scope = folder_only ? folder : undefined;
+      // The old lesson may have gone while the user was asked.
+      const replaced = readLessons(file).some((l) => l.id === replaces)
+        ? old?.text
+        : undefined;
       const lesson = addLesson(file, { ...fields, folder: scope }, replaces);
       const others = lessonsFor(readLessons(file), folder).filter(
         (l) => l.id !== lesson.id && l.tool === lesson.tool,
@@ -127,7 +135,10 @@ function registerAdd(pi: ExtensionAPI, file: string) {
       const similar = others.length
         ? `\n\nOther lessons here for the same tool; if one says the same, merge them with \`replaces\`:\n${list(others)}`
         : "";
-      return done(`Saved lesson [${lesson.id}]: ${lesson.text}${similar}`);
+      return done(`Saved lesson [${lesson.id}]: ${lesson.text}${similar}`, {
+        lesson,
+        replaced,
+      });
     },
   });
 }

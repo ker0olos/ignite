@@ -21,6 +21,15 @@ export type Lesson = {
   lastHit?: number;
 };
 
+/** A lesson_add result's details: the saved lesson, and the text of the one it replaced. */
+export type LessonAdded = { lesson: Lesson; replaced?: string };
+
+/** The lesson a lesson_add call saved; undefined for a declined replace, an older result or another tool. */
+export function readLessonAdded(details: unknown): LessonAdded | undefined {
+  const d = details as Partial<LessonAdded> | undefined;
+  return typeof d?.lesson?.text === "string" ? (d as LessonAdded) : undefined;
+}
+
 /** A lesson the reflector draws from a run the user corrected; saved only if the user keeps it. */
 export type ProposedLesson = Pick<
   Lesson,
