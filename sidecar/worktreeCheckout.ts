@@ -18,22 +18,31 @@ import {
 import { dropCheckpoints } from "./checkpoints.ts";
 
 const LOCK = `${APP_NAME} pid `;
-const FETCH_WAIT_MS = 3_000;
 // A worktree younger than this may not be locked yet; sweeps leave it be.
 const NEW_MS = 60_000;
 
 const verified = (repo: string, ref: string) =>
   gitOr(repo, ["rev-parse", "-q", "--verify", `${ref}^{commit}`]);
 
-// Pull requests branch off the remote's latest default branch, and the
-// user's own uncommitted work stays out of them. The fetch carries on in the
-// background when it's slow, so a first message never waits on the network.
-/** The remote's default branch, fetched if quick; the folder's HEAD without a remote. */
+const fetching = new Map<string, Promise<unknown>>();
+
+/** Fetches `repo`'s remote in the background, one fetch at a time; resolves when it's done. */
+export function prefetch(repo: string) {
+  const running = fetching.get(repo);
+  if (running) return running;
+  const done = gitOr(repo, ["fetch", "--quiet", "origin"]).finally(() =>
+    fetching.delete(repo),
+  );
+  fetching.set(repo, done);
+  return done;
+}
+
+// Pull requests branch off the remote's default branch, and the user's own
+// uncommitted work stays out of them. A start never waits on the network: the
+// remote is fetched when the folder shows and as each conversation starts.
+/** The remote's default branch as last fetched; the folder's HEAD without a remote. */
 export async function startPoint(repo: string): Promise<string> {
-  await Promise.race([
-    gitOr(repo, ["fetch", "--quiet", "origin"]),
-    new Promise((done) => setTimeout(done, FETCH_WAIT_MS)),
-  ]);
+  void prefetch(repo);
   return (await remoteDefault(repo)) ?? "HEAD";
 }
 

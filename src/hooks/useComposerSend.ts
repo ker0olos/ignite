@@ -41,7 +41,7 @@ export function useComposerSend({
   const sendable = canSend(
     session.ready || session.none,
     { text, images: images.length + shown.length + files.length },
-    session.transcript?.routing ?? false,
+    (session.transcript?.routing ?? false) || session.starting,
     session.waitingOnFork,
   );
   // While the agent works, a message waits for the run's end.

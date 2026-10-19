@@ -14,6 +14,7 @@ import { shownItems } from "@/lib/routedMessage";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
 import type { Approval, ModelRouter } from "@/components/agent/Composer";
+import { STARTING_PANE } from "@/lib/sessionEntry";
 import { paneRoot } from "@/lib/worktreeLayout";
 
 type Session = ReturnType<typeof useAgentSession>;
@@ -57,7 +58,9 @@ export function AgentPanel({
   const loading = !session.ready && !session.error && !session.none;
   // A reopened conversation reads while its session still starts.
   const panes = session.kept.filter((o) => shownItems(o.transcript).length);
-  const covered = panes.some((o) => o.session === session.session);
+  // A first message shows in a pane of its own until its conversation is known.
+  const pane = session.session ?? STARTING_PANE;
+  const covered = panes.some((o) => o.session === pane);
   const waiting = useWaitingCalls(transcript);
   // Answering, the conversation's diff comments go with the answer, as they would with a message.
   const asking = useQuestionDeck(
@@ -76,14 +79,14 @@ export function AgentPanel({
     <>
       <div className="relative min-h-0 flex-1">
         {panes.map((o) => {
-          const shown = o.session === session.session;
+          const shown = o.session === pane;
           return (
             <ConversationPane
               // The opened conversation replaces its preview drawn afresh, from its newest rows.
               key={o.preview ? `${o.session} preview` : o.session}
               transcript={o.transcript}
               session={o.session}
-              folder={paneRoot(o, session.session, root)}
+              folder={paneRoot(o, pane, root)}
               shown={shown}
               send={shown ? session.send : idle}
               skipWait={session.skipWait}

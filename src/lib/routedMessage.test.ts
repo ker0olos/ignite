@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { UserMessage } from "../../shared/agentTypes";
-import { applyRouting, pickNote, shownItems } from "./routedMessage";
-import { EMPTY } from "./transcript";
+import {
+  applyRouting,
+  pickNote,
+  shownItems,
+  withStarting,
+} from "./routedMessage";
+import { applyError, EMPTY } from "./transcript";
 
 const user: UserMessage = { role: "user", content: "Fix it", timestamp: 7 };
 const SONNET = {
@@ -43,5 +48,22 @@ describe("applyRouting", () => {
   it("adds no line when it reports no pick", () => {
     const sent = applyRouting(routing, { type: "routing_end", sent: true });
     expect(sent.items).toEqual([]);
+  });
+});
+
+describe("withStarting", () => {
+  const starting = { folder: "/f", message: user };
+
+  it("shows a first message, running, in its folder's conversation until pi adds anything", () => {
+    expect(withStarting(null, starting, "/f", null)).toMatchObject({
+      running: true,
+      pending: user,
+    });
+    expect(withStarting(null, starting, "/other", null)).toBeNull();
+    expect(withStarting(EMPTY, starting, "/f", "s2")).toBe(EMPTY);
+    const known = { ...starting, session: "s2" };
+    expect(withStarting(EMPTY, known, "/f", "s2")?.pending).toBe(user);
+    const failed = applyError(EMPTY, "No model.");
+    expect(withStarting(failed, known, "/f", "s2")).toBe(failed);
   });
 });

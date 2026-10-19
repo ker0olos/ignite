@@ -9,6 +9,7 @@ import { reload, tellsApp, type Agent, type HostContext } from "./hostTypes.ts";
 import { delivered } from "./queuedImages.ts";
 import { trackToolRun } from "./toolRuns.ts";
 import { describeError, toWireEvent } from "./wire.ts";
+import { startReady } from "./worktreeReady.ts";
 
 // The app keeps each conversation it opened current, so showing it again needs nothing from here.
 /** Follows one of `agent`'s session events. */
@@ -25,7 +26,11 @@ export function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
   followUserMessage(ctx, agent, event);
   const subagentsChanged = followSubagents(agent, event);
   if (trackRun(agent, event) || subagentsChanged) pushProjects(ctx);
-  if (event.type === "message_start") delivered(agent, event.message);
+  if (event.type === "message_start") {
+    delivered(agent, event.message);
+    // Claude Code has started by then; see worktreeReady.ts.
+    if (event.message.role === "assistant") startReady(agent.workdir);
+  }
   // The first message names the conversation; pi stores it only afterwards.
   const first = event.type === "message_start" && !agent.title;
   if (first && event.message.role === "user") {

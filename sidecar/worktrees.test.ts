@@ -13,9 +13,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaces, updateFolder } from "./worktrees.ts";
-import { startPoint } from "./worktreeCheckout.ts";
+import { prefetch, startPoint } from "./worktreeCheckout.ts";
 import {
   folderOf,
   gitAccess,
@@ -23,7 +23,7 @@ import {
   worktreePath,
 } from "./worktreeGit.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
-import { setReady } from "./worktreeReady.ts";
+import { setReady, startReady, whenReady } from "./worktreeReady.ts";
 import { checkpointRef } from "./checkpoints.ts";
 
 let base: string;
@@ -89,13 +89,24 @@ describe("workspaces", () => {
     const ws = createWorkspaces(root);
     const { dir } = await ws.open(repo, "a");
     let cloned = () => {};
-    setReady(dir, new Promise<void>((resolve) => (cloned = resolve)));
+    setReady(dir, () => new Promise<void>((resolve) => (cloned = resolve)));
+    startReady(dir);
     const closing = ws.close(repo, "a");
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(existsSync(dir)).toBe(true);
     cloned();
     await closing;
     expect(existsSync(dir)).toBe(false);
+  });
+
+  it("skips the clone of a worktree closed before it started", async () => {
+    const ws = createWorkspaces(root);
+    const { dir } = await ws.open(repo, "a");
+    const clone = vi.fn(async () => {});
+    setReady(dir, clone);
+    await ws.close(repo, "a");
+    await whenReady(dir);
+    expect(clone).not.toHaveBeenCalled();
   });
 
   it("says where a folder's conversations work before opening any", async () => {
@@ -114,7 +125,7 @@ describe("workspaces", () => {
     expect(await ws.layout(plain)).toBeNull();
   });
 
-  it("starts from the remote's latest default branch, without the user's own work", async () => {
+  it("starts from the remote's default branch as fetched when the folder showed, without the user's own work", async () => {
     const remote = withRemote();
     const other = join(base, "other");
     git(base, "clone", "-q", remote, other);
@@ -123,7 +134,10 @@ describe("workspaces", () => {
     git(other, "push", "-q");
     write(join(repo, "app.ts"), "user's wip\n");
     write(join(repo, "wip.ts"), "wip\n");
-    const ws = await createWorkspaces(root).open(repo, "a");
+    const workspaces = createWorkspaces(root);
+    await workspaces.layout(repo);
+    await prefetch(repo);
+    const ws = await workspaces.open(repo, "a");
     expect(ws.dir).toBe(worktreePath(repo, "a", root));
     expect(read(ws.dir, "app.ts")).toBe("merged\n");
     expect(existsSync(join(ws.dir, "wip.ts"))).toBe(false);
@@ -142,7 +156,7 @@ describe("workspaces", () => {
     write(join(repo, ".env"), "KEY=1\n");
     write(join(repo, "node_modules", "dep", "index.js"), "dep\n");
     const ws = await createWorkspaces(root).open(repo, "a");
-    await ws.ready;
+    await whenReady(ws.dir);
     expect(read(ws.dir, ".env")).toBe("KEY=1\n");
     expect(read(ws.dir, "node_modules", "dep", "index.js")).toBe("dep\n");
   });

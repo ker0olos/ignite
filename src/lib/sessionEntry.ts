@@ -6,7 +6,7 @@ import type {
 import type { AgentMessage } from "../../shared/agentTypes";
 import type { HostClient } from "@/lib/piHost";
 import { applyQueue } from "@/lib/queue";
-import { applyRouting } from "@/lib/routedMessage";
+import { applyRouting, withStarting, type Starting } from "@/lib/routedMessage";
 import { cachedState } from "@/lib/sessionStateCache";
 import {
   applyError,
@@ -104,6 +104,34 @@ export const toOpened = (
   };
 };
 
+/** The pane a folder's first message shows in until its conversation is known. */
+export const STARTING_PANE = "starting";
+
+/** The `kept` panes with `starting` shown: in its conversation's, or (in `shownFolder`) a pane of its own until that's known. */
+export function withStartingPane(
+  kept: Opened[],
+  starting: Starting | null,
+  host: HostClient | null,
+  shownFolder: string | null,
+): Opened[] {
+  if (!starting || !host) return kept;
+  const { folder, session } = starting;
+  if (!session) {
+    if (folder !== shownFolder) return kept;
+    const transcript = withStarting(null, starting, folder, null)!;
+    const pane = { host, folder, session: STARTING_PANE, transcript };
+    return [...kept, { ...pane, workdir: null, state: null, trust: null }];
+  }
+  return kept.map((o) =>
+    o.session === session
+      ? {
+          ...o,
+          transcript: withStarting(o.transcript, starting, folder, session)!,
+        }
+      : o,
+  );
+}
+
 /** What the app sees of the session; every field is null until it's open. */
 type View = {
   /** Until it's open, the last known one, so the menus draw at once. */
@@ -122,13 +150,17 @@ type View = {
   workdir: string | null;
 };
 
-/** What the app sees of the entry; in a folder with none, what its first message would start with. */
-export const view = (e: Entry | null, draft: SessionState | null): View =>
+/** What the app sees of the entry; in a folder with none, what its first message would start with. With `starting`, its first message shows as it's sent. */
+export const view = (
+  e: Entry | null,
+  draft: SessionState | null,
+  starting: Starting | null = null,
+): View =>
   isOpened(e)
     ? {
         state: e.state ?? cachedState(e.session),
         ready: !!e.state,
-        transcript: e.transcript,
+        transcript: withStarting(e.transcript, starting, e.folder, e.session),
         trust: e.trust,
         host: e.host,
         none: false,
@@ -137,7 +169,7 @@ export const view = (e: Entry | null, draft: SessionState | null): View =>
     : {
         state: e ? (draft ?? cachedState(null)) : null,
         ready: false,
-        transcript: null,
+        transcript: e && withStarting(null, starting, e.folder, null),
         trust: null,
         host: null,
         none: !!e,

@@ -55,6 +55,7 @@ src/                     React frontend (almost all logic lives here)
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
     useAgentSession.ts   The folder's shown pi session: conversation, send/stop, trust, model and effort, its worktree
     useStartedConversation.ts The conversation the folder's first message last started, for its tabs
+    useStartingMessage.ts The folder's first message, shown as it's sent while its conversation starts (Stop hands it back)
     useTabHandoff.ts     The tabs opened while the folder's conversation was unknown, or before its first message,
                          go to the conversation it turns out to be (the latter's files to its worktree's copies)
     useWorktreeLayout.ts Where the folder's conversations' worktrees are (cached), so a conversation's root is
@@ -63,6 +64,7 @@ src/                     React frontend (almost all logic lives here)
     useSessionCache.ts   Every open conversation shown so far, kept current by its events; the one each folder shows
     useOlderRows.ts      A conversation draws its newest rows, older ones as the user scrolls up
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
+    useComposerBegin.ts  That first message: the conversation opens, takes the choices made before it, then gets it
     useCompact.ts        `/compact`: compacts the shown conversation
     useFork.ts           `/fork`: forks the shown conversation, shows the fork, sends it the text after `/fork`
     useRewind.ts         Edits a user message of the shown conversation: rewinds to before it, sends the new text
@@ -913,18 +915,23 @@ after a reload.
 Each agent (conversation) works in its own git worktree, under
 `~/.ignite/worktrees/<repo>-<hash>/<session id>` (`sidecar/worktrees.ts`),
 so agents in one folder never edit each other's files or the user's. It
-starts detached at the remote's default branch, freshly fetched (the
+starts detached at the remote's default branch as last fetched (the
 folder's HEAD without a remote), so the user's uncommitted work never ends
-up in its commits. The folder's ignored files (`node_modules`, builds,
+up in its commits; the remote is fetched in the background when the folder
+shows and as each conversation starts, so a start never waits on the network. The folder's ignored files (`node_modules`, builds,
 `.env`) are cloned copy-on-write (on APFS each whole with clonefile(2),
 called through `osascript`, about ten times faster than `cp -c`'s file-by-file
 walk, which stays the fallback; `--reflink` on Btrfs/XFS), so they cost almost
-no disk until changed. That goes on in the background: the conversation and
-its first message start at once, and only the calls that need those files
-wait for them (`sidecar/readyExtension.ts`, subagents' too: `write`, `edit`,
-`bash`, `git`, and a `read` of a file not there yet), letting go if the run
-stops; removing the worktree waits for it too (`sidecar/worktreeReady.ts`,
-by workspace path). Where the filesystem can't clone (Windows,
+no disk until changed. That goes on in the background, one repository at a
+time, and starts once the first reply streams (a big clone starves Claude
+Code's start of the disk), a call needs the files, or after 10 seconds: the
+conversation and its first message start at once, and only the calls that
+need those files wait for them (`sidecar/readyExtension.ts`, subagents' too:
+`write`, `edit`, `bash`, `git`, and a `read` of a file not there yet),
+letting go if the run stops; removing the worktree waits for a clone that
+started and skips one that hasn't (`sidecar/worktreeReady.ts`, by workspace
+path). The app shows the first message as soon as it's sent, while the
+worktree and session are made (`hooks/useStartingMessage.ts`). Where the filesystem can't clone (Windows,
 ext4, other volumes), only ignored files are copied; ignored folders are
 skipped and the agent installs and builds its own, since a copy costs their
 full size and a link would let it write into the user's (Windows has no
@@ -943,7 +950,9 @@ A folder that isn't a repository but holds some (`~/Projects/app` with
 `server/` and `web/`) gets a copy per conversation at the same kind of path
 (`sidecar/worktreeGroup.ts`): each repository with a commit in it is its own
 worktree, saved and brought back like one, and the folder's other files are
-copied in afresh (the agent's changes to them aren't kept). Other folders
+copied in afresh (the agent's changes to them aren't kept): its loose files
+(links to files too) before the session opens, as pi reads the folder's CLAUDE.md then, and its
+loose folders with the clones. Other folders
 outside git (or with no commit yet) are shared instead. The composer's
 repository popover tags which, beside the branch (or "No branch yet"): the
 conversation's own worktree, or (a warning) the user's own checkout.
