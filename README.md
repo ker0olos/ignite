@@ -23,55 +23,69 @@ once. Made for macOS; and others.
 
 ## Features
 
-- Run several agents at once. Each conversation works in its own git
-  worktree, so agents never touch each other's work or yours, and the sidebar
-  shows which are working, done or waiting for you. Its `node_modules`,
-  builds and `.env` are copy-on-write clones of yours, so a new worktree is
-  ready at once and costs almost no disk until something changes.
-- Work comes back as a pull request, every file's diff a click away, and your
-  folder updates when it merges.
-- Write a task, attach screenshots or sketches, pick a model and start it.
-  The agent plans the subtasks, works through them on its own and brings you
-  its pull request to approve, stopping only when it needs you.
-- Click any image, yours or one the agent took, and draw on it: pen,
-  highlighter, arrows, boxes and text, zooming in for detail. Then add it to
-  the conversation or a task to show the agent what you mean.
-- When a decision is open, the agent asks you, with a few options and what
-  each one costs. Pick one, write your own answer, or leave it to the agent.
-- Agents hand parts of the work to subagents running in parallel, and keep
-  dev servers and watchers running in the background, their output a tab away.
-- Agents show you screenshots and live, clickable pages right in the
-  conversation, and you can draw on either.
-- ⌘J (or ⌘1) opens a terminal beside the conversation. Agents read what it printed,
-  and shell code in a reply runs there with one click.
-- Type `/` for the project's skills and `@` for files, terminals and attached
-  images.
-- Claude and ChatGPT through your Claude Code and Codex sign-ins, so you use
-  the plans you already pay for. API keys work too.
-- Commands run in an OS sandbox ([below](#sandbox)): they write only inside
-  the project, can't read your credentials, and may only read from websites.
-  Risky ones ask first, or turn on full access and nothing asks.
-- ⌘K searches every conversation, file and project, and ⌘P jumps straight
-  to a file.
-- Skills and MCP servers import from Claude Code, Codex, Cursor and Claude
-  Desktop in one click.
-- Agents remember what earlier conversations did and learned in a folder,
-  and can import what Claude Code and others recorded with
-  [cmem](https://cmem.ai).
-- Code shows in any theme from VS Code, VSCodium, Cursor or Windsurf.
-- Use it from your phone on the same Wi-Fi:
-  Settings → Remote, then scan the QR code.
+### Run many agents
+
+- **Parallel conversations.** Each works in its own git worktree, so agents
+  never touch each other's work or yours. Its `node_modules`, builds and
+  `.env` are copy-on-write clones, ready at once.
+- **Tasks.** Write one, attach screenshots, start it. The agent plans,
+  works on its own and brings back a pull request.
+- **Subagents and background commands** run in parallel, their output a tab
+  away.
+- **Model Router** picks each conversation's model and effort from its first
+  message.
+
+### Review and steer
+
+- **Pull requests** with every diff a click away. Comment on any line to send
+  it to the agent. Your folder updates when it merges.
+- **Draw on any image or page**, yours or the agent's, to show what you mean.
+- **Questions.** On an open decision the agent asks, with options and their
+  trade-offs.
+- **Edit an earlier message** to rewind the conversation and its files, or
+  `/fork` to try another path.
+
+### Tools
+
+- **Terminal** beside the conversation (⌘J). Agents read it, and shell code
+  in a reply runs there in one click.
+- **Chrome.** Agents test pages in a headless Chrome, or yours when a page
+  needs your logins, and search the web.
+- **Live pages and screenshots** right in the conversation.
+- **⌘K** searches every conversation, file and project; **⌘P** opens a file;
+  `/` and `@` for skills, files and terminals.
+
+### Learns
+
+- **Memory** of what earlier conversations did in a folder (imports
+  [cmem](https://cmem.ai)).
+- **Lessons** from its mistakes, enforced on later tool calls, and proposed
+  from your corrections.
+
+### Setup
+
+- **Your subscriptions:** Claude and ChatGPT through your Claude Code and
+  Codex sign-ins. API keys work too.
+- **Sandboxed** commands ([below](#sandbox)), or full access and nothing asks.
+- **One-click import** of skills and MCP servers from Claude Code, Codex,
+  Cursor and Claude Desktop.
+- **Any theme** from VS Code, VSCodium, Cursor or Windsurf.
+- **From your phone:** Settings → Remote, then scan the QR code.
 
 ## Sandbox
 
-In Auto mode, shell commands run without asking inside the OS sandbox
+In Auto mode, shell commands run without asking inside an OS sandbox
 ([sandbox-runtime](https://github.com/anthropics/sandbox-runtime): Seatbelt
 on macOS, bubblewrap on Linux; on Windows every command asks unless you turn
-on its alpha sandbox).  
-In Sandbox mode, the agent writes only in the project, its scratchpad and
-package caches, It can't read credentials, and has can only read from selected online sites.  
-A blocked command asks before running outside (Risky commands, edits outside the project, MCP changes, commits and
-pushes ask).
+on its alpha sandbox). Inside it, commands:
+
+- write only in the project, its scratchpad and package caches
+- can't read your credentials
+- may only read from public websites (package registries and git hosts take
+  any request)
+
+A blocked command asks before running outside. Risky commands, edits outside
+the project, MCP changes, commits and pushes always ask.
 
 ## Install
 
