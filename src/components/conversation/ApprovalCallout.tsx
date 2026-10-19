@@ -12,7 +12,7 @@ export function ApprovalCallout({
   return (
     <div className="flex gap-2 rounded-lg bg-warning/10 px-3 py-2">
       <Lock aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning" />
-      <div className="min-w-0 space-y-0.5">
+      <div className="min-w-0 space-y-0.5 wrap-anywhere">
         {reason && <p className="font-medium text-warning">{reason}</p>}
         {why && <p className="text-foreground">{why}</p>}
       </div>

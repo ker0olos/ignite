@@ -50,7 +50,7 @@ export function ApprovalPrompt({
           <Button
             size="sm"
             variant="outline"
-            className="min-w-0 px-3"
+            className="min-w-0 shrink px-3"
             title={allow}
             onClick={() => onAnswer(true, true)}
           >
