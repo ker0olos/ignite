@@ -5,7 +5,8 @@ import { ConversationForks } from "@/components/sidebar/ConversationForks";
 import { ConversationRow } from "@/components/sidebar/ConversationRow";
 import type { ChildActions } from "@/components/sidebar/FolderList";
 import type { Conversations } from "@/hooks/useConversations";
-import type { TaggedAgentStatus } from "@/lib/conversations";
+import { conversationTitle, type TaggedAgentStatus } from "@/lib/conversations";
+import { confirmCloseConversation } from "@/lib/lifecycle";
 
 /** One folder's listed conversations, the shown one selected, each with its subagents and background commands. */
 export function FolderConversations({
@@ -52,7 +53,12 @@ export function FolderConversations({
             selected={agent.session === shown}
             onShow={() => void conversations.show(cwd, agent.session)}
             onClose={() =>
-              void conversations.close(cwd, agent.session, sessions)
+              void confirmCloseConversation(conversationTitle(agent)).then(
+                async (yes) => {
+                  if (yes)
+                    await conversations.close(cwd, agent.session, sessions);
+                },
+              )
             }
             allTags={tags}
             onSetTags={(next) => onSetTags(agent.session, next)}

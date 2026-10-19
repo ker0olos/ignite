@@ -47,3 +47,10 @@ export function confirmCloseTerminal(command?: string) {
     "Close",
   );
 }
+
+/** Asks before closing a conversation from the sidebar (easy to hit by mistake); it stays saved. */
+export const confirmCloseConversation = (title: string) =>
+  confirmNative(
+    `Close "${title}"? It stays saved, and History opens it again.`,
+    "Close",
+  );
