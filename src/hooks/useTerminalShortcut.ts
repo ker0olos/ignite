@@ -5,23 +5,20 @@ import { childTabId, startingTerminalTab } from "@/lib/childTabs";
 import type { HostClient } from "@/lib/piHost";
 import { terminalInput } from "@/lib/runCommand";
 
-/**
- * ⌘J or ⌘1 (or Ctrl, with or without Shift) opens a new terminal tab in `dir`
- * (the shown conversation's worktree), listed under `folder`, while the
- * conversation shows, with or without a conversation yet. Its tab shows at
- * once, starting, until the sidecar has the shell. Returns a function that
- * opens one and runs a command in it, or null with no sidecar.
- */
+/** ⌘J or ⌘1 (or Ctrl, with or without Shift) opens a terminal tab in the shown conversation's worktree, starting at once; returns run-in-terminal. */
 export function useTerminalShortcut(
   host: HostClient | null,
   folder: string,
   dir: string,
-  /** The shown conversation, whose worktree the sidecar waits for while it opens. */
-  session: string | null,
+  /** The shown conversation, whose worktree the sidecar waits for (null: none yet; undefined: the one it's showing). */
+  session: string | null | undefined,
   view: WorkspaceView,
-  tabs: Pick<ReturnType<typeof useTabs>, "open" | "rename" | "closeEverywhere">,
+  tabs: Pick<
+    ReturnType<typeof useTabs>,
+    "open" | "rename" | "closeEverywhere" | "isOpen"
+  >,
 ) {
-  const { open, rename, closeEverywhere } = tabs;
+  const { open, rename, closeEverywhere, isOpen } = tabs;
 
   const openTerminal = useCallback(
     (command?: string) => {
@@ -33,11 +30,14 @@ export function useTerminalShortcut(
           type: "terminal_open",
           cwd: folder,
           dir,
-          ...(session && { session }),
+          ...(session !== undefined && { session }),
           cols: 80,
           rows: 24,
         })
         .then(({ terminal }) => {
+          // Its tab was closed while it started: so is the shell, and nothing runs.
+          if (!isOpen(standIn))
+            return host.request({ type: "terminal_close", terminal });
           rename(
             standIn,
             childTabId({ kind: "terminal", session: "", terminal }),
@@ -51,7 +51,7 @@ export function useTerminalShortcut(
           console.error("terminal_open:", e.message);
         });
     },
-    [host, folder, dir, session, open, rename, closeEverywhere],
+    [host, folder, dir, session, open, rename, closeEverywhere, isOpen],
   );
 
   useEffect(() => {

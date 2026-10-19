@@ -300,6 +300,7 @@ function fakeWorkspaces() {
     })),
     close: vi.fn(async () => {}),
     fork: vi.fn(async () => {}),
+    layout: vi.fn(async () => null),
   };
 }
 

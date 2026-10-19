@@ -11,12 +11,7 @@ type Pending = {
   from: string | null;
 };
 
-/**
- * Opens a tab of any folder (a file path, a diff, a subagent…): another
- * folder, or with `session` another conversation, is shown first, and the tab
- * opens once it shows, joining that conversation's tabs. Showing yet another
- * conversation meanwhile drops it.
- */
+/** Opens a tab in any folder, or with `session` in that conversation, once it shows (dropped if another shows first). */
 export function useOpenFile(
   current: string | null,
   shown: { session: string | null; root: string | null },

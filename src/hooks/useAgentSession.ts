@@ -136,8 +136,6 @@ export function useAgentSession(
     rewind,
     /** The shown conversation's id; the folder may have others open. */
     session: shown,
-    /** Where the shown conversation's files are: its worktree, else (before its first message, while it opens) the folder. */
-    root: folder && (seen.workdir ?? folder),
     /** Recently shown conversations (any folder), kept rendered so showing one again is instant. */
     kept: cache.kept,
     ...choices(actions),

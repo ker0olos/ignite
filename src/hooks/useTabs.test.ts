@@ -100,53 +100,44 @@ describe("useTabs", () => {
   it("hands the tabs opened before the first message to the conversation it starts, in its worktree", async () => {
     fakeFs({ "/wt/new/a": "" });
     const { result, rerender } = renderHook(
-      ({ session, root }) => useTabs("/repo", session, root),
-      {
-        initialProps: {
-          session: null as string | null,
-          root: "/repo",
-        },
-      },
+      ({ session }) => useTabs("/repo", session),
+      { initialProps: { session: null as string | null } },
     );
     act(() => result.current.open("/repo/a"));
     act(() => result.current.open("/repo/untracked"));
     act(() => result.current.adopt("/repo", "new", "/wt/new"));
-    rerender({ session: "new", root: "/wt/new" });
+    rerender({ session: "new" });
     await waitFor(() =>
       expect(result.current.files).toEqual(["/wt/new/a", "/repo/untracked"]),
     );
-    rerender({ session: null, root: "/repo" });
+    rerender({ session: null });
     expect(result.current.files).toEqual([]);
   });
 
-  it("gives the tabs opened while the conversation loaded to the one it shows, following its worktree", async () => {
-    fakeFs({ "/wt/s/a": "" });
+  it("gives the tabs opened while the folder's conversation was unknown to the one it shows", () => {
     const { result, rerender } = renderHook(
-      ({ session, root }) => useTabs("/repo", session, root),
-      {
-        initialProps: {
-          session: undefined as string | null | undefined,
-          root: "/repo",
-        },
-      },
+      ({ session }) => useTabs("/repo", session),
+      { initialProps: { session: undefined as string | null | undefined } },
     );
-    act(() => result.current.open("/repo/a"));
-    rerender({ session: "s", root: "/repo" });
-    expect(result.current.files).toEqual(["/repo/a"]);
-    rerender({ session: "s", root: "/wt/s" });
-    await waitFor(() => expect(result.current.files).toEqual(["/wt/s/a"]));
+    act(() => result.current.open("child:term"));
+    rerender({ session: "s" });
+    expect(result.current.files).toEqual(["child:term"]);
   });
 
-  it("never moves tabs from the worktree back to the folder, as a conversation reopens", async () => {
-    fakeFs({ "/repo/a": "", "/wt/s/a": "" });
+  it("lists every conversation's terminal tabs, the same array while they stay", () => {
     const { result, rerender } = renderHook(
-      ({ root }) => useTabs("/repo", "s", root),
-      { initialProps: { root: "/wt/s" } },
+      ({ session }) => useTabs("/repo", session),
+      { initialProps: { session: "a" as string | null } },
     );
-    act(() => result.current.open("/wt/s/a"));
-    rerender({ root: "/repo" });
-    rerender({ root: "/wt/s" });
-    await new Promise((r) => setTimeout(r, 20));
-    expect(result.current.files).toEqual(["/wt/s/a"]);
+    const term = 'child:{"kind":"terminal","session":"","terminal":"t1"}';
+    act(() => result.current.open(term));
+    act(() => result.current.open("/wt/a/x"));
+    const first = result.current.terminalTabs;
+    expect(first).toEqual([term]);
+    act(() => result.current.move("/wt/a/x", "bottom", 0));
+    rerender({ session: "b" });
+    expect(result.current.terminalTabs).toBe(first);
+    expect(result.current.isOpen(term)).toBe(true);
+    expect(result.current.isOpen("nope")).toBe(false);
   });
 });

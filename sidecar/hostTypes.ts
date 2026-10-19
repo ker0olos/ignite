@@ -266,7 +266,7 @@ export type HostContext = {
   send: (m: HostMessage) => void;
   openSession: OpenSession;
   sessions: SessionStore;
-  workspaces: Pick<Workspaces, "open" | "close" | "fork">;
+  workspaces: Pick<Workspaces, "open" | "close" | "fork" | "layout">;
   /** The command center's search over folders' conversations and files. */
   search: ReturnType<typeof createSearch>;
   /** The session that shows what a new conversation would start with. */

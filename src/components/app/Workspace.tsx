@@ -37,15 +37,17 @@ type WorkspaceProps = {
   /** Shown at the sidebar's foot. */
   footer?: ReactNode;
   session: ReturnType<typeof useAgentSession>;
+  /** The shown conversation (null before a first message, undefined while unknown) and where its files are (null while unknown). */
+  shown: { session: string | null | undefined; root: string | null };
   /** The sidecar, whether or not a conversation shows. */
   host: HostClient | null;
 };
 
 /**
  * Everything shown for an open folder: sidebar, full-height agent panel, and
- * an editor pane that appears while files are open. Files, terminals and tabs
- * are the shown conversation's worktree's, once it has one. Tab state lives in App so
- * the menu (⌘W) can reach it. On a phone, one pane at a time (MobileWorkspace).
+ * an editor pane that appears while files are open; files and terminals are the
+ * shown conversation's worktree's. Tab state lives in App so the menu (⌘W) can
+ * reach it. On a phone, one pane at a time (MobileWorkspace).
  */
 export function Workspace({
   folder,
@@ -61,18 +63,19 @@ export function Workspace({
   banner,
   footer,
   session,
+  shown,
   host,
   ...panel
 }: WorkspaceProps) {
   const { active, open: openFile } = tabs;
-  const root = session.root ?? folder;
+  const { root } = shown;
   const narrow = useNarrow();
   const [view, setView] = useState<WorkspaceView>("conversation");
   const runIn = useTerminalShortcut(
     host,
     folder,
-    root,
-    session.session,
+    root ?? folder,
+    shown.session,
     view,
     tabs,
   );
@@ -117,7 +120,7 @@ export function Workspace({
     );
   const { terminalLabel } = projectList.childActions;
   const pane = {
-    folder: root,
+    folder: root ?? folder,
     tabs,
     codeThemes,
     editor,

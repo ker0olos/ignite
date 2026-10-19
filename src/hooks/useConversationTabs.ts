@@ -4,9 +4,11 @@ import type { Conversations } from "@/hooks/useConversations";
 import { useOpenFile } from "@/hooks/useOpenFile";
 import { useTabs } from "@/hooks/useTabs";
 import { useTerminalTabs } from "@/hooks/useTerminalTabs";
+import { useWorktreeLayout } from "@/hooks/useWorktreeLayout";
 import { childTabId } from "@/lib/childTabs";
 import { worktreeCopy } from "@/lib/files";
 import type { HostClient } from "@/lib/piHost";
+import { conversationRoot } from "@/lib/worktreeLayout";
 
 /** `path` in the conversation's worktree, or the folder's own copy when the worktree has none (a file it doesn't track). */
 async function inRoot(root: string, folder: string, path: string) {
@@ -16,17 +18,12 @@ async function inRoot(root: string, folder: string, path: string) {
     : ((await worktreeCopy(own, folder, root)) ?? own);
 }
 
-/**
- * Drops the tabs of a conversation that leaves its folder's list some other
- * way than the sidebar's Close (a task's, ended by the sidecar). Returns the
- * conversations being closed, which keep theirs until they did.
- */
+/** Drops the tabs of a conversation that leaves its folder's list (closed anywhere, a task's ended by the sidecar). */
 function useForgetUnlisted(
   folders: string[],
   listed: (cwd: string) => { session: string }[],
   forget: (folder: string, session?: string) => void,
 ) {
-  const closing = useRef(new Set<string>());
   const was = useRef<Record<string, string[]>>({});
   const now = JSON.stringify(
     Object.fromEntries(
@@ -39,19 +36,13 @@ function useForgetUnlisted(
       const list = lists[folder];
       // ponytail: a folder whose list empties keeps its tabs (it may be reloading); closing from the sidebar still drops them.
       if (!list?.length) continue;
-      for (const s of before)
-        if (!list.includes(s) && !closing.current.has(s)) forget(folder, s);
+      for (const s of before) if (!list.includes(s)) forget(folder, s);
     }
     was.current = lists;
-  }, [now, closing, forget]);
-  return closing;
+  }, [now, forget]);
 }
 
-/**
- * The shown conversation's tabs and the folders' terminals, and opening a tab
- * in any folder or conversation. Closing a conversation (once it closed),
- * dismissing a folder, or a conversation leaving its folder's list drops its tabs.
- */
+/** The shown conversation's tabs, root and terminals, and opening a tab in any folder or conversation. */
 export function useConversationTabs(
   host: HostClient | null,
   current: string | null,
@@ -64,16 +55,18 @@ export function useConversationTabs(
 ) {
   // Unknown (undefined) until the folder shows a conversation, or none yet (null).
   const session = agent.session ?? (agent.none ? null : undefined);
-  const fileTabs = useTabs(current, session, agent.root);
+  const layout = useWorktreeLayout(host, current);
+  const root = conversationRoot(current, session, agent.workdir, layout);
+  const fileTabs = useTabs(current, session);
   const terminals = useTerminalTabs(host, folders, {
-    files: fileTabs.everyFile,
+    files: fileTabs.terminalTabs,
     close: fileTabs.close,
     closeEverywhere: fileTabs.closeEverywhere,
   });
   const tabs = { ...fileTabs, close: terminals.closeTab };
   const openIn = useOpenFile(
     current,
-    { session: agent.session, root: agent.root },
+    { session: agent.session, root },
     tabs.open,
     select,
   );
@@ -88,11 +81,13 @@ export function useConversationTabs(
     adopted.current = started.session;
     adopt(started.folder, started.session, started.workdir);
   }, [started, adopt]);
-  const closing = useForgetUnlisted(folders, listed, forget);
+  useForgetUnlisted(folders, listed, forget);
   const isListed = (cwd: string, session: string) =>
     listed(cwd).some((r) => r.session === session);
   return {
     tabs,
+    /** The shown conversation (null before a first message, undefined while unknown) and where its files are (null while unknown). */
+    shown: { session, root },
     terminals,
     openIn,
     /** Opens a file the command center found in `folder` (relative `path`), from the shown conversation's worktree. */
@@ -109,12 +104,10 @@ export function useConversationTabs(
     },
     conversations: {
       ...conversations,
-      close: async (cwd: string, session: string, open: string[]) => {
-        closing.current.add(session);
-        const closed = await conversations.close(cwd, session, open);
-        closing.current.delete(session);
-        if (closed) forget(cwd, session);
-        return closed;
+      // Closing leaves the sidebar at once, its tabs with it, whether or not the sidecar manages to.
+      close: (cwd: string, session: string, open: string[]) => {
+        forget(cwd, session);
+        return conversations.close(cwd, session, open);
       },
       dismiss: (cwd: string) => {
         forget(cwd);

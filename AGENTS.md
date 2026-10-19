@@ -55,8 +55,10 @@ src/                     React frontend (almost all logic lives here)
     useConnectScreen.ts  When the connect screen shows (first launch, on request)
     useAgentSession.ts   The folder's shown pi session: conversation, send/stop, trust, model and effort, its worktree
     useStartedConversation.ts The conversation the folder's first message last started, for its tabs
-    useTabHandoff.ts     Tabs follow their conversation: from the folder to its worktree once known, and the ones
-                         opened while it loaded or before its first message to the conversation it turns out to be
+    useTabHandoff.ts     The tabs opened while the folder's conversation was unknown, or before its first message,
+                         go to the conversation it turns out to be (the latter's files to its worktree's copies)
+    useWorktreeLayout.ts Where the folder's conversations' worktrees are (cached), so a conversation's root is
+                         known before it opens (lib/worktreeLayout.ts: conversationRoot)
     useSessionSwitch.ts  Showing and closing the shown folder's conversations
     useSessionCache.ts   Every open conversation shown so far, kept current by its events; the one each folder shows
     useOlderRows.ts      A conversation draws its newest rows, older ones as the user scrolls up
@@ -416,7 +418,8 @@ shared/attachedFiles.ts  Dropped files in a message: `@path` with its text inlin
 shared/sentComments.ts   Diff comments in a message: `@path:lines`, the quoted lines, the comment, and read back
                          for its cards; a message as typed, without them (titles, queue)
 shared/steps.ts          A tool call as a current step ("Editing src/app.ts"), for tasks and the working line
-shared/git.ts            The git and gh tools' names and what a commit or push shows for review
+shared/git.ts            The git and gh tools' names, what a commit or push shows for review, the app's git
+                         requests, and a folder's worktree layout
 shared/modsOverlay.ts    Which repo file a mods/ file replaces (IGNITE_MODS)
 shared/modsVitePlugin.ts The same overrides for the frontend, in Vite
 shared/remote.ts         Remote access messages, the Tauri calls browsers may make, bytes over JSON

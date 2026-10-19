@@ -167,10 +167,12 @@ export const terminalsStartedIn = (dir: string) =>
 /** Ends terminal `id` and what it started, telling the app; resolves once it exited, or after a few seconds. */
 export async function endTerminal(id: string) {
   const t = find(id);
-  const exited = t.info.running ? exitOf(t.pty, 3000) : undefined;
-  if (t.info.running) killTree(t.pty.pid);
+  const { running } = t.info;
+  const exited = running ? exitOf(t.pty, 3000) : undefined;
+  if (running) killTree(t.pty.pid);
   closeTerminal(id);
-  t.send({ type: "terminal_exit", terminal: id, exitCode: -1 });
+  // One that exited already told the app, with its own code.
+  if (running) t.send({ type: "terminal_exit", terminal: id, exitCode: -1 });
   await exited;
 }
 

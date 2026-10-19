@@ -18,7 +18,14 @@ import {
   tidy,
 } from "./worktreeCheckout.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
-import { git, gitOr, WORKTREES, worktreePath } from "./worktreeGit.ts";
+import type { WorktreeLayout } from "../shared/git.ts";
+import {
+  git,
+  gitOr,
+  WORKTREES,
+  worktreeBase,
+  worktreePath,
+} from "./worktreeGit.ts";
 import {
   forkGroup,
   groupOwner,
@@ -91,6 +98,17 @@ export function createWorkspaces(root = WORKTREES) {
         await forkCheckout(found.repo, path, from, to);
       } else
         await forkGroup(folder, worktreePath(folder, from, root), from, to);
+    },
+
+    /** Where `folder`'s conversations work, by id, without opening any; null when they share the folder. */
+    async layout(folder: string): Promise<WorktreeLayout> {
+      const found = await repoFor(folder);
+      if (found) {
+        const prefix = found.prefix.replace(/[\\/]$/, "");
+        return { base: worktreeBase(found.repo, root), prefix };
+      }
+      const group = (await groupRepos(folder)).length > 0;
+      return group ? { base: worktreeBase(folder, root), prefix: "" } : null;
     },
 
     /** Saves and deletes conversation `id`'s workspace, unless another window still uses it. */

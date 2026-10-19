@@ -56,16 +56,15 @@ export default function App() {
     dismiss: dismissFolder,
     forget: list.forget,
   });
-  const { tabs, terminals, openIn, openFile, openTerminal, conversations } =
-    useConversationTabs(
-      host,
-      current,
-      shownFolders,
-      agent,
-      shownConversations,
-      addFolder,
-      shownRows(list.rows),
-    );
+  const conversationTabs = useConversationTabs(
+    host,
+    current,
+    shownFolders,
+    agent,
+    shownConversations,
+    addFolder,
+    shownRows(list.rows),
+  );
   const command = useCommandCenter();
   const rows = (cwd: string) =>
     orderedRows(shownRows(list.rows)(cwd), settings.sidebar.conversation_order);
@@ -83,8 +82,8 @@ export default function App() {
     openSettings: () => openSettings(),
     version: dialog.about.version,
     checkForUpdates: dialog.checkForUpdates,
-    active: tabs.active,
-    closeTab: tabs.close,
+    active: conversationTabs.tabs.active,
+    closeTab: conversationTabs.tabs.close,
   });
 
   if (!loaded) return null;
@@ -108,14 +107,13 @@ export default function App() {
           key={current}
           folder={current}
           folders={shownFolders}
-          {...{ tabs, settings, setSettings, menu, rows, session }}
+          {...{ settings, setSettings, menu, rows, session }}
           tags={list.tags}
           tagFilter={list.tagFilter}
           onToggleTagFilter={list.toggleTagFilter}
           onClearTagFilter={list.clearTagFilter}
           onSetConversationTags={list.setConversationTags}
           {...{
-            conversations,
             home,
             command,
             mcp,
@@ -123,7 +121,8 @@ export default function App() {
             openFolder,
             openSettings,
           }}
-          {...{ host, terminals, openIn, openTerminal }}
+          {...conversationTabs}
+          host={host}
           about={dialog.about}
         />
       ) : (
@@ -143,10 +142,11 @@ export default function App() {
       />
       {isWindows() && !isRemote() && <WindowControls />}
       <AppCommandCenter
-        {...{ command, home, rows, settings, openFile }}
+        {...{ command, home, rows, settings }}
+        openFile={conversationTabs.openFile}
         host={host}
         folders={folders}
-        conversations={conversations}
+        conversations={conversationTabs.conversations}
         openFolder={addFolder}
       />
     </div>

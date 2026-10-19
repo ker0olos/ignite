@@ -40,7 +40,7 @@ const sidebar = (
         conversations: {
           show: vi.fn(),
           create: vi.fn(),
-          close: vi.fn(async () => true),
+          close: vi.fn(async () => {}),
           dismiss: vi.fn(),
           details: vi.fn(async () => null),
         },

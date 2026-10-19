@@ -11,7 +11,7 @@ import type {
 } from "./agentStatus.ts";
 import type { QueueKind, QueuedMessage, Unqueue } from "./queue.ts";
 import type { RewindRequest, RewindResponses } from "./rewind.ts";
-import type { GitRepoDetails, GitRepoStatus, GitReview } from "./git.ts";
+import type { GitRequest, GitResponses, GitReview } from "./git.ts";
 import type { MemoryStatus } from "./memory.ts";
 import type {
   CommandSearch,
@@ -250,14 +250,7 @@ export type HostRequest =
   /** Saves the folder's trust; trusting it reloads the session. */
   | { id: number; type: "set_trust"; cwd: string; trusted: boolean }
   | ChildRequest
-  /** One file's diff in a review's range (see GitReview). */
-  | { id: number; type: "git_diff"; repo: string; range: string; path: string }
-  /** The repositories an open conversation worked in, as they stand now; none before it opens. */
-  | { id: number; type: "git_status"; session: string }
-  /** A repository's uncommitted files and unpushed commits. */
-  | { id: number; type: "git_repo_details"; repo: string }
-  /** Discards one file's uncommitted changes (`path` relative to `repo`). */
-  | { id: number; type: "git_discard"; repo: string; path: string }
+  | GitRequest
   | TaskRequest
   | TerminalRequest
   | { id: number; type: "app_version" }
@@ -295,6 +288,7 @@ export type HostResponses = SkillResponses &
   RewindResponses &
   TaskResponses &
   TerminalResponses &
+  GitResponses &
   ChildResponses & {
     status: ProviderStatus[];
     login: ProviderStatus;
@@ -325,11 +319,6 @@ export type HostResponses = SkillResponses &
     memory_status: MemoryStatus;
     memory_changed: undefined;
     set_trust: undefined;
-    git_diff: string;
-    /** null until the conversation's session is open (its worktree isn't known yet). */
-    git_status: GitRepoStatus[] | null;
-    git_repo_details: GitRepoDetails;
-    git_discard: undefined;
     app_version: AppVersion;
     /** `warning`: the update's binary couldn't be verified (appBinary.ts). */
     app_update: { updated: boolean; ready?: boolean; warning?: string };

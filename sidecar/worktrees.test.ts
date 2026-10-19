@@ -16,7 +16,12 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createWorkspaces, updateFolder } from "./worktrees.ts";
 import { startPoint } from "./worktreeCheckout.ts";
-import { folderOf, gitAccess, worktreePath } from "./worktreeGit.ts";
+import {
+  folderOf,
+  gitAccess,
+  worktreeBase,
+  worktreePath,
+} from "./worktreeGit.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
 import { checkpointRef } from "./checkpoints.ts";
 
@@ -68,6 +73,22 @@ describe("workspaces", () => {
     mkdirSync(plain);
     const ws = await createWorkspaces(root).open(plain, "a");
     expect(ws.dir).toBe(plain);
+  });
+
+  it("says where a folder's conversations work before opening any", async () => {
+    const ws = createWorkspaces(root);
+    const opened = await ws.open(join(repo, "sub"), "a");
+    const { base: at, prefix } = (await ws.layout(join(repo, "sub")))!;
+    expect(join(at, "a", prefix)).toBe(opened.dir);
+    expect(await ws.layout(repo)).toEqual({ base: at, prefix: "" });
+    // A folder of repositories: a copy of it per conversation.
+    expect(await ws.layout(base)).toEqual({
+      base: worktreeBase(base, root),
+      prefix: "",
+    });
+    const plain = join(base, "plain");
+    mkdirSync(plain);
+    expect(await ws.layout(plain)).toBeNull();
   });
 
   it("starts from the remote's latest default branch, without the user's own work", async () => {

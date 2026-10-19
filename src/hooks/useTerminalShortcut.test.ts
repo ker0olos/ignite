@@ -29,14 +29,18 @@ function setup(view: "conversation" | "tasks" = "conversation", fails = false) {
   const open = vi.fn();
   const rename = vi.fn();
   const closeEverywhere = vi.fn();
+  let open_ = true;
+  const isOpen = vi.fn(() => open_);
   const hook = renderHook(() =>
     useTerminalShortcut(host, "/w", "/wt", "s1", view, {
       open,
       rename,
       closeEverywhere,
+      isOpen,
     }),
   );
-  return { request, open, rename, closeEverywhere, ...hook };
+  const closeStandIn = () => (open_ = false);
+  return { request, open, rename, closeEverywhere, closeStandIn, ...hook };
 }
 
 describe("useTerminalShortcut", () => {
@@ -66,6 +70,22 @@ describe("useTerminalShortcut", () => {
     press({ metaKey: true, code: "KeyC", key: "j" });
     expect(new Set(open.mock.calls.map(([t]) => t)).size).toBe(5);
     await waitFor(() => expect(rename).toHaveBeenCalledTimes(5));
+  });
+
+  it("ends the shell, and runs nothing, when its starting tab was closed meanwhile", async () => {
+    const { request, rename, closeStandIn, result } = setup();
+    closeStandIn();
+    result.current!("echo hi");
+    await waitFor(() =>
+      expect(request).toHaveBeenCalledWith({
+        type: "terminal_close",
+        terminal: "t1",
+      }),
+    );
+    expect(rename).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "terminal_input" }),
+    );
   });
 
   it("drops the starting tab when the shell can't start", async () => {
@@ -107,6 +127,7 @@ describe("useTerminalShortcut", () => {
         open: vi.fn(),
         rename: vi.fn(),
         closeEverywhere: vi.fn(),
+        isOpen: vi.fn(),
       }),
     );
     expect(result.current).toBe(null);

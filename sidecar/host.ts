@@ -174,6 +174,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   task_start: (ctx, r) => startTask(ctx, r.cwd, r.taskId, r.interactive),
   task_resume: (ctx, r) => resumeTask(ctx, r.cwd, r.taskId, r.text),
   terminal_open: terminalOpen,
+  worktree_layout: (ctx, r) => ctx.workspaces.layout(r.cwd),
   terminal_input: (_ctx, r) => writeTerminal(r.terminal, r.data),
   terminal_resize: (_ctx, r) => resizeTerminal(r.terminal, r.cols, r.rows),
   terminal_close: (_ctx, r) => closeTerminal(r.terminal),

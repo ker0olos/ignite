@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTabHandoff } from "@/hooks/useTabHandoff";
+import { terminalOf } from "@/lib/childTabs";
 import {
   activateDocked,
   closeDocked,
@@ -17,27 +18,24 @@ import {
   type TabSets,
 } from "@/lib/tabs";
 
-/** `list`, the same array while its items stay the same (so switching or moving tabs reads no terminals again). */
+/** `list`, the same array while its items stay the same. */
 function useEverySame(list: string[]) {
   const joined = list.join("\n");
   return useMemo(() => (joined ? joined.split("\n") : []), [joined]);
 }
 
-/**
- * Open tabs of `folder`'s shown conversation (`session` null before its first
- * message, undefined while it isn't known yet), beside the conversation or
- * docked under it; `root` is where its files are. `files` and `active` span
- * both docks (`active` is the focused dock's). Each conversation keeps its own,
- * so showing it again brings its tabs back; closing it drops them.
- */
+/** Each conversation's open tabs, in two docks, the shown one's (`session` null before a first message, undefined while unknown) at hand. */
 export function useTabs(
   folder: string | null,
   session: string | null | undefined,
-  root: string | null = folder,
 ) {
   const [all, setAll] = useState<TabSets>({});
   const key = folder === null ? null : tabsKey(folder, session);
-  const adopt = useTabHandoff(all, setAll, folder, key, root);
+  const adopt = useTabHandoff(all, setAll, folder, key);
+  const latest = useRef(all);
+  useEffect(() => {
+    latest.current = all;
+  });
   const docks = (key !== null && all[key]) || NO_DOCKS;
   const { side, bottom, focus } = docks;
 
@@ -56,8 +54,17 @@ export function useTabs(
 
   return {
     files,
-    /** Every conversation's tabs, e.g. to know which terminals any tab shows. */
+    /** Every conversation's tabs. */
     everyFile: useEverySame(everyTab(all)),
+    /** Every conversation's terminal tabs, the same array until one opens or closes. */
+    terminalTabs: useEverySame(
+      [...new Set(everyTab(all).filter((t) => terminalOf(t) !== null))].sort(),
+    ),
+    /** Whether `tab` is open in any conversation, as of the last render. */
+    isOpen: useCallback(
+      (tab: string) => everyTab(latest.current).includes(tab),
+      [],
+    ),
     active: docks[focus].active,
     side,
     bottom,

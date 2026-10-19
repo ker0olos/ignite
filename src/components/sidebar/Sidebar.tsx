@@ -22,8 +22,8 @@ export function Sidebar({
   ...treeProps
 }: Omit<ComponentProps<typeof FileTree>, "root" | "folder"> & {
   folder: string;
-  /** The file tree's root: the shown conversation's worktree, else the folder. */
-  root: string;
+  /** The file tree's root: the shown conversation's worktree, else the folder; none while unknown. */
+  root: string | null;
   actions: ReactNode;
   /** Shown above the folder name, e.g. a sign-in warning. */
   banner?: ReactNode;
@@ -74,7 +74,7 @@ export function Sidebar({
         files={
           showTree ? (
             <div className="always-bounce px-2 pb-2">
-              <FileTree root={root} folder={folder} {...treeProps} />
+              {root && <FileTree root={root} folder={folder} {...treeProps} />}
             </div>
           ) : null
         }

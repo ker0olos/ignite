@@ -27,7 +27,7 @@ import { follow, reportTo } from "./hostFollow.ts";
 import { forkOf } from "./forks.ts";
 import { withEntryIds } from "./hostCheckpoint.ts";
 import { hand, takeTurn } from "./hostSend.ts";
-import { closeTerminalsIn } from "./hostTerminal.ts";
+import { releaseWorkspace } from "./hostTerminal.ts";
 import { commandReason } from "./wire.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
@@ -229,7 +229,7 @@ async function inWorkspace(
   try {
     return await open(ws.dir);
   } catch (error) {
-    await ctx.workspaces.close(agent.cwd, agent.id).catch(() => {});
+    await releaseWorkspace(ctx, agent);
     throw error;
   }
 }
@@ -254,13 +254,8 @@ async function end(ctx: HostContext, agent: Agent, quitting = false) {
   // dispose() alone leaves extensions running (MCP server processes).
   await s.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
   s.dispose();
-  // Its work stays saved with the conversation; see worktrees.ts. No shell is left in a removed folder.
-  const removed =
-    agent.workdir !== agent.cwd
-      ? await closeTerminalsIn(agent.workdir)
-      : undefined;
-  await ctx.workspaces.close(agent.cwd, agent.id).catch(() => {});
-  removed?.();
+  // Its work stays saved with the conversation; see worktrees.ts.
+  await releaseWorkspace(ctx, agent);
 }
 
 /** Ends every conversation, as the app quits. */

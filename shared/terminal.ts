@@ -27,8 +27,8 @@ export type TerminalRequest =
       type: "terminal_open";
       cwd: string;
       dir?: string;
-      /** The conversation it's for: its worktree once it's open, waited for while it opens. */
-      session?: string;
+      /** The conversation it's for (its worktree, waited for while it's made); null: none yet, the folder; left out: the one being shown. */
+      session?: string | null;
       cols: number;
       rows: number;
     }

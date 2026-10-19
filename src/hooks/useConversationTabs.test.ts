@@ -4,10 +4,12 @@ import { fakeFs } from "@/test/fakeFs";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { Conversations } from "@/hooks/useConversations";
 import { childTabId } from "@/lib/childTabs";
+import { cacheLayout } from "@/lib/worktreeLayout";
 import { useConversationTabs } from "./useConversationTabs";
 
 type Props = {
   session: string | null;
+  workdir?: string | null;
   listed?: string[];
   started?: { folder: string; session: string; workdir: string } | null;
 };
@@ -15,11 +17,16 @@ type Props = {
 function setup() {
   const conversations = {
     show: vi.fn(),
-    close: vi.fn(async () => true),
+    close: vi.fn(async () => {}),
     dismiss: vi.fn(),
   } as unknown as Conversations;
   const hook = renderHook(
-    ({ session, listed = ["s1", "s2"], started = null }: Props) =>
+    ({
+      session,
+      workdir = session && `/wt/${session}`,
+      listed = ["s1", "s2"],
+      started = null,
+    }: Props) =>
       useConversationTabs(
         null,
         "/work",
@@ -27,7 +34,7 @@ function setup() {
         {
           session,
           none: session === null,
-          root: session ? `/wt/${session}` : "/work",
+          workdir,
           started,
         } as unknown as ReturnType<typeof useAgentSession>,
         conversations,
@@ -68,24 +75,14 @@ it("drops a conversation's tabs once it closed, and a dismissed folder's", async
   expect(conversations.dismiss).toHaveBeenCalledWith("/work");
 });
 
-it("keeps a conversation's tabs when closing it failed, even as it leaves the list", async () => {
-  const { result, rerender, conversations } = setup();
-  // The sidecar takes a while to end it, then fails.
-  let fail = () => {};
-  vi.mocked(conversations.close).mockImplementationOnce(
-    () => new Promise((resolve) => (fail = () => resolve(false))),
-  );
-  act(() => result.current.tabs.open("/wt/s1/a.ts"));
-  let closing: Promise<boolean> = Promise.resolve(true);
-  act(() => {
-    closing = result.current.conversations.close("/work", "s1", []);
-  });
-  rerender({ session: "s1", listed: ["s2"] });
-  await act(async () => {
-    fail();
-    await closing;
-  });
-  expect(result.current.tabs.everyFile).toEqual(["/wt/s1/a.ts"]);
+it("knows a conversation's root before it opens, from the folder's worktree layout", () => {
+  cacheLayout("/work", { base: "/wt", prefix: "" });
+  const { result, rerender } = setup();
+  rerender({ session: "s2", workdir: null });
+  expect(result.current.shown).toEqual({ session: "s2", root: "/wt/s2" });
+  rerender({ session: null });
+  expect(result.current.shown.root).toBe("/work");
+  localStorage.clear();
 });
 
 it("drops the tabs of a conversation that left the list some other way", () => {

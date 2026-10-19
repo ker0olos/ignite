@@ -89,10 +89,7 @@ export function moveTab(
 /** Each conversation's tabs, by `tabsKey`. */
 export type TabSets = Record<string, Docks>;
 
-/**
- * The key a folder's conversation keeps its tabs under; `session` null before
- * its first message, undefined while the folder's conversation isn't known yet.
- */
+/** A conversation's tabs' key; `session` null before its first message, undefined while unknown. */
 export const tabsKey = (folder: string, session: string | null | undefined) =>
   `${folder}\n${session === undefined ? "?" : (session ?? "")}`;
 

@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import type { RemoteStatus } from "../../../shared/remote";
 import { TitleButtons } from "@/components/app/TitleButtons";
 import { Workspace } from "@/components/app/Workspace";
@@ -50,6 +51,8 @@ type AppWorkspaceProps = {
   openIn: (folder: string, tab: string, session?: string) => void;
   /** Opens a terminal's tab in the conversation that has it. */
   openTerminal: (cwd: string, terminal: string) => void;
+  /** The shown conversation and where its files are. */
+  shown: ComponentProps<typeof Workspace>["shown"];
   about: ReturnType<typeof useAbout>;
 };
 
@@ -74,6 +77,7 @@ export function AppWorkspace({
   terminals,
   openIn,
   openTerminal,
+  shown,
   tags,
   tagFilter,
   onToggleTagFilter,
@@ -158,6 +162,7 @@ export function AppWorkspace({
         />
       }
       session={session}
+      shown={shown}
       host={host}
     />
   );

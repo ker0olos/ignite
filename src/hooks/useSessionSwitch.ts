@@ -99,7 +99,7 @@ export function useSessionSwitch({
   // Closing the shown conversation shows a neighbour; after the last, none.
   const close = useCallback(
     async (session: string, shown: string | null, open: string[]) => {
-      if (!host || !folder) return false;
+      if (!host || !folder) return;
       // The neighbour shows at once; ending a conversation saves its worktree, which takes a while.
       if (session === shown) {
         const next = neighbour(open, session);
@@ -109,14 +109,10 @@ export function useSessionSwitch({
           put(folder, null);
         }
       }
-      const closed = await host
+      await host
         .request({ type: "close_session", cwd: folder, session })
-        .then(
-          () => true,
-          (e: Error) => (setError(e.message), false),
-        );
+        .catch((e: Error) => setError(e.message));
       drop(session);
-      return closed;
     },
     [host, folder, show, put, drop, setError],
   );

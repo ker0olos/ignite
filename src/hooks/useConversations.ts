@@ -6,7 +6,7 @@ import type { HostClient } from "@/lib/piHost";
 type Shown = {
   show: (session: string, cwd: string) => unknown;
   create: (cwd: string) => void;
-  close: (session: string, open: string[]) => Promise<boolean>;
+  close: (session: string, open: string[]) => Promise<void>;
 };
 
 /**
@@ -48,11 +48,9 @@ export function useConversations(
     async (cwd: string, session: string, open: string[]) => {
       forget(cwd, session);
       if (cwd === current) return shown.close(session, open);
-      if (!host) return false;
-      return host.request({ type: "close_session", cwd, session }).then(
-        () => true,
-        () => false,
-      );
+      await host
+        ?.request({ type: "close_session", cwd, session })
+        .catch(() => {});
     },
     [host, current, shown, forget],
   );
