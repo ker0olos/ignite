@@ -61,16 +61,21 @@ async function release(
 ) {
   if (!existsSync(path)) return dropDoppler(path);
   const group = isGroup(path);
-  const who = group ? await groupOwner(path) : owner(path);
-  if (sweeping ? who !== "gone" || (await isNew(path)) : who === "alive")
-    return;
+  const held = async () => {
+    const who = group ? await groupOwner(path) : owner(path);
+    return sweeping ? who !== "gone" : who === "alive";
+  };
+  if ((await held()) || (sweeping && (await isNew(path)))) return;
   await removing?.();
   const keep = await dropReady(path);
-  await (group ? removeGroup(path, id) : remove(path, id)).catch((error) => {
+  const removed = await (
+    group ? removeGroup(path, id, held) : remove(path, id, held)
+  ).catch((error) => {
     // Kept (it couldn't be saved): it still needs its ignored files.
     keep();
     throw error;
   });
+  if (!removed) return keep();
   dropDoppler(path);
 }
 

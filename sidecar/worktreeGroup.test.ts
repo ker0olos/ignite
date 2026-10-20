@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { whenReady } from "./worktreeReady.ts";
 import { createWorkspaces } from "./worktrees.ts";
 import {
@@ -25,6 +25,23 @@ import {
   worktreePath,
 } from "./worktreeGit.ts";
 import { ghDir, groupRepos } from "./worktreeGroup.ts";
+
+// Runs while a worktree is being saved, as a conversation opening it then would.
+const whileSaving = vi.hoisted(() => ({
+  run: undefined as (() => Promise<unknown>) | undefined,
+}));
+vi.mock("./worktreeGit.ts", async (original) => {
+  const real = await original<typeof import("./worktreeGit.ts")>();
+  return {
+    ...real,
+    snapshot: async (...args: Parameters<typeof real.snapshot>) => {
+      const run = whileSaving.run;
+      whileSaving.run = undefined;
+      await run?.();
+      return real.snapshot(...args);
+    },
+  };
+});
 
 let base: string;
 let folder: string;
@@ -152,6 +169,29 @@ describe("a folder of repositories", () => {
     expect(existsSync(worktreePath(folder, "live", root))).toBe(true);
     const again = await workspaces.open(folder, "a");
     expect(read(again.dir, "web", "app.ts")).toBe("agent\n");
+  });
+
+  it("leaves a copy its conversation opens while the sweep saves it", async () => {
+    const workspaces = createWorkspaces(root);
+    const ws = await workspaces.open(folder, "a");
+    write(join(ws.dir, "web", "app.ts"), "agent\n");
+    for (const name of ["server", "web"]) {
+      const checkout = join(ws.dir, name);
+      git(join(folder, name), "worktree", "unlock", checkout);
+      git(
+        join(folder, name),
+        "worktree",
+        "lock",
+        "--reason",
+        "ignite pid 999999",
+        checkout,
+      );
+    }
+    utimesSync(ws.dir, 0, 0);
+    whileSaving.run = () => workspaces.open(folder, "a");
+    await workspaces.sweep();
+    expect(read(ws.dir, "web", "app.ts")).toBe("agent\n");
+    expect(read(ws.dir, "server", "app.ts")).toBe("server\n");
   });
 
   it("leaves a copy another live window uses when this one closes it", async () => {

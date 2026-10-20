@@ -138,17 +138,23 @@ export function leave(path: string) {
  * Saves the worktree's state (and branch) under conversation `id`, then
  * deletes it. Throws, keeping it, when the state can't be saved.
  */
-export async function remove(path: string, id = basename(path)) {
+export async function remove(
+  path: string,
+  id = basename(path),
+  held?: () => Promise<boolean>,
+) {
   leave(path);
   const repo = repoOf(path);
   if (!repo) {
     await rm(path, { recursive: true, force: true });
     await tidy(dirname(path));
-    return;
+    return true;
   }
   const branch = await gitOr(path, ["symbolic-ref", "-q", "--short", "HEAD"]);
   const message = `${APP_NAME} snapshot${branch ? `\n\nbranch: ${branch}` : ""}`;
   await git(repo, ["update-ref", stateRef(id), await snapshot(path, message)]);
+  // The save takes a while, and a conversation may open the worktree meanwhile.
+  if (await held?.()) return false;
   await dropCheckpoints(repo, id);
   await gitOr(repo, ["worktree", "unlock", path]);
   // Windows can't delete a file another process holds open; then a later
@@ -158,6 +164,7 @@ export async function remove(path: string, id = basename(path)) {
   );
   await gitOr(repo, ["worktree", "prune"]);
   await tidy(dirname(path));
+  return true;
 }
 
 /** Gives conversation `to` a copy of `from`'s files in `repo` (its worktree at `path` if open, else its saved state). */

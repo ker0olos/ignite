@@ -98,11 +98,17 @@ async function copyLooseFiles(folder: string, path: string) {
 }
 
 /** Saves each worktree in the workspace under conversation `id`, then deletes it all. Throws, keeping it, when one can't be saved. */
-export async function removeGroup(path: string, id: string) {
+export async function removeGroup(
+  path: string,
+  id: string,
+  held?: () => Promise<boolean>,
+) {
   leave(path);
-  for (const checkout of groupCheckouts(path)) await remove(checkout, id);
+  for (const checkout of groupCheckouts(path))
+    if (!(await remove(checkout, id, held))) return false;
   await rm(path, { recursive: true, force: true });
   await tidy(dirname(path));
+  return true;
 }
 
 // A worktree that failed partway: gone, and unregistered, so the next open makes it again.
