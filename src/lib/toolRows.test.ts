@@ -139,6 +139,23 @@ describe("toRows", () => {
     ]);
   });
 
+  it("folds subagents with each other, never with quiet calls", () => {
+    const rows = toRows([
+      assistant([
+        call("subagent", "a"),
+        call("subagent", "b"),
+        call("read", "c"),
+        call("read", "d"),
+        call("subagent", "e"),
+      ]),
+    ]);
+    expect(rows).toEqual([
+      { kind: "group", calls: [call("subagent", "a"), call("subagent", "b")] },
+      { kind: "group", calls: [call("read", "c"), call("read", "d")] },
+      { kind: "tool", call: call("subagent", "e") },
+    ]);
+  });
+
   it("text breaks a group", () => {
     const rows = toRows([
       assistant([
@@ -240,6 +257,9 @@ describe("groupSummary", () => {
   it("leaves out kinds that didn't run", () => {
     expect(groupSummary([call("bash"), call("bash")])).toBe(
       "Ran 2 shell commands",
+    );
+    expect(groupSummary([call("subagent"), call("subagent")])).toBe(
+      "Ran 2 subagents",
     );
   });
 });

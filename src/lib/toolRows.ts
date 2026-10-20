@@ -21,7 +21,18 @@ export type Row =
   | { kind: "end"; message: AssistantMessage };
 
 // Look-around tools that fold into one summary line, as in Claude Code.
-const QUIET = new Set(["read", "outline", "grep", "find", "ls", "bash"]);
+// Subagents fold too, but only with each other.
+const QUIET = new Set([
+  "read",
+  "outline",
+  "grep",
+  "find",
+  "ls",
+  "bash",
+  SUBAGENT_TOOL,
+]);
+
+const isSubagent = (call: ToolCall) => call.name === SUBAGENT_TOOL;
 
 type Block = AssistantMessage["content"][number];
 
@@ -54,7 +65,8 @@ function pushCall(rows: Row[], call: ToolCall, tools: Record<string, ToolRun>) {
     rows.push({ kind: "tool", call });
     return;
   }
-  if (last?.kind === "group") last.calls.push(call);
+  if (last?.kind === "group" && isSubagent(last.calls[0]) === isSubagent(call))
+    last.calls.push(call);
   else rows.push({ kind: "group", calls: [call] });
 }
 
@@ -143,6 +155,7 @@ export function groupSummary(calls: ToolCall[]) {
     [count("grep", "find"), "searched for", "pattern", "patterns"],
     [count("ls"), "listed", "folder", "folders"],
     [count("bash"), "ran", "shell command", "shell commands"],
+    [count(SUBAGENT_TOOL), "ran", "subagent", "subagents"],
   ] as const;
   const text = parts
     .filter(([n]) => n > 0)

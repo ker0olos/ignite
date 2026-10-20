@@ -4,11 +4,12 @@ import type { ToolCall } from "../../../shared/agentTypes";
 import { StatusDot } from "@/components/conversation/StatusDot";
 import { ToolView } from "@/components/conversation/ToolView";
 import type { ToolProps } from "@/components/conversation/shared";
+import { subagentWaits } from "@/lib/subagentRows";
 import type { ToolRun } from "@/lib/transcript";
 import { groupSummary } from "@/lib/toolRows";
 import { cn } from "@/lib/utils";
 
-/** Consecutive reads, searches and shell commands, folded into one line. */
+/** Consecutive reads, searches and shell commands, or subagents, folded into one line. */
 export function ToolGroup({
   calls,
   tools,
@@ -22,7 +23,7 @@ export function ToolGroup({
   const running = runs.some((r) => !r || r.status === "running");
   const failed = runs.some((r) => r?.status === "error");
   // A call waiting for approval must be seen, so the group opens for it.
-  const waiting = runs.some((r) => r?.approval);
+  const waiting = runs.some((r) => r?.approval || subagentWaits(r, tools));
   const status: ToolRun | undefined = running
     ? undefined
     : { status: failed ? "error" : "done" };
