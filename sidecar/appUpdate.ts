@@ -84,4 +84,14 @@ export async function appUpdate({
 }
 
 /** Tells the launcher to start the app again once it quits. */
-export const appRestart = () => writeState("restart", "1");
+const appRestart = () => writeState("restart", "1");
+
+/** The host's version and update requests. */
+export const appHandlers = {
+  app_version: () => appVersion(),
+  app_update: (ctx: { send(m: { type: "app_update_installing" }): void }) =>
+    appUpdate({
+      installing: () => ctx.send({ type: "app_update_installing" }),
+    }),
+  app_restart: () => appRestart(),
+};

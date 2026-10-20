@@ -46,6 +46,7 @@ import { createSkillStore } from "./skillStore.ts";
 import { createRemote } from "./remote.ts";
 import { taskAnswerer, taskStoreIn } from "./hostTasks.ts";
 import { TASK_EVENT } from "./taskExtension.ts";
+import { answerKeys } from "./fallbackExtension.ts";
 import {
   claudeBridge,
   mcpExtension,
@@ -138,9 +139,11 @@ async function openSession(
   );
   eventBus.on(APPROVAL_EVENT, (data) => onApproval(data as ApprovalAsk));
   eventBus.on(TASK_EVENT, taskAnswerer(tasks, folder, id));
+  const modelRuntime = await runtimeFor(logins.store, cwd);
+  const keys = answerKeys(eventBus, modelRuntime);
   eventBus.on(SUBAGENT_EVENT, (data) => {
     const ask = data as SubagentAsk;
-    ask.reply(openSubagent(folder, cwd, ask, eventBus));
+    ask.reply(openSubagent(folder, cwd, ask, eventBus, keys));
   });
   const resourceLoader = new DefaultResourceLoader({
     cwd,
@@ -159,7 +162,7 @@ async function openSession(
   const { session } = await createAgentSession({
     cwd,
     agentDir,
-    modelRuntime: await runtimeFor(logins.store, cwd),
+    modelRuntime,
     sessionManager,
     settingsManager,
     resourceLoader,
@@ -191,6 +194,7 @@ async function openSubagent(
   cwd: string,
   { model, effort, tools, prompt }: SubagentAsk,
   eventBus: ReturnType<typeof createEventBus>,
+  keys: ReturnType<typeof answerKeys>,
 ) {
   const settingsManager = SettingsManager.inMemory(
     { defaultTools },
@@ -210,7 +214,8 @@ async function openSubagent(
   const { session } = await createAgentSession({
     cwd,
     agentDir,
-    modelRuntime: await runtimeFor(logins.store, cwd),
+    // The conversation's fallback key, as subagents run on its provider.
+    modelRuntime: await runtimeFor(logins.store, cwd, keys),
     model,
     thinkingLevel: effort,
     tools,

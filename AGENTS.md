@@ -33,7 +33,7 @@ src/                     React frontend (almost all logic lives here)
     lessons/             A lesson's tags (its folder, what brings it up), in Settings and proposals
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
     skills/              Skill and plugin rows, import UI from other apps
-    providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos
+    providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos, the Claude card's fallback keys
     children/            Tabs for what runs under a conversation: a subagent's conversation, a background command's output, the user's interactive terminals
                          (one starting while its conversation's worktree is made)
     terminal/            TerminalSurface: text drawn as a read-only terminal (xterm)
@@ -111,6 +111,7 @@ src/                     React frontend (almost all logic lives here)
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
     useInstalledThemes.ts The code and icon themes to pick from, scanned again on every open
     useLessons.ts        Every saved lesson, while Settings is open; removing one
+    useFallbackKeys.ts   The fallback Anthropic API keys on the connect screen: add, remove, reorder
     useLessonProposals.ts The reflector's proposed lessons for the shown conversation: keep or discard
     useOpenedOnce.ts     Mounts a lazy dialog (Settings, command center) on first open; loads its code soon after startup
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
@@ -173,6 +174,7 @@ src/                     React frontend (almost all logic lives here)
     skills.ts            Skills settings text: counts
     memory.ts            Memory settings text: the switch's line, the type filters, relative times
     lessons.ts           A lesson's folder as its tag names it
+    fallbackKeys.ts      Whether a provider card offers fallback keys (Claude, on a subscription)
     about.ts             About text: version line, update button states, the macOS About panel
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
     gitPolicy.ts         Which git and gh tool calls run and which ask (commit and push for review)
@@ -336,6 +338,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          packages, pnpm); the user's conversations, settings and tasks stay unless `--all`
   appVersions.ts         The launcher's state (good, bad, next, restart), staging an update, pruning versions
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
+  fallbackKeys.ts        Anthropic API keys a conversation falls back to when the Claude subscription runs out (~/.ignite/fallback-keys.json)
+  fallback.ts            Knowing it ran out (claude-bridge's error), until when (its rate-limit header, else the error's time), the next key
+  fallbackExtension.ts   Moves the conversation onto the next key and continues the run; back on the subscription after the reset
   lines.ts               LF-only JSONL splitting
   mcpConfig.ts           pi-mcp-adapter's mcp.json: read, edit servers, cached tool names
   mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
@@ -408,6 +413,7 @@ docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/auth.ts           A provider sign-in's prompts and events as they cross the wire
 shared/validation.ts     Checks on typed API keys and MCP servers (used by both)
+shared/fallbackKeys.ts   Fallback keys as the app sees them (last 4 characters only) and their requests
 shared/agentTypes.ts     pi's messages and session events as they cross the wire
 shared/conversations.ts  Saved conversations, their details, command search hits, titles (used by both)
 shared/skills.ts         Skills, plugins and importable skills as they cross the wire, and their requests;
@@ -1079,7 +1085,27 @@ are dropped, since it already wrote down what the reflector would. Settings → 
 
 Claude subscriptions run through the user's own Claude Code via the
 `pi-claude-bridge` extension (pi provider `claude-bridge`), because Anthropic
-bills pi's direct Claude sign-in to extra usage. See the skill's auth.md. ChatGPT signs in
+bills pi's direct Claude sign-in to extra usage. See the skill's auth.md.
+When the subscription runs out mid-run (claude-bridge's "Claude quota
+exceeded" error), `sidecar/fallbackExtension.ts` moves the conversation onto
+the user's fallback Anthropic API keys (added in the connect screen's Claude
+card while it's on a subscription, kept owner-only in
+`~/.ignite/fallback-keys.json`; the app only ever sees their last 4
+characters), in order: in `agent_before_settle` it drops the failed reply from
+the model's context, sets the key as the session runtime's runtime key (over
+the event bus to `start.ts`), switches to the same model on the API
+(`claude-bridge/claude-opus-5-5` to `anthropic/claude-opus-5-5`) and
+continues the run; a key that's spent, refused or throttled (`keyFailed`, not
+a transient or request error) moves on to the next. The limit's reset comes
+from the rejected window's `anthropic-ratelimit-unified-reset` header the
+bridge sends just before the error (not while overage still serves it), else
+the error's "resets 6:30 PM", else an hour; it's shared by every conversation
+(`globalThis`) and saved with the conversation's state (a `ignite.fallback`
+custom entry, so a reopened one keeps its key). The first message after the
+reset goes back to the subscription and drops the runtime key, so it doesn't
+linger in the model menu or background calls. Subagents started meanwhile get
+the conversation's key (they run on its provider) but don't fall back
+themselves. The first call on a key sends the whole conversation uncached. ChatGPT signs in
 automatically with the Codex CLI's login (`~/.codex/auth.json`) when the app
 has none of its own; token refreshes are written back to that file.
 
