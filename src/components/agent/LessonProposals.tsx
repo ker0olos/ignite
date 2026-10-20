@@ -15,7 +15,7 @@ export function LessonProposals({
 }) {
   if (!lessons.length) return null;
   return (
-    <div className="mx-auto w-full max-w-3xl px-4">
+    <div className="mx-auto w-full max-w-3xl px-4 pb-2">
       <div className="flex items-start gap-2 rounded-lg border p-2.5 text-[13px]">
         <Lightbulb className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
