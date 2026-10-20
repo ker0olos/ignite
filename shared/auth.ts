@@ -26,3 +26,8 @@ export type AuthEventData =
       expiresInSeconds?: number;
     }
   | { type: "progress"; message: string };
+
+/** The user's answer to an AuthPromptData, or its dismissal. */
+export type AuthPromptAnswer =
+  | { type: "prompt_answer"; promptId: number; value: string }
+  | { type: "prompt_cancel"; promptId: number };

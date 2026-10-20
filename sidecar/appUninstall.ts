@@ -21,6 +21,7 @@ const RUNTIME = [
   "launch",
   "bin",
   "sigstore",
+  "hangs",
 ];
 
 type Place = {

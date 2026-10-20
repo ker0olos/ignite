@@ -41,6 +41,7 @@ import { createMcpStore, MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import { SUBAGENT_EVENT, type SubagentAsk } from "./subagentExtension.ts";
 import { createKeepAwake } from "./keepAwake.ts";
+import { createHangWatch } from "./hangWatch.ts";
 import { createTrustStore } from "./trust.ts";
 import { createSkillStore } from "./skillStore.ts";
 import { createRemote } from "./remote.ts";
@@ -252,6 +253,7 @@ const host = createHost(
 );
 
 const inFlight = new Set<Promise<void>>();
+const heartbeat = createHangWatch();
 
 // Opened once the shown conversation is, which would otherwise wait while it
 // loads the extensions, so a new conversation's model menu is ready when first shown.
@@ -269,6 +271,7 @@ const lines = createLineSplitter((line) => {
     return;
   }
   if (remote.fromApp(request)) return;
+  if (request.type === "heartbeat") return heartbeat(request.visible);
   // Slow requests are logged, so a stuck one shows up in the app's terminal.
   const started = Date.now();
   const stuck = setTimeout(

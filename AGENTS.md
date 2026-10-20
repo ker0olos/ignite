@@ -377,6 +377,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   subagentQueue.ts       Runs at most `max` subagents at once; the rest wait their turn
   subagentSession.ts     A subagent's session: talking to it and ending it (the 8 last used stay open)
   keepAwake.ts           Keeps the Mac from idle-sleeping (caffeinate) while an agent works
+  hangWatch.ts           The page's heartbeats; 10s without one (visible, Mac awake) samples the app's
+                         processes into ~/.ignite/hangs
   chrome.ts              Chrome over CDP: a headless one the app starts, or the user's own (port 9222) when asked
   chromeExtension.ts     chrome_* tools: tabs, screenshot, eval, navigate, raw CDP calls
   chromePage.ts          A tab's CDP calls: run JS, wait for load, screenshot

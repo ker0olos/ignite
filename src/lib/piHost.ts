@@ -181,5 +181,24 @@ export async function openPiHost(): Promise<HostClient> {
   if (isRemote()) return createHostClient(remoteTransport());
   const transport = early ?? spawnSidecar();
   early = null;
-  return createHostClient(await transport);
+  const client = createHostClient(await transport);
+  // A sidecar that stops hearing these samples the app (sidecar/hangWatch.ts).
+  const beat = () =>
+    void client
+      .send({ type: "heartbeat", visible: !document.hidden })
+      .catch(stop);
+  const timer = setInterval(beat, 1000);
+  // Hidden pages' timers are throttled; say so at once.
+  document.addEventListener("visibilitychange", beat);
+  function stop() {
+    clearInterval(timer);
+    document.removeEventListener("visibilitychange", beat);
+  }
+  return {
+    ...client,
+    close: () => {
+      stop();
+      return client.close();
+    },
+  };
 }

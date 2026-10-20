@@ -3,7 +3,7 @@
  * (sidecar/main.ts): one JSON object per line, in both directions.
  */
 import type { AgentMessage, ImageContent, SessionEvent } from "./agentTypes.ts";
-import type { AuthEventData, AuthPromptData } from "./auth.ts";
+import type * as Auth from "./auth.ts";
 import type {
   AgentStatus,
   ChildRequest,
@@ -264,8 +264,9 @@ export type HostRequest =
   | TaskRequest
   | TerminalRequest
   | AppUpdateRequest
-  | { type: "prompt_answer"; promptId: number; value: string }
-  | { type: "prompt_cancel"; promptId: number }
+  | Auth.AuthPromptAnswer
+  /** Sent every second while the page runs (sidecar/hangWatch.ts). */
+  | { type: "heartbeat"; visible: boolean }
   /**
    * `answers` replies to an ask_user call; declining one lets the agent decide.
    * `always` also allows the request's `allow` from now on.
@@ -331,8 +332,8 @@ export type HostMessage =
   | { type: "ready" }
   | { type: "response"; id: number; ok: true; data?: unknown }
   | { type: "response"; id: number; ok: false; error: string }
-  | { type: "auth_event"; event: AuthEventData }
-  | { type: "auth_prompt"; promptId: number; prompt: AuthPromptData }
+  | { type: "auth_event"; event: Auth.AuthEventData }
+  | { type: "auth_prompt"; promptId: number; prompt: Auth.AuthPromptData }
   /** The flow no longer needs this prompt (e.g. the browser callback won). */
   | { type: "auth_prompt_closed"; promptId: number }
   | { type: "session_event"; session: string; event: SessionEvent }

@@ -14,7 +14,7 @@ export function answered(
     ctx.prompts.get(request.promptId)?.resolve(request.value);
   } else if (request.type === "prompt_cancel") {
     ctx.prompts.get(request.promptId)?.reject(new Error("Cancelled"));
-  } else {
+  } else if (request.type === "approval_answer") {
     const { toolCallId, approved, answers, always } = request;
     answerApproval(ctx, toolCallId, approved, answers, always);
   }
