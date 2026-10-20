@@ -20,6 +20,8 @@ import type {
   SessionDetails,
 } from "./conversations.ts";
 import type * as Lessons from "./lessons.ts";
+import type * as Fallback from "./fallbackKeys.ts";
+import type { AppUpdateRequest, AppUpdateResponses } from "./appUpdate.ts";
 import type { QuestionAnswer } from "./questions.ts";
 import type { McpCatalog } from "./mcpCatalog.ts";
 import type { McpServer, McpServerConfig } from "./mcpServers.ts";
@@ -244,6 +246,7 @@ export type HostRequest =
     }
   | SkillRequest
   | Lessons.LessonRequest
+  | Fallback.FallbackKeyRequest
   /** The folder's memories for Settings: its latest, or `query`'s best matches, of `kind` only when given. */
   | {
       id: number;
@@ -260,14 +263,7 @@ export type HostRequest =
   | GitRequest
   | TaskRequest
   | TerminalRequest
-  | { id: number; type: "app_version" }
-  /**
-   * Gets the latest code: run from the launcher, builds it to run on the next
-   * start (`ready`), else pulls it (`updated` is false when already current).
-   */
-  | { id: number; type: "app_update" }
-  /** Has the launcher start the app again, on a built update, once it quits. */
-  | { id: number; type: "app_restart" }
+  | AppUpdateRequest
   | { type: "prompt_answer"; promptId: number; value: string }
   | { type: "prompt_cancel"; promptId: number }
   /**
@@ -292,6 +288,8 @@ export type {
 /** What each request resolves to. */
 export type HostResponses = SkillResponses &
   Lessons.LessonResponses &
+  Fallback.FallbackKeyResponses &
+  AppUpdateResponses &
   RewindResponses &
   TaskResponses &
   TerminalResponses &
@@ -326,10 +324,6 @@ export type HostResponses = SkillResponses &
     memory_status: MemoryStatus;
     memory_changed: undefined;
     set_trust: undefined;
-    app_version: AppVersion;
-    /** `warning`: the update's binary couldn't be verified (appBinary.ts). */
-    app_update: { updated: boolean; ready?: boolean; warning?: string };
-    app_restart: undefined;
   };
 
 /** Messages the sidecar sends. */

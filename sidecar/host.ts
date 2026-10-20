@@ -27,6 +27,7 @@ import { userPickedModel } from "./hostRoute.ts";
 import { closeConversation, fork } from "./hostFork.ts";
 import { rewind } from "./hostRewind.ts";
 import { lessonHandlers } from "./hostReflect.ts";
+import { fallbackKeyHandlers } from "./fallbackKeys.ts";
 import { mcpServers, changeMcp, changeSkills } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
 import { signIn, signOut } from "./hostMcpSignIn.ts";
@@ -35,7 +36,7 @@ import { memoryStatus } from "./memory.ts";
 import { answered } from "./hostAnswers.ts";
 import { setTrust } from "./hostTrust.ts";
 import { compact, stop, unqueue } from "./hostQueue.ts";
-import { appRestart, appUpdate, appVersion } from "./appUpdate.ts";
+import { appHandlers } from "./appUpdate.ts";
 import { fileDiff } from "./gitReview.ts";
 import {
   conversationGitStatus,
@@ -149,6 +150,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
     changeSkills(ctx, () => ctx.skills.importSkills(r.source, r.names)),
   ...lessonHandlers,
   ...worktreeHandlers,
+  ...fallbackKeyHandlers,
   memory_status: (_ctx, r) =>
     memoryStatus(r.cwd, { query: r.query, kind: r.kind }),
   // The memory extension reads the setting on (re)load, like mcp.json.
@@ -181,12 +183,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   terminal_close_idle: (_ctx, r) => closeIdleTerminal(r.terminal),
   terminal_list: (_ctx, r) => terminalsIn(r.cwd),
   terminal_snapshot: (_ctx, r) => terminalSnapshot(r.terminal),
-  app_version: () => appVersion(),
-  app_update: (ctx) =>
-    appUpdate({
-      installing: () => ctx.send({ type: "app_update_installing" }),
-    }),
-  app_restart: () => appRestart(),
+  ...appHandlers,
 };
 
 /**

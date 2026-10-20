@@ -72,9 +72,15 @@ export function activateCurrentTools(session: Tools) {
 /**
  * A model runtime for one session in `cwd`, which it passes to providers:
  * pi-claude-bridge runs Claude Code in `options.cwd`, which pi never sets.
+ * `keys` copies runtime keys in (a conversation's fallback key, for its subagent).
  */
-export async function runtimeFor(credentials: Credentials, cwd: string) {
+export async function runtimeFor(
+  credentials: Credentials,
+  cwd: string,
+  keys?: { copyTo(runtime: ModelRuntime): Promise<void> },
+) {
   const runtime = await ModelRuntime.create({ credentials, modelsPath: null });
+  await keys?.copyTo(runtime);
   const stream = runtime.stream.bind(runtime);
   const streamSimple = runtime.streamSimple.bind(runtime);
   runtime.stream = (model, context, options) =>

@@ -6,6 +6,9 @@ import type {
   Providers,
 } from "@/components/providers/ConnectProviders";
 import { DisconnectButton } from "@/components/providers/DisconnectButton";
+import { FallbackKeys } from "@/components/providers/FallbackKeys";
+import type { useFallbackKeys } from "@/hooks/useFallbackKeys";
+import { offersFallbackKeys } from "@/lib/fallbackKeys";
 import { KeyForm } from "@/components/providers/KeyForm";
 import { LoginPanel } from "@/components/providers/LoginPanel";
 import { OptionRow } from "@/components/providers/OptionRow";
@@ -17,10 +20,12 @@ import type { ProviderId } from "../../../shared/hostProtocol";
 export function ProviderCard({
   card,
   providers,
+  fallback,
   loading,
 }: {
   card: Card;
   providers: Providers;
+  fallback: ReturnType<typeof useFallbackKeys>;
   loading: boolean;
 }) {
   const { statuses, login, error, connect, disconnect } = providers;
@@ -78,6 +83,10 @@ export function ProviderCard({
             )}
           </div>
         ))}
+
+        {offersFallbackKeys(card, connected) && (
+          <FallbackKeys fallback={fallback} />
+        )}
 
         {activeLogin ? (
           <LoginPanel login={activeLogin} onCancel={providers.cancel} />

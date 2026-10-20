@@ -163,6 +163,10 @@ export const settingsAnswers = (now = Date.now()) => ({
   lesson_answer: () => [],
   lessons_list: () => [],
   lessons_remove: () => [],
+  fallback_keys: () => [],
+  fallback_key_add: () => [],
+  fallback_key_remove: () => [],
+  fallback_key_move: () => [],
   app_version: () => DEMO_VERSION,
   app_update: () => ({ updated: false }),
 });

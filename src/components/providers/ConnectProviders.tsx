@@ -9,6 +9,7 @@ import { ClaudeLogo } from "@/components/providers/ClaudeLogo";
 import { OpenAILogo } from "@/components/providers/OpenAILogo";
 import { ProviderCard } from "@/components/providers/ProviderCard";
 import { Button } from "@/components/ui/button";
+import { useFallbackKeys } from "@/hooks/useFallbackKeys";
 import type { useProviders } from "@/hooks/useProviders";
 import { claudeSignIn } from "@/lib/providerGroups";
 
@@ -32,6 +33,8 @@ export type Card = {
   maker: string;
   icon: ComponentType<{ className?: string }>;
   options: Option[];
+  /** Offers fallback API keys while a subscription is connected. */
+  fallbackKeys?: boolean;
 };
 
 const CARDS: Card[] = [
@@ -39,6 +42,7 @@ const CARDS: Card[] = [
     title: "Claude",
     maker: "Anthropic",
     icon: ClaudeLogo,
+    fallbackKeys: true,
     options: [
       {
         provider: "claude-code",
@@ -103,6 +107,7 @@ export function ConnectProviders({
   onDone: () => void;
 }) {
   const { statuses, hostError, anyConnected } = providers;
+  const fallback = useFallbackKeys(providers.host, true);
 
   return (
     <div className="flex h-screen flex-col">
@@ -129,6 +134,7 @@ export function ConnectProviders({
                     key={card.title}
                     card={card}
                     providers={providers}
+                    fallback={fallback}
                     loading={!statuses}
                   />
                 ))}

@@ -35,6 +35,9 @@ export const SESSION_EXTENSIONS = [
   sibling("./bashExtension.ts"),
   sibling("./terminalExtension.ts"),
   sibling("./forkExtension.ts"),
+  // ponytail: conversations only, so a subagent that hits the limit fails; load it in
+  // SUBAGENT_EXTENSIONS with answerKeys on the subagent's runtime if that matters.
+  sibling("./fallbackExtension.ts"),
   exploring,
   waitFirst,
   lessons,
