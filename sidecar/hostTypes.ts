@@ -260,6 +260,8 @@ export type Agent = {
   closed?: boolean;
   /** Lessons and skill additions the reflector proposed, until the user keeps or discards them. */
   proposals?: Proposal[];
+  /** How many lessons it saved itself, so a reflection that ran meanwhile is dropped. */
+  lessonsWritten?: number;
 };
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };

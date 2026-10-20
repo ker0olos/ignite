@@ -3,11 +3,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AgentMessage } from "../shared/agentTypes.ts";
+import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import type { ProposedLesson, ProposedSkill } from "../shared/lessons.ts";
 import { changeSkills } from "./hostMcp.ts";
 import {
   answerProposal,
+  followLessons,
   lessonHandlers,
   noteDenied,
   noteRewound,
@@ -204,6 +205,45 @@ describe("reflectOn", () => {
     });
     await reflectOn(contextOf(agent), agent, file);
     expect(agent.proposals?.map((p) => p.id)).toEqual(["other", "p2"]);
+  });
+});
+
+describe("followLessons", () => {
+  const ended = (toolName: string, saved = true) =>
+    ({
+      type: "message_end",
+      message: {
+        role: "toolResult",
+        toolName,
+        isError: false,
+        content: [],
+        details: saved ? { lesson: { id: "l1" } } : undefined,
+      },
+    }) as unknown as SessionEvent;
+
+  it("drops the corrections, pending proposals and a reflection still running once the agent saves a lesson, not on a declined replace", async () => {
+    const agent = agentWith();
+    const ctx = contextOf(agent);
+    agent.corrections = ["denied"];
+    followLessons(ctx, agent, ended("lesson_add", false));
+    followLessons(ctx, agent, ended("bash"));
+    expect(agent.corrections).toEqual(["denied"]);
+    vi.mocked(reflect).mockImplementation(async () => {
+      agent.proposals = [proposal({ id: "pending" })];
+      followLessons(ctx, agent, ended("lesson_add"));
+      return [proposal()];
+    });
+    await reflectOn(ctx, agent, file);
+    expect(agent.proposals).toEqual([]);
+    expect(ctx.send).toHaveBeenCalledWith({
+      type: "lesson_proposals",
+      session: "c1",
+      lessons: [],
+    });
+    agent.corrections = ["denied"];
+    followLessons(ctx, agent, ended("lesson_add"));
+    await reflectOn(ctx, agent, file);
+    expect(reflect).toHaveBeenCalledTimes(1);
   });
 });
 

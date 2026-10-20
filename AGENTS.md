@@ -1064,7 +1064,10 @@ a built-in skill is copied into `~/.ignite/pi/skills` first, so the copy
 replaces it); the folder's own `.pi` skills are left alone. Most corrections
 teach nothing and propose none. The proposals show above the composer (Keep
 saves the lesson, or adds the section and reloads the sessions; Discard drops
-it), kept in the sidecar's memory until answered or the conversation closes. Settings → Lessons lists every saved lesson
+it), kept in the sidecar's memory until answered or the conversation closes.
+Once the agent saves a lesson itself (often in the run after the correction),
+its pending proposals, the corrections so far and a reflection still running
+are dropped, since it already wrote down what the reflector would. Settings → Lessons lists every saved lesson
 (where it applies, how often it came up) and removes one.
 
 Claude subscriptions run through the user's own Claude Code via the

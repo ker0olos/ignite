@@ -1,7 +1,7 @@
 /** The user's corrections of a conversation, reflected on once its run settles (see reflector.ts). */
 import { readFileSync } from "node:fs";
 import { serializeConversation } from "@earendil-works/pi-coding-agent";
-import type { AgentMessage } from "../shared/agentTypes.ts";
+import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import {
   LESSON_ADD_TOOL,
   LESSON_REMOVE_TOOL,
@@ -73,6 +73,25 @@ export function noteRewound(
   );
 }
 
+/** The agent saved a lesson itself (often the run after the correction): the reflector's proposals so far, and one still being written, are dropped. */
+export function followLessons(
+  ctx: HostContext,
+  agent: Agent,
+  event: SessionEvent,
+) {
+  if (event.type !== "message_end") return;
+  const m = event.message;
+  if (m.role !== "toolResult" || !("toolName" in m)) return;
+  // Only a save carries `details.lesson`; a declined replace doesn't.
+  const saved = (m.details as { lesson?: unknown } | undefined)?.lesson;
+  if (m.toolName !== LESSON_ADD_TOOL || !saved) return;
+  agent.corrections = [];
+  agent.lessonsWritten = (agent.lessonsWritten ?? 0) + 1;
+  if (!agent.proposals?.length) return;
+  agent.proposals = [];
+  push(ctx, agent);
+}
+
 const push = (ctx: HostContext, agent: Agent) =>
   ctx.send({
     type: "lesson_proposals",
@@ -111,6 +130,11 @@ function skillsFor(
   });
 }
 
+const known = (agent: Agent, file: string) => [
+  ...lessonsFor(readLessons(file), agent.cwd).map((l) => l.text),
+  ...(agent.proposals ?? []).map(textOf),
+];
+
 /** Reflects on the corrections since the last settled run, and proposes what it learned. */
 export async function reflectOn(
   ctx: HostContext,
@@ -121,20 +145,18 @@ export async function reflectOn(
   const s = agent.session;
   if (!corrections?.length || !s) return;
   agent.corrections = [];
-  const existing = [
-    ...lessonsFor(readLessons(file), agent.cwd).map((l) => l.text),
-    ...(agent.proposals ?? []).map(textOf),
-  ];
+  const written = agent.lessonsWritten;
   const all = await reflect(
     s,
     corrections,
-    existing,
+    known(agent, file),
     skillsFor(ctx, s.messages),
   );
   // Another reflection may have proposed the same while this one ran.
   const pending = new Set(agent.proposals?.map(textOf));
   const found = all.filter((p) => !pending.has(textOf(p)));
-  if (!found.length || ctx.agents.get(agent.id) !== agent) return;
+  if (!found.length || agent.lessonsWritten !== written) return;
+  if (ctx.agents.get(agent.id) !== agent) return;
   agent.proposals = [...(agent.proposals ?? []), ...found];
   push(ctx, agent);
 }
