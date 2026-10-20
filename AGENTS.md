@@ -251,6 +251,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   worktreeGit.ts         Worktree paths, snapshots of a working state, folderOf / gitWritable
   worktreeClone.ts       Copy-on-write clones of the folder's ignored files into a worktree
   worktreeReady.ts       Each workspace's readiness (its ignored files cloned in), by path, shared with extensions
+  doppler.ts             Doppler's folder settings in a worktree: a copy of its config naming the worktree too
   readyExtension.ts      Holds writes, commands, git and reads of missing files until the workspace is ready
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
   hostAnswers.ts         Requests that get no response: prompt answers, approval answers, skip wait
@@ -935,7 +936,13 @@ worktree and session are made (`hooks/useStartingMessage.ts`). Where the filesys
 ext4, other volumes), only ignored files are copied; ignored folders are
 skipped and the agent installs and builds its own, since a copy costs their
 full size and a link would let it write into the user's (Windows has no
-sandbox to stop that). There's no "apply": work reaches the folder through
+sandbox to stop that). Doppler keys a folder's project and config by its
+path, so shells in a worktree (the user's terminals, the agent's bash) get
+`DOPPLER_CONFIG_DIR` at a copy of the user's config, written again as each
+starts, in which the folder's settings (and its parents', which Doppler
+applies by prefix) also name the worktree (`sidecar/doppler.ts`, in
+`~/.ignite/doppler`, out of the sandbox's reach, deleted with the worktree); Doppler
+prints a line on stderr saying it uses it. There's no "apply": work reaches the folder through
 git. `sidecar/worktreeExtension.ts` tells the agent to deliver on a branch
 of its own, pushed with a pull request, and after a successful push or
 `gh pr merge` the git tools fast-forward the user's folder (`git pull
