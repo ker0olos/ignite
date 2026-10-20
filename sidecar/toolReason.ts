@@ -5,14 +5,18 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
-/** The `reason` parameter's schema. */
+const WHY =
+  "Why you're making this call, in one plain sentence the user reads when asked to approve it " +
+  "(what it does and what it's for).";
+
+/** bash's optional `reason`. */
 export const REASON = Type.Optional(
   Type.String({
-    description:
-      "Why you're making this call, in one plain sentence the user reads when asked to approve it " +
-      "(what it does and what it's for). Give it whenever the call may change something.",
+    description: `${WHY} Give it whenever the call may change something.`,
   }),
 );
+
+const REQUIRED_REASON = Type.String({ description: `${WHY} Always give it.` });
 
 type Tool = Parameters<ExtensionAPI["registerTool"]>[0];
 type Args = Record<string, unknown>;
@@ -26,18 +30,23 @@ export function withoutReason<T>(args: T): T {
 }
 
 /**
- * `tool` taking `reason` too, dropped before it reaches the tool's own code;
+ * `tool` requiring `reason` too, dropped before it reaches the tool's own code;
  * a tool with its own `reason` keeps it.
  */
 export function withReason(tool: Tool): Tool {
-  const params = tool.parameters as { type?: string; properties?: Args };
+  const params = tool.parameters as {
+    type?: string;
+    properties?: Args;
+    required?: string[];
+  };
   if (params.type !== "object" || params.properties?.reason) return tool;
   const prepare = tool.prepareArguments;
   return {
     ...tool,
     parameters: {
       ...(tool.parameters as object),
-      properties: { ...params.properties, reason: REASON },
+      properties: { ...params.properties, reason: REQUIRED_REASON },
+      required: [...(params.required ?? []), "reason"],
     },
     ...(prepare && {
       prepareArguments: (args: unknown) => {
@@ -50,7 +59,7 @@ export function withReason(tool: Tool): Tool {
   } as Tool;
 }
 
-/** `pi` with every tool registered through it taking `reason`. */
+/** `pi` with every tool registered through it requiring `reason`. */
 export function reasonedTools(pi: ExtensionAPI): ExtensionAPI {
   return new Proxy(pi, {
     get(target, key) {

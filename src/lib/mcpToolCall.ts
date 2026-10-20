@@ -84,6 +84,26 @@ function readsOnly(tool: string): boolean {
   return words.some((w) => READS.has(w)) && !words.some((w) => CHANGES.has(w));
 }
 
+const TOOLS_REF = /(?<![\w$.])tools\b/g;
+const NAMED_CALL =
+  /(?<![\w$.])tools\s*(?:\.\s*call\s*\(\s*|\[\s*)(["'])([^"'\n]+)\1|(?<![\w$.])tools\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
+
+/**
+ * The tools an `mcpScript` calls by name (`<server>_<tool>`), "and others"
+ * when it also reaches `tools` some other way (a computed path, an alias); "" when none.
+ */
+export function scriptToolsText(code: string): string {
+  const named = [...code.matchAll(NAMED_CALL)]
+    .map((m) => m[2] ?? m[3])
+    .filter((name) => name !== "call");
+  const names = [
+    ...new Set(named.filter((n) => n !== "search" && n !== "describe")),
+  ];
+  if (!names.length) return "";
+  const others = code.match(TOOLS_REF)!.length > named.length;
+  return names.join(", ") + (others ? " and others" : "");
+}
+
 /**
  * Why Auto asks before an MCP call (it may change something), or null.
  * `direct`: the tool is one of the adapter's direct tools (`<server>_<tool>`).
@@ -96,7 +116,12 @@ export function mcpReason(
   const call = direct
     ? { kind: "call" as const, tool: name }
     : mcpCall(name, args);
-  if (call?.kind === "script") return "Runs MCP calls from a script";
+  if (call?.kind === "script") {
+    const tools = scriptToolsText(call.code);
+    return tools
+      ? `Runs MCP calls from a script: ${tools}`
+      : "Runs MCP calls from a script";
+  }
   if (call?.kind !== "call" || !call.tool || readsOnly(call.tool)) return null;
   return `May make changes: ${call.tool}`;
 }

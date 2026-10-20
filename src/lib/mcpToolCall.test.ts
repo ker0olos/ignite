@@ -4,6 +4,8 @@ import {
   approvalCallout,
   argsText,
   mcpCall,
+  mcpReason,
+  scriptToolsText,
 } from "./mcpToolCall";
 
 describe("approvalArgs", () => {
@@ -120,6 +122,36 @@ describe("mcpCall", () => {
       code: "emit(1)",
     });
     expect(mcpCall("mcpScript", {})).toEqual({ kind: "script", code: "" });
+  });
+
+  it("names the tools a script calls", () => {
+    const code = `
+      await tools.search({ query: "x" });
+      const d = await tools.describe({ path: "a_b" });
+      await tools.call("supabase-motr_generate_typescript_types", {});
+      await tools["linear_create-issue"]({});
+      await tools.github_list_issues({});
+      await devtools.open({});
+      await tools.call('supabase-motr_generate_typescript_types', {});`;
+    expect(scriptToolsText(code)).toBe(
+      "supabase-motr_generate_typescript_types, linear_create-issue, github_list_issues",
+    );
+    expect(mcpReason("mcpScript", { code })).toBe(
+      "Runs MCP calls from a script: supabase-motr_generate_typescript_types, linear_create-issue, github_list_issues",
+    );
+  });
+
+  it("says a script also calls others it doesn't name", () => {
+    expect(
+      scriptToolsText("await tools.a_b({}); await tools.call(d.path, {})"),
+    ).toBe("a_b and others");
+    expect(
+      scriptToolsText("const { x_del } = tools; await tools.call('a_b')"),
+    ).toBe("a_b and others");
+    expect(scriptToolsText("await tools.call(`${s}_x`, {})")).toBe("");
+    expect(mcpReason("mcpScript", { code: "await tools.call(p, {})" })).toBe(
+      "Runs MCP calls from a script",
+    );
   });
 
   it("treats anything else as housekeeping", () => {

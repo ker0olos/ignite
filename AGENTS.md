@@ -588,7 +588,7 @@ pi has no approval prompts of its own. `sidecar/approvalExtension.ts` (loaded
 last into every session) handles `tool_call`: `lib/approvalPolicy.ts` decides
 whether the call waits, the question goes to the host over pi's event bus
 (`app/approval`) and on to the app as `approval_request`, and the tool row
-shows Approve / Deny, answered with `approval_answer`. bash and every MCP tool take a `reason`
+shows Approve / Deny, answered with `approval_answer`. bash takes a `reason` and every MCP tool requires one
 (`sidecar/toolReason.ts`, dropped before the tool runs), shown above what the
 call would run (its command, or an MCP call's arguments). A denied call returns
 `{ block: true, reason }` to the model; stopping the run or closing the

@@ -15,7 +15,7 @@ const tool = (extra: Partial<Tool> = {}) =>
     ...extra,
   }) as Tool;
 
-it("takes a reason the tool never sees", async () => {
+it("requires a reason the tool never sees", async () => {
   const inner = tool();
   const wrapped = withReason(inner);
   const params = wrapped.parameters as unknown as {
@@ -23,7 +23,7 @@ it("takes a reason the tool never sees", async () => {
     required: string[];
   };
   expect(Object.keys(params.properties)).toEqual(["sql", "reason"]);
-  expect(params.required).toEqual(["sql"]);
+  expect(params.required).toEqual(["sql", "reason"]);
   const ctx = {} as Parameters<Tool["execute"]>[4];
   const args = { sql: "x", reason: "why" };
   await wrapped.execute("id", args, undefined, undefined, ctx);
