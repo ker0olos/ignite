@@ -25,12 +25,13 @@ function setup() {
   const el = document.createElement("main");
   let height = 1000;
   let top = 0;
+  let view = 200;
   Object.defineProperty(el, "scrollTop", {
     get: () => top,
-    set: (v: number) => (top = Math.min(v, height - 200)),
+    set: (v: number) => (top = Math.min(v, height - view)),
   });
   Object.defineProperty(el, "scrollHeight", { get: () => height });
-  Object.defineProperty(el, "clientHeight", { get: () => 200 });
+  Object.defineProperty(el, "clientHeight", { get: () => view });
   let width = 800;
   Object.defineProperty(el, "clientWidth", { get: () => width });
   const scroll = (top: number) => {
@@ -74,6 +75,13 @@ function setup() {
     height -= by;
     scroll(top);
   };
+  // The view grows and clamps the scroll, then the content grows before its scroll event.
+  const taller = (by: number, grown: number) => {
+    view += by;
+    el.scrollTop = top;
+    height += grown;
+    el.dispatchEvent(new Event("scroll"));
+  };
   return {
     el,
     scroll,
@@ -82,6 +90,7 @@ function setup() {
     send,
     narrow,
     widen,
+    taller,
     show,
     stuck: result.current,
   };
@@ -158,6 +167,15 @@ describe("useStickToBottom", () => {
     expect(stuck.current).toBe(true);
     grow(50);
     expect(el.scrollTop).toBe(750);
+  });
+
+  it("keeps following when the view grows and the content grows before its scroll event", () => {
+    const { el, taller, grow, stuck } = setup();
+    taller(100, 50); // clamped to 700, then 50 more below
+    expect(stuck.current).toBe(true);
+    expect(el.scrollTop).toBe(750);
+    grow(50);
+    expect(el.scrollTop).toBe(800);
   });
 
   it("puts back the bottom when shown after its scroll was reset while hidden", () => {
