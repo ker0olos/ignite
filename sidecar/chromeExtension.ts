@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { IMAGE_TOOL } from "../shared/agentTypes.ts";
+import { ARTIFACT_TOOL, IMAGE_TOOL } from "../shared/agentTypes.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { chrome, pages, withTab, type Tab } from "./chrome.ts";
 import { savedBlobs } from "./cdpResult.ts";
@@ -68,6 +68,7 @@ function registerLooking(pi: ExtensionAPI, scope: Scope) {
       "The chrome_* tools drive a headless Chrome the app started, with its own profile. Use it for testing and browsing.",
       "Only when a page needs a login you can't complete there yourself, pass user_chrome: true to use the user's own Chrome: their logins, sessions and data (Chrome may ask them to allow it). There, touch only the tab the task needs, close nothing, and ask before submitting forms, buying, sending or deleting anything.",
       "Look at a chrome_screenshot before saying a page looks right.",
+      `Never show the user designs, mockups or options by rendering them in Chrome and screenshotting them: write them as pages with ${ARTIFACT_TOOL}. Chrome is for checking real pages of the project.`,
     ],
     parameters: Type.Object({ user_chrome: UserParam }),
     async execute(_id, { user_chrome }) {
