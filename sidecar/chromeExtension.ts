@@ -127,7 +127,7 @@ function registerLooking(pi: ExtensionAPI, scope: Scope) {
     name: "chrome_eval",
     label: "Chrome JavaScript",
     description:
-      "Run JavaScript in a Chrome tab as a user gesture, awaiting promises; returns the result as JSON. " +
+      "Run JavaScript in a Chrome tab as a user gesture, awaiting promises (for 30 seconds at most); returns the result as JSON. " +
       "Use it to read the page and to click or type: controlled inputs (React) need " +
       'an "input" event with bubbles: true after setting .value.',
     parameters: Type.Object({
@@ -220,8 +220,10 @@ function registerActing(pi: ExtensionAPI, scope: Scope) {
     }),
     executionMode: "sequential",
     async execute(id, { method, params, tab, browser, user_chrome }) {
-      const shown = async (result: unknown) =>
-        text(show(await savedBlobs(result, method, params, id)));
+      const shown = async (result: unknown) => {
+        const json = show(await savedBlobs(result, method, params, id));
+        return text(json === "{}" ? "Done" : json);
+      };
       if (browser) {
         if (await scope.task()) throw new Error(NO_BROWSER_CALLS);
         if (!user_chrome) throw new Error(NO_OWN_BROWSER_CALLS);

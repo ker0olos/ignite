@@ -13,6 +13,11 @@ const USER_PORT = 9222;
 // Its own port, so it never hides the user's Chrome once they allow debugging.
 const OWN_PORT = 9333;
 
+const CALL_TIMEOUT = 30_000;
+
+/** The error of a CDP call that went unanswered, after its method. */
+export const CDP_TIMEOUT = `Chrome didn't answer within ${CALL_TIMEOUT / 1000} seconds, though the call may still finish. The page may be busy or blocked by an alert() or confirm() dialog: load the tab again with chrome_navigate (in the user's Chrome, ask them first).`;
+
 export const NO_USER_CHROME =
   "The user's Chrome doesn't allow remote debugging. Ask them to open Chrome, turn on the toggle at chrome://inspect/#remote-debugging, then try again.";
 
@@ -106,7 +111,16 @@ function open(url: string, own: boolean): Promise<Cdp> {
         new Promise<T>((res, rej) => {
           if (cdp.closed) return rej(new Error("Chrome closed the connection"));
           const id = next++;
-          pending.set(id, { resolve: (v) => res(v as T), reject: rej });
+          // A page blocked on alert() or confirm() never answers input or evaluate calls.
+          const stall = setTimeout(() => {
+            pending.delete(id);
+            rej(new Error(`${method}: ${CDP_TIMEOUT}`));
+          }, CALL_TIMEOUT);
+          const done = () => clearTimeout(stall);
+          pending.set(id, {
+            resolve: (v) => (done(), res(v as T)),
+            reject: (e) => (done(), rej(e)),
+          });
           ws.send(JSON.stringify({ id, method, params, sessionId }));
         }),
     };
@@ -256,6 +270,6 @@ export async function withTab<T>(
   try {
     return await work(cdp, sessionId, tab);
   } finally {
-    await cdp.send("Target.detachFromTarget", { sessionId }).catch(() => {});
+    void cdp.send("Target.detachFromTarget", { sessionId }).catch(() => {});
   }
 }

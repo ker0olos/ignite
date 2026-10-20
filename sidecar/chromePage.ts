@@ -1,5 +1,5 @@
 /** CDP calls on an attached tab, for the chrome_* tools. */
-import type { Cdp } from "./chrome.ts";
+import { CDP_TIMEOUT, type Cdp } from "./chrome.ts";
 
 // Keeps a full page within models' 8000px image limit at 2x.
 // ponytail: taller pages are cut off; scroll and shoot again, or tile them if it matters.
@@ -31,8 +31,12 @@ export async function evaluate(
 export async function settle(cdp: Cdp, sessionId: string) {
   for (let i = 0; i < 50; i++) {
     await new Promise((r) => setTimeout(r, 200));
+    // A navigation swaps the context mid-call; a stuck page won't come back.
     const state = await evaluate(cdp, sessionId, "document.readyState").catch(
-      () => null,
+      (e: Error) => {
+        if (e.message.endsWith(CDP_TIMEOUT)) throw e;
+        return null;
+      },
     );
     if (state === "complete") return;
   }

@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { APP_NAME } from "../src/lib/app.ts";
 import {
+  CDP_TIMEOUT,
   chrome,
   endpointOn,
   hiddenContexts,
@@ -87,6 +88,7 @@ describe("chrome", () => {
     }
     send(raw: string) {
       const { id, method } = JSON.parse(raw);
+      if (method === "Input.dispatchMouseEvent") return;
       const result =
         method === "Target.getTargets"
           ? { targetInfos: tabs }
@@ -140,6 +142,21 @@ describe("chrome", () => {
     await expect(
       withTab("A", async () => "", false, new Set(["A"])),
     ).rejects.toThrow('No tab matches "A"');
+  });
+
+  it("gives up on a call Chrome never answers", async () => {
+    const cdp = await chrome();
+    vi.useFakeTimers();
+    try {
+      const call = cdp.send("Input.dispatchMouseEvent");
+      const failed = expect(call).rejects.toThrow(
+        `Input.dispatchMouseEvent: ${CDP_TIMEOUT}`,
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+      await failed;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
