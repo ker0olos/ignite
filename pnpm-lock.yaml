@@ -173,6 +173,9 @@ importers:
       ws:
         specifier: ^8.22.0
         version: 8.22.0
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1

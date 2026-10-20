@@ -19,6 +19,7 @@ import {
   tidy,
 } from "./worktreeCheckout.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
+import { dropDoppler } from "./doppler.ts";
 import { dropReady, setReady } from "./worktreeReady.ts";
 import type { WorktreeLayout } from "../shared/git.ts";
 import {
@@ -58,7 +59,7 @@ async function release(
   sweeping = false,
   removing?: () => Promise<void>,
 ) {
-  if (!existsSync(path)) return;
+  if (!existsSync(path)) return dropDoppler(path);
   const group = isGroup(path);
   const who = group ? await groupOwner(path) : owner(path);
   if (sweeping ? who !== "gone" || (await isNew(path)) : who === "alive")
@@ -70,6 +71,7 @@ async function release(
     keep();
     throw error;
   });
+  dropDoppler(path);
 }
 
 /** Agents' worktrees under `root`. */

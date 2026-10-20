@@ -6,6 +6,7 @@ import unicode11 from "@xterm/addon-unicode11";
 import xterm from "@xterm/headless";
 import { spawn, type IPty } from "node-pty";
 import { APP_NAME } from "../src/lib/app.ts";
+import { dopplerEnv } from "./doppler.ts";
 
 // ponytail: node-pty 1.1's prebuilt spawn-helper ships without its exec bit
 // ("posix_spawnp failed"); drop once a release fixes it.
@@ -58,7 +59,7 @@ export function spawnPty(
     cols: options.cols ?? 120,
     rows: options.rows ?? 40,
     cwd: options.cwd,
-    env: options.env,
+    env: { ...options.env, ...dopplerEnv(options.cwd) },
   });
 }
 

@@ -3,6 +3,7 @@ import {
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { runBackground } from "./bashExtension.ts";
+import { withDoppler } from "./doppler.ts";
 import { skippable } from "./skipWait.ts";
 
 /** Runs a bash call outside the sandbox, as the user approved; never throws. */
@@ -18,7 +19,7 @@ export async function runOutside(
       return { ...done, isError: done.isError ?? false };
     }
     const done = await skippable(toolCallId, (spawnHook) =>
-      createBashTool(ctx.cwd, { spawnHook }).execute(
+      createBashTool(ctx.cwd, { spawnHook: withDoppler(spawnHook) }).execute(
         toolCallId,
         input as never,
         ctx.signal,

@@ -24,6 +24,7 @@ import {
   type Background,
 } from "./backgroundBash.ts";
 import bashWait from "./bashWait.ts";
+import { withDoppler } from "./doppler.ts";
 import { skippable } from "./skipWait.ts";
 import { REASON, withoutReason } from "./toolReason.ts";
 
@@ -125,13 +126,9 @@ export default function bash(pi: ExtensionAPI) {
       const { background, ...input } = withoutReason(params);
       if (!background) {
         return skippable(id, (spawnHook) =>
-          createBashToolDefinition(process.cwd(), { spawnHook }).execute(
-            id,
-            input,
-            signal,
-            onUpdate,
-            ctx,
-          ),
+          createBashToolDefinition(process.cwd(), {
+            spawnHook: withDoppler(spawnHook),
+          }).execute(id, input, signal, onUpdate, ctx),
         );
       }
       const command = written.get(id);

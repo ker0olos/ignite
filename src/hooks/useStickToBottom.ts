@@ -66,8 +66,9 @@ export function useStickToBottom(
     // also lowers scrollHeight, so it isn't taken for the user scrolling.
     const onScroll = () => {
       if (!visible.current) return;
-      // The browser clamping scrollTop as the text reflows, not the user.
-      if (el.clientWidth !== width) return follow();
+      // The browser clamping scrollTop as the text reflows or the view grows
+      // (the composer shrinking), not the user.
+      if (el.clientWidth !== width || el.clientHeight !== view) return follow();
       const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
       if (gap <= AT_BOTTOM_PX) stuck.current = true;
       else if (el.scrollTop < top && el.scrollHeight >= height)
