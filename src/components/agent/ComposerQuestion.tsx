@@ -20,25 +20,21 @@ export function ComposerQuestion({
   const note = noteLabel(draft.picked);
   return (
     <div className="pt-3 text-[13px] animate-in fade-in duration-200">
-      <div className="flex items-baseline gap-2.5 px-0.5 pb-2">
-        {count > 1 && (
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {step + 1}/{count}
-          </span>
+      <div className="px-0.5 pb-2">
+        {(count > 1 || question.header || multi) && (
+          <div className="flex items-baseline gap-2.5 pb-1 text-xs text-muted-foreground">
+            {count > 1 && (
+              <span className="tabular-nums">
+                {step + 1}/{count}
+              </span>
+            )}
+            {question.header && (
+              <span className="font-medium">{question.header}</span>
+            )}
+            {multi && <span className="ml-auto">Pick any that apply</span>}
+          </div>
         )}
-        {question.header && (
-          <span className="shrink-0 text-xs font-medium text-muted-foreground">
-            {question.header}
-          </span>
-        )}
-        <span className="font-semibold text-foreground">
-          {question.question}
-        </span>
-        {multi && (
-          <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-            Pick any that apply
-          </span>
-        )}
+        <p className="font-semibold text-foreground">{question.question}</p>
       </div>
       <div
         ref={ref}
