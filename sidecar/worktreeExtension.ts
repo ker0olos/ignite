@@ -17,6 +17,10 @@ Deliver work as a pull request, one per repository you changed:
 4. Stop there. Don't merge the pull request, merge into or push the default branch, or pull the default branch into yours, unless the user asks.
 Never force push, rewrite pushed history, or delete branches. If a push is rejected, say why and stop.`;
 
+/** CLAUDE.md, memories and the user name the user's folder; the agent must read them as its own copy. */
+const samePaths = (cwd: string, folder: string) =>
+  `Paths under ${folder} (in CLAUDE.md, memories or the user's messages) mean the same paths under ${cwd}: read, search, edit and run git there, never in ${folder}.`;
+
 const SHARED = `You work in the user's own folder: its repositories are the user's checkouts. Before you create a branch in one, note the branch it's on; leave their uncommitted changes out of your commits, and switch back to that branch once your pull request is open.`;
 
 /** The system prompt's note for an agent in `cwd`, a worktree of `folder`. */
@@ -26,6 +30,7 @@ export function guidance(cwd: string, folder: string, branch: string | null) {
     : "";
   return [
     `You work in your own git worktree at ${cwd}, a separate checkout of the user's repository at ${folder}.`,
+    samePaths(cwd, folder),
     "Other agents may work in the same repository in their own worktrees. The user's folder and theirs are not yours to edit; nothing you change shows up in the user's folder until it's merged.",
     "Your worktree started from the latest default branch on the remote, with no branch checked out.",
     `To deliver your work, create a branch named for the task, commit, push and open a pull request with the git and gh tools.${checkedOut}`,
@@ -38,6 +43,7 @@ export function guidance(cwd: string, folder: string, branch: string | null) {
 export function groupGuidance(cwd: string, folder: string, repos: string[]) {
   return [
     `You work in your own copy of the user's folder at ${cwd}: the user's folder at ${folder} holds several repositories (${repos.join(", ")}), and each of them here is your own git worktree, a separate checkout of the user's.`,
+    samePaths(cwd, folder),
     "Other agents may work in the same repositories in their own worktrees. The user's folder and theirs are not yours to edit; nothing you change shows up in the user's folder until it's merged.",
     "Each worktree started from its repository's latest default branch on the remote, with no branch checked out. Run git in one with -C <repo>, and gh with -R <owner/name> for it (gh pr create also with --head <branch>), since gh runs in this folder, which isn't a repository.",
     "To deliver your work, create a branch named for the task in each repository you changed, commit, push and open a pull request there with the git and gh tools.",
@@ -61,8 +67,7 @@ async function where(cwd: string) {
 
 export default function worktreeGuidance(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event, ctx) => {
-    return {
-      systemPrompt: `${event.systemPrompt}\n\n${GIT_GUIDANCE}\n\n${await where(ctx.cwd)}`,
-    };
+    // A section, not added text: claude-bridge passes Claude Code only the prompt's sections.
+    event.systemPromptOptions.sections.worktree = `${GIT_GUIDANCE}\n\n${await where(ctx.cwd)}`;
   });
 }

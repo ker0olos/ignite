@@ -14,6 +14,7 @@ describe("guidance", () => {
     expect(text).toContain("repository at /work");
     expect(text).toContain("open a pull request");
     expect(text).toContain("Don't switch to main");
+    expect(text).toContain("same paths under /wt/a");
   });
 
   it("names no branch when the user's folder isn't on one", () => {
@@ -29,6 +30,7 @@ describe("groupGuidance", () => {
     expect(text).toContain("-C <repo>");
     expect(text).toContain("in each repository you changed");
     expect(text).toContain("aren't kept");
+    expect(text).toContain("never in /projects");
   });
 });
 
@@ -43,13 +45,13 @@ describe("the worktree extension", () => {
   };
 
   it("tells an agent in the user's own folder how to use git there", async () => {
-    const result = (await load().get("before_agent_start")!(
-      { systemPrompt: "base" },
+    const sections: Record<string, string> = {};
+    await load().get("before_agent_start")!(
+      { systemPromptOptions: { sections } },
       { cwd: "/work" },
-    )) as { systemPrompt: string };
-    expect(result.systemPrompt).toMatch(/^base\n\n/);
-    expect(result.systemPrompt).toContain(GIT_GUIDANCE);
-    expect(result.systemPrompt).toContain("the user's checkouts");
-    expect(result.systemPrompt).not.toContain("your own git worktree");
+    );
+    expect(sections.worktree).toContain(GIT_GUIDANCE);
+    expect(sections.worktree).toContain("the user's checkouts");
+    expect(sections.worktree).not.toContain("your own git worktree");
   });
 });
