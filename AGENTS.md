@@ -1011,8 +1011,8 @@ learned, completed, next steps, notes), all keyed by folder. Once a run
 settles, `sidecar/hostMemory.ts` hands it to `sidecar/memoryWriter.ts`: the
 cheapest priced model of the conversation's provider (the router's) reads it,
 with the titles the conversation already recorded, and writes what's worth
-knowing later, one call per run (a run past 60,000 characters takes a call
-per chunk, keeping the last one's summary); `<private>` text, the memory
+knowing later, one call per run (a run past half the model's window, at most
+400,000 characters, takes a call per chunk, keeping the last one's summary); `<private>` text, the memory
 tools and plan or lesson calls are left out. A new conversation's system
 prompt (read once, for its cache) gets an index of its folder's 50 latest
 observations and 10 latest summaries, one line each (id, time, mark, title)

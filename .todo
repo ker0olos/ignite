@@ -1,0 +1,9 @@
+## Memory
+
+- Check the memory again on 2026-10-21 (native writer since 2026-10-19 21:45; memories with `origin IS NULL` in ~/.ignite/memory.db are ours, the rest cmem's imports)
+  - Checked on 2026-10-20: 95 memories over 7 conversations; every conversation that did work was recorded, cmem no longer records Ignite's, agents used memory_get/search/timeline 30 times
+  - Titles were fine: none narrated the observing ("Analyzed X and recorded findings"), so WRITER_PROMPT needed no examples
+  - Duplicates came only from long runs split into 60k-character chunks: each chunk recorded the same feature again at its own stage (in progress, committed, done), e.g. conversation 57006836's 03:04 run had 4 chunks and 4 copies of the timezone feature
+  - Fixed: chunks now take half the writer model's window (at most 400k characters), so those runs are one call; the prompt says to record each thing once as it ended up (cmem's rule), and `change` is only files edited, gotchas going to discovery
+  - Tomorrow: look for repeated titles within a run (same created_at) and whether gotchas still land as `change`; if long runs on a small-window model still repeat, give later chunks the earlier observations in full, not only titles
+  - For comparison, cmem records live per tool call: one Collide conversation got 144 memories, and the same Doppler keyring bug 4 times

@@ -226,6 +226,19 @@ describe("write", () => {
     expect(third.messages[0].content).toContain("- First");
   });
 
+  it("reads a long run whole when it fits the model's window", async () => {
+    const big = "x".repeat(CHUNK_CHARS * 0.6);
+    const s = session(answer({ observations: [{ title: "Whole" }] }));
+    const wide = { ...model, contextWindow: 200_000 };
+    Object.assign(s, { model: wide });
+    Object.assign(s.modelRuntime, {
+      getModels: () => [wide],
+      getAvailable: async () => [wide],
+    });
+    await write(s, [user(big), user(big), user(big)], [], (p) => p, []);
+    expect(s.modelRuntime.completeSimple).toHaveBeenCalledOnce();
+  });
+
   it("writes nothing when the model fails or no model has a price", async () => {
     const failing = session();
     vi.mocked(failing.modelRuntime.completeSimple).mockRejectedValue(
