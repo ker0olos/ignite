@@ -8,21 +8,29 @@ export function ImageCompare({
   before,
   after,
   name,
+  wide,
 }: {
   before: ImageContent;
   after: ImageContent;
   name: string;
+  wide?: boolean;
 }) {
   const [split, setSplit] = useState(50);
   return (
-    <div className="relative mt-1 w-fit max-w-full overflow-hidden rounded-lg border select-none">
+    <div
+      className={cn(
+        "relative max-w-full overflow-hidden select-none",
+        wide ? "w-full" : "mt-1 w-fit rounded-lg border",
+      )}
+    >
       <img
         src={imageUrl(after)}
         alt={`${name} after`}
         className={cn(
-          "block max-h-96 max-w-full object-contain",
+          "block max-w-full object-contain",
+          wide ? "max-h-[28rem] w-full" : "max-h-96",
           // An SVG has no size of its own, so it gets a height.
-          after.mimeType === "image/svg+xml" && "h-80 w-auto",
+          !wide && after.mimeType === "image/svg+xml" && "h-80 w-auto",
         )}
       />
       <img

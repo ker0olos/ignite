@@ -70,10 +70,36 @@ export default function showImage(pi: ExtensionAPI) {
     description:
       "Show the user an image file (png, jpg, gif, webp, svg) in the conversation. " +
       "The path may be anywhere, e.g. a render or screenshot you saved in /tmp. " +
-      "You see the image too (not SVG), so there's no need to read it again.",
-    promptSnippet: `${IMAGE_TOOL}: show the user an image file`,
+      "You see the image too (not SVG), so there's no need to read it again. " +
+      "For an image you generated or edited with an AI model (through bash, with any service), " +
+      "pass `model` and `prompt` and the user sees them with it; for an edit also `editOf`, " +
+      "the path you showed the original with, and they get a before/after to compare.",
+    promptSnippet: `${IMAGE_TOOL}: show the user an image file, or one you generated with its model and prompt`,
     parameters: Type.Object({
       path: Type.String({ description: "The image file's path." }),
+      model: Type.Optional(
+        Type.String({
+          description:
+            "The model that generated or edited it, as the service names it (fal-ai/flux-pro/v1.1).",
+        }),
+      ),
+      prompt: Type.Optional(
+        Type.String({
+          description: "The prompt or edit instruction sent, word for word.",
+        }),
+      ),
+      avoid: Type.Optional(
+        Type.String({ description: "The negative prompt, if one was sent." }),
+      ),
+      size: Type.Optional(
+        Type.String({ description: "Its size in pixels (1536×864)." }),
+      ),
+      editOf: Type.Optional(
+        Type.String({
+          description:
+            "For an edit: the path the image it changed was shown with, exactly as you passed it then.",
+        }),
+      ),
     }),
     async execute(_id, { path }, _signal, _onUpdate, ctx) {
       const image = await loadImage(path, ctx.cwd);

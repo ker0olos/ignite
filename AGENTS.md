@@ -26,7 +26,8 @@ src/                     React frontend (almost all logic lives here)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
                          (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt
-    conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces; WorkingLine is the run's spinner, step and time,
+    conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces, bash calls as a card (ShellCard),
+                         generated images as a media card (MediaCard: model, prompt, size, mark up); WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              The Memory settings' extras: search, type filters with counts, the folder's memories (each opens to its facts and files)
@@ -201,11 +202,13 @@ src/                     React frontend (almost all logic lives here)
     runStep.ts           What a running conversation is doing now (its step, start time, elapsed text)
     runCommand.ts        Which code blocks Run offers for, and a block as terminal keystrokes
     shellDetect.ts       Whether an untagged code block is shell commands (tree-sitter bash, in the webview)
+    media.ts             show_image's generation metadata (model, prompt, size) and each edit's original, as the conversation showed it
     mentions.ts          `/compact`, `/skill` and `@` completions: the token at the caret, options, sending a skill as `/skill:name`
     history.ts           The composer's sent messages, shared by all folders (localStorage, newest 100)
     queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
     demoHtml.ts          The page the dark mode conversation shows with show_artifact
+    demoMedia.ts         The hero image conversation: an image generated, marked up, then edited
     demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images
     artifact.ts          show_artifact's pages (and old show_html calls'); the HTML frame's policy and height;
                          drafts while the call is written (no scripts, no half-written tag)
@@ -386,7 +389,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          in the SDK's Claude Code on the user's login, 8 turns or 2 minutes; only when signed in
   adbExtension.ts        adb and adb_screenshot: Android devices, run outside the sandbox
   imageExtension.ts      show_image: shows the user an image file from any path in its tool row
-                         and, in a task's conversation, on the task's card
+                         and, in a task's conversation, on the task's card; one the agent generated
+                         with its model and prompt, an edit naming the image it changed
   artifactExtension.ts   show_artifact: HTML (sandboxed iframe) or markdown pages in its tool row, as tabs
   artifactGuide.ts       UI/UX rules for HTML pages, part of show_artifact's description
   artifactCheck.ts       Loads its HTML pages in the app's headless Chrome first; errors go back to the agent

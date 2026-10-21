@@ -16,18 +16,20 @@ import { SUBAGENT_TOOL } from "../../../shared/subagents";
 import { TASK_ADD_TOOL, TASK_TOOL, readProposed } from "../../../shared/tasks";
 import { useContext, useMemo } from "react";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
-import { ShellEdits } from "@/components/conversation/ShellEdits";
+import { MediaCard } from "@/components/conversation/MediaCard";
+import { ShellCard } from "@/components/conversation/ShellCard";
 import {
   RunningContext,
   SkipWaitContext,
   type ToolProps,
 } from "@/components/conversation/shared";
-import { ToolArtifact } from "@/components/conversation/ToolArtifact";
 import { ToolHead } from "@/components/conversation/ToolHead";
 import { ToolOutcome } from "@/components/conversation/ToolOutcome";
-import { ToolRunOutcome } from "@/components/conversation/ToolRunOutcome";
+import { ToolOutcomeBody } from "@/components/conversation/ToolOutcomeBody";
 import { useStreamedCall } from "@/hooks/useStreamedCall";
 import { rowPages } from "@/lib/artifact";
+import { cardGeneration } from "@/lib/media";
+import type { ToolRun } from "@/lib/transcript";
 import { mcpCall } from "@/lib/mcpToolCall";
 import { readQuestions } from "@/lib/questions";
 import { canSkipWait, showsNothingYet } from "@/lib/toolRows";
@@ -122,7 +124,42 @@ function toolArg(call: ToolCall, folder: string) {
   return TOOL_ARGS[call.name]?.(call, folder) ?? "";
 }
 
-/** One tool call: `● Update(path)` with its outcome underneath, as Claude Code draws it. */
+function hasOutcome(
+  call: ToolCall,
+  run: ToolRun | undefined,
+  text: string,
+  skip: unknown,
+  pages: number,
+) {
+  if (pages > 0) return true;
+  if (!run) return false;
+  return !showsNothingYet(call, run, text, !!skip && canSkipWait(call, run));
+}
+
+function headOf(
+  call: ToolCall,
+  shown: ToolCall,
+  run: ToolRun | undefined,
+  folder: string,
+) {
+  const mcp = mcpCall(call.name, call.arguments);
+  const title = mcp ? (
+    <McpCallLabel call={mcp} failed={run?.status === "error"} />
+  ) : (
+    toolTitle(call)
+  );
+  return (
+    <ToolHead
+      run={run}
+      title={title}
+      // A bash call's card shows its command.
+      arg={mcp || call.name === "bash" ? "" : toolArg(shown, folder)}
+      folder={folder}
+    />
+  );
+}
+
+/** One tool call: `● Update(path)` with its outcome underneath, as Claude Code draws it; a bash call's or generated image's card there. */
 export function ToolView({
   call,
   run,
@@ -133,7 +170,6 @@ export function ToolView({
   onApprove,
 }: ToolProps) {
   const shown = useStreamedCall(call);
-  const mcp = mcpCall(call.name, call.arguments);
   const text = resultText(run?.result);
   const skip = useContext(SkipWaitContext);
   const running = useContext(RunningContext);
@@ -141,48 +177,47 @@ export function ToolView({
     () => rowPages({ name: call.name, args: shown.arguments }, run, running),
     [call.name, shown.arguments, run, running],
   );
-  return (
-    <div className="space-y-1">
-      <ToolHead
+  const generation = cardGeneration(shown, run);
+  const outcome = hasOutcome(call, run, text, skip, pages.length) && (
+    <ToolOutcomeBody
+      call={call}
+      pages={pages}
+      height={shown.arguments.height}
+      run={run}
+      text={text}
+      folder={folder}
+      editor={editor}
+      codeThemes={codeThemes}
+      tools={tools}
+      onApprove={onApprove}
+    />
+  );
+  let body = outcome;
+  if (generation) {
+    body = (
+      <MediaCard
+        call={shown}
+        generation={generation}
         run={run}
-        title={
-          mcp ? (
-            <McpCallLabel call={mcp} failed={run?.status === "error"} />
-          ) : (
-            toolTitle(call)
-          )
-        }
-        arg={mcp ? "" : toolArg(shown, folder)}
         folder={folder}
       />
-      {pages.length > 0 ? (
-        <ToolOutcome>
-          <ToolArtifact
-            pages={pages}
-            height={shown.arguments.height}
-            folder={folder}
-            editor={editor}
-            codeThemes={codeThemes}
-          />
-        </ToolOutcome>
-      ) : (
-        run &&
-        !showsNothingYet(call, run, text, !!skip && canSkipWait(call, run)) && (
-          <ToolOutcome>
-            <ToolRunOutcome
-              call={call}
-              run={run}
-              text={text}
-              editor={editor}
-              codeThemes={codeThemes}
-              folder={folder}
-              tools={tools}
-              onApprove={onApprove}
-            />
-            <ShellEdits run={run} editor={editor} codeThemes={codeThemes} />
-          </ToolOutcome>
-        )
-      )}
+    );
+  } else if (call.name === "bash") {
+    body = (
+      <ShellCard
+        run={run}
+        command={String(shown.arguments.command ?? "")}
+        background={!!call.arguments.background}
+        folder={folder}
+      >
+        {outcome}
+      </ShellCard>
+    );
+  }
+  return (
+    <div className="space-y-1">
+      {headOf(call, shown, run, folder)}
+      {body && <ToolOutcome>{body}</ToolOutcome>}
     </div>
   );
 }
