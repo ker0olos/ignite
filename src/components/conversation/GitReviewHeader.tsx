@@ -1,8 +1,4 @@
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  GitCommitVertical,
-} from "lucide-react";
+import { ArrowUpFromLine, GitCommitVertical } from "lucide-react";
 import type { GitReview } from "../../../shared/git";
 import { GitCommitHeader } from "@/components/conversation/GitCommitHeader";
 import { GitCommitList } from "@/components/conversation/GitCommitList";
@@ -16,7 +12,7 @@ function reviewCommits(review: GitReview) {
   return [{ hash: "new", subject: subject || "No message" }, ...commits];
 }
 
-/** A review's headline: a commit's message, a pull request, or the commits a push or pull moves. */
+/** A review's headline: a commit's message, a pull request, or the commits a push moves. */
 export function GitReviewHeader({ review }: { review: GitReview }) {
   if (review.kind === "commit" && !review.pr) {
     return <GitCommitHeader message={review.message} push={review.push} />;
@@ -32,12 +28,7 @@ export function GitReviewHeader({ review }: { review: GitReview }) {
       </>
     );
   }
-  const push = review.kind === "push";
   return (
-    <GitCommitList
-      icon={push ? ArrowUpFromLine : ArrowDownToLine}
-      label={push ? "Push" : "Brought in"}
-      commits={commits}
-    />
+    <GitCommitList icon={ArrowUpFromLine} label="Push" commits={commits} />
   );
 }

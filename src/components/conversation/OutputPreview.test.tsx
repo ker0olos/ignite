@@ -21,3 +21,10 @@ it("says output is still coming while its command runs", () => {
   );
   expect(screen.getByText(/two/)).toBeTruthy();
 });
+
+it("keeps even short output under its label until opened", () => {
+  render(<OutputPreview text="Merge made." label="Brought in 2 commits" />);
+  expect(screen.queryByText("Merge made.")).toBe(null);
+  fireEvent.click(screen.getByRole("button", { name: "Brought in 2 commits" }));
+  expect(screen.getByText("Merge made.")).toBeTruthy();
+});

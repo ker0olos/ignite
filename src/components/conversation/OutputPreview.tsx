@@ -15,14 +15,17 @@ export function OutputPreview({
   text,
   error,
   running,
+  label,
 }: {
   text: string;
   error?: boolean;
   running?: boolean;
+  /** Shown collapsed in place of the line count, however short the output. */
+  label?: string;
 }) {
   const [opened, setOpen] = useState(false);
   // Decided on each render: streaming output starts short and grows.
-  const open = opened || isShortOutput(text);
+  const open = opened || (!label && isShortOutput(text));
   const [all, setAll] = useState(false);
   const trimmed = text.replace(/\n+$/, "");
   const lines = trimmed.split("\n").length;
@@ -39,7 +42,7 @@ export function OutputPreview({
         ) : (
           <>
             <ChevronRight className="size-3" />
-            {count}
+            {label ?? count}
           </>
         )}
       </button>
