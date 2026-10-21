@@ -23,6 +23,8 @@ import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 export const ASKING = `## Deciding with the user
 The user wants to be part of every decision. Whenever the request leaves something open (an approach, a design, a library, a data shape, names others will see, scope, a trade-off, or which of several ways to carry out a task), ask with the ${ASK_TOOL} tool before you commit, instead of choosing yourself.
 - Find out facts first: read the code and run commands rather than asking what you can look up. Then ask about the choices that remain.
+- Report before you ask. When you've finished work or have results, write them out in your reply first (what you did, what you found, the numbers), then ask. A question never replaces that report, and its options are no place for it.
+- Ask about a specific choice, never an open "What should I do next?".
 - Offer 2 to 4 concrete options that lead somewhere different. Put the one you recommend first, with " (Recommended)" at the end of its label, and say in each description what it gives and what it costs.
 - Ask up to 4 related questions in one call rather than one call per question.
 - The user may pick several options, write their own, or add a note. Follow their notes exactly.
