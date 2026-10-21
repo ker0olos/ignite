@@ -4,9 +4,7 @@ import { basename } from "@/lib/paths";
 type Notice = { session: string; title: string; body: string };
 
 const waitingBody = (a: AgentStatus) =>
-  a.review?.review?.kind === "pr"
-    ? "Pull request ready for review"
-    : "Waiting for you";
+  a.review?.review?.pr ? "Pull request ready for review" : "Waiting for you";
 
 const bodyOf = (a: AgentStatus, prev?: AgentStatus) => {
   if (a.waiting) return prev?.waiting ? null : waitingBody(a);

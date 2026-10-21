@@ -1,6 +1,13 @@
 // @vitest-environment node
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -15,9 +22,10 @@ import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import gitTools, {
   PR_DECLINED,
   USE_TOOLS,
-  delivers,
   needsTools,
 } from "./gitExtension.ts";
+import type { PrParams } from "./gitPush.ts";
+import { delivers } from "./gitDelivery.ts";
 import { resultText, run } from "./gitRun.ts";
 import { TASK_EVENT, type TaskAsk } from "./taskExtension.ts";
 
@@ -48,7 +56,7 @@ afterEach(async () => {
 
 type Execute = (
   id: string,
-  params: { args: string[]; push?: boolean },
+  params: { args: string[]; push?: boolean; pr?: PrParams },
   signal: AbortSignal | undefined,
   onUpdate: undefined,
   ctx: { cwd: string },
@@ -93,8 +101,14 @@ function load(task: Task | null = null) {
     if (ask.kind === "update") updates.push(ask.update);
     ask.reply(task);
   });
-  const call = (tool: string, args: string[], cwd = repo, push?: boolean) =>
-    tools.get(tool)!("t1", { args, push }, undefined, undefined, { cwd });
+  const call = (
+    tool: string,
+    args: string[],
+    cwd = repo,
+    push?: boolean,
+    pr?: PrParams,
+  ) =>
+    tools.get(tool)!("t1", { args, push, pr }, undefined, undefined, { cwd });
   const bash = (command: string) =>
     handlers.get("tool_call")!({ toolName: "bash", input: { command } });
   return { asks, updates, call, bash };
@@ -318,6 +332,130 @@ describe("a task's conversation", () => {
       call("git", ["commit", "--allow-empty", "-m", "x"], repo, true),
     ).rejects.toThrow("Committed, but the push failed");
     expect(asks).toEqual([]);
+  });
+
+  // A gh that logs its calls: `pr list` prints prs.json, `repo view` fails
+  // with $NO_REPO, `pr create` opens #42 or fails with $CREATE_FAIL.
+  async function fakeGh(prs = "[]") {
+    const bin = join(home, "bin");
+    await mkdir(bin);
+    await writeFile(
+      join(bin, "gh"),
+      [
+        "#!/bin/sh",
+        'echo "$@" >> "$GH_LOG"',
+        'case "$1 $2" in',
+        '  "pr list") cat "$PRS_FILE" ;;',
+        '  "repo view") [ -n "$NO_REPO" ] && exit 1',
+        `    echo '{"nameWithOwner":"a/b","defaultBranchRef":{"name":"main"}}' ;;`,
+        '  "pr create") [ -n "$CREATE_FAIL" ] && { echo no >&2; exit 1; }',
+        "    echo https://github.com/a/b/pull/42 ;;",
+        "esac",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+    vi.stubEnv("PATH", `${bin}:${process.env.PATH}`);
+    vi.stubEnv("GH_LOG", join(home, "gh.log"));
+    vi.stubEnv("PRS_FILE", join(home, "prs.json"));
+    await openPrs(prs);
+    return async () => readFile(join(home, "gh.log"), "utf8");
+  }
+  const openPrs = (json: string) => writeFile(join(home, "prs.json"), json);
+  const OPEN = '[{"url":"https://github.com/a/b/pull/7"}]';
+  const pr = { title: "T", body: "B" };
+  const commitWithPr = (call: ReturnType<typeof load>["call"], message = "x") =>
+    call("git", ["commit", "--allow-empty", "-m", message], repo, false, pr);
+
+  it("commits, pushes and opens a pull request in one call, which a task asks for once", async () => {
+    await withRemote();
+    git("push", "-q", "origin", "main");
+    git("commit", "-q", "--allow-empty", "-m", "earlier");
+    const ghLog = await fakeGh();
+    const { asks, updates, call } = load(mine);
+    // A pull request named in the commit isn't taken for the new one.
+    const done = commitWithPr(call, "Revert https://github.com/a/b/pull/12");
+    await asked(asks);
+    expect(asks[0].request.review).toMatchObject({
+      kind: "commit",
+      push: "feat/x",
+      pr: { repo: "a/b", base: "main", head: "feat/x", title: "T", body: "B" },
+      commits: [{ subject: "earlier" }],
+    });
+    asks[0].answer(true);
+    const result = await done;
+    expect(result.content[0].text).toContain("/pull/42");
+    expect(updates).toEqual([{ pr: "https://github.com/a/b/pull/42" }]);
+    expect(git("ls-remote", "origin", "feat/x").toString()).toContain(
+      "refs/heads/feat/x",
+    );
+    expect(await ghLog()).toContain(
+      "pr create -R a/b --head feat/x --base main --title T --body B",
+    );
+  });
+
+  it("only pushes when the branch's pull request is already open, and records it", async () => {
+    await withRemote();
+    const ghLog = await fakeGh(OPEN);
+    const { asks, updates, call } = load(mine);
+    const result = await commitWithPr(call);
+    expect(asks).toEqual([]);
+    expect(result.content[0].text).toContain(
+      "already open: https://github.com/a/b/pull/7",
+    );
+    expect(updates).toEqual([{ pr: "https://github.com/a/b/pull/7" }]);
+    expect(await ghLog()).not.toContain("pr create");
+  });
+
+  it("doesn't open a second pull request when one opened while it waited", async () => {
+    await withRemote();
+    const ghLog = await fakeGh();
+    const { asks, call } = load(mine);
+    const done = commitWithPr(call);
+    await asked(asks);
+    await openPrs(OPEN);
+    asks[0].answer(true);
+    expect((await done).content[0].text).toContain("already open");
+    expect(await ghLog()).not.toContain("pr create");
+  });
+
+  it("refuses before committing when gh can't read the repository", async () => {
+    await withRemote();
+    await fakeGh();
+    vi.stubEnv("NO_REPO", "1");
+    const { asks, call } = load(mine);
+    await expect(commitWithPr(call)).rejects.toThrow("Nothing was committed");
+    expect(asks).toEqual([]);
+    expect(git("rev-list", "--count", "HEAD").toString().trim()).toBe("1");
+  });
+
+  it("reports the push when opening the pull request fails", async () => {
+    await withRemote();
+    await fakeGh();
+    vi.stubEnv("CREATE_FAIL", "1");
+    const { asks, updates, call } = load(mine);
+    const done = commitWithPr(call);
+    await asked(asks);
+    asks[0].answer(true);
+    await expect(done).rejects.toThrow(
+      "Committed and pushed, but opening the pull request failed",
+    );
+    expect(updates).toEqual([]);
+    expect(git("ls-remote", "origin", "feat/x").toString()).toContain(
+      "refs/heads/feat/x",
+    );
+  });
+
+  it("commits nothing when a task's pull request is declined", async () => {
+    await withRemote();
+    await fakeGh();
+    const { asks, updates, call } = load(mine);
+    const done = commitWithPr(call);
+    await asked(asks);
+    asks[0].declined!();
+    asks[0].answer(false);
+    await expect(done).rejects.toThrow(PR_DECLINED);
+    expect(updates).toEqual([{ declined: true }]);
+    expect(git("rev-list", "--count", "HEAD").toString().trim()).toBe("1");
   });
 
   it("asks for a commit and a push without a task", async () => {

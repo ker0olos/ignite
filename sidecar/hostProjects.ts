@@ -7,7 +7,7 @@ export function pushProjects(ctx: HostContext) {
   const agents = [...ctx.agents.values()].map((a) => {
     const review = [...a.approvals.values()]
       .map((ask) => ask.request)
-      .find((r) => r.review?.kind === "pr");
+      .find((r) => r.review?.pr);
     return {
       cwd: a.cwd,
       session: a.id,

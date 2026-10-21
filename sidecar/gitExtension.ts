@@ -10,7 +10,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { GH_TOOL, GIT_TOOL, type GitReview } from "../shared/git.ts";
 import type { ApprovalRequest } from "../shared/hostProtocol.ts";
-import { autonomous, prUrl } from "../shared/tasks.ts";
+import { autonomous } from "../shared/tasks.ts";
 import {
   ghApproval,
   gitApproval,
@@ -21,14 +21,20 @@ import { DENIED } from "./approvalExtension.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import { approvalMode } from "./approvalSettings.ts";
 import { loadBashParser } from "./bashParser.ts";
+import { createsPr, reported, type Tool } from "./gitDelivery.ts";
 import { refuseMerged } from "./gitMerged.ts";
-import { marked, pushAfter, pushed, thenReason } from "./gitPush.ts";
+import {
+  THEN_PARAMS,
+  marked,
+  pushAfter,
+  pushed,
+  thenReason,
+  type Then,
+} from "./gitPush.ts";
 import { resultText, run } from "./gitRun.ts";
 import { committed, headOf, repoOf, review, updated } from "./gitReview.ts";
 import { askTask } from "./taskExtension.ts";
-import { folderOf, gitOr } from "./worktreeGit.ts";
-import { ghDir } from "./worktreeGroup.ts";
-import { updateFolder } from "./worktrees.ts";
+import { gitOr } from "./worktreeGit.ts";
 
 const Params = Type.Object({
   args: Type.Array(Type.String(), {
@@ -37,15 +43,7 @@ const Params = Type.Object({
   }),
 });
 
-const GitParams = Type.Object({
-  ...Params.properties,
-  push: Type.Optional(
-    Type.Boolean({
-      description:
-        "With a commit only: push the branch to origin (push -u origin <branch>) right after, under the same approval.",
-    }),
-  ),
-});
+const GitParams = Type.Object({ ...Params.properties, ...THEN_PARAMS });
 
 // Subcommands that need the user's credentials, or their review.
 const REDIRECTED = new Set([
@@ -73,8 +71,6 @@ export const PR_DECLINED =
   "The user declined this pull request. Stop here: they'll update the task and tell you what to change.";
 
 const bashParser = loadBashParser().catch(() => undefined);
-
-type Tool = typeof GIT_TOOL | typeof GH_TOOL;
 
 // Subcommands that may move HEAD; the row then shows what they brought in.
 const MOVES_HEAD = new Set([
@@ -117,8 +113,8 @@ function ghGate(
   return createsPr(GH_TOOL, args) ? { reason, review: "pr" } : { reason };
 }
 
-const createsPr = (tool: Tool, args: string[]) =>
-  tool === GH_TOOL && args[0] === "pr" && args[1] === "create";
+const opensPr = (tool: Tool, args: string[], then?: Then) =>
+  createsPr(tool, args) || !!then?.pr;
 
 // A task's agent commits and pushes its own branch without asking; its
 // pull request still waits for review (gitPolicy's taskRunsAlone).
@@ -144,7 +140,7 @@ async function waitsOn(
   tool: Tool,
   args: string[],
   cwd: string,
-  then?: string[],
+  then?: Then,
 ) {
   const mode = await approvalMode();
   if (mode === "full") return null;
@@ -154,26 +150,13 @@ async function waitsOn(
   const manual = mode === "manual";
   if (manual) return { auto, manual, alone: false };
   if (!auto) return null;
+  // A task's pull request always waits for review.
   const alone =
     !!auto.review &&
+    !then?.pr &&
     (await taskMayRun(pi, args, cwd)) &&
-    (!then || (await taskMayRun(pi, then, cwd)));
+    (!then || (await taskMayRun(pi, then.push, cwd)));
   return { auto, manual, alone };
-}
-
-/** Whether a call puts the agent's work on the remote: a push, or a merged pull request. */
-export function delivers(tool: Tool, args: string[]): boolean {
-  if (tool === GH_TOOL) return args[0] === "pr" && args[1] === "merge";
-  return splitGit(args).command === "push";
-}
-
-// An agent in its own worktree: the user's folder follows the remote when it can.
-// In a copy of a folder of repositories, that's the checkout of the one delivered.
-async function afterDelivery(tool: Tool, args: string[], cwd: string) {
-  if (!delivers(tool, args)) return null;
-  const dir = tool === GIT_TOOL ? repoOf(args, cwd) : await ghDir(args, cwd);
-  const folder = folderOf(dir);
-  return folder !== dir ? updateFolder(folder) : null;
 }
 
 // Without the parser, a rough split into commands is enough to spot git and gh.
@@ -208,7 +191,7 @@ export default function gitTools(pi: ExtensionAPI) {
     cwd: string,
     toolCallId: string,
     signal?: AbortSignal,
-    then?: string[],
+    then?: Then,
   ) {
     const waits = await waitsOn(pi, tool, args, cwd, then);
     if (!waits) return { allowed: true, asked: false };
@@ -236,14 +219,12 @@ export default function gitTools(pi: ExtensionAPI) {
       parameters: tool === GIT_TOOL ? GitParams : Params,
       async execute(toolCallId, params, signal, _onUpdate, ctx) {
         const { args } = params;
-        const then = await pushAfter(params, ctx.cwd);
         await refuseMerged(tool, args, ctx.cwd, signal);
+        const then = await pushAfter(params, ctx.cwd);
         const gated = await gate(tool, args, ctx.cwd, toolCallId, signal, then);
         if (!gated.allowed) {
-          throw new Error(
-            gated.reason ??
-              (await refusal(pi, !!gated.declined && createsPr(tool, args))),
-          );
+          const declinedPr = !!gated.declined && opensPr(tool, args, then);
+          throw new Error(gated.reason ?? (await refusal(pi, declinedPr)));
         }
         const before = await headBefore(tool, args, ctx.cwd);
         const result = await run(tool, args, {
@@ -254,16 +235,14 @@ export default function gitTools(pi: ExtensionAPI) {
         const ran = resultText(result);
         if (result.code !== 0) throw new Error(ran);
         const shown = await shownAfter(gated.shown, before);
-        const text = await pushed(ran, then, {
+        const done = await pushed(ran, then, {
           cwd: ctx.cwd,
           signal,
           hooks: gated.asked,
         });
-        const note = await afterDelivery(tool, then ?? args, ctx.cwd);
-        const pr = createsPr(tool, args) && prUrl(text);
-        if (pr) void askTask(pi, "update", { pr });
+        const text = await reported(pi, tool, args, done, then, ctx.cwd);
         return {
-          content: [{ type: "text", text: note ? `${text}\n\n${note}` : text }],
+          content: [{ type: "text", text }],
           details: shown satisfies GitReview | undefined,
         };
       },
@@ -275,7 +254,8 @@ export default function gitTools(pi: ExtensionAPI) {
     "Run git in the project with the user's credentials (SSH keys, credential helpers), " +
       "outside the sandbox. Use it for commit, push, pull, fetch, clone and other git commands; " +
       "use -C <dir> for a repository in a subfolder. Reads and local changes run at once; " +
-      "a commit or push shows the user its changes and waits for approval.",
+      "a commit or push shows the user its changes and waits for approval. " +
+      "To deliver, commit with `pr` to commit, push and open the pull request under one approval.",
   );
   register(
     GH_TOOL,

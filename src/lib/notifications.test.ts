@@ -27,7 +27,20 @@ describe("notices", () => {
   it("names a pull request ready for review", () => {
     const review = {
       toolCallId: "t",
-      review: { kind: "pr" as const, repo: "/r", range: "", files: [] },
+      review: {
+        kind: "commit" as const,
+        repo: "/r",
+        range: "",
+        files: [],
+        pr: {
+          repo: "a/b",
+          base: "main",
+          head: "x",
+          title: "T",
+          body: "",
+          draft: false,
+        },
+      },
     };
     expect(notices([], [agent({ waiting: true, review })])[0].body).toBe(
       "Pull request ready for review",
