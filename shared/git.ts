@@ -28,9 +28,9 @@ export type GitReview = {
   push?: string;
   /** The commit message, for a commit. */
   message?: string;
-  /** The commits a push sends or an update brought in, newest first. */
+  /** The commits a push sends or an update brought in, or the branch's earlier ones a commit's pull request also holds; newest first. */
   commits?: { hash: string; subject: string }[];
-  /** The pull request `gh pr create` would open; `repo` is owner/name. */
+  /** The pull request `gh pr create`, or a commit after its push, would open; `repo` is owner/name. */
   pr?: {
     repo: string;
     base: string;

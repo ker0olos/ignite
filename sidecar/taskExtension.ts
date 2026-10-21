@@ -15,6 +15,7 @@ import { Type } from "typebox";
 import { IMAGE_TOOL } from "../shared/agentTypes.ts";
 import { ASK_TOOL } from "../shared/questions.ts";
 import { firstTitle } from "../shared/conversations.ts";
+import { GIT_TOOL } from "../shared/git.ts";
 import {
   TASK_ADD_TOOL,
   TASK_TOOL,
@@ -72,7 +73,7 @@ export const TASK_GUIDANCE = `## Working on a task
 This conversation carries out a task from the user's task list; the user follows it there, not in the conversation. Work in three phases, keeping the subtasks current with the ${TASK_TOOL} tool:
 1. Plan: read what you need, then call ${TASK_TOOL} to add the subtasks the work needs, or to confirm the ones given (you can't change files until you have).
 2. Work: before starting a subtask, set it to "working"; when it's finished, set it to "done". Work through them in order, and set the finished one and the next one in a single call.
-3. Deliver: when every subtask is done, create a branch named for the task, commit, push, and open a pull request; the user reviews it before it opens. If the folder can't take one (not a git repository, no remote, or gh not signed in), leave the changes uncommitted and say why.
+3. Deliver: when every subtask is done, create a branch named for the task, then commit, push, and open a pull request in one ${GIT_TOOL} commit call with \`pr\`; the user reviews it before it opens. If the folder can't take one (not a git repository, no remote, or gh not signed in), leave the changes uncommitted and say why.
 When the work has something to look at (a page, a screen, a chart), show an image of it with ${IMAGE_TOOL}; it's added to the task for the user to see.
 Only stop for the user when you can't go on without them. End with a short summary of what you did.`;
 

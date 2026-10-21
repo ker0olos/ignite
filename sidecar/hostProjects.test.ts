@@ -30,7 +30,8 @@ const push = (agents: Record<string, Agent>) => pushed(agents).awake;
 
 describe("pushProjects", () => {
   it("passes on a waiting pull request's review, and no other call's", () => {
-    const pr = { toolCallId: "p", review: { kind: "pr" } };
+    // A commit that opens one carries its pull request too.
+    const pr = { toolCallId: "p", review: { kind: "commit", pr: {} } };
     const commit = { toolCallId: "c", review: { kind: "commit" } };
     const [withPr, without] = pushed({
       a: agent(true, true, commit, pr),

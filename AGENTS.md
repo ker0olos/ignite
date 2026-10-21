@@ -393,7 +393,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   artifactGuide.ts       UI/UX rules for HTML pages, part of show_artifact's description
   artifactCheck.ts       Loads its HTML pages in the app's headless Chrome first; errors go back to the agent
   gitExtension.ts        git and gh tools: run outside the sandbox, ask for themselves, redirect bash's
-  gitPush.ts             The git tool's `push: true`: a commit that pushes its branch in the same call
+  gitDelivery.ts         After a git or gh call: the user's folder fast-forwarded, a task's pull request recorded
+  gitPush.ts             The git tool's `push: true` and `pr`: a commit that pushes its branch, and opens its pull request, in the same call
   gitMerged.ts           Refuses a commit or push on a branch whose pull request was already merged
   gitRun.ts              Runs git and gh with prompts, pagers and (unless approved) hooks off
   gitReview.ts           A commit's or push's changed files and commits; one file's diff (git_diff)
@@ -728,7 +729,11 @@ conversation that opened it (kept in memory, shown as cards beside its images),
 and the message carries them as `@path:lines` mentions with the quoted
 lines (`shared/sentComments.ts`), shown again as cards in the conversation. A commit called with `push: true` (on a branch) waits
 once, its review naming the branch ("Commit and push to origin/<branch>"), then
-runs `push -u origin <branch>`; other git options than `-C` are refused; a task's runs alone only when both would. A commit or push that continues a branch whose pull request
+runs `push -u origin <branch>`; other git options than `-C` are refused; a task's runs alone only when both would. A commit called
+with `pr` (title, body, optional base and draft) also opens the pull request after the push, under that one approval: its review adds the
+pull request and the branch's earlier commits it holds, a task's always waits (declined, nothing is committed), and when gh can't read
+the repository it's refused before committing. A branch whose pull request is already open (also when it opened while the call waited)
+only commits and pushes, and the task records that pull request. When only opening it fails, the push still counts as delivered. A commit or push that continues a branch whose pull request
 was merged (it holds that pull request's head commit but not its merge, none
 is open, and no pull request targets the branch) is refused before it asks,
 pointing the agent at a new branch from the default one

@@ -54,7 +54,7 @@ export function shownRows(
   const all = demoConversations(demo)
     .filter((c) => c.open)
     .map((c) => {
-      const review = c.approvals?.find((a) => a.review?.kind === "pr");
+      const review = c.approvals?.find((a) => a.review?.pr);
       return {
         cwd: c.cwd,
         session: c.id,
