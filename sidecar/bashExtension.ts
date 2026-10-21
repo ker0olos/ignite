@@ -90,7 +90,10 @@ export async function runBackground(
   const text = (done.content[0] as { text: string }).text;
   return {
     ...done,
-    details: { ...done.details, background: started },
+    details: {
+      ...done.details,
+      background: { pid: started.pid, log: started.log },
+    },
     content: [
       { type: "text" as const, text: `${text}\n\n${startedText(started)}` },
     ],

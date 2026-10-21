@@ -135,23 +135,54 @@ describe.runIf(process.platform !== "win32")("bash_wait", () => {
     expect(message.content).not.toContain(`pid ${stopped.pid}`);
   });
 
-  it("wakes an earlier call at once when a later one takes its last running command", async () => {
+  it("wakes at once when a stop leaves its call with only exited commands", async () => {
+    const { sendCustomMessage, wake } = host();
+    const stubborn = await start('trap "" TERM; sleep 30');
+    const done = await start("sleep 0.1; echo done");
+    await waitTool()(stubborn.pid, done.pid);
+    await vi.waitFor(() => expect(done.running).toBe(false));
+    wake();
+    const unsubscribe = onBackgroundChange(wake);
+    stopBackground(stubborn.pid, "w1", 10_000);
+    unsubscribe();
+    await vi.waitFor(() => expect(sendCustomMessage).toHaveBeenCalledTimes(1));
+    expect(stubborn.running).toBe(true);
+  });
+
+  it("folds an earlier call into a later one that takes its last running command", async () => {
     const { sendCustomMessage, wake } = host();
     const done = await start("sleep 0.1; echo done");
-    const running = await start("sleep 30");
+    const running = await start("sleep 0.5; echo running");
     await waitTool()(done.pid, running.pid);
     await vi.waitFor(() => expect(done.running).toBe(false));
     wake();
-    expect(sendCustomMessage).not.toHaveBeenCalled();
-    const unsubscribe = onBackgroundChange(wake);
     await waitTool()(running.pid);
-    unsubscribe();
+    wake();
+    expect(sendCustomMessage).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(running.running).toBe(false));
+    wake();
     await vi.waitFor(() => expect(sendCustomMessage).toHaveBeenCalledTimes(1));
     const [message] = sendCustomMessage.mock.calls[0] as never as [
       { content: string },
     ];
     expect(message.content).toContain(`(pid ${done.pid})`);
-    expect(running.wake).toEqual([running]);
+    expect(message.content).toContain(`(pid ${running.pid})`);
+  });
+
+  it("doesn't report again a command it already answered for", async () => {
+    const { sendCustomMessage, wake } = host();
+    const done = await start("sleep 0.1; echo done");
+    const running = await start("sleep 0.5; echo running");
+    await waitTool()(done.pid, running.pid);
+    await vi.waitFor(() => expect(done.running).toBe(false));
+    expect(textOf(await waitTool()(done.pid))).toContain(`(pid ${done.pid})`);
+    await vi.waitFor(() => expect(running.running).toBe(false));
+    wake();
+    await vi.waitFor(() => expect(sendCustomMessage).toHaveBeenCalledTimes(1));
+    const [message] = sendCustomMessage.mock.calls[0] as never as [
+      { content: string },
+    ];
+    expect(message.content).not.toContain(`(pid ${done.pid})`);
   });
 
   it("takes a single pid as older calls wrote it", async () => {

@@ -6,7 +6,12 @@ import type {
 import { open } from "node:fs/promises";
 import { Type } from "typebox";
 import { BASH_WAIT_TOOL } from "../shared/agentTypes.ts";
-import { backgroundOf, waitFor, type Background } from "./backgroundBash.ts";
+import {
+  backgroundOf,
+  unwait,
+  waitFor,
+  type Background,
+} from "./backgroundBash.ts";
 
 const TAIL_BYTES = 4096;
 
@@ -59,7 +64,7 @@ export default function bashWait(pi: ExtensionAPI) {
       pids: Type.Optional(
         Type.Array(Type.Number(), { description: "The pids bash reported." }),
       ),
-      // Calls made before it took several, which models copy from older context.
+      // Models copy single-pid calls from older context.
       pid: Type.Optional(Type.Number({ description: "One pid, as pids." })),
     }),
     async execute(_id, args, _signal, _onUpdate, ctx: ExtensionContext) {
@@ -75,6 +80,7 @@ export default function bashWait(pi: ExtensionAPI) {
         return found;
       });
       if (group.every((b) => !b.running)) {
+        unwait(group);
         return {
           content: [{ type: "text", text: await groupExitedText(group) }],
           details: {},

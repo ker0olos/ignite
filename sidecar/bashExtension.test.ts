@@ -98,7 +98,10 @@ describe.runIf(process.platform !== "win32")("bash extension", () => {
       `(no output)\n\nStill running in the background as pid ${started.pid}. ` +
         `Its output goes to ${started.log}; read it with tail, and end it with bash_stop.`,
     );
-    expect(result.details).toMatchObject({ background: started });
+    expect(result.details).toMatchObject({
+      background: { pid: started.pid, log: started.log },
+    });
+    expect(Object.keys(result.details.background)).toEqual(["pid", "log"]);
     expect(textOf(await run("bash_stop", { pid: started.pid }))).toBe(
       `Stopped ${started.pid}.`,
     );

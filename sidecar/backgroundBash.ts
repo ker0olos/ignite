@@ -1,4 +1,5 @@
 /** Bash commands left running in the background (dev servers, watchers), each tied to its conversation. */
+import { randomUUID } from "node:crypto";
 import { createWriteStream, mkdirSync } from "node:fs";
 import { open } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -20,8 +21,8 @@ export type Background = {
   raw: string;
   running: boolean;
   exitCode?: number;
-  /** The commands one bash_wait call waits on with it, itself included; the agent hasn't been told they exited. */
-  wake?: Background[];
+  /** The bash_wait call waiting on it, by id; the agent hasn't been told it exited. */
+  wake?: string;
 };
 
 type Registry = { all: Map<string, Background>; listeners: Set<() => void> };
@@ -85,36 +86,44 @@ export function stopBackground(
 ): boolean {
   const found = all.get(keyOf(session, pid));
   if (!found?.running) return false;
-  unwait(found);
+  unwait([found]);
   end(found, after);
+  // The rest of its call may have exited already.
+  changed();
   return true;
 }
 
-// Leaves its bash_wait call, which still wakes once the others exit.
-function unwait(b: Background) {
-  const at = b.wake?.indexOf(b) ?? -1;
-  if (at >= 0) b.wake!.splice(at, 1);
-  b.wake = undefined;
+/** Takes `group` out of the bash_wait calls waiting on it. */
+export function unwait(group: Background[]) {
+  for (const b of group) b.wake = undefined;
 }
 
-/** Waits on `group` with one bash_wait call, each leaving any call it was in. */
-export function waitFor(group: Background[]) {
-  for (const b of group) {
-    unwait(b);
-    b.wake = group;
+// Each bash_wait call's commands, by its id.
+function waits() {
+  const calls = new Map<string, Background[]>();
+  for (const b of all.values()) {
+    if (b.wake) calls.set(b.wake, [...(calls.get(b.wake) ?? []), b]);
   }
-  // A call left with only exited commands wakes now.
-  changed();
+  return calls;
+}
+
+/** Waits on `group` with one bash_wait call; a call it leaves with only exited commands joins it. */
+export function waitFor(group: Background[]) {
+  const id = randomUUID();
+  const left = new Set(group.map((b) => b.wake));
+  for (const b of group) b.wake = id;
+  for (const [call, rest] of waits()) {
+    if (left.has(call) && rest.every((b) => !b.running)) {
+      for (const b of rest) b.wake = id;
+    }
+  }
 }
 
 /** The bash_wait calls whose commands have all exited, taken. */
 export function exitedWaits(): Background[][] {
-  const groups = new Set<Background[]>();
-  for (const b of all.values()) {
-    if (b.wake?.every((w) => !w.running)) groups.add(b.wake);
-  }
-  for (const group of groups) for (const b of group) b.wake = undefined;
-  return [...groups];
+  const done = [...waits().values()].filter((g) => g.every((b) => !b.running));
+  for (const group of done) unwait(group);
+  return done;
 }
 
 /** Drops conversation `session`'s bash_wait calls, as the user stops it. */

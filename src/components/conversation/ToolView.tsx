@@ -112,7 +112,7 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   [TASK_ADD_TOOL]: (call) => String(readProposed(call.arguments).length),
   [BASH_STOP_TOOL]: (call) => String(call.arguments.pid ?? ""),
   [BASH_WAIT_TOOL]: (call) =>
-    [call.arguments.pids ?? call.arguments.pid ?? []].flat().join(", "),
+    [call.arguments.pids ?? [], call.arguments.pid ?? []].flat().join(", "),
   chrome_cdp: (call) => String(call.arguments.method ?? ""),
   chrome_eval: (call) => String(call.arguments.expression ?? ""),
   chrome_navigate: (call) => String(call.arguments.url ?? ""),
