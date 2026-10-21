@@ -590,6 +590,7 @@ describe("a task's conversation", () => {
     const done = call("gh", ["pr", "create", "--fill"]);
     await asked(asks);
     asks[0].declined!();
+    asks[0].answer(false);
     await expect(done).rejects.toThrow(DENIED);
   });
 

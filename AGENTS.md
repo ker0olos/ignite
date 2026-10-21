@@ -271,6 +271,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
   approvalAsk.ts         The channel calls wait on the user through (pi event bus to the host)
+  askingLine.ts          git and gh calls ask in the order the agent made them, though each prepares its review in parallel
   toolReason.ts          `reason` on bash and MCP tools: the agent's why, shown on the approval prompt
   bashParser.ts          Parses bash (tree-sitter) into pipelines for the approval rules
   sandbox.ts             Auto's OS sandbox for bash: writable folders, hidden credentials, allowed hosts

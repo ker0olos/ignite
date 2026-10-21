@@ -23,21 +23,34 @@ export type ApprovalAsk = {
   wait?: Wait;
 };
 
+type Answer = {
+  approved: boolean;
+  always?: boolean;
+  reason?: string;
+  /** Only when the user answered no, not on a stop, close or message. */
+  declined?: boolean;
+};
+
 /** Asks the user about `request`; stopping the run (`signal`) denies it. */
 export const askUser = (
-  pi: ExtensionAPI,
+  pi: Pick<ExtensionAPI, "events">,
   request: ApprovalRequest,
   signal: AbortSignal | undefined,
-  wait: Wait,
+  wait?: Wait,
 ) =>
-  new Promise<{ approved: boolean; always?: boolean; reason?: string }>(
-    (resolve) => {
-      signal?.addEventListener("abort", () => resolve({ approved: false }));
-      pi.events.emit(APPROVAL_EVENT, {
-        request,
-        answer: (approved, _answers, always, reason) =>
-          resolve({ approved, always, reason }),
-        wait,
-      } satisfies ApprovalAsk);
-    },
-  );
+  new Promise<Answer>((resolve) => {
+    if (signal?.aborted) return resolve({ approved: false });
+    const stop = () => resolve({ approved: false });
+    signal?.addEventListener("abort", stop, { once: true });
+    // The host calls `declined` just before `answer`.
+    let declined = false;
+    pi.events.emit(APPROVAL_EVENT, {
+      request,
+      answer: (approved, _answers, always, reason) => {
+        signal?.removeEventListener("abort", stop);
+        resolve({ approved, always, reason, declined });
+      },
+      declined: () => (declined = true),
+      wait,
+    } satisfies ApprovalAsk);
+  });

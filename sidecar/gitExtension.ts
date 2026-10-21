@@ -9,7 +9,6 @@ import { homedir } from "node:os";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { GH_TOOL, GIT_TOOL, type GitReview } from "../shared/git.ts";
-import type { ApprovalRequest } from "../shared/hostProtocol.ts";
 import { autonomous } from "../shared/tasks.ts";
 import {
   ghApproval,
@@ -18,7 +17,8 @@ import {
   taskRunsAlone,
 } from "../src/lib/gitPolicy.ts";
 import { DENIED } from "./approvalExtension.ts";
-import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
+import { askUser } from "./approvalAsk.ts";
+import { askInTurn, askingLine, type Turn } from "./askingLine.ts";
 import { approvalMode } from "./approvalSettings.ts";
 import { loadBashParser } from "./bashParser.ts";
 import { createsPr, reported, type Tool } from "./gitDelivery.ts";
@@ -176,29 +176,20 @@ async function refusal(pi: Pick<ExtensionAPI, "events">, declinedPr: boolean) {
   return PR_DECLINED;
 }
 
+type GateCall = {
+  cwd: string;
+  toolCallId: string;
+  turn: Turn;
+  signal?: AbortSignal;
+  then?: Then;
+};
+
 export default function gitTools(pi: ExtensionAPI) {
-  type Answer = { approved: boolean; declined?: boolean; reason?: string };
-  // `declined` only when the user answered no, not on a stop, close or message.
-  const ask = (request: ApprovalRequest, signal?: AbortSignal) =>
-    new Promise<Answer>((resolve) => {
-      signal?.addEventListener("abort", () => resolve({ approved: false }));
-      pi.events.emit(APPROVAL_EVENT, {
-        request,
-        answer: (approved, _answers, _always, reason) =>
-          resolve({ approved, reason }),
-        declined: () => resolve({ approved: false, declined: true }),
-      } satisfies ApprovalAsk);
-    });
+  const takeTurn = askingLine();
 
   /** Asks if it must; resolves to whether it may run, with its review. */
-  async function gate(
-    tool: Tool,
-    args: string[],
-    cwd: string,
-    toolCallId: string,
-    signal?: AbortSignal,
-    then?: Then,
-  ) {
+  async function gate(tool: Tool, args: string[], call: GateCall) {
+    const { cwd, toolCallId, turn, signal, then } = call;
     const waits = await waitsOn(pi, tool, args, cwd, then);
     if (!waits) return { allowed: true, asked: false };
     const { auto, manual, alone } = waits;
@@ -213,7 +204,9 @@ export default function gitTools(pi: ExtensionAPI) {
         !shown && { reason: thenReason(auto.reason, then) }),
       ...(shown && { review: shown }),
     };
-    const { approved, declined, reason } = await ask(request, signal);
+    const { approved, declined, reason } = await askInTurn(turn, () =>
+      askUser(pi, request, signal),
+    );
     return { allowed: approved, declined, reason, asked: true, shown };
   }
 
@@ -225,9 +218,13 @@ export default function gitTools(pi: ExtensionAPI) {
       parameters: tool === GIT_TOOL ? GitParams : Params,
       async execute(toolCallId, params, signal, _onUpdate, ctx) {
         const { args } = params;
-        await refuseMerged(tool, args, ctx.cwd, signal);
-        const then = await pushAfter(params, ctx.cwd);
-        const gated = await gate(tool, args, ctx.cwd, toolCallId, signal, then);
+        const turn = takeTurn();
+        const { then, gated } = await (async () => {
+          await refuseMerged(tool, args, ctx.cwd, signal);
+          const then = await pushAfter(params, ctx.cwd);
+          const at = { cwd: ctx.cwd, toolCallId, turn, signal, then };
+          return { then, gated: await gate(tool, args, at) };
+        })().finally(turn.done);
         if (!gated.allowed) {
           const declinedPr = !!gated.declined && opensPr(tool, args, then);
           throw new Error(gated.reason ?? (await refusal(pi, declinedPr)));
