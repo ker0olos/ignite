@@ -59,8 +59,7 @@ once. Made for macOS; and others.
 
 - **Memory** of what earlier conversations did in a folder (imports
   [cmem](https://cmem.ai)).
-- **Lessons** from its mistakes, enforced on later tool calls, and proposed
-  from your corrections.
+- **Lessons** from its mistakes, enforced on later tool calls.
 
 ### Setup
 

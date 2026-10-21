@@ -26,7 +26,7 @@ import { worktreeHandlers } from "./hostTerminal.ts";
 import { userPickedModel } from "./hostRoute.ts";
 import { closeConversation, fork } from "./hostFork.ts";
 import { rewind } from "./hostRewind.ts";
-import { lessonHandlers } from "./hostReflect.ts";
+import { lessonHandlers } from "./hostLessons.ts";
 import { fallbackKeyHandlers } from "./fallbackKeys.ts";
 import { mcpServers, changeMcp, changeSkills } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";

@@ -8,7 +8,6 @@ import {
 } from "./checkpoints.ts";
 import { inWorktree, rewindable } from "./hostCheckpoint.ts";
 import { pushProjects, refuseWhileForked } from "./hostProjects.ts";
-import { noteRewound } from "./hostReflect.ts";
 import { settleResume } from "./hostSend.ts";
 import { prompt } from "./hostSession.ts";
 import {
@@ -104,7 +103,6 @@ export async function rewind(
     throw new Error("That message can't be edited any more.");
   const first = branch.find((e) => e.message?.role === "user")?.id === entryId;
   const files = await goBack(s, agent, entryId);
-  noteRewound(agent, branch, entryId, text);
   if (first) retitle(ctx, agent, s, text);
   tell(ctx, agent, entryId, files);
   await prompt(ctx, text, images, session);

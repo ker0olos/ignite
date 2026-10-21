@@ -17,7 +17,6 @@ import {
   type NewMemory,
 } from "./memoryDb.ts";
 import { writerInput } from "./memoryWriter.ts";
-import { reflectorInput } from "./reflector.ts";
 import { routerInput } from "./router.ts";
 import { worktreeOf } from "./worktreeGit.ts";
 
@@ -33,12 +32,13 @@ type Session = { folder: string; platform: string; conversation: string };
 const projectOf = (key: unknown) => String(key).split("/")[0];
 const isWorktree = (cwd: string) =>
   worktreeOf(cwd) !== null || /[\\/]\.claude[\\/]worktrees[\\/]/.test(cwd);
-// The first line of each of the app's own model calls (the memory's writer, the reflector, the router).
+// The first line of each of the app's own model calls (the memory's writer, the router, and the old reflector's).
 const HELPER_STARTS = [
-  writerInput("", []),
-  reflectorInput([], [], []),
-  routerInput("", []),
-].map((input) => input.split("\n")[0]);
+  ...[writerInput("", []), routerInput("", [])].map(
+    (input) => input.split("\n")[0],
+  ),
+  "Existing lessons:",
+];
 
 // claude-mem's hook in claude-bridge's Claude Code records the app's own
 // conversations (in their worktrees) and its model calls; the app already remembers those itself.

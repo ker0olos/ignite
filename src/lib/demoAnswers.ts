@@ -159,8 +159,6 @@ export const settingsAnswers = (now = Date.now()) => ({
   skills_import: () => DEMO_SKILLS,
   memory_status: () => DEMO_MEMORY(now),
   memory_changed: () => undefined,
-  lesson_proposals: () => [],
-  lesson_answer: () => [],
   lessons_list: () => [],
   lessons_remove: () => [],
   fallback_keys: () => [],

@@ -347,7 +347,6 @@ export type HostMessage =
   | { type: "agents"; agents: AgentStatus[] }
   /** A folder's tasks changed: saved by a window, or updated by an agent. */
   | { type: "tasks"; cwd: string; tasks: Task[] }
-  | Lessons.LessonMessage
   /** Check for updates found one and is building it, to run on the next start. */
   | { type: "app_update_installing" }
   /** The MCP servers changed (a status, or a saved change). */
