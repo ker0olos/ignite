@@ -24,9 +24,9 @@ export default function explore(pi: ExtensionAPI) {
   registerRead(pi);
   registerOutline(pi);
   registerEdit(pi);
-  pi.on("before_agent_start", (event) => ({
-    systemPrompt: `${event.systemPrompt}\n\n${EXPLORE_GUIDANCE}`,
-  }));
+  pi.on("before_agent_start", (event) => {
+    event.systemPromptOptions.sections.explore = EXPLORE_GUIDANCE;
+  });
   pi.on("tool_call", async (event, ctx) => {
     if (event.toolName !== "bash") return;
     const { command } = event.input as { command?: unknown };

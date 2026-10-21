@@ -258,7 +258,7 @@ export default function approval(pi: ExtensionAPI) {
   const guidanceFor = async () => {
     if ((await approvalMode()) !== "auto" || !(await sandboxing())) return "";
     const { commands } = await loadAllowed();
-    return commands.length ? `\n\n${outsideGuidance(commands)}` : "";
+    return commands.length ? outsideGuidance(commands) : "";
   };
   pi.on("before_agent_start", async (event, ctx) => {
     skills = Promise.all(
@@ -267,7 +267,7 @@ export default function approval(pi: ExtensionAPI) {
     const session = ctx.sessionManager.getSessionId();
     if (!guidance.has(session)) guidance.set(session, guidanceFor());
     const extra = await guidance.get(session)!;
-    return extra ? { systemPrompt: event.systemPrompt + extra } : undefined;
+    if (extra) event.systemPromptOptions.sections.allowed_commands = extra;
   });
 
   // Asked before the call ends, so its row shows the question, not a retry.

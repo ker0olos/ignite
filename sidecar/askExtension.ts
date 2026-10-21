@@ -228,9 +228,8 @@ export default function ask(pi: ExtensionAPI) {
     const asking = await askEnabled();
     const others = pi.getActiveTools().filter((name) => name !== ASK_TOOL);
     pi.setActiveTools(asking ? [...others, ASK_TOOL] : others);
-    const guidance = asking ? ASKING : AUTONOMOUS;
-    return {
-      systemPrompt: `${event.systemPrompt}\n\n${guidance}\n\n${COPYABLE}`,
-    };
+    const { sections } = event.systemPromptOptions;
+    sections.questions = asking ? ASKING : AUTONOMOUS;
+    sections.copyable = COPYABLE;
   });
 }

@@ -102,16 +102,19 @@ function load(active = ["read", "bash"]) {
   const run = (signal?: AbortSignal) =>
     tool!.execute("t1", { questions: [] }, signal, undefined, {} as never);
   // `custom`: a run a custom message started (the nudge itself), not the user.
-  const start = (prompt = "Hi", custom = false) =>
-    handlers.get("before_agent_start")!({
+  const start = async (prompt = "Hi", custom = false) => {
+    const sections: Record<string, string> = {};
+    await handlers.get("before_agent_start")!({
       ...(custom
         ? {
             messageType: "custom",
             message: { customType: "ask-nudge", content: prompt },
           }
         : { messageType: "user", prompt }),
-      systemPrompt: "Base",
-    }) as Promise<{ systemPrompt: string }>;
+      systemPromptOptions: { sections },
+    });
+    return sections;
+  };
   return { asks, run, start, end, sent, active: () => active };
 }
 
@@ -260,9 +263,7 @@ describe("ask_user", () => {
 describe("before_agent_start", () => {
   it("offers the tool and asks the agent to include the user", async () => {
     const { start, active } = load();
-    expect((await start()).systemPrompt).toBe(
-      `Base\n\n${ASKING}\n\n${COPYABLE}`,
-    );
+    expect(await start()).toEqual({ questions: ASKING, copyable: COPYABLE });
     expect(active()).toEqual(["read", "bash", "ask_user"]);
     await start();
     expect(active()).toEqual(["read", "bash", "ask_user"]);
@@ -271,9 +272,10 @@ describe("before_agent_start", () => {
   it("drops the tool and lets the agent decide alone when turned off", async () => {
     await settings("[conversation]\nask_questions = false\n");
     const { start, active } = load(["read", "ask_user"]);
-    expect((await start()).systemPrompt).toBe(
-      `Base\n\n${AUTONOMOUS}\n\n${COPYABLE}`,
-    );
+    expect(await start()).toEqual({
+      questions: AUTONOMOUS,
+      copyable: COPYABLE,
+    });
     expect(active()).toEqual(["read"]);
   });
 });

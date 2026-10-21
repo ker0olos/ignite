@@ -208,9 +208,9 @@ describe("tool_call", () => {
     await before;
     await handlers.get("before_agent_start")!(
       {
-        systemPrompt: "",
         systemPromptOptions: {
           skills: [{ baseDir: join(home, "skills", "pg") }],
+          sections: {},
         },
       },
       { sessionManager: { getSessionId: () => "s1" } },
@@ -448,18 +448,21 @@ describe("the sandbox in Auto", () => {
 
   it("tells the agent how to write the commands allowed outside the sandbox, once per conversation", async () => {
     const { handlers } = load();
-    const start = (session: string) =>
-      handlers.get("before_agent_start")!(
-        { systemPrompt: "base", systemPromptOptions: { skills: [] } },
+    const start = async (session: string) => {
+      const sections: Record<string, string> = {};
+      await handlers.get("before_agent_start")!(
+        { systemPromptOptions: { skills: [], sections } },
         { sessionManager: { getSessionId: () => session } },
-      ) as Promise<{ systemPrompt: string } | undefined>;
+      );
+      return sections.allowed_commands;
+    };
     expect(await start("a")).toBeUndefined();
     await allowAlways({ kind: "commands", target: "doppler run" });
     // Kept as it was, so the conversation's prompt cache holds.
     expect(await start("a")).toBeUndefined();
-    const { systemPrompt } = (await start("b"))!;
-    expect(systemPrompt).toMatch(/^base\n\n## Commands outside the sandbox/);
-    expect(systemPrompt).toContain("`doppler run`");
+    const text = await start("b");
+    expect(text).toMatch(/^## Commands outside the sandbox/);
+    expect(text).toContain("`doppler run`");
     await settings("[approval]\nmode = 'manual'\n");
     expect(await start("c")).toBeUndefined();
   });

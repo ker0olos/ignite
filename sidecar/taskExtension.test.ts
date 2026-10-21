@@ -83,16 +83,22 @@ function load(first: Task | null, active = ["read", "ask_user"]) {
     ask.reply(mine);
   });
   // `custom`: a run a custom message started (a background command's exit), not the user.
-  const start = (prompt = "do it", custom = false) =>
-    handlers.get("before_agent_start")!({
+  const start = async (prompt = "do it", custom = false) => {
+    const sections: Record<string, string> = {
+      questions: ASKING,
+      commands: COMMAND_GUIDANCE,
+    };
+    await handlers.get("before_agent_start")!({
       ...(custom
         ? {
             messageType: "custom",
             message: { customType: "wake", content: prompt },
           }
         : { messageType: "user", prompt }),
-      systemPrompt: `Base\n\n${ASKING}\n\n${COMMAND_GUIDANCE}`,
-    }) as Promise<{ systemPrompt: string } | undefined>;
+      systemPromptOptions: { sections },
+    });
+    return sections;
+  };
   const run = (params: object) =>
     tool!.execute("t1", params as never, undefined, undefined, {
       sessionManager: {
@@ -408,10 +414,11 @@ describe("task tool", () => {
 describe("before_agent_start", () => {
   it("swaps ask_user for the task tool, goes autonomous, keeps commands its own", async () => {
     const { start, active } = load(task);
-    const result = await start();
-    expect(result!.systemPrompt).toBe(
-      `Base\n\n${AUTONOMOUS}\n\n${TASK_COMMAND_GUIDANCE}\n\n${TASK_GUIDANCE}`,
-    );
+    expect(await start()).toEqual({
+      questions: AUTONOMOUS,
+      commands: TASK_COMMAND_GUIDANCE,
+      task: TASK_GUIDANCE,
+    });
     expect(active()).toEqual(["read", "task_update"]);
     await start();
     expect(active()).toEqual(["read", "task_update"]);
@@ -422,9 +429,7 @@ describe("before_agent_start", () => {
     const mine = load(task, [...withChrome]);
     const result = await mine.start();
     expect(mine.active()).toEqual([...withChrome, "task_update"]);
-    expect(result!.systemPrompt).toBe(
-      `Base\n\n${AUTONOMOUS}\n\n${TASK_COMMAND_GUIDANCE}\n\n${TASK_GUIDANCE}\n${CHROME_GUIDANCE}`,
-    );
+    expect(result.task).toBe(`${TASK_GUIDANCE}\n${CHROME_GUIDANCE}`);
   });
 
   it("clears a declined pull request when the agent runs again", async () => {
@@ -440,17 +445,19 @@ describe("before_agent_start", () => {
 
   it("has a conversation without a task plan, and keeps it interactive", async () => {
     const { start, active } = load(null, ["read", "ask_user", "task_update"]);
-    expect((await start())!.systemPrompt).toBe(
-      `Base\n\n${ASKING}\n\n${COMMAND_GUIDANCE}\n\n${PLAN_GUIDANCE}`,
-    );
+    expect(await start()).toEqual({
+      questions: ASKING,
+      commands: COMMAND_GUIDANCE,
+      plan: PLAN_GUIDANCE,
+    });
     expect(active()).toEqual(["read", "ask_user", "task_update", "task_add"]);
   });
 
   it("keeps a conversation the user follows interactive, reminded of its plan", async () => {
     const mine: Task = { ...task, interactive: true };
     const { start, active } = load(mine);
-    expect((await start())!.systemPrompt).toBe(
-      `Base\n\n${ASKING}\n\n${COMMAND_GUIDANCE}\n\n${PLAN_GUIDANCE}\n\n${planReminder(mine)}`,
+    expect((await start()).plan).toBe(
+      `${PLAN_GUIDANCE}\n\n${planReminder(mine)}`,
     );
     expect(active()).toEqual(["read", "ask_user", "task_update", "task_add"]);
   });

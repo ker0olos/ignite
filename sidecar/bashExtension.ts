@@ -168,9 +168,10 @@ export default function bash(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event, ctx) => {
     const scratch = scratchpad(ctx.sessionManager.getSessionId());
     await mkdir(scratch, { recursive: true });
-    return {
-      systemPrompt: `${event.systemPrompt}\n\n${COMMAND_GUIDANCE}\n\n${scratchGuidance(scratch)}`,
-    };
+    // Sections, not added text: claude-bridge passes Claude Code only the prompt's sections.
+    const { sections } = event.systemPromptOptions;
+    sections.commands = COMMAND_GUIDANCE;
+    sections.scratchpad = scratchGuidance(scratch);
   });
 
   // A reload (after an MCP change) keeps the same conversation going.

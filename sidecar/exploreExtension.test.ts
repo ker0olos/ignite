@@ -16,9 +16,9 @@ function load() {
 }
 
 it("adds the exploring guidance to each run's system prompt", () => {
-  expect(load().before_agent_start({ systemPrompt: "Base" })).toEqual({
-    systemPrompt: `Base\n\n${EXPLORE_GUIDANCE}`,
-  });
+  const sections = {};
+  load().before_agent_start({ systemPromptOptions: { sections } });
+  expect(sections).toEqual({ explore: EXPLORE_GUIDANCE });
 });
 
 it("sends bash file searches to the grep and read tools", async () => {

@@ -243,10 +243,13 @@ export default function subagents(pi: ExtensionAPI) {
     const on = limits.enabled && models.length > 0 && efforts.length > 0;
     const others = pi.getActiveTools().filter((name) => name !== SUBAGENT_TOOL);
     pi.setActiveTools(on ? [...others, SUBAGENT_TOOL] : others);
-    if (!on) return;
-    return {
-      systemPrompt: `${event.systemPrompt}\n\n${guidance(models, efforts, limits.max)}`,
-    };
+    if (on) {
+      event.systemPromptOptions.sections.subagents = guidance(
+        models,
+        efforts,
+        limits.max,
+      );
+    }
   });
 
   pi.on("session_shutdown", async () => {

@@ -54,24 +54,27 @@ const run = (name: string, params: object) =>
   tools[name].execute("call", params, undefined, undefined, ctx);
 const textOf = (result: { content: { text: string }[] }) =>
   result.content[0].text;
+const start = () => {
+  const sections: Record<string, string> = {};
+  handlers.before_agent_start({ systemPromptOptions: { sections } }, ctx);
+  return sections;
+};
 
 it("adds the guidance and the system_prompt lessons, read once per conversation", () => {
   addLesson(file, { text: "Be brief", level: "system_prompt" });
   addLesson(file, { text: "Elsewhere", level: "system_prompt", folder: "/x" });
   addLesson(file, { text: "Git only", level: "tool_call", tool: "git" });
-  const first = handlers.before_agent_start({ systemPrompt: "Base" }, ctx);
+  const first = start();
   addLesson(file, { text: "Later", level: "system_prompt" });
-  const second = handlers.before_agent_start({ systemPrompt: "Base" }, ctx);
-  const prompt = (first as { systemPrompt: string }).systemPrompt;
-  expect(prompt).toContain(LESSON_GUIDANCE);
-  expect(prompt).toMatch(/Lessons from past mistakes:\n- \[\w+\] Be brief$/);
-  expect(second).toEqual(first);
+  expect(first.lessons).toContain(LESSON_GUIDANCE);
+  expect(first.lessons).toMatch(
+    /Lessons from past mistakes:\n- \[\w+\] Be brief$/,
+  );
+  expect(start()).toEqual(first);
 });
 
 it("adds only the guidance when there are no system_prompt lessons", () => {
-  expect(handlers.before_agent_start({ systemPrompt: "Base" }, ctx)).toEqual({
-    systemPrompt: `Base\n\n${LESSON_GUIDANCE}`,
-  });
+  expect(start()).toEqual({ lessons: LESSON_GUIDANCE });
 });
 
 it("blocks a matching call every time and holds an unmatched tool once", () => {

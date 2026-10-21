@@ -26,9 +26,9 @@ import {
   type Task,
   type TaskUpdate,
 } from "../shared/tasks.ts";
-import { ASKING, AUTONOMOUS } from "./askExtension.ts";
+import { AUTONOMOUS } from "./askExtension.ts";
 import { backgroundOf } from "./backgroundBash.ts";
-import { COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE } from "./bashExtension.ts";
+import { TASK_COMMAND_GUIDANCE } from "./bashExtension.ts";
 import { registerTaskAdd } from "./taskAddTool.ts";
 import { stepOf } from "../shared/steps.ts";
 import { answerPlanned, planFirst } from "./taskSteps.ts";
@@ -151,6 +151,15 @@ function endedNormally(messages: readonly unknown[]) {
   return last?.stopReason !== "aborted" && last?.stopReason !== "error";
 }
 
+// A task running alone: it decides without asking, and its commands are its own.
+function aloneSections(sections: Record<string, string>, chrome: boolean) {
+  if (sections.questions) sections.questions = AUTONOMOUS;
+  if (sections.commands) sections.commands = TASK_COMMAND_GUIDANCE;
+  sections.task = chrome
+    ? `${TASK_GUIDANCE}\n${CHROME_GUIDANCE}`
+    : TASK_GUIDANCE;
+}
+
 // What the extension keeps of the conversation's task between calls.
 type Known = { has: boolean; planned: boolean; autonomous: boolean };
 
@@ -235,19 +244,13 @@ export default function tasks(pi: ExtensionAPI) {
       ...(alone ? [] : [TASK_ADD_TOOL]),
     ]);
     if (task?.declined) void askTask(pi, "update", { declined: false });
-    if (!alone) {
-      const plan = task?.subtasks.length ? `\n\n${planReminder(task)}` : "";
-      return {
-        systemPrompt: `${event.systemPrompt}\n\n${PLAN_GUIDANCE}${plan}`,
-      };
+    const { sections } = event.systemPromptOptions;
+    if (alone) {
+      aloneSections(sections, others.includes("chrome_navigate"));
+      return;
     }
-    const prompt = event.systemPrompt
-      .replace(ASKING, AUTONOMOUS)
-      .replace(COMMAND_GUIDANCE, TASK_COMMAND_GUIDANCE);
-    const chrome = others.includes("chrome_navigate")
-      ? `\n${CHROME_GUIDANCE}`
-      : "";
-    return { systemPrompt: `${prompt}\n\n${TASK_GUIDANCE}${chrome}` };
+    const plan = task?.subtasks.length ? `\n\n${planReminder(task)}` : "";
+    sections.plan = `${PLAN_GUIDANCE}${plan}`;
   });
 
   pi.on("tool_call", async (event, ctx) => {
