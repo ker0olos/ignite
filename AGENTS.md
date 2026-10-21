@@ -727,7 +727,7 @@ and the message carries them as `@path:lines` mentions with the quoted
 lines (`shared/sentComments.ts`), shown again as cards in the conversation. A commit called with `push: true` (on a branch) waits
 once, its review naming the branch ("Commit and push to origin/<branch>"), then
 runs `push -u origin <branch>`; other git options than `-C` are refused; a task's runs alone only when both would. A commit called
-with `pr` (title, body, optional base and draft) also opens the pull request after the push, under that one approval: its review adds the
+with `pr` (title, body, optional base and draft) also opens the pull request after the push, under that one approval (a push called with `pr`, for work already committed, likewise): its review adds the
 pull request and the branch's earlier commits it holds, a task's always waits (declined, nothing is committed), and when gh can't read
 the repository it's refused before committing. A branch whose pull request is already open (also when it opened while the call waited)
 only commits and pushes, and the task records that pull request. When only opening it fails, the push still counts as delivered. A commit or push that continues a branch whose pull request

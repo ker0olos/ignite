@@ -393,6 +393,68 @@ describe("a task's conversation", () => {
     );
   });
 
+  it("pushes what's already committed and opens a pull request in one call", async () => {
+    await withRemote();
+    git("push", "-q", "origin", "main");
+    git("commit", "-q", "--allow-empty", "-m", "done");
+    const ghLog = await fakeGh();
+    const { asks, updates, call } = load(mine);
+    const args = ["push", "-u", "origin", "feat/x"];
+    const done = call("git", args, repo, false, pr);
+    await asked(asks);
+    expect(asks[0].request.review).toMatchObject({
+      kind: "push",
+      pr: { head: "feat/x", base: "main", title: "T" },
+      commits: [{ subject: "done" }],
+    });
+    expect(asks[0].request.review).not.toHaveProperty("push");
+    asks[0].answer(true);
+    expect((await done).content[0].text).toContain("/pull/42");
+    expect(updates).toEqual([{ pr: "https://github.com/a/b/pull/42" }]);
+    expect(await ghLog()).toContain("pr create -R a/b --head feat/x");
+  });
+
+  it("refuses a push with pr that doesn't send only the current branch", async () => {
+    await withRemote();
+    const ghLog = await fakeGh();
+    const { asks, call } = load(mine);
+    for (const args of [
+      ["push", "origin", "HEAD:feat/y"],
+      ["push", "--delete", "origin", "feat/x"],
+      ["push", "--dry-run", "origin", "feat/x"],
+    ]) {
+      await expect(call("git", args, repo, false, pr)).rejects.toThrow(
+        "push only it",
+      );
+    }
+    expect(asks).toEqual([]);
+    expect(await ghLog()).not.toContain("pr create");
+  });
+
+  it("only pushes a task's push with pr when its pull request is open, without asking", async () => {
+    await withRemote();
+    const ghLog = await fakeGh(OPEN);
+    const { asks, updates, call } = load(mine);
+    const args = ["push", "-u", "origin", "feat/x"];
+    const result = await call("git", args, repo, false, pr);
+    expect(asks).toEqual([]);
+    expect(result.content[0].text).toContain("already open");
+    expect(updates).toEqual([{ pr: "https://github.com/a/b/pull/7" }]);
+    expect(await ghLog()).not.toContain("pr create");
+  });
+
+  it("opens no pull request when the push fails", async () => {
+    await withRemote();
+    const ghLog = await fakeGh();
+    git("remote", "set-url", "origin", join(home, "missing.git"));
+    const { asks, call } = load(mine);
+    const done = call("git", ["push", "origin", "feat/x"], repo, false, pr);
+    await asked(asks);
+    asks[0].answer(true);
+    await expect(done).rejects.toThrow();
+    expect(await ghLog()).not.toContain("pr create");
+  });
+
   it("only pushes when the branch's pull request is already open, and records it", async () => {
     await withRemote();
     const ghLog = await fakeGh(OPEN);
@@ -437,7 +499,7 @@ describe("a task's conversation", () => {
     await asked(asks);
     asks[0].answer(true);
     await expect(done).rejects.toThrow(
-      "Committed and pushed, but opening the pull request failed",
+      "Pushed, but opening the pull request failed",
     );
     expect(updates).toEqual([]);
     expect(git("ls-remote", "origin", "feat/x").toString()).toContain(

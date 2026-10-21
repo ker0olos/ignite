@@ -150,13 +150,19 @@ async function waitsOn(
   const manual = mode === "manual";
   if (manual) return { auto, manual, alone: false };
   if (!auto) return null;
-  // A task's pull request always waits for review.
-  const alone =
-    !!auto.review &&
-    !then?.pr &&
-    (await taskMayRun(pi, args, cwd)) &&
-    (!then || (await taskMayRun(pi, then.push, cwd)));
+  const alone = !!auto.review && (await runsAlone(pi, args, cwd, then));
   return { auto, manual, alone };
+}
+
+// A task's pull request always waits for review.
+async function runsAlone(
+  pi: Pick<ExtensionAPI, "events">,
+  args: string[],
+  cwd: string,
+  then?: Then,
+) {
+  if (then?.pr || !(await taskMayRun(pi, args, cwd))) return false;
+  return !then?.push || taskMayRun(pi, then.push, cwd);
 }
 
 // Without the parser, a rough split into commands is enough to spot git and gh.
@@ -255,7 +261,8 @@ export default function gitTools(pi: ExtensionAPI) {
       "outside the sandbox. Use it for commit, push, pull, fetch, clone and other git commands; " +
       "use -C <dir> for a repository in a subfolder. Reads and local changes run at once; " +
       "a commit or push shows the user its changes and waits for approval. " +
-      "To deliver, commit with `pr` to commit, push and open the pull request under one approval.",
+      "To deliver, commit with `pr` to commit, push and open the pull request under one approval " +
+      "(already committed: push with `pr`).",
   );
   register(
     GH_TOOL,
