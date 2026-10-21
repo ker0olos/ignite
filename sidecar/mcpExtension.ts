@@ -88,6 +88,8 @@ export default async function mcp(pi: ExtensionAPI) {
   const config = adapterConfig(
     await readMcpFile(join(getAgentDir(), "mcp.json")),
   );
+  // Tools with an MCP Apps UI would open it in the browser; their text result is enough.
+  process.env.MCP_UI_VIEWER = "none";
   createMcpAdapter({ config })(reasonedTools(pi));
 
   // Like the adapter's /mcp-auth, but the app opens the sign-in page: the
