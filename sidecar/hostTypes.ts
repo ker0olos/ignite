@@ -9,7 +9,6 @@ import type {
 } from "../shared/hostProtocol.ts";
 import type { SubagentStatus } from "../shared/agentStatus.ts";
 import type { SavedSession } from "../shared/conversations.ts";
-import type { Proposal } from "../shared/lessons.ts";
 import type {
   AgentMessage,
   ImageContent,
@@ -250,18 +249,12 @@ export type Agent = {
   snapshot?: Promise<string | null>;
   /** Settles once every checkpoint being saved is. */
   checkpoint?: Promise<unknown>;
-  /** How the user corrected it since its last settled run, for the reflector. */
-  corrections?: string[];
   /** Its running run's messages are those after this time (its last message's before it), for the memory. */
   runAfter?: number;
   /** Settles once the memory has written down its last settled run. */
   remembering?: Promise<void>;
   /** Ended: closed, or the app quit. */
   closed?: boolean;
-  /** Lessons and skill additions the reflector proposed, until the user keeps or discards them. */
-  proposals?: Proposal[];
-  /** How many lessons it saved itself, so a reflection that ran meanwhile is dropped. */
-  lessonsWritten?: number;
 };
 
 type Pending = { resolve(value: string): void; reject(error: Error): void };

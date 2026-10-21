@@ -5,14 +5,7 @@
  * ~/.agents/skills); those are imported by copying instead.
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import {
-  appendFile,
-  cp,
-  mkdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Skill } from "@earendil-works/pi-coding-agent";
@@ -155,13 +148,9 @@ export function createSkillStore(agentDir: string, home: string) {
     return { ...base, skills: [...project, ...ours, ...builtIn] };
   }
 
-  /** The app's skills that load: its own that are on, then the built-in ones they don't replace. */
-  const appSkills = () => sessionSkills({ skills: [] as Skill[] }).skills;
-
   return {
     list,
     sessionSkills,
-    appSkills,
 
     async setEnabled(id: string, enabled: boolean) {
       await known(id);
@@ -210,26 +199,6 @@ export function createSkillStore(agentDir: string, home: string) {
           JSON.stringify({ name, description }, null, 2) + "\n",
         );
       }
-    },
-
-    /**
-     * Adds `add` at the end of skill `name` (a built-in one copied here first,
-     * so the copy replaces it), or, with `description`, starts a new skill.
-     */
-    async addToSkill(name: string, add: string, description?: string) {
-      const found = appSkills().find((s) => s.name === name);
-      if (found && !found.filePath.startsWith(BUILT_IN)) {
-        return appendFile(found.filePath, `\n\n${add.trim()}\n`);
-      }
-      const dir = join(skillsDir, segment(name));
-      if (found) {
-        await cp(dirname(found.filePath), dir, { recursive: true });
-        return appendFile(join(dir, "SKILL.md"), `\n\n${add.trim()}\n`);
-      }
-      if (!description) throw new Error(`There's no skill ${name} any more.`);
-      await mkdir(dir, { recursive: true });
-      const head = `---\nname: ${name}\ndescription: ${JSON.stringify(description)}\n---`;
-      await writeFile(join(dir, "SKILL.md"), `${head}\n\n${add.trim()}\n`);
     },
   };
 }

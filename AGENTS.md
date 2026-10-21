@@ -25,12 +25,12 @@ src/                     React frontend (almost all logic lives here)
                          diff tabs whose lines take comments (gutter "+", comment box)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
-                         (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt, the reflector's proposed lessons
+                         (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt
     conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces; WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              The Memory settings' extras: search, type filters with counts, the folder's memories (each opens to its facts and files)
-    lessons/             A lesson's tags (its folder, what brings it up), in Settings and proposals
+    lessons/             A lesson's tags (its folder, what brings it up), in Settings
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
     skills/              Skill and plugin rows, import UI from other apps
     providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos, the Claude card's fallback keys
@@ -112,7 +112,6 @@ src/                     React frontend (almost all logic lives here)
     useInstalledThemes.ts The code and icon themes to pick from, scanned again on every open
     useLessons.ts        Every saved lesson, while Settings is open; removing one
     useFallbackKeys.ts   The fallback Anthropic API keys on the connect screen: add, remove, reorder
-    useLessonProposals.ts The reflector's proposed lessons for the shown conversation: keep or discard
     useOpenedOnce.ts     Mounts a lazy dialog (Settings, command center) on first open; loads its code soon after startup
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
     useMaximized.ts      Whether the window is maximized, for WindowControls' maximize or restore
@@ -359,9 +358,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   lessons.ts             Lessons from the agent's mistakes (~/.ignite/lessons.json): saving, the cap, which a tool call runs into
   lessonExtension.ts     lesson_add / lesson_remove; system_prompt lessons in the prompt, tool_call ones block their call
   lessonRegex.ts         Regex lessons: refusing too broad or slow ones on save (recheck), running one on a call
-  reflector.ts           After a run the user corrected, the cheapest model proposes lessons with their evidence
-  hostReflect.ts         The user's corrections (denials, rewinds), reflecting once a run settles, keeping or
-                         discarding proposals; Settings' list and remove
+  hostLessons.ts         Settings' saved lessons: list and remove
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
   taskStore.ts           Each folder's tasks in ~/.ignite/tasks, written one at a time, pushed on change
   todoFile.ts            .todo files' open items (the folder's and its folders'), for the Tasks view; deleting one
@@ -1066,28 +1063,7 @@ Without `match`, the tool's first
 call in each conversation is held once so the agent reads it. Subagents get
 the same checks.
 
-The reflector (`sidecar/reflector.ts`, after Google's Harness²) catches the
-corrections the agent didn't write down. `sidecar/hostReflect.ts` notes the
-user's corrections of a conversation: a denied call of its own (not a
-subagent's, nor a declined `ask_user`, `task_add`, lesson change or run
-outside the sandbox), a call the user wrote over, and a rewind (with the
-dropped part).
-When a run with corrections settles, the cheapest priced model of its provider
-(the router's) reads them, the run's end and the lessons that already apply,
-and proposes at most 3 lessons or skill sections, each with its evidence,
-preferring `tool_call` lessons over always-on `system_prompt` ones, and a
-skill for a procedure tied to a kind of work (it loads only when needed; a
-`subagent` lesson covers how to delegate). It sees the app's skills (their
-names, and the content of those the run used) and may only add a section at
-the end of one, or start a new one (`addToSkill` in `sidecar/skillStore.ts`;
-a built-in skill is copied into `~/.ignite/pi/skills` first, so the copy
-replaces it); the folder's own `.pi` skills are left alone. Most corrections
-teach nothing and propose none. The proposals show above the composer (Keep
-saves the lesson, or adds the section and reloads the sessions; Discard drops
-it), kept in the sidecar's memory until answered or the conversation closes.
-Once the agent saves a lesson itself (often in the run after the correction),
-its pending proposals, the corrections so far and a reflection still running
-are dropped, since it already wrote down what the reflector would. Settings → Lessons lists every saved lesson
+Settings → Lessons lists every saved lesson
 (where it applies, how often it came up) and removes one.
 
 Claude subscriptions run through the user's own Claude Code via the

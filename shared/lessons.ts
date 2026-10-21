@@ -30,56 +30,12 @@ export function readLessonAdded(details: unknown): LessonAdded | undefined {
   return typeof d?.lesson?.text === "string" ? (d as LessonAdded) : undefined;
 }
 
-/** A lesson the reflector draws from a run the user corrected; saved only if the user keeps it. */
-export type ProposedLesson = Pick<
-  Lesson,
-  "id" | "text" | "level" | "tool" | "match" | "regex"
-> & {
-  kind: "lesson";
-  folderOnly: boolean;
-  /** The moment in the run that calls for it. */
-  evidence: string;
-};
-
-/** A section the reflector would add to one of the app's skills, or a new skill with it. */
-export type ProposedSkill = {
-  kind: "skill";
-  id: string;
-  skill: string;
-  /** Set for a new skill: when the agent should load it. */
-  description?: string;
-  /** Markdown added at the end of the skill. */
-  add: string;
-  evidence: string;
-};
-
-export type Proposal = ProposedLesson | ProposedSkill;
-
 export type LessonRequest =
-  /** The conversation's proposals. */
-  | { id: number; type: "lesson_proposals"; session: string }
-  /** Saves (`keep`) or discards one; resolves to those left. */
-  | {
-      id: number;
-      type: "lesson_answer";
-      session: string;
-      lesson: string;
-      keep: boolean;
-    }
   /** Every saved lesson, for Settings. */
   | { id: number; type: "lessons_list" }
   | { id: number; type: "lessons_remove"; lesson: string };
 
 export type LessonResponses = {
-  lesson_proposals: Proposal[];
-  lesson_answer: Proposal[];
   lessons_list: Lesson[];
   lessons_remove: Lesson[];
-};
-
-/** The reflector's proposals for a conversation changed. */
-export type LessonMessage = {
-  type: "lesson_proposals";
-  session: string;
-  lessons: Proposal[];
 };

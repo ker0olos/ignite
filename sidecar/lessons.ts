@@ -13,10 +13,10 @@ type NewLesson = Pick<
 
 export const MAX_LESSONS = 30;
 /** The shortest `match` a tool_call lesson takes. */
-export const MIN_MATCH = 3;
+const MIN_MATCH = 3;
 
 /** A new lesson's id. */
-export const lessonId = () => randomUUID().slice(0, 8);
+const lessonId = () => randomUUID().slice(0, 8);
 
 const cache = new Map<string, { mtime: number; lessons: Lesson[] }>();
 
