@@ -8,6 +8,7 @@ import { highlightLines, type Token } from "@/lib/highlight";
 import type { DiffLine } from "@/lib/toolRows";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { cn } from "@/lib/utils";
+import { changedRanges } from "@/lib/wordDiff";
 
 /** Highlighted lines with numbers; added and removed lines are tinted. */
 export function CodeLines({
@@ -29,17 +30,22 @@ export function CodeLines({
 }) {
   const [all, setAll] = useState(false);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
-  const [tokens, setTokens] = useState<Token[][] | null>(null);
+  const [highlighted, setHighlighted] = useState<{
+    code: string;
+    tokens: Token[][];
+  } | null>(null);
   const code = lines.map((l) => (l.kind === "gap" ? "" : l.text)).join("\n");
+  const tokens = highlighted?.code === code ? highlighted.tokens : null;
   const marks = lines.some((l) => l.kind === "add" || l.kind === "del");
   const shown = all ? lines : lines.slice(0, max);
+  const changed = changedRanges(shown);
   const folded = foldUnchanged(shown, expanded);
   const rows = extras ? keepUnfolded(folded, extras.keep) : folded;
 
   useEffect(() => {
     let cancelled = false;
     highlightLines(code, path, codeThemes).then(
-      (t) => !cancelled && setTokens(t),
+      (t) => !cancelled && setHighlighted({ code, tokens: t }),
     );
     return () => {
       cancelled = true;
@@ -72,6 +78,7 @@ export function CodeLines({
                 editor={editor}
                 gutter={extras?.gutter(row.index)}
                 selected={extras?.selected(row.index)}
+                changed={changed.get(row.index)}
               />
               {extras?.below(row.index)}
             </Fragment>

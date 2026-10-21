@@ -3,8 +3,15 @@ import type { Editor } from "@/components/conversation/shared";
 import type { Token } from "@/lib/highlight";
 import type { DiffLine } from "@/lib/toolRows";
 import { cn } from "@/lib/utils";
+import { markTokens, type Range } from "@/lib/wordDiff";
 
-/** One numbered line of CodeLines, tinted when added or removed; a diff tab's has a gutter (its comment button) and shows selected. */
+const CHANGED = {
+  add: "bg-success/40",
+  del: "bg-destructive/40",
+  ctx: "",
+};
+
+/** One numbered line of CodeLines, tinted when added or removed, its changed words more strongly; a diff tab's has a gutter (its comment button) and shows selected. */
 export function CodeLine({
   line,
   row,
@@ -13,10 +20,12 @@ export function CodeLine({
   editor,
   gutter,
   selected,
+  changed,
 }: {
   line: DiffLine;
   row: number;
   tokens: Token[] | undefined;
+  changed?: Range[];
   marks: boolean;
   editor: Editor;
   gutter?: ReactNode;
@@ -56,13 +65,17 @@ export function CodeLine({
             : "whitespace-pre",
         )}
       >
-        {tokens
-          ? tokens.map((t, j) => (
-              <span key={j} className="tok" style={t.style}>
-                {t.content}
-              </span>
-            ))
-          : line.text}
+        {markTokens(tokens ?? [{ content: line.text, style: {} }], changed).map(
+          (t, j) => (
+            <span
+              key={j}
+              className={cn("tok", t.changed && CHANGED[line.kind])}
+              style={t.style}
+            >
+              {t.content}
+            </span>
+          ),
+        )}
       </span>
     </div>
   );
