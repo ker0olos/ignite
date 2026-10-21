@@ -279,7 +279,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   approvalSettings.ts    `[approval]` read per tool call; which sandbox applies (Windows' only when turned on)
   bashExtension.ts       pi's bash with `background: true` (dev servers, watchers), and bash_stop to end them
   backgroundBash.ts      Background commands per conversation: their logs, stopping them with what they started
-  bashWait.ts            bash_wait: the conversation runs again once a background command exits
+  bashWait.ts            bash_wait: the conversation runs again once its background commands all exit
   hostWait.ts            Wakes those conversations (a hidden message), or leaves a note while one waits on its fork
   skipWait.ts            Skip wait: the user cuts a bash call's `sleep` short (a `sleep` on PATH that exits 0), and it carries on
   runOutside.ts          Runs a bash call outside the sandbox once the user approved it
@@ -693,9 +693,9 @@ approval and the sandbox treat it like any command. It returns after 5
 seconds with the output so far, the pid and a log file in the temp folder;
 `bash_stop` ends it with everything it started (the sandbox only lets a
 process signal its own sandbox), killing it if it hasn't exited after 3
-seconds. `bash_wait` (`sidecar/bashWait.ts`) returns at once; when the
-command exits, the host (`sidecar/hostWait.ts`) sends a hidden message with
-its exit code and the end of its output that starts a new run (pi's
+seconds. `bash_wait` (`sidecar/bashWait.ts`) takes one or more pids and
+returns at once; when the last of them exits (a stopped one drops out), the host (`sidecar/hostWait.ts`) sends a hidden message with
+each one's exit code and the end of its output that starts a new run (pi's
 `sendCustomMessage` with `triggerTurn`, queued as a follow-up mid-run), so
 the agent carries on instead of promising to report back. A conversation
 waiting on its fork gets it as a fork note instead, with its next run.

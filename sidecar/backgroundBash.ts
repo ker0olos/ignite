@@ -20,8 +20,8 @@ export type Background = {
   raw: string;
   running: boolean;
   exitCode?: number;
-  /** The agent waits on it with bash_wait and hasn't been told it exited. */
-  wake?: boolean;
+  /** The commands one bash_wait call waits on with it, itself included; the agent hasn't been told they exited. */
+  wake?: Background[];
 };
 
 type Registry = { all: Map<string, Background>; listeners: Set<() => void> };
@@ -85,21 +85,41 @@ export function stopBackground(
 ): boolean {
   const found = all.get(keyOf(session, pid));
   if (!found?.running) return false;
-  found.wake = false;
+  unwait(found);
   end(found, after);
   return true;
 }
 
-/** The commands waited on with bash_wait that have exited, taken. */
-export function exitedWaits(): Background[] {
-  const exited = [...all.values()].filter((b) => b.wake && !b.running);
-  for (const b of exited) b.wake = false;
-  return exited;
+// Leaves its bash_wait call, which still wakes once the others exit.
+function unwait(b: Background) {
+  const at = b.wake?.indexOf(b) ?? -1;
+  if (at >= 0) b.wake!.splice(at, 1);
+  b.wake = undefined;
+}
+
+/** Waits on `group` with one bash_wait call, each leaving any call it was in. */
+export function waitFor(group: Background[]) {
+  for (const b of group) {
+    unwait(b);
+    b.wake = group;
+  }
+  // A call left with only exited commands wakes now.
+  changed();
+}
+
+/** The bash_wait calls whose commands have all exited, taken. */
+export function exitedWaits(): Background[][] {
+  const groups = new Set<Background[]>();
+  for (const b of all.values()) {
+    if (b.wake?.every((w) => !w.running)) groups.add(b.wake);
+  }
+  for (const group of groups) for (const b of group) b.wake = undefined;
+  return [...groups];
 }
 
 /** Drops conversation `session`'s bash_wait calls, as the user stops it. */
 export function cancelWaits(session: string) {
-  for (const b of backgroundOf(session)) b.wake = false;
+  for (const b of backgroundOf(session)) b.wake = undefined;
 }
 
 /** Stops conversation `session`'s background commands and forgets them, as it ends. */

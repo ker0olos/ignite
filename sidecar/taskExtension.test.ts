@@ -282,7 +282,7 @@ describe("agent_end", () => {
       await done;
       vi.useRealTimers();
       const [waited] = backgroundOf("s1");
-      waited.wake = true;
+      waited.wake = [waited];
       await start();
       await end("stop");
       expect(sent).toEqual([]);

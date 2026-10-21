@@ -1,6 +1,6 @@
 /**
  * pi's bash with `background: true` for commands that keep running (dev
- * servers, watchers), bash_stop to end them and bash_wait to carry on once one exits. Still the `bash` tool, so
+ * servers, watchers), bash_stop to end them and bash_wait to carry on once they exit. Still the `bash` tool, so
  * approval and the sandbox treat it as any other command.
  */
 import {
@@ -33,7 +33,7 @@ const BACKGROUND = Type.Optional(
     description:
       "Keep it running in the background (dev servers, watchers, anything that doesn't exit). " +
       `Returns after ${STARTUP_MS / 1000}s with its output so far, its pid and a log file to read later. ` +
-      `End it with ${BASH_STOP_TOOL}; to carry on once it exits, call ${BASH_WAIT_TOOL} and end your turn.`,
+      `End it with ${BASH_STOP_TOOL}; to carry on once it exits, call ${BASH_WAIT_TOOL} (once, with every pid you wait on) and end your turn.`,
   }),
 );
 

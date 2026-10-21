@@ -12,6 +12,7 @@ import {
   backgroundOf,
   cancelWaits,
   forgetBackground,
+  onBackgroundChange,
   STARTUP_MS,
   stopBackground,
   type Background,
@@ -27,14 +28,18 @@ const ctx = {
   sessionManager: { getSessionId: () => "w1", getSessionFile: () => undefined },
 } as unknown as ExtensionToolContext;
 
-function waitTool() {
-  let tool: ToolDefinition | undefined;
+function tool() {
+  let registered: ToolDefinition | undefined;
   bashWait({
-    registerTool: (t: ToolDefinition) => (tool = t),
+    registerTool: (t: ToolDefinition) => (registered = t),
   } as unknown as ExtensionAPI);
-  return (pid: number) =>
-    tool!.execute("t1", { pid } as never, undefined, undefined, ctx);
+  return registered!;
 }
+
+const waitTool =
+  () =>
+  (...pids: number[]) =>
+    tool().execute("t1", { pids } as never, undefined, undefined, ctx);
 
 // A host whose one conversation, w1, takes the wakes; `forked` adds its open fork.
 function host(forked = false) {
@@ -76,7 +81,9 @@ describe.runIf(process.platform !== "win32")("bash_wait", () => {
   it("wakes the conversation with the exit code and all of its output", async () => {
     const { sendCustomMessage, wake } = host();
     const b = await start("sleep 0.3; echo finished; exit 3");
-    expect(textOf(await waitTool()(b.pid))).toContain(`when ${b.pid} exits`);
+    expect(textOf(await waitTool()(b.pid))).toContain(
+      `once ${b.pid} has exited`,
+    );
     await vi.waitFor(() => expect(b.running).toBe(false));
     wake();
     await vi.waitFor(() => expect(sendCustomMessage).toHaveBeenCalledTimes(1));
@@ -89,6 +96,78 @@ describe.runIf(process.platform !== "win32")("bash_wait", () => {
     expect(options).toEqual({ triggerTurn: true, deliverAs: "followUp" });
     wake();
     expect(sendCustomMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("wakes once, after every command it waits on has exited", async () => {
+    const { sendCustomMessage, wake } = host();
+    const fast = await start("sleep 0.1; echo fast");
+    const slow = await start("sleep 0.6; echo slow");
+    expect(textOf(await waitTool()(fast.pid, slow.pid))).toContain(
+      "have all exited",
+    );
+    await vi.waitFor(() => expect(fast.running).toBe(false));
+    wake();
+    expect(sendCustomMessage).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(slow.running).toBe(false));
+    wake();
+    await vi.waitFor(() => expect(sendCustomMessage).toHaveBeenCalledTimes(1));
+    const [message] = sendCustomMessage.mock.calls[0] as never as [
+      { content: string },
+    ];
+    expect(message.content).toContain("fast");
+    expect(message.content).toContain("slow");
+  });
+
+  it("still wakes for the rest once one it waits on is stopped", async () => {
+    const { sendCustomMessage, wake } = host();
+    const stopped = await start("sleep 30");
+    const left = await start("sleep 0.3; echo left");
+    await waitTool()(stopped.pid, left.pid);
+    stopBackground(stopped.pid, "w1");
+    await vi.waitFor(() => expect(left.running).toBe(false));
+    await vi.waitFor(() => expect(stopped.running).toBe(false));
+    wake();
+    await vi.waitFor(() => expect(sendCustomMessage).toHaveBeenCalledTimes(1));
+    const [message] = sendCustomMessage.mock.calls[0] as never as [
+      { content: string },
+    ];
+    expect(message.content).toContain("left");
+    expect(message.content).not.toContain(`pid ${stopped.pid}`);
+  });
+
+  it("wakes an earlier call at once when a later one takes its last running command", async () => {
+    const { sendCustomMessage, wake } = host();
+    const done = await start("sleep 0.1; echo done");
+    const running = await start("sleep 30");
+    await waitTool()(done.pid, running.pid);
+    await vi.waitFor(() => expect(done.running).toBe(false));
+    wake();
+    expect(sendCustomMessage).not.toHaveBeenCalled();
+    const unsubscribe = onBackgroundChange(wake);
+    await waitTool()(running.pid);
+    unsubscribe();
+    await vi.waitFor(() => expect(sendCustomMessage).toHaveBeenCalledTimes(1));
+    const [message] = sendCustomMessage.mock.calls[0] as never as [
+      { content: string },
+    ];
+    expect(message.content).toContain(`(pid ${done.pid})`);
+    expect(running.wake).toEqual([running]);
+  });
+
+  it("takes a single pid as older calls wrote it", async () => {
+    const b = await start("sleep 0.1");
+    await vi.waitFor(() => expect(b.running).toBe(false));
+    const result = await tool().execute(
+      "t1",
+      { pid: b.pid } as never,
+      undefined,
+      undefined,
+      ctx,
+    );
+    expect(textOf(result)).toContain(`(pid ${b.pid}) exited with code 0`);
+    await expect(
+      tool().execute("t1", {} as never, undefined, undefined, ctx),
+    ).rejects.toThrow("Give the pids");
   });
 
   it("answers at once for a command that already exited", async () => {

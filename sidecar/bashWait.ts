@@ -1,4 +1,4 @@
-/** bash_wait: the conversation runs again once a background command exits (hostWait.ts wakes it). */
+/** bash_wait: the conversation runs again once its background commands exit (hostWait.ts wakes it). */
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -6,7 +6,7 @@ import type {
 import { open } from "node:fs/promises";
 import { Type } from "typebox";
 import { BASH_WAIT_TOOL } from "../shared/agentTypes.ts";
-import { backgroundOf, type Background } from "./backgroundBash.ts";
+import { backgroundOf, waitFor, type Background } from "./backgroundBash.ts";
 
 const TAIL_BYTES = 4096;
 
@@ -41,37 +41,51 @@ export async function exitedText(b: Background) {
   return `Background command \`${b.command}\` (pid ${b.pid}) ${how}. Its full output is in ${b.log}${end}`;
 }
 
+/** What the agent is told once every command in `group` has exited. */
+export const groupExitedText = async (group: Background[]) =>
+  (await Promise.all(group.map(exitedText))).join("\n\n");
+
 /** Registers bash_wait. */
 export default function bashWait(pi: ExtensionAPI) {
   pi.registerTool({
     name: BASH_WAIT_TOOL,
-    label: "Wait for background command",
+    label: "Wait for background commands",
     description:
-      "Wake up once a command started with bash's `background: true` exits: call it, then end your turn. " +
-      "When it exits, you get its exit code and the end of its output as a new message and carry on. " +
-      "Use it instead of telling the user you'll report back later, or sleeping until it's done.",
-    promptSnippet: `${BASH_WAIT_TOOL}: continue once a background bash command exits`,
+      "Wake up once commands started with bash's `background: true` have all exited: call it once with every pid, then end your turn. " +
+      "When the last one exits, you get each one's exit code and the end of its output as a new message and carry on. " +
+      "Use it instead of telling the user you'll report back later, or sleeping until they're done.",
+    promptSnippet: `${BASH_WAIT_TOOL}: continue once background bash commands exit`,
     parameters: Type.Object({
-      pid: Type.Number({ description: "The pid bash reported." }),
+      pids: Type.Optional(
+        Type.Array(Type.Number(), { description: "The pids bash reported." }),
+      ),
+      // Calls made before it took several, which models copy from older context.
+      pid: Type.Optional(Type.Number({ description: "One pid, as pids." })),
     }),
-    async execute(_id, { pid }, _signal, _onUpdate, ctx: ExtensionContext) {
+    async execute(_id, args, _signal, _onUpdate, ctx: ExtensionContext) {
+      const pids = [...(args.pids ?? []), ...(args.pid ? [args.pid] : [])];
+      if (!pids.length) throw new Error("Give the pids to wait on.");
       const session = ctx.sessionManager.getSessionId();
-      const found = backgroundOf(session).find((b) => b.pid === pid);
-      if (!found) {
-        throw new Error(`No background command ${pid} in this conversation.`);
-      }
-      if (!found.running) {
+      const mine = backgroundOf(session);
+      const group = [...new Set(pids)].map((pid) => {
+        const found = mine.find((b) => b.pid === pid);
+        if (!found) {
+          throw new Error(`No background command ${pid} in this conversation.`);
+        }
+        return found;
+      });
+      if (group.every((b) => !b.running)) {
         return {
-          content: [{ type: "text", text: await exitedText(found) }],
+          content: [{ type: "text", text: await groupExitedText(group) }],
           details: {},
         };
       }
-      found.wake = true;
+      waitFor(group);
       return {
         content: [
           {
             type: "text",
-            text: `You'll get a message when ${pid} exits. End your turn now unless there's other work to do meanwhile.`,
+            text: `You'll get a message once ${group.map((b) => b.pid).join(", ")} ${group.length > 1 ? "have all" : "has"} exited. End your turn now unless there's other work to do meanwhile.`,
           },
         ],
         details: {},
