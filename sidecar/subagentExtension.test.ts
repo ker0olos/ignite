@@ -143,11 +143,14 @@ function load({
   };
   const run = (params: object, signal?: AbortSignal, onUpdate?: never) =>
     tool!.execute("t1", params as never, signal, onUpdate, ctx as never);
-  const start = () =>
-    handlers.get("before_agent_start")!(
-      { systemPrompt: "Base" },
+  const start = async () => {
+    const sections: Record<string, string> = {};
+    await handlers.get("before_agent_start")!(
+      { systemPromptOptions: { sections } },
       ctx,
-    ) as Promise<{ systemPrompt: string } | undefined>;
+    );
+    return sections;
+  };
   const shutdown = () => handlers.get("session_shutdown")!({});
   return { run, start, shutdown, asks, sessions, active: () => active };
 }
@@ -160,24 +163,24 @@ describe("before_agent_start", () => {
     const { start, active } = load();
     const models = [MODELS[0], MODELS[1], MODELS[2], MODELS[4]];
     const efforts = allowedEfforts("high");
-    expect((await start())?.systemPrompt).toBe(
-      `Base\n\n${guidance(models, efforts, 2)}`,
-    );
+    expect(await start()).toEqual({
+      subagents: guidance(models, efforts, 2),
+    });
     expect(active()).toEqual(["read", "subagent"]);
   });
 
   it("drops the tool when turned off", async () => {
     await settings("[subagents]\nenabled = false\n");
     const { start, active } = load();
-    expect(await start()).toBeUndefined();
+    expect(await start()).toEqual({});
     expect(active()).toEqual(["read"]);
   });
 
   it("offers its own model at its own effort, even at the bottom", async () => {
     const { start } = load({ level: "off", own: MODELS[2] });
-    expect((await start())?.systemPrompt).toBe(
-      `Base\n\n${guidance([MODELS[2]], ["off"], 2)}`,
-    );
+    expect(await start()).toEqual({
+      subagents: guidance([MODELS[2]], ["off"], 2),
+    });
   });
 });
 

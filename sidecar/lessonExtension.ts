@@ -175,9 +175,7 @@ export default function lessons(pi: ExtensionAPI, file = LESSONS_FILE) {
       ),
     );
     const saved = prompt ? `\n\nLessons from past mistakes:\n${prompt}` : "";
-    return {
-      systemPrompt: `${event.systemPrompt}\n\n${LESSON_GUIDANCE}${saved}`,
-    };
+    event.systemPromptOptions.sections.lessons = `${LESSON_GUIDANCE}${saved}`;
   });
 
   pi.on("tool_call", (event, ctx) => {

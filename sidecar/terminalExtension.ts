@@ -47,14 +47,13 @@ export default function terminal(pi: ExtensionAPI) {
   });
 
   pi.on("before_agent_start", (event, ctx) => {
-    const systemPrompt = `${event.systemPrompt}\n\n${MENTION_GUIDANCE}`;
+    event.systemPromptOptions.sections.mentions = MENTION_GUIDANCE;
     const text = unseenTerminals(
       ctx.sessionManager.getSessionId(),
       folderOf(ctx.cwd),
     );
-    if (!text) return { systemPrompt };
+    if (!text) return;
     return {
-      systemPrompt,
       message: {
         customType: "terminal",
         content: `The user's terminal since you last saw it:\n\n${text}`,

@@ -23,7 +23,9 @@ function load() {
   } as unknown as ExtensionAPI);
   const read = (params: object) =>
     tool!.execute("call", params, undefined, undefined, ctx as never);
-  return { read, beforeRun: () => beforeRun!({ systemPrompt: "Base" }, ctx) };
+  const sections = {};
+  const run = () => beforeRun!({ systemPromptOptions: { sections } }, ctx);
+  return { read, sections, beforeRun: run };
 }
 
 let id: string;
@@ -31,7 +33,7 @@ afterEach(() => closeTerminal(id));
 
 it("adds the user's new terminal output to the next run, then reads it on request", async () => {
   ({ terminal: id } = openTerminal(cwd, 80, 24, () => {}));
-  const { read, beforeRun } = load();
+  const { read, sections, beforeRun } = load();
   writeTerminal(id, "echo from-user\r");
   await vi.waitFor(async () =>
     expect(JSON.stringify(await read({ terminal: id }))).toContain(
@@ -39,12 +41,11 @@ it("adds the user's new terminal output to the next run, then reads it on reques
     ),
   );
   // Reading marked it seen; new output comes with the next run.
-  const systemPrompt = `Base\n\n${MENTION_GUIDANCE}`;
-  expect(beforeRun()).toEqual({ systemPrompt });
+  expect(beforeRun()).toBeUndefined();
+  expect(sections).toEqual({ mentions: MENTION_GUIDANCE });
   writeTerminal(id, "echo again\r");
   await vi.waitFor(() =>
     expect(beforeRun()).toEqual({
-      systemPrompt,
       message: {
         customType: "terminal",
         content: expect.stringContaining("again"),

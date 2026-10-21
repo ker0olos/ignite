@@ -62,8 +62,11 @@ describe.runIf(process.platform !== "win32")("bash extension", () => {
   it("tells the agent to run commands itself and where its scratchpad is", async () => {
     const start = load().handlers.get("before_agent_start")!;
     const scratch = scratchpad("s1");
-    expect(await start({ systemPrompt: "base" }, ctx)).toEqual({
-      systemPrompt: `base\n\n${COMMAND_GUIDANCE}\n\n${scratchGuidance(scratch)}`,
+    const sections = {};
+    await start({ systemPromptOptions: { sections } }, ctx);
+    expect(sections).toEqual({
+      commands: COMMAND_GUIDANCE,
+      scratchpad: scratchGuidance(scratch),
     });
     expect(existsSync(scratch)).toBe(true);
   });
