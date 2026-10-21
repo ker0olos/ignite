@@ -17,7 +17,7 @@ export function QuestionAnswers({ answers }: { answers: AnsweredQuestion[] }) {
               {answerLabel(choices, images, files.length)}
             </p>
             {text && (
-              <p className="whitespace-pre-wrap text-muted-foreground">
+              <p className="whitespace-pre-wrap text-foreground">
                 {text}
               </p>
             )}
