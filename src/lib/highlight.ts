@@ -28,6 +28,16 @@ async function options(code: string, path: string, themes: CodeThemes) {
   return { lang, themes: { light, dark }, defaultColor: false as const };
 }
 
+const recent = new Map<string, string>();
+const RECENT_MAX = 200;
+const recentKey = (code: string, path: string, themes: CodeThemes) =>
+  `${themes.light}\0${themes.dark}\0${path}\0${code}`;
+
+/** The last `highlight` result for these arguments, if still kept, so a remounted view starts highlighted. */
+export function lastHighlight(code: string, path: string, themes: CodeThemes) {
+  return recent.get(recentKey(code, path, themes)) ?? null;
+}
+
 /**
  * Highlights `code` with Shiki in both themes at once. Colours come out as
  * CSS variables (--shiki-light / --shiki-dark) that index.css switches on
@@ -38,7 +48,12 @@ export async function highlight(
   path: string,
   themes: CodeThemes,
 ) {
-  return codeToHtml(code, await options(code, path, themes));
+  const html = await codeToHtml(code, await options(code, path, themes));
+  const key = recentKey(code, path, themes);
+  recent.delete(key);
+  recent.set(key, html);
+  if (recent.size > RECENT_MAX) recent.delete(recent.keys().next().value!);
+  return html;
 }
 
 /** Like `highlight`, but as tokens per line, for views that lay out lines themselves. */

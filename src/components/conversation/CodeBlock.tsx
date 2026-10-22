@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@/components/conversation/shared";
-import { highlight } from "@/lib/highlight";
+import { highlight, lastHighlight } from "@/lib/highlight";
 import { cn } from "@/lib/utils";
 import type { CodeThemes } from "@/lib/codeThemes";
 
@@ -18,7 +18,9 @@ export function CodeBlock({
   codeThemes: CodeThemes;
   className?: string;
 }) {
-  const [html, setHtml] = useState<string | null>(null);
+  const path = lang ? `snippet.${lang}` : "snippet.txt";
+  // Markdown remounts its code blocks on every render; this keeps them from flashing plain.
+  const [html, setHtml] = useState(() => lastHighlight(code, path, codeThemes));
   const requested = useRef(0);
   const landed = useRef(0);
 
@@ -26,14 +28,12 @@ export function CodeBlock({
   // one but the last, which would leave it unhighlighted until the stream ends.
   useEffect(() => {
     const n = ++requested.current;
-    highlight(code, lang ? `snippet.${lang}` : "snippet.txt", codeThemes).then(
-      (h) => {
-        if (n < landed.current) return;
-        landed.current = n;
-        setHtml(h);
-      },
-    );
-  }, [code, lang, codeThemes]);
+    highlight(code, path, codeThemes).then((h) => {
+      if (n < landed.current) return;
+      landed.current = n;
+      setHtml(h);
+    });
+  }, [code, path, codeThemes]);
 
   return (
     // w-max keeps the right padding inside the scrolled width.

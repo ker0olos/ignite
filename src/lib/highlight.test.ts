@@ -1,6 +1,6 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { beforeEach, describe, expect, it } from "vitest";
-import { highlight, highlightLines } from "./highlight";
+import { highlight, highlightLines, lastHighlight } from "./highlight";
 
 const THEMES = { light: "github-light", dark: "github-dark" };
 
@@ -20,6 +20,22 @@ describe("highlight", () => {
   it("colours tokens for a known language", async () => {
     const html = await highlight("const answer: number = 42;", "/a.ts", THEMES);
     expect(colours(html).size).toBeGreaterThan(1);
+  });
+
+  it("keeps the last result for a remounted view, per code, path and themes", async () => {
+    expect(lastHighlight("let kept = 1", "/a.js", THEMES)).toBeNull();
+    const html = await highlight("let kept = 1", "/a.js", THEMES);
+    expect(lastHighlight("let kept = 1", "/a.js", THEMES)).toBe(html);
+    expect(lastHighlight("let kept = 1", "/a.ts", THEMES)).toBeNull();
+    expect(
+      lastHighlight("let kept = 1", "/a.js", { ...THEMES, dark: "nord" }),
+    ).toBeNull();
+  });
+
+  it("forgets the oldest result past 200", async () => {
+    await highlight("let first = 1", "/a.txt", THEMES);
+    for (let i = 0; i < 200; i++) await highlight(`${i}`, "/a.txt", THEMES);
+    expect(lastHighlight("let first = 1", "/a.txt", THEMES)).toBeNull();
   });
 
   it("emits both theme variables so CSS can switch light and dark", async () => {
