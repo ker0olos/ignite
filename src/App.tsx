@@ -135,10 +135,10 @@ export default function App() {
         />
       )}
       <AppSettingsDialog
-        {...{ dialog, settings, providers, mcp, connectScreen }}
+        {...{ dialog, settings, providers, mcp, connectScreen, remote }}
         onChange={setSettings}
         folder={current}
-        remote={remote}
+        onOpenConversation={conversationTabs.conversations.show}
       />
       {isWindows() && !isRemote() && <WindowControls />}
       <AppCommandCenter

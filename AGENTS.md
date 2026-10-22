@@ -117,6 +117,7 @@ src/                     React frontend (almost all logic lives here)
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
     useInstalledThemes.ts The code and icon themes to pick from, scanned again on every open
     useLessons.ts        Every saved lesson, while Settings is open; removing one
+    useReflector.ts      The reflector's points, while Settings is open; editing or removing one
     useFallbackKeys.ts   The fallback Anthropic API keys on the connect screen: add, remove, reorder
     useOpenedOnce.ts     Mounts a lazy dialog (Settings, command center) on first open; loads its code soon after startup
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
@@ -377,6 +378,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   lessonExtension.ts     lesson_add / lesson_remove; system_prompt lessons in the prompt, tool_call ones block their call
   lessonRegex.ts         Regex lessons: refusing too broad or slow ones on save (recheck), running one on a call
   hostLessons.ts         Settings' saved lessons: list and remove
+  reflector.ts           After a run with the user's feedback, the cheapest model rewrites the reflector's points
+  hostReflect.ts         The user's feedback on a run (replies, answers' notes, denials, rewinds), reflected on once it settles;
+                         Settings' points: list, edit, remove
+  reflectorExtension.ts  The reflector's points (~/.ignite/reflector.json), each beside its entry point's guidance
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
   taskStore.ts           Each folder's tasks in ~/.ignite/tasks, written one at a time, pushed on change
   todoFile.ts            .todo files' open items (the folder's and its folders'), for the Tasks view; deleting one
@@ -1100,6 +1105,39 @@ the same checks.
 
 Settings → Lessons lists every saved lesson
 (where it applies, how often it came up) and removes one.
+
+The reflector (`sidecar/reflector.ts`) has one job: making the agent work the
+way this user wants, from their feedback, over time. Lessons stay as they are
+(mistakes, appended and enforced); the reflector keeps its own points in
+`~/.ignite/reflector.json` (`shared/reflector.ts`): how the user wants the
+agent to report, ask, plan, deliver and delegate, each tied to an entry
+point. `sidecar/hostReflect.ts` collects the feedback in a run: the user's
+messages after the conversation's first (not the ones the app sends as theirs:
+a task's wrap-up, a fork's report), what they wrote answering `ask_user` (a
+note or their own answer; a bare pick is a choice for the task), calls they
+denied or wrote over (not a declined `ask_user`, `task_add`, lesson change or
+run outside the sandbox) and rewinds (with what they dropped; the new message
+is the run's). When a run with any settles, the cheapest priced model of its
+provider (the router's) reads it with the points and the run's last 15,000
+characters, and either keeps them (the usual case: task-only choices, project
+facts and single tool mistakes teach nothing here) or replies with the points
+it keeps, changes (a left-out entry point stays), adds (with an entry point and
+the kind of feedback that taught it) or drops. A point it leaves out stays, so
+only an explicit drop removes one; at most 10 per entry point, a new one
+merged into the one it sharpens. A hand-edited file's broken points are
+skipped when read. They're written at once, one
+reflection (or Settings edit) at a time, with no prompt to the user.
+`sidecar/reflectorExtension.ts` (loaded after the extensions it adds to) reads
+them once per conversation, for its cache, and puts each beside its entry
+point's guidance: `asking` in the `questions` section (only while `ask_user`
+is active), `planning` in `plan` (a task's `task`), `delivering` in
+`worktree` (the git guidance), `delegating` in `subagents`, and `always` in a
+`reflector` section of its own; a point whose section the conversation lacks
+is left out. Each new or changed point records the conversation it was
+learned in. Settings → Reflector lists them like lessons: where each is read
+(its entry point), and what taught it, in which conversation (a link that
+opens it) and how long ago; it edits one in place (then the user's own, with
+no conversation) and removes one.
 
 Claude subscriptions run through the user's own Claude Code via the
 `pi-claude-bridge` extension (pi provider `claude-bridge`), because Anthropic

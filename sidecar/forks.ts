@@ -182,3 +182,11 @@ export async function summarize(
     .join("");
   return answer.stopReason === "error" || !text ? lastText(messages) : text;
 }
+
+/** The message a closed fork's report reaches its original as. */
+export const forkReport = (title: string, id: string, summary: string) =>
+  `Your fork "${title}" (${id}) is done. Its report:\n\n${summary}`;
+
+/** Whether a user message is a fork's report, which the app sent, not the user. */
+export const isForkReport = (text: string) =>
+  /^Your fork ".*" \([^)\s]+\) is done\. Its report:\n/.test(text);

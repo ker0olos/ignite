@@ -20,6 +20,7 @@ import { worktreeHandlers } from "./hostTerminal.ts";
 import { closeConversation, fork } from "./hostFork.ts";
 import { rewind } from "./hostRewind.ts";
 import { lessonHandlers } from "./hostLessons.ts";
+import { reflectorHandlers } from "./hostReflect.ts";
 import { fallbackKeyHandlers } from "./fallbackKeys.ts";
 import { mcpServers, changeMcp, changeSkills } from "./hostMcp.ts";
 import { mcpCatalog, addPreset, importServers } from "./hostMcpCatalog.ts";
@@ -122,6 +123,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   skills_import: (ctx, r) =>
     changeSkills(ctx, () => ctx.skills.importSkills(r.source, r.names)),
   ...lessonHandlers,
+  ...reflectorHandlers,
   ...worktreeHandlers,
   ...fallbackKeyHandlers,
   memory_status: (_ctx, r) =>

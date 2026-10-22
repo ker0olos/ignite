@@ -4,6 +4,7 @@ import type { OpenedSession } from "../shared/hostProtocol.ts";
 import {
   dropFork,
   dropNote,
+  forkReport,
   forkSession,
   lastText,
   noteFor,
@@ -88,8 +89,7 @@ function hold(ctx: HostContext, folder: string, fork: Agent) {
 }
 
 const reportText = (fork: Agent, summary: string) =>
-  summary &&
-  `Your fork "${fork.title}" (${fork.id}) is done. Its report:\n\n${summary}`;
+  summary && forkReport(fork.title, fork.id, summary);
 
 async function report(
   ctx: HostContext,

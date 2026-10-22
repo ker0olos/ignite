@@ -43,6 +43,8 @@ export const SESSION_EXTENSIONS = [
   waitFirst,
   lessons,
   sibling("./taskExtension.ts"),
+  // After the extensions whose guidance its points sit beside.
+  sibling("./reflectorExtension.ts"),
   ready,
   approval,
   // After approval: snapshots only calls that will run, and sees a rerun outside the sandbox.

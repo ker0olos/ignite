@@ -241,7 +241,7 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
   }
 
   const answers: Record<string, (r: never) => unknown> = {
-    ...settingsAnswers(),
+    ...settingsAnswers(tempo),
     open_session: open,
     new_session: (r: { cwd: string }) =>
       opened(`demo-${++made}`, undefined, r.cwd),

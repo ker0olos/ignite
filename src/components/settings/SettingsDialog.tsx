@@ -3,7 +3,7 @@ import type { McpServer, ProviderStatus } from "../../../shared/hostProtocol";
 import type { RemoteStatus } from "../../../shared/remote";
 import { McpServerDialog } from "@/components/mcp/McpServerDialog";
 import {
-  SECTION_NAMES,
+  shownGroups,
   type Item,
   type Section,
 } from "@/components/settings/sections";
@@ -23,6 +23,7 @@ import { lessonsItems } from "@/components/settings/sections/lessonsItems";
 import { providersItems } from "@/components/settings/sections/providersItems";
 import { remoteItems } from "@/components/settings/sections/remoteItems";
 import { skillsItems } from "@/components/settings/sections/skillsItems";
+import { reflectorItems } from "@/components/settings/sections/reflectorItems";
 import { SettingsNav } from "@/components/settings/SettingsNav";
 import { SettingsSections } from "@/components/settings/SettingsSections";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -32,6 +33,7 @@ import type { useLessons } from "@/hooks/useLessons";
 import type { useMemory } from "@/hooks/useMemory";
 import { useScrollToNewServer } from "@/hooks/useScrollToNewServer";
 import type { useSkills } from "@/hooks/useSkills";
+import type { useReflector } from "@/hooks/useReflector";
 import { useInstalledThemes } from "@/hooks/useInstalledThemes";
 import type { Settings } from "@/lib/settings";
 
@@ -46,10 +48,12 @@ export function SettingsDialog({
   providers,
   providersError,
   onManageProviders,
+  onOpenConversation,
   mcp,
   skills,
   memory,
   lessons,
+  reflector,
   about,
   folder,
   remote,
@@ -64,10 +68,12 @@ export function SettingsDialog({
   providers: ProviderStatus[] | null;
   providersError: string | null;
   onManageProviders: () => void;
+  onOpenConversation: (folder: string, conversation: string) => void;
   mcp: ReturnType<typeof useMcpServers>;
   skills: ReturnType<typeof useSkills>;
   memory: ReturnType<typeof useMemory>;
   lessons: ReturnType<typeof useLessons>;
+  reflector: ReturnType<typeof useReflector>;
   about: ReturnType<typeof useAbout>;
   /** The open folder, whose memories the Memory section previews. */
   folder: string | null;
@@ -93,6 +99,7 @@ export function SettingsDialog({
     ...chromeItems({ settings, onChange }),
     ...memoryItems({ memory, folderOpen: !!folder, settings, onChange }),
     ...lessonsItems({ lessons }),
+    ...reflectorItems({ reflector, onOpenConversation }),
     ...remoteItems({ settings, onChange, status: remote }),
     ...macItems(settings, onChange),
     ...appearanceItems({
@@ -110,17 +117,7 @@ export function SettingsDialog({
     ...aboutItems({ about }),
   ];
 
-  const q = query.trim().toLowerCase();
-  const matches = (i: Item) =>
-    `${i.section} ${i.title} ${i.description ?? ""} ${i.keywords ?? ""}`
-      .toLowerCase()
-      .includes(q);
-  const visible = q
-    ? items.filter(matches)
-    : items.filter((i) => i.section === section);
-  const groups = SECTION_NAMES.map(
-    (s) => [s, visible.filter((i) => i.section === s)] as const,
-  ).filter(([, rows]) => rows.length > 0);
+  const { matches, groups } = shownGroups(items, query, section);
 
   return (
     <Dialog

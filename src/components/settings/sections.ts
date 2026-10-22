@@ -9,6 +9,7 @@ import {
   Info,
   Keyboard,
   Laptop,
+  Lightbulb,
   MessageSquare,
   Palette,
   Plug,
@@ -56,6 +57,12 @@ export const SECTIONS = {
     blurb:
       "What the agent learned from your corrections, read in every conversation they apply to.",
   },
+  Reflector: {
+    icon: Lightbulb,
+    brief: "How you want it to work",
+    blurb:
+      "Learns how you want the agent to work from your feedback: your replies, notes on its questions, calls you deny and messages you rewind. Each point is read where it applies, in every new conversation.",
+  },
   Remote: {
     icon: Smartphone,
     brief: "Use it from other devices",
@@ -101,6 +108,8 @@ export const SECTION_NAMES = (Object.keys(SECTIONS) as Section[]).filter(
 export interface Item {
   section: Section;
   title: string;
+  /** Shown in place of the title text, which still keys and names the row. */
+  titleView?: ReactNode;
   description?: string;
   /** Shown after the description, such as keyboard shortcuts; search skips it. */
   hint?: ReactNode;
@@ -110,7 +119,25 @@ export interface Item {
   id?: string;
   /** Extra words search should match. */
   keywords?: string;
+  /** Lines the control up with the title rather than the row's middle, for rows of several lines. */
+  alignTop?: boolean;
   control?: ReactNode;
 }
 
 export const serverRowId = (name: string) => `mcp-server-${name}`;
+
+/** Search's match test, and the rows shown by section: every match while searching, else the chosen section's. */
+export function shownGroups(items: Item[], query: string, section: Section) {
+  const q = query.trim().toLowerCase();
+  const matches = (i: Item) =>
+    `${i.section} ${i.title} ${i.description ?? ""} ${i.keywords ?? ""}`
+      .toLowerCase()
+      .includes(q);
+  const visible = q
+    ? items.filter(matches)
+    : items.filter((i) => i.section === section);
+  const groups = SECTION_NAMES.map(
+    (s) => [s, visible.filter((i) => i.section === s)] as const,
+  ).filter(([, rows]) => rows.length > 0);
+  return { matches, groups };
+}

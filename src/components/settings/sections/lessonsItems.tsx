@@ -24,8 +24,7 @@ export function lessonsItems({
       {
         section: "Lessons",
         title: "No lessons yet",
-        description:
-          "The agent saves one when you correct it, or you keep one it proposes after a correction.",
+        description: "The agent saves one when you correct it.",
       },
     ];
   }

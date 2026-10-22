@@ -49,7 +49,7 @@ export function SettingsSections({
           )}
           <div className="divide-y rounded-lg border bg-card">
             {rows.map((i) => (
-              <SettingsRow key={i.title} item={i} />
+              <SettingsRow key={i.id ?? i.title} item={i} />
             ))}
           </div>
           <SectionExtras
