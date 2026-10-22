@@ -1,9 +1,11 @@
 import {
   ARTIFACT_TOOL,
   BASH_STOP_TOOL,
+  AUDIO_TOOL,
   BASH_WAIT_TOOL,
   IMAGE_TOOL,
   LEGACY_HTML_TOOL,
+  VIDEO_TOOL,
   type TextContent,
   type ToolCall,
   type ToolResult,
@@ -16,7 +18,7 @@ import { SUBAGENT_TOOL } from "../../../shared/subagents";
 import { TASK_ADD_TOOL, TASK_TOOL, readProposed } from "../../../shared/tasks";
 import { useContext, useMemo } from "react";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
-import { MediaCard } from "@/components/conversation/MediaCard";
+import { pickMediaCard } from "@/components/conversation/pickMediaCard";
 import { ShellCard } from "@/components/conversation/ShellCard";
 import {
   RunningContext,
@@ -28,7 +30,6 @@ import { ToolOutcome } from "@/components/conversation/ToolOutcome";
 import { ToolOutcomeBody } from "@/components/conversation/ToolOutcomeBody";
 import { useStreamedCall } from "@/hooks/useStreamedCall";
 import { rowPages } from "@/lib/artifact";
-import { cardGeneration } from "@/lib/media";
 import type { ToolRun } from "@/lib/transcript";
 import { mcpCall } from "@/lib/mcpToolCall";
 import { readQuestions } from "@/lib/questions";
@@ -56,6 +57,8 @@ const TOOL_TITLES: Record<string, string> = {
   [ASK_TOOL]: "Questions",
   [SUBAGENT_TOOL]: "Agent",
   [IMAGE_TOOL]: "Image",
+  [AUDIO_TOOL]: "Audio",
+  [VIDEO_TOOL]: "Video",
   [ARTIFACT_TOOL]: "Artifact",
   [LEGACY_HTML_TOOL]: "Artifact",
   [TASK_ADD_TOOL]: "Add tasks",
@@ -109,6 +112,8 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   [ASK_TOOL]: questionsArg,
   [SUBAGENT_TOOL]: subagentArg,
   [IMAGE_TOOL]: pathArg,
+  [AUDIO_TOOL]: pathArg,
+  [VIDEO_TOOL]: pathArg,
   [ARTIFACT_TOOL]: (call) => String(call.arguments.title ?? ""),
   [LEGACY_HTML_TOOL]: (call) => String(call.arguments.title ?? ""),
   [TASK_ADD_TOOL]: (call) => String(readProposed(call.arguments).length),
@@ -177,7 +182,6 @@ export function ToolView({
     () => rowPages({ name: call.name, args: shown.arguments }, run, running),
     [call.name, shown.arguments, run, running],
   );
-  const generation = cardGeneration(shown, run);
   const outcome = hasOutcome(call, run, text, skip, pages.length) && (
     <ToolOutcomeBody
       call={call}
@@ -192,18 +196,8 @@ export function ToolView({
       onApprove={onApprove}
     />
   );
-  let body = outcome;
-  if (generation) {
-    body = (
-      <MediaCard
-        call={shown}
-        generation={generation}
-        run={run}
-        folder={folder}
-      />
-    );
-  } else if (call.name === "bash") {
-    body = (
+  const body =
+    call.name === "bash" ? (
       <ShellCard
         run={run}
         command={String(shown.arguments.command ?? "")}
@@ -212,8 +206,9 @@ export function ToolView({
       >
         {outcome}
       </ShellCard>
+    ) : (
+      (pickMediaCard({ call: shown, run, folder }) ?? outcome)
     );
-  }
   return (
     <div className="space-y-1">
       {headOf(call, shown, run, folder)}

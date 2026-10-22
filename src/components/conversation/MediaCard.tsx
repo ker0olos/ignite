@@ -1,4 +1,5 @@
 import { useContext, useState } from "react";
+import { Image, PenLine } from "lucide-react";
 import { resultImages, type ToolCall } from "../../../shared/agentTypes";
 import { MarkupDialog } from "@/components/app/MarkupDialog";
 import { ImageCompare } from "@/components/conversation/ImageCompare";
@@ -28,9 +29,16 @@ export function MediaCard({
   const image = resultImages(run?.result)[0];
   const path = String(call.arguments.path ?? "");
   const name = basename(path);
+  const { editOf } = generation;
   return (
     <div className="overflow-hidden rounded-lg border bg-card text-[13px] text-foreground">
-      <MediaHeader generation={generation} divided={!!image}>
+      <MediaHeader
+        icon={editOf ? PenLine : Image}
+        title={editOf ? "Edited image" : "Generated image"}
+        model={generation.model}
+        note={editOf && `edit of ${basename(editOf)}`}
+        divided={!!image}
+      >
         {image && <MediaMarkup onClick={() => setOpen(true)} />}
       </MediaHeader>
       {image && (

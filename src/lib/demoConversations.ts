@@ -6,7 +6,7 @@ import type { AgentMessage, ToolCall } from "../../shared/agentTypes";
 import type { ChildRuns } from "../../shared/agentStatus";
 import type { ApprovalRequest, OpenedSession } from "../../shared/hostProtocol";
 import { darkModeMessages, DARK_MODE_DIFFS } from "./demoDarkMode";
-import { MEDIA_MESSAGES } from "./demoMedia";
+import { mediaMessages } from "./demoMedia";
 import { DEMO_QUESTION_MESSAGES, DEMO_QUESTIONS } from "./demoQuestions";
 import { checkConversation } from "./demoSubagents";
 import { DEMO_TASK_ADD, DEMO_TASK_ADD_MESSAGES } from "./demoTaskAdd";
@@ -20,6 +20,7 @@ import {
 } from "./demoTempoWork";
 import { assistant } from "./demoTranscript";
 import { dirname } from "./paths";
+import { VIDEO_MESSAGES } from "./demoVideo";
 
 export type DemoConversation = {
   id: string;
@@ -88,7 +89,15 @@ function openConversations(
       cwd: tempo,
       title: "Make a hero image for the landing page",
       modified: now - 30 * 60_000,
-      messages: MEDIA_MESSAGES,
+      messages: mediaMessages(),
+      open: true,
+    },
+    {
+      id: "tempo-loop",
+      cwd: tempo,
+      title: "Make a looping background video for the hero",
+      modified: now - 25 * 60_000,
+      messages: VIDEO_MESSAGES,
       open: true,
     },
     {

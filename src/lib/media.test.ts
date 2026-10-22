@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
+  AUDIO_TOOL,
   IMAGE_TOOL,
+  VIDEO_TOOL,
   type AssistantMessage,
   type ImageContent,
 } from "../../shared/agentTypes";
-import { cardGeneration, editOriginals, readGeneration } from "./media";
+import {
+  audioCard,
+  audioTitle,
+  cardGeneration,
+  editOriginals,
+  peaks,
+  readGeneration,
+  resultAudio,
+  resultVideo,
+  videoCard,
+} from "./media";
 import type { Item, ToolRun } from "./transcript";
 
 describe("readGeneration", () => {
@@ -130,5 +142,172 @@ describe("editOriginals", () => {
       turn(call("v3", IMAGE_TOOL, { path: "/d.png", editOf: "/a.png" })),
     ];
     expect(editOriginals(items, {}).size).toBe(0);
+  });
+});
+
+describe("audioCard", () => {
+  const music = { path: "/a.mp3", model: "m", prompt: "p" };
+
+  it("reads music and speech, keeping only non-empty fields", () => {
+    expect(audioCard(call("1", AUDIO_TOOL, music), undefined)).toEqual({
+      model: "m",
+      prompt: "p",
+    });
+    expect(
+      audioCard(
+        call("1", AUDIO_TOOL, {
+          model: "m",
+          script: "hi",
+          voice: "Kore",
+          prompt: "",
+        }),
+        { status: "done" },
+      ),
+    ).toEqual({ model: "m", script: "hi", voice: "Kore" });
+  });
+
+  it("draws a card for a plain audio file too", () => {
+    expect(audioCard(call("1", AUDIO_TOOL, { path: "/a" }), undefined)).toEqual(
+      {},
+    );
+  });
+
+  it("is null for other tools, failures and approvals", () => {
+    expect(audioCard(call("1", "bash", music), undefined)).toBeNull();
+    expect(
+      audioCard(call("1", AUDIO_TOOL, music), { status: "error" }),
+    ).toBeNull();
+    expect(
+      audioCard(call("1", AUDIO_TOOL, music), {
+        status: "running",
+        approval: {},
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("audioTitle", () => {
+  it("says speech, generated audio, or plain audio", () => {
+    expect(audioTitle({ script: "hi" })).toBe("Generated speech");
+    expect(audioTitle({ voice: "Kore" })).toBe("Generated speech");
+    expect(audioTitle({ model: "m" })).toBe("Generated audio");
+    expect(audioTitle({})).toBe("Audio");
+  });
+});
+
+describe("resultAudio", () => {
+  const audio = { type: "audio", data: "AA", mimeType: "audio/wav" };
+  const withDetails = (details: unknown) => ({ content: [], details });
+
+  it("reads details.audio", () => {
+    expect(resultAudio(withDetails({ audio }))).toEqual(audio);
+  });
+
+  it("is undefined without a result or a well-formed audio", () => {
+    expect(resultAudio(undefined)).toBeUndefined();
+    expect(resultAudio({ content: [] })).toBeUndefined();
+    expect(
+      resultAudio(withDetails({ audio: { ...audio, type: "x" } })),
+    ).toBeUndefined();
+    expect(
+      resultAudio(withDetails({ audio: { ...audio, data: 1 } })),
+    ).toBeUndefined();
+    expect(
+      resultAudio(withDetails({ audio: { type: "audio", data: "A" } })),
+    ).toBeUndefined();
+  });
+});
+
+describe("videoCard", () => {
+  const clip = { path: "/a.mp4", model: "m", prompt: "p" };
+
+  it("reads a show_video call, keeping only non-empty fields", () => {
+    expect(videoCard(call("1", VIDEO_TOOL, clip), undefined)).toEqual({
+      model: "m",
+      prompt: "p",
+    });
+    expect(
+      videoCard(
+        call("1", VIDEO_TOOL, {
+          ...clip,
+          avoid: "text",
+          size: "640x360",
+          from: "/a.png",
+        }),
+        { status: "done" },
+      ),
+    ).toEqual({
+      model: "m",
+      prompt: "p",
+      avoid: "text",
+      size: "640x360",
+      from: "/a.png",
+    });
+    expect(
+      videoCard(
+        call("1", VIDEO_TOOL, { ...clip, from: "", avoid: 2 }),
+        undefined,
+      ),
+    ).toEqual({ model: "m", prompt: "p" });
+  });
+
+  it("draws a card for a plain video file too", () => {
+    expect(videoCard(call("1", VIDEO_TOOL, { path: "/a" }), undefined)).toEqual(
+      {},
+    );
+  });
+
+  it("is null for other tools, failures and approvals", () => {
+    expect(videoCard(call("1", "bash", clip), undefined)).toBeNull();
+    expect(
+      videoCard(call("1", VIDEO_TOOL, clip), { status: "error" }),
+    ).toBeNull();
+    expect(
+      videoCard(call("1", VIDEO_TOOL, clip), {
+        status: "running",
+        approval: {},
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("resultVideo", () => {
+  const video = { type: "video", data: "AA", mimeType: "video/mp4" };
+  const withDetails = (details: unknown) => ({ content: [], details });
+
+  it("reads details.video, inline or by path", () => {
+    expect(resultVideo(withDetails({ video }))).toEqual(video);
+    const onDisk = { type: "video", path: "/a.mp4", mimeType: "video/mp4" };
+    expect(resultVideo(withDetails({ video: onDisk }))).toEqual(onDisk);
+  });
+
+  it("is undefined without a result or a well-formed video", () => {
+    expect(resultVideo(undefined)).toBeUndefined();
+    expect(resultVideo({ content: [] })).toBeUndefined();
+    expect(
+      resultVideo(withDetails({ video: { ...video, type: "x" } })),
+    ).toBeUndefined();
+    expect(
+      resultVideo(withDetails({ video: { ...video, data: 1 } })),
+    ).toBeUndefined();
+    expect(
+      resultVideo(withDetails({ video: { type: "video", data: "A" } })),
+    ).toBeUndefined();
+  });
+});
+
+describe("peaks", () => {
+  it("takes each slice's loudest sample, scaled so the loudest is 1", () => {
+    const samples = new Float32Array([0.1, -0.2, 0.5, 0.25]);
+    expect(peaks(samples, 2)).toEqual([expect.closeTo(0.4), 1]);
+  });
+
+  it("stays zero for silence", () => {
+    expect(peaks(new Float32Array(10), 4)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("returns count values for fewer samples than bars, and for none", () => {
+    expect(peaks(new Float32Array([0.5]), 3)).toHaveLength(3);
+    expect(peaks(new Float32Array(0), 3)).toEqual([0, 0, 0]);
   });
 });

@@ -90,8 +90,8 @@ function fileImages(files: Iterable<File>, keepNames = false) {
 /** The images in a paste (screenshots, copied files), all unnamed: they come from the clipboard. */
 export const pastedImages = (data: DataTransfer) => fileImages(data.files);
 
-/** A data URL to show an image block. */
-export const imageUrl = (image: ImageContent) =>
+/** A data URL for an image, audio or video block. */
+export const imageUrl = (image: { data: string; mimeType: string }) =>
   `data:${image.mimeType};base64,${image.data}`;
 
 /** A white PNG page of the given size. */

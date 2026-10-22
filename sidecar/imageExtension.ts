@@ -16,28 +16,46 @@ import {
 import type { Task } from "../shared/tasks.ts";
 import { askTask } from "./taskExtension.ts";
 
-const MAX_BYTES = 20 * 1024 * 1024;
+/** A tool's `path` as pi's own tools read it (`@` dropped, `~` expanded), resolved against `cwd`. */
+export function toolPath(path: string, cwd: string) {
+  return resolve(
+    cwd,
+    path.replace(/^@/, "").replace(/^~(?=[/\\]|$)/, homedir()),
+  );
+}
+
+/** The file at `path` when it's one of `types`, exists and is at most `maxMb`, or why not. */
+export async function mediaFile(
+  path: string,
+  cwd: string,
+  types: Record<string, string>,
+  maxMb = Infinity,
+  kind = "a supported file",
+): Promise<{ file: string; mimeType: string } | string> {
+  const file = toolPath(path, cwd);
+  const mimeType = types[extname(file).toLowerCase()];
+  if (!mimeType) {
+    return `Not ${kind}: ${file}. Supported: ${Object.keys(types).join(" ")}`;
+  }
+  const size = await stat(file).then(
+    (s) => (s.isFile() ? s.size : -1),
+    () => -1,
+  );
+  if (size < 0) return `No such file: ${file}`;
+  if (size > maxMb * 1024 * 1024)
+    return `Too large (over ${maxMb} MB): ${file}`;
+  return { file, mimeType };
+}
 
 /** The image at `path` (relative to `cwd`), or why it can't be shown. */
 export async function loadImage(
   path: string,
   cwd: string,
 ): Promise<ImageContent | string> {
-  // As pi's own tools read paths: `@` dropped, `~` expanded.
-  const bare = path.replace(/^@/, "").replace(/^~(?=[/\\]|$)/, homedir());
-  const file = resolve(cwd, bare);
-  const mimeType = IMAGE_TYPES[extname(file).toLowerCase()];
-  if (!mimeType) {
-    return `Not an image: ${file}. Supported: ${Object.keys(IMAGE_TYPES).join(" ")}`;
-  }
-  const size = await stat(file).then(
-    (s) => s.size,
-    () => -1,
-  );
-  if (size < 0) return `No such file: ${file}`;
-  if (size > MAX_BYTES) return `Too large (over 20 MB): ${file}`;
-  const data = (await readFile(file)).toString("base64");
-  return { type: "image", data, mimeType };
+  const found = await mediaFile(path, cwd, IMAGE_TYPES, 20, "an image");
+  if (typeof found === "string") return found;
+  const data = (await readFile(found.file)).toString("base64");
+  return { type: "image", data, mimeType: found.mimeType };
 }
 
 /** What the model reads back: shown, and whether it made it onto its task's card. */

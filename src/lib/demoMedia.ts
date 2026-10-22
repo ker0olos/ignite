@@ -1,9 +1,11 @@
-/** The hero image conversation: an image generated with fal, marked up, then edited. */
+/** The hero image conversation: an image generated with fal, marked up, edited, then music and a voiceover. */
 import {
+  AUDIO_TOOL,
   IMAGE_TOOL,
   type AgentMessage,
   type ImageContent,
 } from "../../shared/agentTypes";
+import { ambient, voice } from "./demoAudio";
 import { assistant, call, result, T } from "./demoTranscript";
 
 const svg = (body: string): ImageContent => ({
@@ -61,10 +63,32 @@ const showV2 = call("m4", IMAGE_TOOL, {
   editOf: "/tmp/hero-v1.png",
 });
 
+const music = call("m5", "bash", {
+  command:
+    'doppler run -- curl -s https://api.elevenlabs.io/v1/music -H "xi-api-key: $ELEVENLABS_API_KEY" -d @music.json -o /tmp/hero-ambient.mp3',
+});
+const showMusic = call("m6", AUDIO_TOOL, {
+  path: "/tmp/hero-ambient.mp3",
+  model: "eleven-music-v1",
+  prompt:
+    "Ambient, warm analog pads, slow swell, 70 bpm, no drums, no vocals, loops cleanly at 12 seconds.",
+});
+const speak = call("m7", "bash", {
+  command:
+    "doppler run -- node tts.mjs --model gemini-3.1-flash-tts --voice Kore --out /tmp/voiceover.wav",
+});
+const showVoice = call("m8", AUDIO_TOOL, {
+  path: "/tmp/voiceover.wav",
+  model: "gemini-3.1-flash-tts",
+  voice: "Kore",
+  script: "Plan your week in one breath.",
+  prompt: "Calm, close mic, a slight smile, unhurried.",
+});
+
 const text = (t: string) => ({ type: "text" as const, text: t });
 
 /** The hero image conversation, oldest first. */
-export const MEDIA_MESSAGES: AgentMessage[] = [
+export const mediaMessages = (): AgentMessage[] => [
   {
     role: "user",
     content:
@@ -112,6 +136,33 @@ export const MEDIA_MESSAGES: AgentMessage[] = [
   result(showV2, "Shown to the user.", { image: HERO_SUNSET }),
   assistant(
     [text("Done: only the sky changed. Drag the line to compare.")],
+    true,
+  ),
+  {
+    role: "user",
+    content:
+      'Add a 12 second ambient track under the hero, and a voiceover: "Plan your week in one breath."',
+    timestamp: T,
+  },
+  assistant([
+    text(
+      "Music from ElevenLabs, the voice from Gemini TTS. Both keys come from your Doppler config.",
+    ),
+    music,
+  ]),
+  result(music, "12.0s, 44.1 kHz\nSaved /tmp/hero-ambient.mp3"),
+  assistant([showMusic]),
+  result(showMusic, "Shown to the user.", { audio: ambient() }),
+  assistant([speak]),
+  result(speak, "voice Kore, 2.5s\nSaved /tmp/voiceover.wav"),
+  assistant([showVoice]),
+  result(showVoice, "Shown to the user.", { audio: voice() }),
+  assistant(
+    [
+      text(
+        "Both are ready: play them above. Want the voice warmer or the pad slower?",
+      ),
+    ],
     true,
   ),
 ];

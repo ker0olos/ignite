@@ -27,7 +27,7 @@ src/                     React frontend (almost all logic lives here)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
                          (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt
     conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces, bash calls as a card (ShellCard),
-                         generated images as a media card (MediaCard: model, prompt, size, mark up); WorkingLine is the run's spinner, step and time,
+                         generated images as a media card (MediaCard: model, prompt, size, mark up), generated videos likewise (VideoCard), generated audio as an AudioCard (waveform player); WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              The Memory settings' extras: search, type filters with counts, the folder's memories (each opens to its facts and files)
@@ -91,6 +91,9 @@ src/                     React frontend (almost all logic lives here)
     useTerminalSession.ts A terminal view's connection to the host: snapshot, live output, keystrokes
     useTerminalShortcut.ts ⌘J or ⌘1 (Ctrl+J / Ctrl+1) opens a terminal tab; returns run-in-terminal
     useRunInTerminal.ts  Run-in-terminal for assistant shell code blocks' Run button
+    useAudioPlayer.ts    An audio element's playing, time and length; toggle and seek
+    useWaveform.ts       A clip's waveform bars, decoded once with AudioContext
+    useVideoUrl.ts       A video's blob URL: its file read once (or the demo's inline data); "missing" once it's gone
     useStreamedCall.ts   An artifact call's arguments while it's written, read a few times a second (useThrottled.ts)
     useDraftFrame.ts     Posts a draft artifact page into its frame, which updates it in place
     useBlockLang.ts      A code block's language: its fence's, or bash once an untagged one parses as shell
@@ -202,13 +205,16 @@ src/                     React frontend (almost all logic lives here)
     runStep.ts           What a running conversation is doing now (its step, start time, elapsed text)
     runCommand.ts        Which code blocks Run offers for, and a block as terminal keystrokes
     shellDetect.ts       Whether an untagged code block is shell commands (tree-sitter bash, in the webview)
-    media.ts             show_image's generation metadata (model, prompt, size) and each edit's original, as the conversation showed it
+    media.ts             The media cards' data: show_image's, show_audio's and show_video's model and prompt (cards for
+                         plain files too), their results, waveform bars, and each image edit's original, as shown
     mentions.ts          `/compact`, `/skill` and `@` completions: the token at the caret, options, sending a skill as `/skill:name`
     history.ts           The composer's sent messages, shared by all folders (localStorage, newest 100)
     queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
     demoHtml.ts          The page the dark mode conversation shows with show_artifact
-    demoMedia.ts         The hero image conversation: an image generated, marked up, then edited
+    demoMedia.ts         The hero image conversation: an image generated, marked up, edited, then music and a voiceover
+    demoAudio.ts         Its two clips, synthesised as WAV when the demo starts
+    demoVideo.ts         The hero loop conversation: a 4 second video generated from the hero image (src/assets/demo/hero-loop.mp4)
     demoTasks.ts         The demo's tasks, following its conversations; demoTaskImages.ts draws their images
     artifact.ts          show_artifact's pages (and old show_html calls'); the HTML frame's policy and height;
                          drafts while the call is written (no scripts, no half-written tag)
@@ -391,6 +397,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   imageExtension.ts      show_image: shows the user an image file from any path in its tool row
                          and, in a task's conversation, on the task's card; one the agent generated
                          with its model and prompt, an edit naming the image it changed
+  mediaExtension.ts      show_audio and show_video: an audio file (kept in the conversation, 10 MB at most) or a
+                         video (kept as a copy in ~/.ignite/media, read by the app as it shows) to play, with its model and prompt
   artifactExtension.ts   show_artifact: HTML (sandboxed iframe) or markdown pages in its tool row, as tabs
   artifactGuide.ts       UI/UX rules for HTML pages, part of show_artifact's description
   artifactCheck.ts       Loads its HTML pages in the app's headless Chrome first; errors go back to the agent
