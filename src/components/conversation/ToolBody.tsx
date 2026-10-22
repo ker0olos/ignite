@@ -65,11 +65,7 @@ export function ToolBody({
   return (
     <>
       {text ? (
-        <OutputPreview
-          text={text}
-          running={running}
-          first={call.name === "bash"}
-        />
+        <OutputPreview text={text} running={running} />
       ) : (
         !running && <p>(No output)</p>
       )}

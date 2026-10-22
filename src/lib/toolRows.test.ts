@@ -2,15 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { AssistantMessage, ToolCall } from "../../shared/agentTypes";
 import {
   canSkipWait,
-  shellVerb,
   inArrivalOrder,
   waitingCalls,
   diffSummary,
   groupSummary,
+  isShortOutput,
   outputPreview,
   parseDiff,
   showsNothingYet,
-  startsOpen,
   toRows,
 } from "./toolRows";
 import type { Item } from "./transcript";
@@ -327,29 +326,11 @@ describe("outputPreview", () => {
   });
 });
 
-describe("startsOpen", () => {
+describe("isShortOutput", () => {
   it("is one line that fits", () => {
-    expect(startsOpen("Already up to date.\n")).toBe(true);
-    expect(startsOpen("a\nb")).toBe(false);
-    expect(startsOpen("x".repeat(121))).toBe(false);
-  });
-
-  it("stays shut under a label, and opens whenever asked to", () => {
-    expect(startsOpen("Merge made.", { label: "Brought in" })).toBe(false);
-    expect(startsOpen("a\nb", { first: true })).toBe(true);
-  });
-});
-
-describe("shellVerb", () => {
-  it("says what the command did, or that it waits", () => {
-    expect(shellVerb({ status: "running", approval: {} }, false)).toBe(
-      "Asks to run",
-    );
-    expect(shellVerb({ status: "error" }, false)).toBe("Failed");
-    expect(shellVerb(undefined, false)).toBe("Running");
-    expect(shellVerb({ status: "running" }, true)).toBe("Running");
-    expect(shellVerb({ status: "done" }, false)).toBe("Ran");
-    expect(shellVerb({ status: "done" }, true)).toBe("Started");
+    expect(isShortOutput("Already up to date.\n")).toBe(true);
+    expect(isShortOutput("a\nb")).toBe(false);
+    expect(isShortOutput("x".repeat(121))).toBe(false);
   });
 });
 

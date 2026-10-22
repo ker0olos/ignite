@@ -26,7 +26,7 @@ src/                     React frontend (almost all logic lives here)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
                          (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt
-    conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces, bash calls as a card (ShellCard),
+    conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces,
                          generated images as a media card (MediaCard: model, prompt, size, mark up), generated videos likewise (VideoCard), generated audio as an AudioCard (waveform player); WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section

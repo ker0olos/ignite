@@ -22,15 +22,6 @@ it("says output is still coming while its command runs", () => {
   expect(screen.getByText(/two/)).toBeTruthy();
 });
 
-it("opens on its first lines when asked, the rest behind a button", () => {
-  const lines = Array.from({ length: 8 }, (_, i) => `line ${i + 1}`);
-  render(<OutputPreview text={lines.join("\n")} first />);
-  expect(screen.getByText(/line 6/)).toBeTruthy();
-  expect(screen.queryByText(/line 7/)).toBe(null);
-  fireEvent.click(screen.getByRole("button", { name: "… +2 lines" }));
-  expect(screen.getByText(/line 8/)).toBeTruthy();
-});
-
 it("keeps even short output under its label until opened", () => {
   render(<OutputPreview text="Merge made." label="Brought in 2 commits" />);
   expect(screen.queryByText("Merge made.")).toBe(null);

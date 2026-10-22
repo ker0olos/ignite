@@ -58,7 +58,7 @@ export const EditOriginalsContext = createContext<
 export const ContinueContext = createContext<(() => void) | null>(null);
 
 // Lines shown before "… +N lines"; clicking it shows the rest.
-export const PREVIEW_LINES = 6;
+export const PREVIEW_LINES = 5;
 // Also caps one long wrapped line, like an MCP server's JSON.
 export const PREVIEW_CHARS = 400;
 export const CODE_PREVIEW_LINES = 12;

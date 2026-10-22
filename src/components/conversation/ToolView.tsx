@@ -19,7 +19,6 @@ import { TASK_ADD_TOOL, TASK_TOOL, readProposed } from "../../../shared/tasks";
 import { useContext, useMemo } from "react";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
 import { pickMediaCard } from "@/components/conversation/pickMediaCard";
-import { ShellCard } from "@/components/conversation/ShellCard";
 import {
   RunningContext,
   SkipWaitContext,
@@ -157,14 +156,13 @@ function headOf(
     <ToolHead
       run={run}
       title={title}
-      // A bash call's card shows its command.
-      arg={mcp || call.name === "bash" ? "" : toolArg(shown, folder)}
+      arg={mcp ? "" : toolArg(shown, folder)}
       folder={folder}
     />
   );
 }
 
-/** One tool call: `● Update(path)` with its outcome underneath, as Claude Code draws it; a bash call's or generated image's card there. */
+/** One tool call: `● Update(path)` with its outcome underneath, as Claude Code draws it; a generated media's card there. */
 export function ToolView({
   call,
   run,
@@ -196,19 +194,7 @@ export function ToolView({
       onApprove={onApprove}
     />
   );
-  const body =
-    call.name === "bash" ? (
-      <ShellCard
-        run={run}
-        command={String(shown.arguments.command ?? "")}
-        background={!!call.arguments.background}
-        folder={folder}
-      >
-        {outcome}
-      </ShellCard>
-    ) : (
-      (pickMediaCard({ call: shown, run, folder }) ?? outcome)
-    );
+  const body = pickMediaCard({ call: shown, run, folder }) ?? outcome;
   return (
     <div className="space-y-1">
       {headOf(call, shown, run, folder)}

@@ -210,14 +210,10 @@ export function outputPreview(
 // Output shown open by default: one line that fits without wrapping much.
 const SHORT_CHARS = 120;
 
-/** Whether tool output shows before a click: asked to (`first`), or one short line with no label in its place. */
-export function startsOpen(
-  text: string,
-  { label, first }: { label?: string; first?: boolean } = {},
-): boolean {
-  if (first) return true;
+/** Whether tool output is short enough to show instead of collapsing. */
+export function isShortOutput(text: string): boolean {
   const trimmed = text.replace(/\n+$/, "");
-  return !label && !trimmed.includes("\n") && trimmed.length <= SHORT_CHARS;
+  return !trimmed.includes("\n") && trimmed.length <= SHORT_CHARS;
 }
 
 /** `waiting` ordered as in `before`, with calls that just began to wait at the end: a prompt being answered keeps its place. */
@@ -225,14 +221,6 @@ export function inArrivalOrder(before: string[], waiting: string[]): string[] {
   const now = new Set(waiting);
   const kept = before.filter((id) => now.has(id));
   return [...kept, ...waiting.filter((id) => !kept.includes(id))];
-}
-
-/** What a bash call's card says it did: waiting for approval, running, failed, or ran (a background one started). */
-export function shellVerb(run: ToolRun | undefined, background: boolean) {
-  if (run?.approval) return "Asks to run";
-  if (run?.status === "error") return "Failed";
-  if (!run || run.status === "running") return "Running";
-  return background ? "Started" : "Ran";
 }
 
 /** Whether the user can skip waiting on `call`: a running foreground bash command that sleeps. */

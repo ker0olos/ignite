@@ -4,31 +4,28 @@ import { LinkedText } from "@/components/conversation/LinkedText";
 import { MoreLines } from "@/components/conversation/MoreLines";
 import { RunningLine } from "@/components/conversation/RunningLine";
 import { PREVIEW_CHARS, PREVIEW_LINES } from "@/components/conversation/shared";
-import { outputPreview, startsOpen } from "@/lib/toolRows";
+import { isShortOutput, outputPreview } from "@/lib/toolRows";
 import { cn } from "@/lib/utils";
 
 /**
  * Plain-text tool output, collapsed to its line count unless it's one short
- * line (or `first`); opened, a few lines with an expand button. Errors are red.
+ * line; opened, a few lines with an expand button. Errors are red.
  */
 export function OutputPreview({
   text,
   error,
   running,
   label,
-  first,
 }: {
   text: string;
   error?: boolean;
   running?: boolean;
   /** Shown collapsed in place of the line count, however short the output. */
   label?: string;
-  /** Opens on its first lines, not its line count. */
-  first?: boolean;
 }) {
   const [opened, setOpen] = useState(false);
   // Decided on each render: streaming output starts short and grows.
-  const open = opened || startsOpen(text, { label, first });
+  const open = opened || (!label && isShortOutput(text));
   const [all, setAll] = useState(false);
   const trimmed = text.replace(/\n+$/, "");
   const lines = trimmed.split("\n").length;
