@@ -5,7 +5,9 @@ import type {
   AgentMessage,
   AssistantMessage,
   ToolCall,
+  ToolResultMessage,
 } from "../shared/agentTypes.ts";
+import { readShellEdits } from "../shared/shellEdits.ts";
 import {
   GIT_TOOL,
   type GitRepoDetails,
@@ -29,7 +31,7 @@ const toolCalls = (messages: AgentMessage[]): ToolCall[] =>
     .flatMap((m) => m.content)
     .filter((b): b is ToolCall => b.type === "toolCall");
 
-/** The folders a conversation's git calls ran in and its edits wrote to, with `workdir` first. */
+/** The folders a conversation's git calls ran in and its edits (bash's included) wrote to, with `workdir` first. */
 export function touchedDirs(
   messages: AgentMessage[],
   workdir: string,
@@ -40,6 +42,12 @@ export function touchedDirs(
       dirs.add(repoOf(a.args as string[], workdir));
     } else if (CHANGES_FILES.has(name) && typeof a.path === "string") {
       dirs.add(dirname(resolve(workdir, a.path)));
+    }
+  }
+  for (const m of messages) {
+    if (m.role !== "toolResult") continue;
+    for (const e of readShellEdits((m as ToolResultMessage).details)) {
+      dirs.add(dirname(resolve(workdir, e.path)));
     }
   }
   return [...dirs];

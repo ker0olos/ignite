@@ -65,6 +65,18 @@ describe("touchedDirs", () => {
       "/elsewhere",
     ]);
   });
+
+  it("lists the folders of files a bash command changed", () => {
+    const messages = [
+      {
+        role: "toolResult",
+        toolName: "bash",
+        content: [],
+        details: { edits: [{ path: "server/CLAUDE.md", diff: "" }] },
+      },
+    ] as unknown as AgentMessage[];
+    expect(touchedDirs(messages, "/w")).toEqual(["/w", "/w/server"]);
+  });
 });
 
 describe("gitStatus", () => {
