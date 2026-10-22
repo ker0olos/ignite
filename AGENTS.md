@@ -137,7 +137,7 @@ src/                     React frontend (almost all logic lives here)
   lib/
     app.ts               APP_NAME, the single source of the app's name
     settings.ts          Settings type, defaults, TOML load/save
-    composerSettings.ts  The composer's approval mode and Model Router settings, saved on change
+    composerSettings.ts  The composer's approval mode and whether new conversations start on Router, saved on change
     store.ts             App state (tauri-plugin-store) + cross-window sync
     files.ts             Directory listing and reading files for the viewer
     gitignore.ts         .gitignore matching for the file tree
@@ -240,7 +240,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   host.ts                Request dispatch; createHost builds the handler
   hostTypes.ts           Shared types and HostContext; per-function context instead of closures
   hostAuth.ts            Provider sign-in (status, interaction, login)
-  hostSession.ts         Open conversations, several per folder, kept running while hidden (sessionState, setModel, open, close, prompt)
+  hostSession.ts         Open conversations, several per folder, kept running while hidden (sessionState, open, close, prompt)
+  hostModels.ts          A conversation's model and effort requests: read, set (saved as defaults), Router's next message
   hostSend.ts            A message handed to pi: one at a time (each once pi holds the last), routed, checkpointed
   hostProjects.ts        Tells the app which open conversations are working or waiting (pushProjects)
   hostResume.ts          Resumes a run a reload or quit cut off: calls that may have run marked interrupted;
@@ -379,7 +380,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   taskSteps.ts           What waits for the plan (edits, writes, new subagents but explore ones),
                          whether it's planned (isPlanned), where bash may write until then
   router.ts              The router: a cheap model picks a new conversation's model and effort
-  hostRoute.ts           Runs the router before a conversation's first message (Model Router)
+  hostRoute.ts           Runs the router before a conversation's first message, or its next once Router is picked
   subagentExtension.ts   subagent tool: hands tasks to its model or a cheaper one from the same provider and talks with it
   subagentQueue.ts       Runs at most `max` subagents at once; the rest wait their turn
   subagentSession.ts     A subagent's session: talking to it and ending it (the 8 last used stay open)
@@ -433,6 +434,7 @@ shared/skills.ts         Skills, plugins and importable skills as they cross the
                          a skill's expanded message shown as the `/name` typed
 shared/mcpCatalog.ts     MCP presets and other apps' servers the MCP settings offer
 shared/mcpServers.ts     MCP servers as they cross the wire (re-exported by hostProtocol.ts)
+shared/modelChoice.ts    Requests reading and choosing a conversation's model and effort, Router included
 shared/terminal.ts       The user's terminals: requests, output events, terminal_read's name
 shared/memory.ts         Memory kinds (cmem's), the Memory settings' status as it crosses the wire
 shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
@@ -508,9 +510,9 @@ Two places hold persisted data:
   line while it thinks; nothing of it stays. `ask_questions` (on by default)
   has the agent bring open decisions to the user with `ask_user`; off, the
   tool is dropped and the agent is told to decide alone. Read before each run.
-  `model_router` (on by default) lets a quick model pick a new conversation's
-  model and effort; the model menu's Router item turns it on, Settings → Agent
-  on or off.
+  `model_router` (on by default) makes Router the default for new
+  conversations: the model menu's Router item, picked like a model, turns it
+  on, and picking a model turns it off. Settings doesn't show it.
   `text_size` (px, default 14, 10–24) sizes user and assistant messages only;
   ⌘/Ctrl +, - and 0 change it (`hooks/useTextSize.ts`).
 - **Sidebar settings** (`[sidebar]`): `conversation_order` (`oldest_first` by
@@ -872,18 +874,23 @@ among the model menu's featured (current generation) models when the
 provider has any (`shared/featuredModels.ts`). They're set
 without saving them as defaults (the app reads them again when routing ends),
 and later messages never change them, since a switch would throw away the
-prompt cache. A message too vague to judge (a bare link, "take a look") gets
+prompt cache, unless the user picks Router in the conversation's model menu
+(`route_next`): its next idle message is routed the same way, with the
+conversation's first message as context (`routeNext`, kept when Stop drops
+that message), and the menu reads Router until then. A message too vague to judge (a bare link, "take a look") gets
 the middle-ground model at high effort (on Claude, Sonnet), as the router's
 prompt asks; a router that fails or times out keeps the user's default model
 and effort, and with no priced model to call the cheapest, it doesn't run.
 When it ends, a line above the first message says what it picked or kept.
-Picking a model for that conversation before sending turns the router off
-for it (`userPickedModel`): it picks nothing, effort included, and the
-setting stays on for the next one; choosing Router in the menu takes the
-picked model back. The new-task sheet works the same way: Router is the
-default, so a task saves a model and effort only when the user picks a model,
-and otherwise the router picks both when it starts (also when its saved
-model is no longer available). Only the message's first 4,000 characters go
+Router is picked like a model, in the composer and the new-task sheet alike
+(`components/agent/ModelChoices.tsx`): picking a model always makes it the
+default for new conversations, at once (`save_default_model` where no
+conversation is open, pi's `persist` otherwise), turns `model_router` off, and
+turns the router off for that conversation (`userPickedModel`), so it picks
+nothing, effort included; choosing Router takes the picked model back and
+turns it on again. A task saves a model and effort only when the user picks
+a model; one saved on Router is routed when it starts whatever the default
+(also when its saved model is no longer available). Only the message's first 4,000 characters go
 to the router.
 Closing the conversation while it reads drops the message; showing it again
 meanwhile shows the message being routed.

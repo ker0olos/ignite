@@ -176,10 +176,10 @@ export function useAgentSession(
 
 /** The model and effort menus' actions; `pickedModel`: the user chose the model of the conversation about to start, which Model Router then leaves. */
 function choices(actions: ReturnType<typeof useComposerActions>) {
-  const { setModel, unpickModel, setThinkingLevel, pending } = actions;
+  const { setModel, pickRouter, setThinkingLevel, pending } = actions;
   return {
     setModel,
-    unpickModel,
+    pickRouter,
     setThinkingLevel,
     pickedModel: !!pending.model,
   };

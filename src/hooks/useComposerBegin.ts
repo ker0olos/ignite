@@ -16,7 +16,8 @@ export type Pending = { model?: ModelInfo; level?: ThinkingLevel };
 /** A model or effort choice as its request sends it. */
 export type Choice =
   | { type: "set_model"; provider: string; modelId: string }
-  | { type: "set_thinking_level"; level: ThinkingLevel };
+  | { type: "set_thinking_level"; level: ThinkingLevel }
+  | { type: "route_next" };
 
 const toChoices = ({ model, level }: Pending): Choice[] => [
   ...(model

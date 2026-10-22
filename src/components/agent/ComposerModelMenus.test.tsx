@@ -20,22 +20,27 @@ const state = {
 const fake = ({
   session = null as string | null,
   pickedModel = false,
+  routeNext = false,
   setModel = vi.fn(),
-  unpickModel = vi.fn(),
+  pickRouter = vi.fn(),
 } = {}) =>
   ({
-    state,
+    state: { ...state, routeNext },
     session,
     pickedModel,
     setModel,
-    unpickModel,
+    pickRouter,
   }) as unknown as ReturnType<typeof useAgentSession>;
 
-it("shows the model and effort, and no Router item without a handler", () => {
-  render(<ComposerModelMenus session={fake()} modelRouter={undefined} />);
+it("shows the model and effort while Router is off", () => {
+  render(
+    <ComposerModelMenus
+      session={fake()}
+      modelRouter={{ on: false, onChange: vi.fn() }}
+    />,
+  );
   expect(screen.getByText("High")).toBeTruthy();
-  fireEvent.click(screen.getByText("Opus 5.5"));
-  expect(screen.queryByText("Router")).toBeNull();
+  expect(screen.getByText("Opus 5.5")).toBeTruthy();
 });
 
 it("reads Router for a new conversation, hiding the effort it picks", () => {
@@ -59,7 +64,7 @@ it("shows effort again once the user picks the model", () => {
   expect(screen.getByText("High")).toBeTruthy();
 });
 
-it("picks a model for this conversation only, leaving the setting on", async () => {
+it("picks a model, which turns Router off as the default", async () => {
   const setModel = vi.fn();
   const onChange = vi.fn();
   render(
@@ -71,31 +76,47 @@ it("picks a model for this conversation only, leaving the setting on", async () 
   fireEvent.click(screen.getByRole("button", { name: "Router" }));
   fireEvent.click(await screen.findByText("Opus 5.5"));
   expect(setModel).toHaveBeenCalledWith(expect.objectContaining(opus));
-  expect(onChange).not.toHaveBeenCalled();
+  expect(onChange).toHaveBeenCalledWith(false);
 });
 
 it("shows the picked model, and Router takes the pick back", async () => {
-  const unpickModel = vi.fn();
+  const pickRouter = vi.fn();
   const onChange = vi.fn();
   render(
     <ComposerModelMenus
-      session={fake({ pickedModel: true, unpickModel })}
+      session={fake({ pickedModel: true, pickRouter })}
       modelRouter={{ on: true, onChange }}
     />,
   );
   fireEvent.click(screen.getByText("Opus 5.5"));
   fireEvent.click(await screen.findByText("Router"));
-  expect(unpickModel).toHaveBeenCalled();
+  expect(pickRouter).toHaveBeenCalled();
   expect(onChange).toHaveBeenCalledWith(true);
 });
 
-it("shows what a conversation under way runs on, with no Router item", () => {
+it("offers Router in a conversation under way, whatever the default", async () => {
+  const pickRouter = vi.fn();
+  const onChange = vi.fn();
   render(
     <ComposerModelMenus
-      session={fake({ session: "s1" })}
-      modelRouter={{ on: true, onChange: vi.fn() }}
+      session={fake({ session: "s1", pickRouter })}
+      modelRouter={{ on: true, onChange }}
     />,
   );
+  expect(screen.getByText("High")).toBeTruthy();
   fireEvent.click(screen.getByText("Opus 5.5"));
-  expect(screen.queryByText("Router")).toBeNull();
+  fireEvent.click(await screen.findByText("Router"));
+  expect(pickRouter).toHaveBeenCalled();
+  expect(onChange).toHaveBeenCalledWith(true);
+});
+
+it("reads Router in a conversation under way once its next message is routed", () => {
+  render(
+    <ComposerModelMenus
+      session={fake({ session: "s1", routeNext: true })}
+      modelRouter={{ on: false, onChange: vi.fn() }}
+    />,
+  );
+  expect(screen.getByRole("button", { name: "Router" })).toBeTruthy();
+  expect(screen.queryByText("High")).toBeNull();
 });

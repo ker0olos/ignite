@@ -26,7 +26,7 @@ export type Settings = {
   files: { hide_gitignored: boolean; show_tree: boolean };
   /**
    * `ask_questions`: the agent brings open decisions to the user; off, it decides alone.
-   * `model_router`: before a conversation's first message a quick model picks the model and effort it runs on (on by default).
+   * `model_router`: new conversations start on Router, the model menu's last pick (on by default); picking a model turns it off.
    * `text_size`: messages' font size in px, changed with ⌘/Ctrl +, - and 0.
    * `sticky_user_messages`: user messages pin to the top while their replies scroll.
    */

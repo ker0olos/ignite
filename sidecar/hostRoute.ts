@@ -2,6 +2,7 @@
  * With Model Router on, the router picks a new conversation's model and
  * effort before its first message is sent. A model the user picked for the
  * conversation turns the router off for it: it picks nothing, effort included.
+ * Router picked in a conversation under way routes its next message.
  */
 import type {
   ImageContent,
@@ -30,7 +31,17 @@ type Pick = {
 /** Notes that the user picked conversation `session`'s model, so the router leaves it; noted before any await, so a send right after still sees it. */
 export function userPickedModel(ctx: HostContext, session?: string) {
   const agent = target(ctx, session);
-  if (agent) agent.pickedModel = true;
+  if (!agent) return;
+  agent.pickedModel = true;
+  agent.routeNext = undefined;
+}
+
+/** Notes that the user picked Router for conversation `session`, so its next message is routed. */
+export function userPickedRouter(ctx: HostContext, session?: string) {
+  const agent = target(ctx, session);
+  if (!agent) return;
+  agent.pickedModel = undefined;
+  agent.routeNext = true;
 }
 
 /**
@@ -49,18 +60,31 @@ export async function runOn(s: Session, { model, effort }: Pick) {
   return !!found;
 }
 
-// Only a conversation's first message, and not one whose model the user
-// picked; a Tasks-view task's own model counts while it's still available.
+// A conversation's first message, unless the user picked its model, or any
+// message once the user picked Router for it. A Tasks-view task saved on
+// Router (no model) always routes, and its own model counts while available.
 async function routes(ctx: HostContext, agent: Agent, s: Session) {
+  if (agent.routeNext) return true;
   if (s.messages.length || agent.pickedModel || agent.routed) return false;
-  if (!(await modelRouterOn())) return false;
   const task = (await ctx.tasks.list(agent.cwd)).find(
     (t) => t.session === agent.id,
   );
-  if (!task?.model || !autonomous(task)) return true;
+  if (!task || !autonomous(task)) return modelRouterOn();
+  const model = task.model;
+  if (!model) return true;
   return !(await s.modelRuntime.getAvailable()).some(
-    (m) => m.provider === task.model!.provider && m.id === task.model!.id,
+    (m) => m.provider === model.provider && m.id === model.id,
   );
+}
+
+// Later on, the router reads the conversation's first message too, for what the new one carries on.
+function began(s: Session) {
+  const content = s.messages.find(
+    (m): m is UserMessage => m.role === "user",
+  )?.content;
+  return typeof content === "string"
+    ? content
+    : content?.find((c) => c.type === "text")?.text;
 }
 
 /**
@@ -68,7 +92,7 @@ async function routes(ctx: HostContext, agent: Agent, s: Session) {
  * conversation goes back to what it ran on.
  */
 async function pick(s: Session, text: string, signal: AbortSignal) {
-  const routed = await route(s, text, signal);
+  const routed = await route(s, text, signal, began(s));
   if (signal.aborted || !(routed?.model || routed?.effort)) return false;
   const before = { model: s.model, effort: s.thinkingLevel };
   await runOn(s, routed);
@@ -133,6 +157,7 @@ export async function routeMessage(
   const chose = await pick(s, text, routing.signal).catch(() => false);
   agent.routing = undefined;
   const sent = !routing.signal.aborted;
+  if (sent) agent.routeNext = undefined;
   tell(ctx, agent, {
     type: "routing_end",
     sent,

@@ -17,6 +17,7 @@ import {
   type Pending,
 } from "@/hooks/useComposerBegin";
 import type { useStartingMessage } from "@/hooks/useStartingMessage";
+import { saveDefaultModel } from "@/lib/composerSettings";
 import { appCommand } from "@/lib/mentions";
 import type { Queued } from "@/lib/queue";
 
@@ -83,7 +84,15 @@ export function useComposerActions({
 
   const change = useCallback(
     async (choice: Choice, held: Pending) => {
-      if (none) return setPending((p) => ({ ...p, ...held }));
+      if (none) {
+        setPending((p) => ({ ...p, ...held }));
+        if (opened && held.model) {
+          await saveDefaultModel(opened, held.model).catch((e: Error) =>
+            setError(e.message),
+          );
+        }
+        return;
+      }
       if (!opened) return;
       setError(null);
       try {
@@ -144,7 +153,10 @@ export function useComposerActions({
       ),
     setThinkingLevel: (level: ThinkingLevel) =>
       change({ type: "set_thinking_level", level }, { level }),
-    /** Drops the model picked for the conversation about to start, so Model Router picks it. */
-    unpickModel: () => setPending(({ level }) => ({ ...(level && { level }) })),
+    /** Router picks the model: for the conversation about to start, the picked one is dropped; one under way has its next message routed. */
+    pickRouter: () =>
+      none
+        ? setPending(({ level }) => ({ ...(level && { level }) }))
+        : void change({ type: "route_next" }, {}),
   };
 }

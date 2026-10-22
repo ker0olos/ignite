@@ -38,10 +38,11 @@ const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
 
 // Everything comes from pi: the connected providers' models, and the levels
 // the session's model supports (pi clamps the level itself).
-/** Returns the session's models and effort levels. */
+/** Returns the session's models and effort levels, and whether Router picks for its `agent`'s next message. */
 export async function sessionState(
   ctx: HostContext,
   s?: Session,
+  agent?: Agent,
 ): Promise<SessionState> {
   s ??= await current(ctx);
   const [models, claude] = await Promise.all([
@@ -58,24 +59,8 @@ export async function sessionState(
     skills: s.resourceLoader
       .getSkills()
       .skills.map(({ name, description }) => ({ name, description })),
+    ...(agent?.routeNext && { routeNext: true }),
   };
-}
-
-/** Changes the session's model and persists it for future sessions. */
-export async function setModel(
-  ctx: HostContext,
-  provider: string,
-  modelId: string,
-  session?: string,
-) {
-  const s = await current(ctx, session);
-  const model = (await s.modelRuntime.getAvailable()).find(
-    (m) => m.provider === provider && m.id === modelId,
-  );
-  if (!model) throw new Error(`${modelId} isn't available.`);
-  // Persisted so the next session starts with the same choice.
-  await s.setModel(model, { persist: true });
-  return sessionState(ctx, s);
 }
 
 /**
@@ -110,7 +95,7 @@ export async function open(
   }
   // Servers now have a status, even before the adapter reports any.
   if (isShown(ctx, agent)) await pushMcpServers(ctx);
-  const state = await sessionState(ctx, s);
+  const state = await sessionState(ctx, s, agent);
   // Taken after the last await, so no event falls between them and the app's.
   const messages = messagesFor(s, !!agent.followed, known === id);
   agent.followed = true;

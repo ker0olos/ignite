@@ -37,7 +37,7 @@ export function pickNote({ model, effort, kept }: RouterPick): string | null {
   if (!model) return null;
   const level = EFFORT_LABELS[effort as ThinkingLevel] ?? effort;
   const pick = `${modelLabel(model)} · ${level}`;
-  return kept ? `Router kept your default, ${pick}` : `Router picked ${pick}`;
+  return kept ? `Router kept ${pick}` : `Router picked ${pick}`;
 }
 
 /** `t` with its run over: not running, and nothing routed shown or timed. */

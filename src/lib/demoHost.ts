@@ -242,6 +242,7 @@ export function createDemoHost(tempo: string, pace = 30): HostClient {
     draft_state: () => DEMO_STATE,
     set_model: () => DEMO_STATE,
     set_thinking_level: () => DEMO_STATE,
+    route_next: () => DEMO_STATE,
     command_search: (r: CommandSearch) => search(all, r),
     git_diff: (r: { path: string }) => DEMO_GIT_DIFFS[r.path] ?? "",
     git_status: () => [],

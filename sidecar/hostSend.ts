@@ -42,7 +42,7 @@ export async function hand(
 ) {
   await settleResume(agent);
   if (s.isStreaming) rememberImages(agent, text, images);
-  // A message sent mid-run steers the run; a conversation's first one may be routed.
+  // A message sent mid-run steers the run; others may be routed (hostRoute.ts).
   else if (!(await routeMessage(ctx, agent, s, text, images))) return false;
   else await checkpointFirst(agent);
   // A message written instead of answering says why, so it steers even when queued.

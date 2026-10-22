@@ -50,6 +50,14 @@ describe("routerInput", () => {
     expect(text).toContain("- gpt-big ($10/M output tokens)\n- mystery\n");
     expect(text).toContain("Efforts, lowest first: off, minimal");
     expect(text.endsWith("The user's message:\nAdd dark mode")).toBe(true);
+    expect(text).not.toContain("began with");
+  });
+
+  it("adds the conversation's first message later on", () => {
+    const text = routerInput("yes, go ahead", [], "Add dark mode");
+    expect(text).toContain(
+      "The conversation began with:\nAdd dark mode\n\nThe user's message:\nyes, go ahead",
+    );
   });
 
   it("sends only the start of a long message", () => {

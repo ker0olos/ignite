@@ -21,7 +21,7 @@ describe("pickNote", () => {
       "Router picked Sonnet 5.5 · Medium",
     );
     expect(pickNote({ model: SONNET, effort: "high", kept: true })).toBe(
-      "Router kept your default, Sonnet 5.5 · High",
+      "Router kept Sonnet 5.5 · High",
     );
   });
 

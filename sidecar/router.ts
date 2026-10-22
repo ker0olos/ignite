@@ -1,6 +1,7 @@
 /**
- * The router: before a conversation's first message, a cheap model from its
- * provider picks the model and effort the conversation runs on.
+ * The router: before a conversation's first message (or its next, once the
+ * user picks Router), a cheap model from its provider picks the model and
+ * effort the conversation runs on.
  */
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -21,10 +22,11 @@ const same = (a: { provider: string; id: string }, b: typeof a) =>
 // A Claude subscription routes through a fresh Claude Code process.
 const TIMEOUT_MS = 15_000;
 
-const ROUTER_PROMPT = `You pick the model and effort a coding agent works on. Read the user's first message and reply with JSON only, no prose:
+const ROUTER_PROMPT = `You pick the model and effort a coding agent works on. Read the user's message and reply with JSON only, no prose:
 {"model": "<id>", "effort": "<level>"}
-Pick the cheapest model and lowest effort that will do the work well; the agent keeps them for the whole conversation, so pick for the work as a whole. Questions, lookups and mechanical edits: cheap and low. Design, debugging an unknown cause, security and subtle logic: the strongest and high.
-When the message doesn't say enough to tell what the work needs (a bare link, "take a look at this", "continue"), pick the middle ground: the newest model between the provider's cheapest and its strongest (on Claude, Sonnet), at high effort.`;
+Pick the cheapest model and lowest effort that will do the work well; the agent keeps them for the rest of the conversation, so pick for the work as a whole. Questions, lookups and mechanical edits: cheap and low. Design, debugging an unknown cause, security and subtle logic: the strongest and high.
+Later in a conversation you also get the message it began with: the new message carries on that work ("yes", "continue" mean more of it), so judge them together.
+When the message doesn't say enough to tell what the work needs (a bare link, "take a look at this"), pick the middle ground: the newest model between the provider's cheapest and its strongest (on Claude, Sonnet), at high effort.`;
 
 /** Whether the router picks the model and effort ("Model Router", `[conversation] model_router`, on by default). */
 export async function modelRouterOn(
@@ -43,10 +45,11 @@ export async function modelRouterOn(
 // Enough to judge the work; a pasted log would only slow the call down.
 const MESSAGE_CHARS = 4_000;
 
-/** The router's user message: the models with prices, the efforts and the message's start. */
+/** The router's user message: the models with prices, the efforts, the message's start and, later on, the conversation's first one's. */
 export function routerInput(
   text: string,
   models: { id: string; price?: number }[],
+  began?: string,
 ): string {
   const list = models.map(
     (m) => `- ${m.id}${m.price ? ` ($${m.price}/M output tokens)` : ""}`,
@@ -54,6 +57,9 @@ export function routerInput(
   return [
     `Models:\n${list.join("\n")}`,
     `Efforts, lowest first: ${EFFORTS.join(", ")}`,
+    ...(began
+      ? [`The conversation began with:\n${began.slice(0, MESSAGE_CHARS)}`]
+      : []),
     `The user's message:\n${text.slice(0, MESSAGE_CHARS)}`,
   ].join("\n\n");
 }
@@ -91,11 +97,12 @@ export async function cheapest(s: Pick<Session, "model" | "modelRuntime">) {
   return cost(model) === Infinity ? null : { model, models, all };
 }
 
-/** Asks the cheapest model of `s`'s provider to pick for `text`; null when it can't tell, or no model lists a price to call the cheapest. */
+/** Asks the cheapest model of `s`'s provider to pick for `text` (in a conversation that `began` so); null when it can't tell, or no model lists a price to call the cheapest. */
 export async function route(
   s: Pick<Session, "model" | "modelRuntime">,
   text: string,
   signal?: AbortSignal,
+  began?: string,
 ): Promise<Route | null> {
   const found = await cheapest(s);
   if (!found) return null;
@@ -111,6 +118,7 @@ export async function route(
           content: routerInput(
             text,
             models.map((m) => ({ id: m.id, price: price(m, all) })),
+            began,
           ),
           timestamp: Date.now(),
         },

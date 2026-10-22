@@ -212,6 +212,8 @@ export type Agent = {
   pickedModel?: boolean;
   /** Its first message was edited, so the router, which already ran, doesn't run again. */
   routed?: boolean;
+  /** The user picked Router for it, so its next message is routed, first or not. */
+  routeNext?: boolean;
   /** Settles once the message being sent is held by pi (running, queued or handled), or failed. */
   sending?: Promise<void>;
   /** The new message the router is reading; Stop drops it and hands it back. */

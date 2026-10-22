@@ -848,10 +848,17 @@ describe("several conversations in a folder", () => {
       }),
     );
     const sent = () => types(host).filter((t) => t !== "draft_state");
-    expect(sent()).toEqual(["open_session"]);
+    // Saved as the default at once, as any picked model is.
+    expect(sent()).toEqual(["open_session", "save_default_model"]);
+    expect(host.request).toHaveBeenCalledWith({
+      type: "save_default_model",
+      provider: "openai",
+      modelId: "mini",
+    });
     await act(() => result.current.send("Build it"));
     expect(sent()).toEqual([
       "open_session",
+      "save_default_model",
       "new_session",
       "set_model",
       "prompt",
@@ -878,11 +885,26 @@ describe("several conversations in a folder", () => {
     await act(() => result.current.setModel(mini));
     await act(() => result.current.setThinkingLevel("high"));
     expect(result.current.pickedModel).toBe(true);
-    act(() => result.current.unpickModel());
+    act(() => result.current.pickRouter());
     expect(result.current.pickedModel).toBe(false);
     await act(() => result.current.send("Build it"));
     expect(types(host)).not.toContain("set_model");
     expect(types(host)).toContain("set_thinking_level");
+  });
+
+  it("routes a conversation's next message when Router is chosen once it's under way", async () => {
+    const host = fakeHost(async (req) => {
+      if (req.type === "open_session") return { ...STATE, session: "s1" };
+      if (req.type === "route_next") return { ...STATE, routeNext: true };
+      return undefined;
+    });
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.session).toBe("s1"));
+    await act(async () => result.current.pickRouter());
+    expect(host.request).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "route_next", session: "s1" }),
+    );
+    await waitFor(() => expect(result.current.state?.routeNext).toBe(true));
   });
 
   it("applies the new conversation's first events at once", async () => {
