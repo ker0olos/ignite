@@ -1,5 +1,5 @@
 import { Ban, Folder, Globe, MessageSquare, Wrench } from "lucide-react";
-import type { Lesson } from "../../../shared/lessons";
+import { lessonTool, type Lesson } from "../../../shared/lessons";
 import { lessonScope } from "@/lib/lessons";
 import { cn } from "@/lib/utils";
 
@@ -11,12 +11,12 @@ export function LessonTags({
   lesson,
   hits,
 }: {
-  lesson: Pick<Lesson, "level" | "tool" | "match" | "regex"> & {
+  lesson: Pick<Lesson, "level" | "tool" | "match" | "regex" | "background"> & {
     folder?: string;
   };
   hits?: number;
 }) {
-  const { level, tool, match, folder } = lesson;
+  const { level, match, folder } = lesson;
   const Scope = folder === undefined ? Globe : Folder;
   return (
     <span className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -38,7 +38,9 @@ export function LessonTags({
         >
           <Ban className="size-3 shrink-0" />
           Blocks
-          <code className="min-w-0 font-mono break-words">{tool}</code>
+          <code className="min-w-0 font-mono break-words">
+            {lessonTool(lesson)}
+          </code>
           {lesson.regex ? "matching" : "with"}
           <code className="min-w-0 font-mono break-words">
             {lesson.regex ? `/${match}/` : `“${match}”`}
@@ -48,7 +50,9 @@ export function LessonTags({
         <span className={cn(tag, "bg-muted text-foreground")}>
           <Wrench className="size-3 shrink-0" />
           Before
-          <code className="min-w-0 font-mono break-words">{tool}</code>
+          <code className="min-w-0 font-mono break-words">
+            {lessonTool(lesson)}
+          </code>
         </span>
       )}
       {!!hits && (

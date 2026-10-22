@@ -3,6 +3,7 @@ import { RemoveButton } from "@/components/mcp/RemoveButton";
 import type { Item } from "@/components/settings/sections";
 import type { useLessons } from "@/hooks/useLessons";
 import { lessonScope } from "@/lib/lessons";
+import { lessonTool } from "../../../../shared/lessons";
 
 /** Settings rows for the lessons the agent saved from its mistakes. */
 export function lessonsItems({
@@ -32,7 +33,7 @@ export function lessonsItems({
     section: "Lessons",
     title: l.text,
     hint: <LessonTags lesson={l} hits={l.hits} />,
-    keywords: `lesson mistake correction rule ${lessonScope(l.folder)} ${l.tool ?? ""} ${l.match ?? ""}`,
+    keywords: `lesson mistake correction rule ${lessonScope(l.folder)} ${lessonTool(l) ?? ""} ${l.match ?? ""}`,
     control: (
       <RemoveButton
         name="this lesson"

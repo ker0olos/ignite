@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
-import type { Lesson } from "../shared/lessons.ts";
+import { lessonTool, type Lesson } from "../shared/lessons.ts";
 import { mcpCall } from "../src/lib/mcpToolCall.ts";
 import { regexFlaw, regexMatches, regexSpeed } from "./lessonRegex.ts";
 
@@ -8,7 +8,14 @@ export type { Lesson };
 
 type NewLesson = Pick<
   Lesson,
-  "text" | "level" | "tool" | "match" | "regex" | "quadratic" | "folder"
+  | "text"
+  | "level"
+  | "tool"
+  | "match"
+  | "regex"
+  | "quadratic"
+  | "background"
+  | "folder"
 >;
 
 export const MAX_LESSONS = 30;
@@ -66,14 +73,22 @@ function checkedRegex(match: string) {
 }
 
 function cleaned(lesson: NewLesson): NewLesson {
-  const { text, level, tool, match, regex, folder } = lesson;
+  const { text, level, tool, match, regex, background, folder } = lesson;
   if (level === "system_prompt") return { text, level, folder };
   if (!tool) throw new Error("A tool_call lesson needs `tool`.");
-  if (match === undefined) return { text, level, tool, folder };
+  if (background !== undefined && tool !== "bash")
+    throw new Error("Only a `bash` lesson takes `background`.");
+  const call = {
+    text,
+    level,
+    tool,
+    ...(background !== undefined && { background }),
+  };
+  if (match === undefined) return { ...call, folder };
   if (match.trim().length < MIN_MATCH)
     throw new Error(`\`match\` needs at least ${MIN_MATCH} characters.`);
   const kind = regex ? checkedRegex(match) : {};
-  return { text, level, tool, match, ...kind, folder };
+  return { ...call, match, ...kind, folder };
 }
 
 const matches = (l: Lesson, text: string) => {
@@ -129,7 +144,9 @@ export const list = (lessons: Lesson[]) =>
   lessons
     .map((l) => {
       const match = l.regex ? `/${l.match}/` : `"${l.match}"`;
-      const on = l.tool ? ` (${l.tool}${l.match ? `: ${match}` : ""})` : "";
+      const on = l.tool
+        ? ` (${lessonTool(l)}${l.match ? `: ${match}` : ""})`
+        : "";
       return `- [${l.id}]${on} ${l.text}`;
     })
     .join("\n");
@@ -164,8 +181,13 @@ export function lessonFor(
   reminded: Set<string>,
 ): Lesson | undefined {
   const tools = toolsOf(name, input);
+  const background = !!input.background;
   const mine = lessons.filter(
-    (l) => l.level === "tool_call" && l.tool && tools.includes(l.tool),
+    (l) =>
+      l.level === "tool_call" &&
+      l.tool &&
+      tools.includes(l.tool) &&
+      (l.background === undefined || l.background === background),
   );
   const text = callText(input);
   return (

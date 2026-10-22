@@ -72,6 +72,18 @@ describe("addLesson", () => {
     expect(saved).not.toHaveProperty("match");
   });
 
+  it("takes `background` only on bash lessons", () => {
+    const add = (tool: string) =>
+      addLesson(file, {
+        text: "A",
+        level: "tool_call",
+        tool,
+        background: true,
+      });
+    expect(add("bash")).toMatchObject({ background: true });
+    expect(() => add("git")).toThrow("Only a `bash` lesson");
+  });
+
   it("refuses a tool_call lesson without a tool or with a short match", () => {
     expect(() => addLesson(file, { text: "A", level: "tool_call" })).toThrow(
       "needs `tool`",
@@ -185,6 +197,26 @@ describe("lessonFor", () => {
       undefined,
     );
     expect(lessonFor([prompt], "git", commit, new Set())).toBe(undefined);
+  });
+
+  it("tells background bash calls from foreground ones", () => {
+    const dev = { command: "npm run dev" };
+    const bg = { ...dev, background: true };
+    const fg = lesson({
+      id: "fg",
+      tool: "bash",
+      match: "run dev",
+      background: false,
+    });
+    const any = lesson({ id: "any", tool: "bash", match: "run dev" });
+    expect(lessonFor([fg], "bash", dev, new Set())?.id).toBe("fg");
+    expect(lessonFor([fg], "bash", bg, new Set())).toBe(undefined);
+    expect(lessonFor([fg, any], "bash", bg, new Set())?.id).toBe("any");
+    const loose = { ...dev, background: "true" };
+    expect(lessonFor([fg], "bash", loose, new Set())).toBe(undefined);
+    expect(list([fg])).toBe(
+      '- [fg] (bash (foreground only): "run dev") Don\'t',
+    );
   });
 
   it("matches an MCP call by its server tool or the tool it calls", () => {

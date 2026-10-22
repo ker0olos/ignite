@@ -1094,7 +1094,8 @@ per conversation). A `tool_call` lesson names an exact tool (`git`, `bash`,
 tool's calls, before approval: with `match`, plain text (3+ characters) in the
 call's argument values joined by spaces (`reason` left out), or with
 `regex: true` a JavaScript regex (`s` flag, so `.` crosses lines), a matching
-call is always blocked with the lesson as the reason. A regex is checked once,
+call is always blocked with the lesson as the reason. A `bash` lesson may take
+`background` (true or false) to apply only to background or foreground calls. A regex is checked once,
 on save (`sidecar/lessonRegex.ts`): refused when it's invalid, matches empty
 or ordinary text (it would block every call), or `recheck` (loaded only then)
 finds it worse than quadratic or can't tell; a quadratic one is marked and

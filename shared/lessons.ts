@@ -11,6 +11,8 @@ export type Lesson = {
   tool?: string;
   /** Text in the call's arguments that marks it as the mistake; such a call is always blocked. */
   match?: string;
+  /** A bash lesson only about background calls (true) or foreground ones (false); none for both. */
+  background?: boolean;
   /** `match` is a JavaScript regex (`.` crossing lines), not plain text. */
   regex?: boolean;
   /** Set on save when the regex can take quadratic time: it sees only a call's start. */
@@ -20,6 +22,12 @@ export type Lesson = {
   hits: number;
   lastHit?: number;
 };
+
+/** The tool a lesson is about, with the kind of bash call it's only about (`bash (background only)`). */
+export const lessonTool = (l: Pick<Lesson, "tool" | "background">) =>
+  l.background === undefined
+    ? l.tool
+    : `${l.tool} (${l.background ? "background" : "foreground"} only)`;
 
 /** A lesson_add result's details: the saved lesson, and the text of the one it replaced. */
 export type LessonAdded = { lesson: Lesson; replaced?: string };

@@ -76,6 +76,12 @@ const Params = Type.Object({
         "True when `match` is a JavaScript regex, to catch every spelling of the mistake (e.g. `push.*(-f|--force)(\\s|$)`; not `\\b`, which also matches --force-with-lease). No nested repeats like (a+)+.",
     }),
   ),
+  background: Type.Optional(
+    Type.Boolean({
+      description:
+        "For a bash lesson: true when it's only about background calls (`background: true`), false when only about foreground ones. Leave it out for both.",
+    }),
+  ),
   folder_only: Type.Optional(
     Type.Boolean({
       description: "True when the lesson is about this folder only.",
@@ -130,7 +136,12 @@ function registerAdd(pi: ExtensionAPI, file: string) {
         : undefined;
       const lesson = addLesson(file, { ...fields, folder: scope }, replaces);
       const others = lessonsFor(readLessons(file), folder).filter(
-        (l) => l.id !== lesson.id && l.tool === lesson.tool,
+        (l) =>
+          l.id !== lesson.id &&
+          l.tool === lesson.tool &&
+          (l.background === undefined ||
+            lesson.background === undefined ||
+            l.background === lesson.background),
       );
       const similar = others.length
         ? `\n\nOther lessons here for the same tool; if one says the same, merge them with \`replaces\`:\n${list(others)}`
