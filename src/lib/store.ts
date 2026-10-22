@@ -1,7 +1,8 @@
 import { listen } from "@tauri-apps/api/event";
 import { load } from "@tauri-apps/plugin-store";
 
-const FILE = "state.json";
+// Dev and installed builds share the app data folder, so the demo keeps its own.
+const FILE = __DEMO_FOLDER__ ? "demo-state.json" : "state.json";
 
 /**
  * App state (folders, the last one shown, each folder's listed

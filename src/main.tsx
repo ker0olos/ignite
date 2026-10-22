@@ -3,6 +3,10 @@ import { followLiveMods } from "./lib/liveReload";
 import { prestartPiHost } from "./lib/piHost";
 import { fitToScreenAndShow, isWindows } from "./lib/window";
 
+// Dev and installed builds share an origin, so the demo's storage ends with its window.
+if (__DEMO_FOLDER__) {
+  Object.defineProperty(window, "localStorage", { value: sessionStorage });
+}
 // The sidecar is the slowest part of a start, so it starts first; imported
 // statically, it doesn't wait behind the app's modules for its own chunk.
 if (!__DEMO_FOLDER__) prestartPiHost();
