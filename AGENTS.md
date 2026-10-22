@@ -357,6 +357,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   lines.ts               LF-only JSONL splitting
   mcpConfig.ts           pi-mcp-adapter's mcp.json: read, edit servers, cached tool names
   mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
+  mcpRetry.ts            MCP connects the network failed (fetch failed, ECONNRESET, DNS, 502/503/504),
+                         tried again 3 times over 17s (parallel calls share one), then named as the network's;
+                         a server in the adapter's backoff is connected once to learn why
   skillStore.ts          The app's skills and plugins (bundles of skills): list, on/off, remove, import;
                          the only skills sessions load besides the folder's own
   skillArgs.ts           A session's skills for the composer, with their `argument-hint` and `argument-descriptions`

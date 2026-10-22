@@ -23,6 +23,7 @@ import {
 } from "./mcpConfig.ts";
 import { APP_TITLE } from "../src/lib/app.ts";
 import { readClaudeCodeKeychain, signInFor } from "./claudeCodeMcpAuth.ts";
+import { retryingTools } from "./mcpRetry.ts";
 import { reasonedTools } from "./toolReason.ts";
 
 // The adapter's sign-in isn't a public export, and Node can't load its
@@ -90,7 +91,7 @@ export default async function mcp(pi: ExtensionAPI) {
   );
   // Tools with an MCP Apps UI would open it in the browser; their text result is enough.
   process.env.MCP_UI_VIEWER = "none";
-  createMcpAdapter({ config })(reasonedTools(pi));
+  createMcpAdapter({ config })(retryingTools(reasonedTools(pi)));
 
   // Like the adapter's /mcp-auth, but the app opens the sign-in page: the
   // adapter's own browser launch loses the URL when the app starts it.

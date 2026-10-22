@@ -61,10 +61,18 @@ export function withReason(tool: Tool): Tool {
 
 /** `pi` with every tool registered through it requiring `reason`. */
 export function reasonedTools(pi: ExtensionAPI): ExtensionAPI {
+  return wrappedTools(pi, withReason);
+}
+
+/** `pi` with every tool registered through it passed through `wrap` first. */
+export function wrappedTools(
+  pi: ExtensionAPI,
+  wrap: (tool: Tool) => Tool,
+): ExtensionAPI {
   return new Proxy(pi, {
     get(target, key) {
       if (key === "registerTool") {
-        return (tool: Tool) => target.registerTool(withReason(tool));
+        return (tool: Tool) => target.registerTool(wrap(tool));
       }
       const value = Reflect.get(target, key) as unknown;
       return typeof value === "function" ? value.bind(target) : value;
