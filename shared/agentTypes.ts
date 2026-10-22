@@ -72,6 +72,41 @@ export const IMAGE_TYPES: Record<string, string> = {
 /** The tool the agent shows the user an image file with; the image is in `details.image`. */
 export const IMAGE_TOOL = "show_image";
 
+/** The tool the agent shows the user an audio file with (generated music or speech); the audio is in `details.audio`. */
+export const AUDIO_TOOL = "show_audio";
+
+export type AudioContent = { type: "audio"; data: string; mimeType: string };
+
+/** Audio files the conversation can play, by extension. */
+export const AUDIO_TYPES: Record<string, string> = {
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".m4a": "audio/mp4",
+  ".aac": "audio/aac",
+  ".ogg": "audio/ogg",
+  ".opus": "audio/ogg",
+  ".flac": "audio/flac",
+};
+
+/** The tool the agent shows the user a video file with (a generated clip); the video is in `details.video`. */
+export const VIDEO_TOOL = "show_video";
+
+/** A video by its file's absolute path (too big to keep in the conversation), or inline `data` (the demo's). */
+export type VideoContent = {
+  type: "video";
+  mimeType: string;
+  path?: string;
+  data?: string;
+};
+
+/** Video files the conversation can play, by extension. */
+export const VIDEO_TYPES: Record<string, string> = {
+  ".mp4": "video/mp4",
+  ".m4v": "video/mp4",
+  ".mov": "video/quicktime",
+  ".webm": "video/webm",
+};
+
 /** The tool the agent shows an artifact with: one or more HTML or markdown pages, in its `pages` argument. */
 export const ARTIFACT_TOOL = "show_artifact";
 

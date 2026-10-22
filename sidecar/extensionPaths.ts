@@ -31,6 +31,7 @@ export const SESSION_EXTENSIONS = [
   webSearch,
   sibling("./adbExtension.ts"),
   sibling("./imageExtension.ts"),
+  sibling("./mediaExtension.ts"),
   sibling("./artifactExtension.ts"),
   sibling("./bashExtension.ts"),
   sibling("./terminalExtension.ts"),

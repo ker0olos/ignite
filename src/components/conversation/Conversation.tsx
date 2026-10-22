@@ -1,5 +1,9 @@
-import type { RefObject } from "react";
-import type { Editor, ToolProps } from "@/components/conversation/shared";
+import { useMemo, type RefObject } from "react";
+import {
+  EditOriginalsContext,
+  type Editor,
+  type ToolProps,
+} from "@/components/conversation/shared";
 import { RowBoundary } from "@/components/conversation/RowBoundary";
 import { RowView } from "@/components/conversation/RowView";
 import { RunIndicator } from "@/components/conversation/RunIndicator";
@@ -9,6 +13,7 @@ import { workingLine, writingText } from "@/lib/runStep";
 import type { Item, Transcript } from "@/lib/transcript";
 import { toRows } from "@/lib/toolRows";
 import { editableEntries } from "@/lib/rewind";
+import { editOriginals } from "@/lib/media";
 import type { CodeThemes } from "@/lib/codeThemes";
 
 /** The conversation so far, auto-scrolling unless the user has scrolled up. */
@@ -50,42 +55,48 @@ export function Conversation({
   const working = workingLine(transcript, folder, showThinking, waitingOnFork);
   const rows = toRows(items, transcript.tools);
   const editable = editableEntries(items);
+  const originals = useMemo(
+    () => editOriginals(items, transcript.tools),
+    [items, transcript.tools],
+  );
   const { start, topRef } = useOlderRows(scrollRef, rows.length, shown);
 
   return (
     <WaitingCallsContext.Provider value={waiting}>
-      <div
-        ref={contentRef}
-        className="always-bounce mx-auto select-text max-w-3xl space-y-4 px-4 py-6 text-[13px]"
-      >
-        {start > 0 && <div ref={topRef} />}
-        {rows.slice(start).map((row, j) => (
-          <RowBoundary key={start + j} resetOn={row}>
-            <RowView
-              row={row}
-              tools={transcript.tools}
-              folder={folder}
-              editor={editor}
-              codeThemes={codeThemes}
-              stickyUserMessages={stickyUserMessages}
-              onApprove={onApprove}
-              last={start + j === rows.length - 1}
-              editable={
-                row.kind === "user" && editable.has(row.message.entryId ?? "")
-              }
+      <EditOriginalsContext.Provider value={originals}>
+        <div
+          ref={contentRef}
+          className="always-bounce mx-auto select-text max-w-3xl space-y-4 px-4 py-6 text-[13px]"
+        >
+          {start > 0 && <div ref={topRef} />}
+          {rows.slice(start).map((row, j) => (
+            <RowBoundary key={start + j} resetOn={row}>
+              <RowView
+                row={row}
+                tools={transcript.tools}
+                folder={folder}
+                editor={editor}
+                codeThemes={codeThemes}
+                stickyUserMessages={stickyUserMessages}
+                onApprove={onApprove}
+                last={start + j === rows.length - 1}
+                editable={
+                  row.kind === "user" && editable.has(row.message.entryId ?? "")
+                }
+              />
+            </RowBoundary>
+          ))}
+          {/* Hidden, its spinner and clock would tick for no one. */}
+          {working && shown && !writingText(last) && (
+            <RunIndicator
+              state={waiting.length === 0 ? "working" : "waiting"}
+              step={working.step}
+              since={working.since}
+              thought={working.thought}
             />
-          </RowBoundary>
-        ))}
-        {/* Hidden, its spinner and clock would tick for no one. */}
-        {working && shown && !writingText(last) && (
-          <RunIndicator
-            state={waiting.length === 0 ? "working" : "waiting"}
-            step={working.step}
-            since={working.since}
-            thought={working.thought}
-          />
-        )}
-      </div>
+          )}
+        </div>
+      </EditOriginalsContext.Provider>
     </WaitingCallsContext.Provider>
   );
 }

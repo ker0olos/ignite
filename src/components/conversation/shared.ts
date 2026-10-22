@@ -49,11 +49,16 @@ export const AskingStepContext = createContext(0);
 /** The id of the conversation rows show in, null for a new one. */
 export const ConversationIdContext = createContext<string | null>(null);
 
+/** Each image edit's original by the edit's call id, for its before/after; empty where none is known (a subagent's conversation). */
+export const EditOriginalsContext = createContext<
+  ReadonlyMap<string, ImageContent>
+>(new Map());
+
 /** Sends "Continue" after a failed run; null while one runs, or where nothing can send. */
 export const ContinueContext = createContext<(() => void) | null>(null);
 
 // Lines shown before "… +N lines"; clicking it shows the rest.
-export const PREVIEW_LINES = 5;
+export const PREVIEW_LINES = 6;
 // Also caps one long wrapped line, like an MCP server's JSON.
 export const PREVIEW_CHARS = 400;
 export const CODE_PREVIEW_LINES = 12;

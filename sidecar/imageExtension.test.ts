@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { mkdtemp, truncate, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, truncate, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -12,6 +12,7 @@ describe("loadImage", async () => {
   await writeFile(join(dir, "a.PNG"), "png bytes");
   await writeFile(join(dir, "big.jpg"), "");
   await truncate(join(dir, "big.jpg"), 21 * 1024 * 1024);
+  await mkdir(join(dir, "folder.png"));
 
   it("reads an image relative to the folder, by extension", async () => {
     expect(await loadImage("a.PNG", dir)).toEqual({
@@ -32,6 +33,7 @@ describe("loadImage", async () => {
     expect(await loadImage("/etc/hosts", dir)).toMatch(/^Not an image/);
     expect(await loadImage("gone.png", dir)).toMatch(/^No such file/);
     expect(await loadImage("big.jpg", dir)).toMatch(/^Too large/);
+    expect(await loadImage("folder.png", dir)).toMatch(/^No such file/);
   });
 });
 

@@ -49,10 +49,12 @@ describe("shownRows", () => {
     expect(shownRows(rows, null)).toBe(rows);
   });
 
-  it("shows tempo with four conversations at once, and pantry waiting", () => {
+  it("shows tempo with six conversations at once, and pantry waiting", () => {
     const rows = shownRows(() => [], TEMPO);
     expect(rows(TEMPO).map((a) => [a.session, a.running, a.waiting])).toEqual([
       ["tempo", false, false],
+      ["tempo-hero", false, false],
+      ["tempo-loop", false, false],
       ["tempo-tests", true, true],
       ["tempo-reload", true, false],
       ["tempo-bugs", true, true],

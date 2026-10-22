@@ -101,7 +101,8 @@ describe.runIf(process.platform !== "win32")("bash extension", () => {
     expect(result.details).toMatchObject({
       background: { pid: started.pid, log: started.log },
     });
-    expect(Object.keys(result.details.background)).toEqual(["pid", "log"]);
+    const { background } = result.details as { background: object };
+    expect(Object.keys(background)).toEqual(["pid", "log"]);
     expect(textOf(await run("bash_stop", { pid: started.pid }))).toBe(
       `Stopped ${started.pid}.`,
     );
