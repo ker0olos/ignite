@@ -4,9 +4,11 @@ import { parseFrontmatter, type Skill } from "@earendil-works/pi-coding-agent";
 import type { SkillInfo } from "../shared/skills.ts";
 
 type Args = Pick<SkillInfo, "argumentHint" | "argumentDescriptions">;
+/** What skillInfo reads of a pi Skill. */
+export type LoadedSkill = Pick<Skill, "name" | "description" | "filePath">;
 
 // pi keeps its Skill objects until the session reloads its skills, so each file is read once per load.
-const cache = new WeakMap<Skill, Args>();
+const cache = new WeakMap<LoadedSkill, Args>();
 
 const text = (value: unknown) =>
   typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -29,7 +31,7 @@ function readArgs(filePath: string): Args {
   };
 }
 
-function argsOf(skill: Skill): Args {
+function argsOf(skill: LoadedSkill): Args {
   let args = cache.get(skill);
   if (!args) {
     try {
@@ -43,6 +45,6 @@ function argsOf(skill: Skill): Args {
 }
 
 /** A session's skill as the composer shows it: name, description and its arguments. */
-export function skillInfo(skill: Skill): SkillInfo {
+export function skillInfo(skill: LoadedSkill): SkillInfo {
   return { name: skill.name, description: skill.description, ...argsOf(skill) };
 }

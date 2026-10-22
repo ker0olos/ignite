@@ -115,7 +115,9 @@ function fakeSession() {
     thinkingLevel: "low" as ThinkingLevel,
     getAvailableThinkingLevels: () => levels(session.model),
     resourceLoader: {
-      getSkills: () => ({ skills: [{ name: "review", description: "R" }] }),
+      getSkills: () => ({
+        skills: [{ name: "review", description: "R", filePath: "/none.md" }],
+      }),
     },
     setModel: vi.fn(async (m: ModelInfo) => {
       session.model = m;

@@ -24,6 +24,7 @@ import type { ImportSource } from "./mcpCatalog.ts";
 import type { Preset } from "./mcpPresets.ts";
 import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
+import type { LoadedSkill } from "./skillArgs.ts";
 import type { TaskStore } from "./taskStore.ts";
 import type { Workspaces } from "./worktrees.ts";
 import type { DraftPick } from "./draftSession.ts";
@@ -73,7 +74,7 @@ export type Session = {
   readonly thinkingLevel: ThinkingLevel;
   getAvailableThinkingLevels(): ThinkingLevel[];
   readonly resourceLoader: {
-    getSkills(): { skills: readonly { name: string; description: string }[] };
+    getSkills(): { skills: readonly LoadedSkill[] };
   };
   setModel(model: ModelInfo, options: { persist: boolean }): Promise<void>;
   setThinkingLevel(level: ThinkingLevel, options: { persist: boolean }): void;
