@@ -136,6 +136,23 @@ describe("the fallback extension", () => {
     expect(limitedUntil()).toBe(Date.now() + HOUR);
   });
 
+  it("replays a reply the bridge marked aborted after its tool ran, only off the subscription", async () => {
+    const x = load({ catalog: [opus] });
+    const call = { type: "toolCall", id: "t1" };
+    const messages = [
+      { role: "assistant", content: [call], stopReason: "aborted" },
+      { role: "toolResult", toolCallId: "t1" },
+    ];
+    expect(await x.run("context", { messages })).toBeUndefined();
+    x.fail(limitError);
+    await x.settle();
+    const result = (await x.run("context", { messages })) as {
+      messages: { stopReason?: string }[];
+    };
+    expect(result.messages[0]!.stopReason).toBe("toolUse");
+    expect(messages[0]!.stopReason).toBe("aborted");
+  });
+
   it("leaves runs that didn't fail, or failed some other way on the subscription", async () => {
     const x = load({ catalog: [opus] });
     expect(await x.settle("completed")).toBeUndefined();

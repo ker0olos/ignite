@@ -175,6 +175,7 @@ src/                     React frontend (almost all logic lives here)
     rewind.ts            Editing user messages: which offer Edit (named, after the latest compaction), when (idle),
                          the conversation cut back to before one
     toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands, parses edit diffs
+    runError.ts          A run's error as shown: a Claude limit in Claude Code's words, without the bridge's prefix
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
     skills.ts            Skills settings text: counts
@@ -1162,7 +1163,10 @@ custom entry, so a reopened one keeps its key). The first message after the
 reset goes back to the subscription and drops the runtime key, so it doesn't
 linger in the model menu or background calls. Subagents started meanwhile get
 the conversation's key (they run on its provider) but don't fall back
-themselves. The first call on a key sends the whole conversation uncached. ChatGPT signs in
+themselves. The first call on a key sends the whole conversation uncached.
+Off the subscription, a reply claude-bridge marked aborted after its tool call
+ran (a run stopped mid-tool) goes back as pi saved it (`answeredAsSaved`), so
+its results aren't orphaned. ChatGPT signs in
 automatically with the Codex CLI's login (`~/.codex/auth.json`) when the app
 has none of its own; token refreshes are written back to that file.
 

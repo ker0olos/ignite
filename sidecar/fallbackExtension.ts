@@ -8,6 +8,7 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import {
+  answeredAsSaved,
   keyFailed,
   keysAfter,
   limitedUntil,
@@ -129,6 +130,13 @@ export default function fallback(pi: ExtensionAPI) {
     const key = (await loadKeys()).find((k) => k.id === state.keyId);
     if (key) await applyKey(key).catch(() => {});
   });
+
+  // claude-bridge resumes Claude Code's own copy of the conversation; the rest replay pi's.
+  pi.on("context", (event, ctx) =>
+    ctx.model?.provider === SUBSCRIPTION
+      ? undefined
+      : { messages: answeredAsSaved(event.messages) },
+  );
 
   pi.on("after_provider_response", (event) => {
     const until = resetFrom(event.headers);

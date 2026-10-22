@@ -75,6 +75,33 @@ export function limitedUntil(): number {
   return store[LIMIT] ?? 0;
 }
 
+type Message = {
+  role: string;
+  stopReason?: string;
+  content?: unknown;
+  toolCallId?: string;
+};
+
+// claude-bridge marks a reply aborted (or failed) after pi saved it, when the run stops while its
+// tool call runs; other providers skip such a reply, and its orphaned results fail every request.
+/** `messages` with each failed reply whose tool calls all have results back as pi saved it. */
+export function answeredAsSaved<M extends Message>(messages: M[]): M[] {
+  const answered = new Set(
+    messages.flatMap((m) => (m.role === "toolResult" ? [m.toolCallId] : [])),
+  );
+  return messages.map((m) => {
+    const failed = m.stopReason === "aborted" || m.stopReason === "error";
+    if (m.role !== "assistant" || !failed || !Array.isArray(m.content))
+      return m;
+    const calls = (m.content as { type: string; id?: string }[]).filter(
+      (b) => b.type === "toolCall",
+    );
+    return calls.length > 0 && calls.every((c) => answered.has(c.id))
+      ? { ...m, stopReason: "toolUse", errorMessage: undefined }
+      : m;
+  });
+}
+
 /** The keys to try after the one in use (`current`), in order; all of them when none is. */
 export function keysAfter(
   keys: FallbackKey[],

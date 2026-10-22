@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  answeredAsSaved,
   keyFailed,
   keysAfter,
   limitedUntil,
@@ -146,4 +147,44 @@ describe("keysAfter", () => {
     expect(keysAfter(keys, "b").map((k) => k.id)).toEqual(["c"]);
     expect(keysAfter(keys, "c")).toEqual([]);
   });
+});
+
+describe("answeredAsSaved", () => {
+  const reply = (stopReason: string, ids: string[]) => ({
+    role: "assistant",
+    stopReason,
+    errorMessage: "Operation aborted",
+    content: ids.map((id) => ({ type: "toolCall", id })),
+  });
+  const result = (id: string) => ({ role: "toolResult", toolCallId: id });
+
+  it("restores a failed reply whose tool calls all came back", () => {
+    for (const stopReason of ["aborted", "error"]) {
+      const [restored] = answeredAsSaved([
+        reply(stopReason, ["a", "b"]),
+        result("a"),
+        result("b"),
+      ]);
+      expect(restored).toMatchObject({
+        stopReason: "toolUse",
+        errorMessage: undefined,
+      });
+    }
+  });
+
+  it("leaves a failed reply with a call that never came back, or none, and replies that didn't fail", () => {
+    const messages = [
+      reply("aborted", ["a", "b"]),
+      result("a"),
+      reply("error", []),
+      reply("toolUse", ["c"]),
+      { role: "user" },
+    ];
+    expect(answeredAsSaved(messages)).toEqual(messages);
+  });
+});
+
+it("leaves a failed reply with no content list", () => {
+  const messages = [{ role: "assistant", stopReason: "error" }];
+  expect(answeredAsSaved(messages)).toEqual(messages);
 });
