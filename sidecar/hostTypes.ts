@@ -252,6 +252,8 @@ export type Agent = {
   snapshot?: Promise<string | null>;
   /** Settles once every checkpoint being saved is. */
   checkpoint?: Promise<unknown>;
+  /** How the user corrected it (denials, rewinds) since its last settled run, for the reflector. */
+  corrections?: string[];
   /** Its running run's messages are those after this time (its last message's before it), for the memory. */
   runAfter?: number;
   /** Settles once the memory has written down its last settled run. */

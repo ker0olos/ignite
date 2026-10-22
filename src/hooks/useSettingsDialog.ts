@@ -4,6 +4,7 @@ import { useAbout } from "@/hooks/useAbout";
 import { useLessons } from "@/hooks/useLessons";
 import { useMemory } from "@/hooks/useMemory";
 import { useSkills } from "@/hooks/useSkills";
+import { useReflector } from "@/hooks/useReflector";
 import type { HostClient } from "@/lib/piHost";
 
 /** The settings dialog: whether it's open, its first section, and what it fetches while open. */
@@ -24,6 +25,7 @@ export function useSettingsDialog(
     section,
     memory: useMemory(host, folder, open),
     lessons: useLessons(host, open),
+    reflector: useReflector(host, open),
     skills: useSkills(host, open),
     about,
     /** Opens the dialog on `section`. */

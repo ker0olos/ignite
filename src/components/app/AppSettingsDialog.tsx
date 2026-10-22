@@ -22,6 +22,7 @@ export function AppSettingsDialog({
   folder,
   connectScreen,
   remote,
+  onOpenConversation,
 }: {
   dialog: ReturnType<typeof useSettingsDialog>;
   settings: Settings;
@@ -31,6 +32,7 @@ export function AppSettingsDialog({
   folder: string | null;
   connectScreen: ReturnType<typeof useConnectScreen>;
   remote: RemoteStatus | null;
+  onOpenConversation: (folder: string, conversation: string) => void;
 }) {
   if (!useOpenedOnce(dialog.open, load)) return null;
   return (
@@ -48,12 +50,17 @@ export function AppSettingsDialog({
         skills={dialog.skills}
         memory={dialog.memory}
         lessons={dialog.lessons}
+        reflector={dialog.reflector}
         about={dialog.about}
         folder={folder}
         remote={remote}
         onManageProviders={() => {
           dialog.setOpen(false);
           connectScreen.show();
+        }}
+        onOpenConversation={(folder, id) => {
+          dialog.setOpen(false);
+          onOpenConversation(folder, id);
         }}
       />
     </Suspense>

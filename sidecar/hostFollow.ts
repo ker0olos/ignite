@@ -4,6 +4,7 @@ import { followSubagents } from "./hostChildren.ts";
 import { followUserMessage } from "./hostCheckpoint.ts";
 import { followRun, rememberRun } from "./hostMemory.ts";
 import { pushProjects, trackRun } from "./hostProjects.ts";
+import { reflectOn } from "./hostReflect.ts";
 import { reload, tellsApp, type Agent, type HostContext } from "./hostTypes.ts";
 import { delivered } from "./queuedImages.ts";
 import { trackToolRun } from "./toolRuns.ts";
@@ -41,6 +42,8 @@ export function follow(ctx: HostContext, agent: Agent, event: SessionEvent) {
 
 function settle(ctx: HostContext, agent: Agent) {
   if (!agent.session?.pendingMessageCount) agent.queuedImages.clear();
+  // Before rememberRun, which clears the run's start.
+  void reflectOn(agent);
   agent.remembering = rememberRun(agent).catch(() => {});
   if (!agent.reloadWhenSettled) return;
   agent.reloadWhenSettled = false;

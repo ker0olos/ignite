@@ -2,6 +2,7 @@ import type { QuestionAnswer } from "../shared/questions.ts";
 import type { ApprovalAsk } from "./approvalAsk.ts";
 import { tellsApp, type Agent, type HostContext } from "./hostTypes.ts";
 import { pushProjects } from "./hostProjects.ts";
+import { noteDenied } from "./hostReflect.ts";
 import { forgetWaiting, markWaiting, unmarkWaiting } from "./waitingCalls.ts";
 
 /** Keeps a tool call's question, and passes it on if the app follows its conversation. */
@@ -32,7 +33,12 @@ export function answerApproval(
     if (!ask) continue;
     agent.approvals.delete(toolCallId);
     unmarkWaiting(agent.id, toolCallId);
-    if (!approved) ask.declined?.();
+    if (!approved) {
+      ask.declined?.();
+      // Declining to run a sandbox-blocked command outside it isn't feedback on the agent.
+      if (ask.wait !== "ran" && own(agent, toolCallId))
+        noteDenied(agent, toolCallId);
+    }
     ask.answer(approved, answers, always);
     pushProjects(ctx);
   }
@@ -54,6 +60,8 @@ export function denyAll(ctx: HostContext, agent: Agent, wrote = false) {
   if (!agent.approvals.size) return;
   agent.approvals.forEach((ask, id) => {
     const instead = wrote && own(agent, id);
+    // Declining to run a sandbox-blocked command outside it isn't feedback on the agent.
+    if (instead && ask.wait !== "ran") noteDenied(agent, id, true);
     ask.answer(
       false,
       undefined,

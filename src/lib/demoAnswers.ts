@@ -8,6 +8,7 @@ import type {
   McpServer,
   ProviderStatus,
 } from "../../shared/hostProtocol";
+import type { Reflection } from "../../shared/reflector";
 import type { McpCatalog } from "../../shared/mcpCatalog";
 import type { SkillCatalog, SkillEntry } from "../../shared/skills";
 import type { MemoryStatus } from "../../shared/memory";
@@ -114,6 +115,48 @@ const DEMO_VERSION: AppVersion = {
   subject: "Merge pull request #20 from ker0olos/feat/multi-session",
 };
 
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+
+const demoReflections = (tempo: string, now: number): Reflection[] => [
+  {
+    id: "r1",
+    text: "With several things to act on, add them as subtasks first, then ask only the open decisions, one per question.",
+    entry: "asking",
+    taught: "note",
+    at: now - 2 * HOUR,
+    from: {
+      conversation: "tempo-reload",
+      folder: tempo,
+      title: "Keep the timer going across a page reload",
+    },
+  },
+  {
+    id: "r2",
+    text: "Keep reports short: what changed and what is left, no recap of the steps.",
+    entry: "always",
+    taught: "reply",
+    at: now - 1 * DAY,
+    from: {
+      conversation: "tempo",
+      folder: tempo,
+      title: "Add a dark mode to Tempo",
+    },
+  },
+  {
+    id: "r3",
+    text: "Open the pull request as a draft until the tests pass.",
+    entry: "delivering",
+    taught: "rewind",
+    at: now - 3 * DAY,
+    from: {
+      conversation: "tempo-tests",
+      folder: tempo,
+      title: "Write tests for loading and saving settings",
+    },
+  },
+];
+
 /** Each demo project's files, as the command center searches them. */
 export const DEMO_FILES: Record<"tempo" | "pantry", string[]> = {
   tempo: [
@@ -139,32 +182,54 @@ export const DEMO_FILES: Record<"tempo" | "pantry", string[]> = {
 };
 
 /** The demo host's answers to requests that aren't about a conversation. */
-export const settingsAnswers = (now = Date.now()) => ({
-  status: () => DEMO_STATUSES,
-  login: () => DEMO_STATUSES[0],
-  logout: () => DEMO_STATUSES[0],
-  cancel_login: () => undefined,
-  mcp_list: () => DEMO_MCP,
-  mcp_save: () => DEMO_MCP,
-  mcp_remove: () => DEMO_MCP,
-  mcp_set_enabled: () => DEMO_MCP,
-  mcp_sign_in: () => DEMO_MCP,
-  mcp_add_preset: () => DEMO_MCP,
-  mcp_import: () => DEMO_MCP,
-  mcp_catalog: () => DEMO_CATALOG,
-  skills_list: () => DEMO_SKILLS,
-  skills_set_enabled: () => DEMO_SKILLS,
-  skills_remove: () => DEMO_SKILLS,
-  skills_catalog: () => DEMO_SKILL_CATALOG,
-  skills_import: () => DEMO_SKILLS,
-  memory_status: () => DEMO_MEMORY(now),
-  memory_changed: () => undefined,
-  lessons_list: () => [],
-  lessons_remove: () => [],
-  fallback_keys: () => [],
-  fallback_key_add: () => [],
-  fallback_key_remove: () => [],
-  fallback_key_move: () => [],
-  app_version: () => DEMO_VERSION,
-  app_update: () => ({ updated: false }),
-});
+export const settingsAnswers = (tempo: string, now = Date.now()) => {
+  let reflections = demoReflections(tempo, now);
+  return {
+    status: () => DEMO_STATUSES,
+    login: () => DEMO_STATUSES[0],
+    logout: () => DEMO_STATUSES[0],
+    cancel_login: () => undefined,
+    mcp_list: () => DEMO_MCP,
+    mcp_save: () => DEMO_MCP,
+    mcp_remove: () => DEMO_MCP,
+    mcp_set_enabled: () => DEMO_MCP,
+    mcp_sign_in: () => DEMO_MCP,
+    mcp_add_preset: () => DEMO_MCP,
+    mcp_import: () => DEMO_MCP,
+    mcp_catalog: () => DEMO_CATALOG,
+    skills_list: () => DEMO_SKILLS,
+    skills_set_enabled: () => DEMO_SKILLS,
+    skills_remove: () => DEMO_SKILLS,
+    skills_catalog: () => DEMO_SKILL_CATALOG,
+    skills_import: () => DEMO_SKILLS,
+    memory_status: () => DEMO_MEMORY(now),
+    memory_changed: () => undefined,
+    lessons_list: () => [],
+    lessons_remove: () => [],
+    reflections_list: () => reflections,
+    reflections_remove: (r: { reflection: string }) =>
+      (reflections = reflections.filter((p) => p.id !== r.reflection)),
+    reflections_edit: (r: { reflection: string; text: string }) =>
+      (reflections = reflections.flatMap((p) =>
+        p.id !== r.reflection
+          ? [p]
+          : r.text.trim()
+            ? [
+                {
+                  id: p.id,
+                  text: r.text.trim(),
+                  entry: p.entry,
+                  taught: "edit" as const,
+                  at: Date.now(),
+                },
+              ]
+            : [],
+      )),
+    fallback_keys: () => [],
+    fallback_key_add: () => [],
+    fallback_key_remove: () => [],
+    fallback_key_move: () => [],
+    app_version: () => DEMO_VERSION,
+    app_update: () => ({ updated: false }),
+  };
+};

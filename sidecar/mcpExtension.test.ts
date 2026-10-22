@@ -60,7 +60,7 @@ it("gives the adapter's tools a reason the tools never see", async () => {
   const registerTool = vi.fn();
   await mcp({ ...pi, registerTool } as ExtensionAPI);
   const adapterPi = install.mock.calls.at(-1)![0] as ExtensionAPI;
-  const execute = vi.fn();
+  const execute = vi.fn(async () => ({ content: [], details: {} }));
   adapterPi.registerTool({
     name: "mcp",
     parameters: { type: "object", properties: {} },
@@ -69,7 +69,7 @@ it("gives the adapter's tools a reason the tools never see", async () => {
   const tool = registerTool.mock.calls[0][0];
   expect(tool.parameters.properties).toHaveProperty("reason");
   await tool.execute("id", { tool: "x", reason: "why" });
-  expect(execute).toHaveBeenCalledWith("id", { tool: "x" });
+  expect(execute.mock.calls[0].slice(0, 2)).toEqual(["id", { tool: "x" }]);
 });
 
 it("installs it with no servers before any are added", async () => {

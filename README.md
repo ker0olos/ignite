@@ -60,6 +60,8 @@ once. Made for macOS; and others.
 - **Memory** of what earlier conversations did in a folder (imports
   [cmem](https://cmem.ai)).
 - **Lessons** from its mistakes, enforced on later tool calls.
+- **Reflector**, learning from your feedback (replies, notes on its questions),
+  so later conversations report, ask and plan the way you want.
 
 ### Setup
 
