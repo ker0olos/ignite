@@ -1,10 +1,8 @@
 import { useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { ContinueContext } from "@/components/conversation/shared";
+import { runError, SHORT_ERROR } from "@/lib/runError";
 import type { Row } from "@/lib/toolRows";
-
-// Longer errors are diagnostics (a stack, a provider's essay): kept under Details.
-const SHORT_ERROR = 160;
 
 /** Conversation stop or error row; the last error offers Continue. */
 export function EndRow({
@@ -18,7 +16,7 @@ export function EndRow({
   if (message.stopReason !== "error") {
     return <p className="text-xs text-muted-foreground">Stopped</p>;
   }
-  const error = message.errorMessage ?? "";
+  const error = runError(message.errorMessage);
   const short = error.length <= SHORT_ERROR;
   return (
     <div className="space-y-2">

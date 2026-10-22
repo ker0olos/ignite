@@ -8,6 +8,7 @@ import { SUBAGENT_TOOL } from "../../shared/subagents";
 import { readPlan, TASK_TOOL } from "../../shared/tasks";
 import { compactionOf, type CompactionItem } from "./compaction";
 import { shownReview } from "./diffTabs";
+import { shownError } from "./runError";
 import type { Item, ToolRun } from "./transcript";
 
 /** One row of the conversation as drawn, with quiet tool calls folded together. */
@@ -71,9 +72,16 @@ function pushCall(rows: Row[], call: ToolCall, tools: Record<string, ToolRun>) {
 }
 
 /** Adds one assistant content block to `rows`. */
-function pushBlock(rows: Row[], block: Block, tools: Record<string, ToolRun>) {
+function pushBlock(
+  rows: Row[],
+  block: Block,
+  tools: Record<string, ToolRun>,
+  error: string | undefined,
+) {
   if (block.type === "text") {
-    if (block.text) rows.push({ kind: "text", text: block.text });
+    // Claude Code also sends its limit wording as the reply; the end row says it.
+    if (block.text && block.text.trim() !== error)
+      rows.push({ kind: "text", text: block.text });
   } else if (block.type !== "thinking") {
     pushCall(rows, block, tools);
   }
@@ -107,8 +115,9 @@ export function toRows(
     }
     if (message.role !== "assistant") continue;
     const assistant = message as AssistantMessage;
+    const error = shownError(assistant);
     for (const block of assistant.content) {
-      pushBlock(rows, block, tools);
+      pushBlock(rows, block, tools, error);
     }
     if (isEndOfRun(assistant)) {
       rows.push({ kind: "end", message: assistant });

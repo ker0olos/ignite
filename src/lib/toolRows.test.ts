@@ -217,6 +217,25 @@ describe("toRows", () => {
     ]);
     expect(toRows([assistant([], "stop")])).toEqual([]);
   });
+
+  it("leaves out an errored message's text that repeats its error", () => {
+    const rows = toRows([
+      assistant(
+        [
+          { type: "text", text: "boom" },
+          { type: "text", text: "other" },
+        ],
+        "error",
+      ),
+    ]);
+    expect(rows.map((r) => r.kind)).toEqual(["text", "end"]);
+  });
+
+  it("keeps text equal to an error the end row doesn't show", () => {
+    const text = { type: "text" as const, text: "boom" };
+    expect(toRows([assistant([text], "aborted")])[0]?.kind).toBe("text");
+    expect(toRows([assistant([text], "toolUse")])[0]?.kind).toBe("text");
+  });
 });
 
 describe("groupSummary", () => {
