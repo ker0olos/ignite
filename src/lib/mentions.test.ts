@@ -53,6 +53,18 @@ describe("mentionOptions", () => {
     ]);
   });
 
+  it("carries each command's arguments for its row", () => {
+    const options = mentionOptions(mentionAt("/", 1)!, {
+      ...NONE,
+      skills: [{ name: "x", description: "X", argumentHint: "<what>" }],
+    });
+    expect(options.map((o) => o.args?.map((a) => a.name))).toEqual([
+      ["instructions"],
+      ["first message"],
+      ["what"],
+    ]);
+  });
+
   it("offers the app's commands before skills, over a skill of the same name", () => {
     const options = mentionOptions(mentionAt("/", 1)!, {
       ...NONE,

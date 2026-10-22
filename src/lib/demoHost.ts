@@ -54,8 +54,20 @@ export const DEMO_STATE: SessionState = {
   thinkingLevel: "high",
   thinkingLevels: ["off", "low", "medium", "high", "xhigh", "max"],
   skills: [
-    { name: "code-review", description: "Review the current diff for bugs" },
-    { name: "release-notes", description: "Draft release notes since a tag" },
+    {
+      name: "code-review",
+      description: "Review the current diff for bugs",
+      argumentHint: "[low|medium|high] [target]",
+      argumentDescriptions: [
+        "How hard to look; medium by default",
+        "A pull request, branch, commit range or path",
+      ],
+    },
+    {
+      name: "release-notes",
+      description: "Draft release notes since a tag",
+      argumentHint: "<tag>",
+    },
   ],
 };
 

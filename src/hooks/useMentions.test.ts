@@ -5,7 +5,11 @@ import type { HostClient } from "@/lib/piHost";
 import { useMentions } from "./useMentions";
 
 const SKILLS = [
-  { name: "code-review", description: "Review" },
+  {
+    name: "code-review",
+    description: "Review",
+    argumentHint: "[low|medium|high] [target]",
+  },
   { name: "commit", description: "Commit" },
 ];
 
@@ -88,6 +92,63 @@ describe("useMentions", () => {
     expect(result.current.options).toEqual([]);
     rerender({ text: "/com @" });
     expect(result.current.options.map((o) => o.insert)).toEqual(["@image1"]);
+  });
+
+  it("shows a /command's arguments as they're typed and completes fixed values", () => {
+    const { result, rerender, onPick } = setup("/code-review ");
+    expect(result.current.hint).toMatchObject({
+      name: "code-review",
+      index: 0,
+    });
+    // An optional value's choices show unpicked: ↵ is left to send.
+    expect(result.current.options.map((o) => o.insert)).toEqual([
+      "low",
+      "medium",
+      "high",
+    ]);
+    expect(result.current.selected).toBe(-1);
+    expect(result.current.onKeyDown(key("Enter").event)).toBe(false);
+    act(() => void result.current.onKeyDown(key("ArrowUp").event));
+    expect(result.current.selected).toBe(2);
+    act(() => void result.current.onKeyDown(key("ArrowDown").event));
+    expect(result.current.selected).toBe(0);
+    rerender({ text: "/code-review m" });
+    expect(result.current.selected).toBe(0);
+    expect(result.current.options).toEqual([
+      { kind: "choice", insert: "medium" },
+    ]);
+    act(() => void result.current.onKeyDown(key("Enter").event));
+    expect(onPick).toHaveBeenCalledWith("/code-review medium ");
+    rerender({ text: "/code-review medium src/" });
+    expect(result.current.hint).toMatchObject({ index: 1, query: "src/" });
+    expect(result.current.options).toEqual([]);
+  });
+
+  it("closes the hint on escape for the rest of the command's arguments", () => {
+    const { result, rerender } = setup("/fork some");
+    expect(result.current.hint).not.toBeNull();
+    expect(result.current.onKeyDown(key("Enter").event)).toBe(false);
+    // Esc closes the hint and still reaches the composer, which stops a run.
+    const escape = key("Escape");
+    let taken = true;
+    act(() => void (taken = result.current.onKeyDown(escape.event)));
+    expect(taken).toBe(false);
+    expect(escape.preventDefault).not.toHaveBeenCalled();
+    expect(result.current.hint).toBeNull();
+    rerender({ text: "/fork some more words" });
+    expect(result.current.hint).toBeNull();
+    // Another command's arguments show their hint again.
+    rerender({ text: "/code-review " });
+    expect(result.current.hint).toMatchObject({ name: "code-review" });
+  });
+
+  it("closes a mention's list in the arguments without the hint", () => {
+    const { result, rerender } = setup("/fork look at @");
+    act(() => void result.current.onKeyDown(key("Escape").event));
+    expect(result.current.options).toEqual([]);
+    expect(result.current.hint).toMatchObject({ name: "fork" });
+    rerender({ text: "/fork look at @x " });
+    expect(result.current.hint).toMatchObject({ name: "fork" });
   });
 
   it("shows nothing for text put back without a caret report", () => {

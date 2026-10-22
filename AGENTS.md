@@ -25,7 +25,8 @@ src/                     React frontend (almost all logic lives here)
                          diff tabs whose lines take comments (gutter "+", comment box)
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
-                         (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt
+                         (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt;
+                         its completions menu (MentionRow, a `/command`'s argument chips and CommandHint)
     conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces,
                          generated images as a media card (MediaCard: model, prompt, size, mark up), generated videos likewise (VideoCard), generated audio as an AudioCard (waveform player); WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
@@ -71,7 +72,8 @@ src/                     React frontend (almost all logic lives here)
     useRewind.ts         Edits a user message of the shown conversation: rewinds to before it, sends the new text
     useMessageEdit.ts    One user message being edited in place: its text, ↵ sends, Esc cancels
     useForkWait.ts       Whether the shown conversation waits for a fork, so its composer takes no messages
-    useMentions.ts       The composer's completions: `/skill` at the start, `@image1`, `@t1` and `@path` anywhere
+    useMentions.ts       The composer's completions: `/skill` at the start, `@image1`, `@t1` and `@path` anywhere;
+                         while a `/command`'s arguments are typed, its hint and the current one's values
     useDraftState.ts     A folder with no conversation: the models and effort it would start with
     useConversationList.ts Each folder's listed conversations, remembered across launches
     useConversationTags.ts Conversation tags by id, shared by all windows, kept after one closes; the sidebar's tag filter
@@ -208,6 +210,7 @@ src/                     React frontend (almost all logic lives here)
     media.ts             The media cards' data: show_image's, show_audio's and show_video's model and prompt (cards for
                          plain files too), their results, waveform bars, and each image edit's original, as shown
     mentions.ts          `/compact`, `/skill` and `@` completions: the token at the caret, options, sending a skill as `/skill:name`
+    commandArgs.ts       A `/command`'s arguments from its `argument-hint`: the one the caret is in, its fixed values
     history.ts           The composer's sent messages, shared by all folders (localStorage, newest 100)
     queue.ts             Queued messages in the transcript; the composer's keys (↵ queues, ⇧⌘↵ sends the first now)
     markup.ts            Image markup marks: drawing them out, history, stroke sizes, shortcut keys
@@ -356,6 +359,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   mcpExtension.ts        Loads pi-mcp-adapter into each session with only the app's mcp.json
   skillStore.ts          The app's skills and plugins (bundles of skills): list, on/off, remove, import;
                          the only skills sessions load besides the folder's own
+  skillArgs.ts           A session's skills for the composer, with their `argument-hint` and `argument-descriptions`
   skills/                Built-in skills (code-review, security-review, design-references), loaded after the app's; a skill of the same name replaces one
   skillCatalog.ts        Other apps' skills to import: Claude Code, Codex, Cursor, ~/.agents, Claude Code plugins
   memory.ts              The memory's on/off setting; what the Memory settings show; cmem's import at start
@@ -786,7 +790,15 @@ bar fills as the summary streams) and the session's
 skills (sent as pi's `/skill:name`, shown again as `/name`), `/fork` (below), and `@`
 anywhere with the message's images (`@image1`) and dropped files (`@file1`), the folder's terminals
 (`@t1`) and files (`@src/app.ts`). Mentions stay plain text; the system
-prompt says what they name.
+prompt says what they name. Each `/` row shows its arguments as chips (a
+skill's Claude Code `argument-hint` frontmatter, `[optional] <required>`),
+and while they're typed a hint above the composer lights the current one,
+with its line from the app's own `argument-descriptions` frontmatter (a list,
+one per argument). A fixed-values argument (`[low|medium|high]`) lists its
+values to pick with ↑/↓, none picked until one is typed, so ↵ still sends.
+Esc hides the hint until another command's arguments start, and still
+reaches the composer (stopping a run); a mention's list in the arguments
+closes on its own.
 
 `/fork` (or Fork in the composer's + menu, beside Whiteboard and Files) copies the conversation into a
 new one (`new_session` with `fork`, `sidecar/hostFork.ts`): pi's `forkFrom` copies its
