@@ -1,6 +1,9 @@
 ---
 name: design-references
 description: Find design references on Dribbble for a screen, component or style (a dashboard, an onboarding flow, a pricing page, glassmorphism) and show the user the best ones. Use when the user asks for design inspiration, references, examples or what something could look like.
+argument-hint: "<subject>"
+argument-descriptions:
+  - A screen, component or style, such as a pricing page or glassmorphism
 ---
 
 # Design references

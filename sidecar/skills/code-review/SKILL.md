@@ -1,6 +1,10 @@
 ---
 name: code-review
 description: Review the current changes, or a given pull request, branch, commit range or path, for correctness bugs, and report only the findings that hold up, ranked by severity. Takes an optional level first (low, medium or high; medium by default). Use when the user asks for a code review, to check a diff, or to look for bugs before merging.
+argument-hint: "[low|medium|high] [target]"
+argument-descriptions:
+  - How hard to look, from a few sure findings to many; medium by default
+  - A pull request, branch, commit range or path; the current changes by default
 ---
 
 # Code review

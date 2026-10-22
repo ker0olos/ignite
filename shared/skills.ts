@@ -1,7 +1,14 @@
 /** Skills and plugins as they cross the wire. */
 
 /** A skill in the app's skills folder; only its description enters the prompt. */
-export type SkillInfo = { name: string; description: string };
+export type SkillInfo = {
+  name: string;
+  description: string;
+  /** Claude Code's `argument-hint`, such as `[low|medium|high] [target]`. */
+  argumentHint?: string;
+  /** What each of those arguments is, in order (the app's `argument-descriptions`). */
+  argumentDescriptions?: string[];
+};
 
 /**
  * The app's skills: standalone ones and plugins (a bundle of skills, such as

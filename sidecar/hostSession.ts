@@ -29,6 +29,7 @@ import { withEntryIds } from "./hostCheckpoint.ts";
 import { hand, takeTurn } from "./hostSend.ts";
 import { releaseWorkspace } from "./hostTerminal.ts";
 import { commandReason } from "./wire.ts";
+import { skillInfo } from "./skillArgs.ts";
 
 const info = ({ provider, id, name }: ModelInfo): ModelInfo => ({
   provider,
@@ -56,9 +57,7 @@ export async function sessionState(
     model: s.model && info(s.model),
     thinkingLevel: s.thinkingLevel,
     thinkingLevels: s.getAvailableThinkingLevels(),
-    skills: s.resourceLoader
-      .getSkills()
-      .skills.map(({ name, description }) => ({ name, description })),
+    skills: s.resourceLoader.getSkills().skills.map(skillInfo),
     ...(agent?.routeNext && { routeNext: true }),
   };
 }

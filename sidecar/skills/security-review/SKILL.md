@@ -1,6 +1,9 @@
 ---
 name: security-review
 description: Review the current changes, or a given pull request, branch, commit range or path, for security vulnerabilities, and report only high-confidence, exploitable findings, ranked by severity. Use when the user asks for a security review or audit, or to check changes for vulnerabilities before merging.
+argument-hint: "[target]"
+argument-descriptions:
+  - A pull request, branch, commit range or path; the current changes by default
 ---
 
 # Security review

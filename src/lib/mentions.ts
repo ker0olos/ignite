@@ -1,6 +1,7 @@
 import type { FileHit } from "../../shared/conversations";
 import { fuzzyScore } from "../../shared/fuzzy";
 import type { SkillInfo } from "../../shared/skills";
+import { commandArgs, type CommandArg } from "./commandArgs";
 
 /** A `/command` or `/skill` (only at the start) or `@mention` being typed, from `start` to the caret. */
 export type Mention = {
@@ -12,26 +13,40 @@ export type Mention = {
 
 /** One completion: what replaces the typed token, and how its row reads. */
 export type MentionOption = {
-  kind: "command" | "skill" | "image" | "terminal" | "file";
+  kind: "command" | "skill" | "image" | "terminal" | "file" | "choice";
   insert: string;
   detail?: string;
+  args?: CommandArg[];
 };
 
 const LIMIT = 8;
 
 // The app's own `/` commands, which skills of the same name don't replace.
-const COMMANDS = [
+const COMMANDS: SkillInfo[] = [
   {
     name: "compact",
     description:
       "Summarize earlier messages to free up context; text after it steers the summary",
+    argumentHint: "[instructions]",
+    argumentDescriptions: ["What the summary should keep or focus on"],
   },
   {
     name: "fork",
     description:
       "Copy this conversation and its files into a new one that reports back here; text after it is its first message",
+    argumentHint: "[first message]",
+    argumentDescriptions: ["What the fork works on first"],
   },
 ];
+
+/** `skills` but those the app's commands shadow. */
+const unshadowed = (skills: SkillInfo[]) =>
+  skills.filter((s) => !COMMANDS.some((c) => c.name === s.name));
+
+/** The app's `/` commands, then the skills they don't shadow. */
+export function slashCommands(skills: SkillInfo[]) {
+  return [...COMMANDS, ...unshadowed(skills)];
+}
 
 /** The token at the caret if it's a mention, else null. */
 export function mentionAt(text: string, caret: number): Mention | null {
@@ -69,14 +84,16 @@ export function mentionOptions(
 ): MentionOption[] {
   const { query } = mention;
   if (mention.trigger === "/") {
-    const named = (kind: "command" | "skill") => (s: SkillInfo) => ({
-      kind,
-      insert: `/${s.name}`,
-      detail: s.description,
-    });
-    const skills = found.skills.filter(
-      (s) => !COMMANDS.some((c) => c.name === s.name),
-    );
+    const named = (kind: "command" | "skill") => (s: SkillInfo) => {
+      const args = commandArgs(s);
+      return {
+        kind,
+        insert: `/${s.name}`,
+        detail: s.description,
+        ...(args.length > 0 && { args }),
+      };
+    };
+    const skills = unshadowed(found.skills);
     return [
       ...ranked(query, COMMANDS, (c) => c.name).map(named("command")),
       ...ranked(query, skills, (s) => s.name).map(named("skill")),
@@ -118,7 +135,11 @@ export function mentionOptions(
 }
 
 /** `text` with `mention` replaced by `insert` and a space; the caret goes after it. */
-export function insertMention(text: string, mention: Mention, insert: string) {
+export function insertMention(
+  text: string,
+  mention: { start: number; end: number },
+  insert: string,
+) {
   const before = `${text.slice(0, mention.start)}${insert} `;
   return {
     text: before + text.slice(mention.end).replace(/^ /, ""),
@@ -136,19 +157,13 @@ export function insertImageTags(
 ) {
   const tags = Array.from({ length: count }, (_, i) => `@image${first + i}`);
   const lead = start > 0 && !/\s/.test(text[start - 1]) ? " " : "";
-  return insertMention(
-    text,
-    { trigger: "@", query: "", start, end },
-    lead + tags.join(" "),
-  );
+  return insertMention(text, { start, end }, lead + tags.join(" "));
 }
 
 /** `/name …` as pi's skill command when `name` is one of `skills` and not one of the app's commands. */
 export function skillPrompt(text: string, skills: SkillInfo[]) {
   const name = /^\/(\S+)/.exec(text)?.[1];
-  const skill =
-    !COMMANDS.some((c) => c.name === name) &&
-    skills.some((s) => s.name === name);
+  const skill = unshadowed(skills).some((s) => s.name === name);
   return skill ? `/skill:${text.slice(1)}` : text;
 }
 
