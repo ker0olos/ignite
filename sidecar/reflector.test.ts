@@ -38,7 +38,7 @@ const short: Reflection = {
   at: 1,
 };
 
-const reply = (points: object[]) => JSON.stringify({ points });
+const reply = (points: unknown[]) => JSON.stringify({ points });
 
 describe("parsePoints", () => {
   it("keeps, changes and adds points, prose around the JSON ignored", () => {
