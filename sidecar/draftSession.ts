@@ -16,10 +16,11 @@ import type { ThinkingLevel } from "../shared/hostProtocol.ts";
 import type { Session } from "./hostTypes.ts";
 import { freshExtensions, runtimeFor } from "./sessionRuntime.ts";
 
-/** A model and effort to show instead of the defaults. */
+/** A model and effort to show instead of the defaults; `save` makes the model the default. */
 export type DraftPick = {
   model?: { provider: string; id: string };
   level?: ThinkingLevel;
+  save?: boolean;
 };
 
 type Deps = {
@@ -58,12 +59,12 @@ async function openDraft({
 }
 
 // Read each time: a conversation saves the user's latest choice as the default.
+// Returns the model shown, when found.
 async function show(
   s: AgentSession,
   { model, level }: DraftPick,
-  agentDir: string,
+  defaults: SettingsManager,
 ) {
-  const defaults = SettingsManager.create(agentDir, agentDir);
   const provider = model?.provider ?? defaults.getDefaultProvider();
   const id = model?.id ?? defaults.getDefaultModel();
   // The bridge registered its models while the draft opened.
@@ -71,6 +72,7 @@ async function show(
   if (found) await s.setModel(found);
   const effort = level ?? defaults.getDefaultThinkingLevel();
   if (effort) s.setThinkingLevel(effort);
+  return found;
 }
 
 /** Returns the draft session showing `pick`, or else the saved defaults; opened on first use. */
@@ -82,7 +84,12 @@ export function createDraft(deps: Deps) {
       throw error;
     });
     const s = await draft;
-    await show(s, pick, deps.agentDir);
+    const defaults = SettingsManager.create(deps.agentDir, deps.agentDir);
+    const found = await show(s, pick, defaults);
+    if (found && pick.save) {
+      defaults.setDefaultModelAndProvider(found.provider, found.id);
+      await defaults.flush();
+    }
     return s as unknown as Session;
   };
 }

@@ -2,7 +2,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Task } from "../shared/tasks.ts";
 import type { Agent } from "./hostTypes.ts";
-import { routeMessage } from "./hostRoute.ts";
+import {
+  routeMessage,
+  userPickedModel,
+  userPickedRouter,
+} from "./hostRoute.ts";
 import type { Route } from "./router.ts";
 
 vi.mock("./router.ts", () => ({
@@ -122,6 +126,41 @@ describe("routeMessage", () => {
     expect(ctx.send).not.toHaveBeenCalled();
   });
 
+  it("routes the next message once Router is picked, until a model is picked", async () => {
+    vi.mocked(router.route).mockResolvedValueOnce(routed);
+    vi.mocked(router.modelRouterOn).mockResolvedValue(false);
+    const { ctx, s, agent, run } = setup();
+    s.messages.push({ role: "user", content: "earlier" });
+    agent.pickedModel = true;
+    userPickedRouter(ctx as never, "s1");
+    expect(await run()).toBe(true);
+    expect(router.route).toHaveBeenCalledWith(
+      s,
+      "Add dark mode\nplease",
+      expect.anything(),
+      "earlier",
+    );
+    expect(s.setModel).toHaveBeenCalledWith(BIG, { persist: false });
+    expect(agent.routeNext).toBeUndefined();
+    userPickedRouter(ctx as never, "s1");
+    userPickedModel(ctx as never, "s1");
+    vi.mocked(router.route).mockClear();
+    expect(await run()).toBe(true);
+    expect(router.route).not.toHaveBeenCalled();
+    vi.mocked(router.modelRouterOn).mockResolvedValue(true);
+  });
+
+  it("still routes the next message after Stop drops the one Router read", async () => {
+    vi.mocked(router.route).mockImplementationOnce(async () => {
+      agent.routing!.controller.abort();
+      return null;
+    });
+    const { ctx, agent, run } = setup();
+    userPickedRouter(ctx as never, "s1");
+    expect(await run()).toBe(false);
+    expect(agent.routeNext).toBe(true);
+  });
+
   it("does nothing with Model Router off, a picked model, or a task's own model", async () => {
     vi.mocked(router.route).mockClear();
     vi.mocked(router.modelRouterOn).mockResolvedValueOnce(false);
@@ -149,6 +188,14 @@ describe("routeMessage", () => {
     await run();
     expect(s.setModel).toHaveBeenCalledWith(BIG, { persist: false });
     vi.mocked(router.route).mockReset();
+  });
+
+  it("routes a task saved on Router whatever the default", async () => {
+    vi.mocked(router.route).mockResolvedValueOnce(null);
+    vi.mocked(router.modelRouterOn).mockClear();
+    await setup([task({ session: "s1" })]).run();
+    expect(router.route).toHaveBeenCalled();
+    expect(router.modelRouterOn).not.toHaveBeenCalled();
   });
 
   it("routes a composer conversation that already joined the task list", async () => {

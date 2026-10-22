@@ -31,7 +31,7 @@ export function TasksView({
   folder: string;
   host: HostClient | null;
   agents: AgentStatus[];
-  modelRouter?: ModelRouter;
+  modelRouter: ModelRouter;
   onOpenConversation: (session: string) => void;
 }) {
   const { tasks, error, create, ...rest } = useTasks(host, folder, agents);

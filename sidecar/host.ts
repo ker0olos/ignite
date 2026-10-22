@@ -4,7 +4,6 @@ import {
   type HostRequest,
 } from "../shared/hostProtocol.ts";
 import {
-  current,
   type HostContext,
   type OpenSession,
   type OpenMcpSession,
@@ -15,15 +14,9 @@ import {
 } from "./hostTypes.ts";
 import type { McpStore } from "./mcpConfig.ts";
 import { status, statusWithin, login } from "./hostAuth.ts";
-import {
-  sessionState,
-  setModel,
-  open,
-  closeAll,
-  prompt,
-} from "./hostSession.ts";
+import { open, closeAll, prompt } from "./hostSession.ts";
+import { modelHandlers } from "./hostModels.ts";
 import { worktreeHandlers } from "./hostTerminal.ts";
-import { userPickedModel } from "./hostRoute.ts";
 import { closeConversation, fork } from "./hostFork.ts";
 import { rewind } from "./hostRewind.ts";
 import { lessonHandlers } from "./hostLessons.ts";
@@ -95,27 +88,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   read_session: (ctx, r) => messagesOf(ctx, r.cwd, r.session, r.tail),
   command_search: (ctx, r) => ctx.search(r),
   session_details: (ctx, r) => sessionDetails(ctx, r.cwd, r.session),
-  session_state: async (ctx, r) =>
-    sessionState(ctx, await current(ctx, r.session)),
-  // ponytail: the draft is shared by every folder, so a folder's own .pi skills only show once its conversation starts.
-  draft_state: async (ctx, r) => ({
-    ...(await sessionState(
-      ctx,
-      await ctx.draft({ model: r.model, level: r.level }),
-    )),
-    skills: ctx.skills
-      .sessionSkills({ skills: [] })
-      .skills.map(({ name, description }) => ({ name, description })),
-  }),
-  set_model: (ctx, r) => {
-    userPickedModel(ctx, r.session);
-    return setModel(ctx, r.provider, r.modelId, r.session);
-  },
-  set_thinking_level: async (ctx, r) => {
-    const s = await current(ctx, r.session);
-    s.setThinkingLevel(r.level, { persist: true });
-    return sessionState(ctx, s);
-  },
+  ...modelHandlers,
   prompt: async (ctx, r) => {
     await prompt(ctx, r.text, r.images, r.session, undefined, r.queue);
     return undefined;

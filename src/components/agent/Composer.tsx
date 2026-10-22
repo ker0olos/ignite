@@ -36,7 +36,7 @@ export type Approval = {
   onChange: (mode: ApprovalMode) => void;
 };
 
-/** The Model Router setting: a quick model picks a new conversation's model and effort. */
+/** Whether new conversations start on Router (a quick model picks the model and effort), and changing it. */
 export type ModelRouter = { on: boolean; onChange: (on: boolean) => void };
 
 /** Task composer: prompt textarea, toolbar, and send/stop button; while the agent asks, its questions' answer. */

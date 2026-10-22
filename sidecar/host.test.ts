@@ -1414,6 +1414,16 @@ describe("sessions", () => {
         skills: [{ name: "code-review", description: "C" }],
       },
     });
+    await request({
+      id: 2,
+      type: "save_default_model",
+      provider: "openai",
+      modelId: "mini",
+    });
+    expect(draft).toHaveBeenLastCalledWith({
+      model: { provider: "openai", id: "mini" },
+      save: true,
+    });
   });
 
   it("reads a conversation's messages without starting it, or from its running session", async () => {
@@ -1671,6 +1681,28 @@ describe("sessions", () => {
       ok: true,
       data: { model: mini, thinkingLevel: "off", thinkingLevels: ["off"] },
     });
+  });
+
+  it("says Router picks a conversation's next message once picked, until a model is", async () => {
+    const { request, responses } = setup(fakeRuntime().runtime);
+    await request({
+      id: 1,
+      type: "open_session",
+      cwd: "/work",
+      session: "/work:saved",
+    });
+    await request({ id: 2, type: "route_next" });
+    await request({ id: 3, type: "session_state" });
+    await request({
+      id: 4,
+      type: "set_model",
+      provider: "openai",
+      modelId: "mini",
+    });
+    expect(responses()[1]).toMatchObject({ data: { routeNext: true } });
+    expect(responses()[2]).toMatchObject({ data: { routeNext: true } });
+    expect(responses()[3]).toMatchObject({ ok: true });
+    expect(responses()[3]).not.toHaveProperty("data.routeNext");
   });
 
   it("refuses a model that isn't available", async () => {

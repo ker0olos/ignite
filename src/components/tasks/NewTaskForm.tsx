@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Play } from "lucide-react";
 import { NewTaskDrop } from "@/components/tasks/NewTaskDrop";
 import { NewTaskSubtasks } from "@/components/tasks/NewTaskSubtasks";
-import { NewTaskChoices } from "@/components/tasks/NewTaskChoices";
 import { Button } from "@/components/ui/button";
 import type { ModelRouter } from "@/components/agent/Composer";
+import { ModelChoices } from "@/components/agent/ModelChoices";
+import { saveDefaultModel } from "@/lib/composerSettings";
+import type { ModelInfo } from "../../../shared/hostProtocol";
 import type { Pending } from "@/hooks/useComposerBegin";
 import { useProvideImageTarget } from "@/hooks/useImageTarget";
 import { useDraftState } from "@/hooks/useDraftState";
@@ -22,7 +24,7 @@ export function NewTaskForm({
 }: {
   host: HostClient | null;
   images?: TaskImage[];
-  modelRouter?: ModelRouter;
+  modelRouter: ModelRouter;
   onCreate: (draft: TaskDraft, now: boolean) => void;
 }) {
   const [draft, setDraft] = useState<TaskDraft>({
@@ -40,14 +42,12 @@ export function NewTaskForm({
   const state = useDraftState(host, true, pending, null);
   const patch = (p: Partial<TaskDraft>) => setDraft({ ...draft, ...p });
   const ready = draft.title.trim() !== "";
-  // Router is the default; picking a model makes the sheet's choices the task's.
-  const routed = !!modelRouter?.on && !pending.model;
-  const pickRouter =
-    modelRouter &&
-    (() => {
-      setPending(({ level }) => ({ ...(level && { level }) }));
-      modelRouter.onChange(true);
-    });
+  // On Router the task saves no model or effort: the router picks both when it starts.
+  const routed = modelRouter.on && !pending.model;
+  const pickModel = (model: ModelInfo) => {
+    setPending((p) => ({ ...p, model }));
+    if (host) void saveDefaultModel(host, model).catch(() => {});
+  };
   const submit = (now: boolean) =>
     ready && onCreate({ ...draft, ...choicesOf(state, routed) }, now);
 
@@ -87,13 +87,20 @@ export function NewTaskForm({
         onChange={(subtasks) => patch({ subtasks })}
       />
       <div className="flex items-center gap-1.5 border-t px-3.5 py-2.5">
-        <NewTaskChoices
-          state={state}
-          routed={routed}
-          onRouter={pickRouter}
-          onModel={(model) => setPending((p) => ({ ...p, model }))}
-          onEffort={(level) => setPending((p) => ({ ...p, level }))}
-        />
+        {state && (
+          <div className="group flex items-center gap-3.5 pl-0.5">
+            <ModelChoices
+              state={state}
+              routed={routed}
+              modelRouter={modelRouter}
+              onRouter={() =>
+                setPending(({ level }) => ({ ...(level && { level }) }))
+              }
+              onModel={pickModel}
+              onEffort={(level) => setPending((p) => ({ ...p, level }))}
+            />
+          </div>
+        )}
         <span className="flex-1" />
         <Button variant="ghost" disabled={!ready} onClick={() => submit(false)}>
           Save for later

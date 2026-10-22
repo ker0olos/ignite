@@ -18,7 +18,7 @@ export function NewTaskDialog({
   open: boolean;
   /** Images the sheet opens with. */
   images?: TaskImage[];
-  modelRouter?: ModelRouter;
+  modelRouter: ModelRouter;
   onOpenChange: (open: boolean) => void;
   onCreate: (draft: TaskDraft, now: boolean) => void;
 }) {

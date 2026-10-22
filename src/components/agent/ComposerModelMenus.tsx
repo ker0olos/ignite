@@ -1,47 +1,31 @@
 import type { ModelRouter } from "@/components/agent/Composer";
-import { EffortMenu } from "@/components/agent/EffortMenu";
-import { ModelMenu } from "@/components/agent/ModelMenu";
+import { ModelChoices } from "@/components/agent/ModelChoices";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 
 type Session = ReturnType<typeof useAgentSession>;
 
-/**
- * The composer's model and effort menus. Model Router only picks for a
- * conversation about to start, so only there does its item show; a model
- * picked there is for that conversation alone, and the router leaves it.
- */
+/** The composer's model and effort menus; Router there picks the model for the conversation's next message. */
 export function ComposerModelMenus({
   session,
   modelRouter,
 }: {
   session: Session;
-  modelRouter?: ModelRouter;
+  modelRouter: ModelRouter;
 }) {
   const { state } = session;
   if (!state) return null;
-  const router = session.session === null ? modelRouter : undefined;
-  // Choosing Router drops a model picked here; the setting turns on if it was off.
-  const pickRouter =
-    router && (() => (session.unpickModel(), router.onChange(true)));
-  // The router picks the effort too, so its menu hides while the router picks.
-  const routing = !!router?.on && !session.pickedModel;
+  const routed =
+    session.session === null
+      ? modelRouter.on && !session.pickedModel
+      : !!state.routeNext;
   return (
-    <>
-      {state.models.length > 0 && (
-        <ModelMenu
-          state={state}
-          onSelect={session.setModel}
-          modelRouter={routing}
-          onModelRouter={pickRouter}
-        />
-      )}
-      {/* pi offers only "off" for models that can't reason. */}
-      {state.thinkingLevels.length > 1 && !routing && (
-        <EffortMenu
-          state={state}
-          onChange={(level) => void session.setThinkingLevel(level)}
-        />
-      )}
-    </>
+    <ModelChoices
+      state={state}
+      routed={routed}
+      modelRouter={modelRouter}
+      onRouter={session.pickRouter}
+      onModel={(model) => void session.setModel(model)}
+      onEffort={(level) => void session.setThinkingLevel(level)}
+    />
   );
 }

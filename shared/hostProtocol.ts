@@ -14,6 +14,10 @@ import type { RewindRequest, RewindResponses } from "./rewind.ts";
 import type { GitRequest, GitResponses, GitReview } from "./git.ts";
 import type { MemoryStatus } from "./memory.ts";
 import type {
+  ModelChoiceRequest,
+  ModelChoiceResponses,
+} from "./modelChoice.ts";
+import type {
   CommandSearch,
   CommandSearchResult,
   NewSession,
@@ -79,6 +83,8 @@ export type SessionState = {
   thinkingLevels: ThinkingLevel[];
   /** Skills the session loaded, which `/name` runs. */
   skills: SkillInfo[];
+  /** The user picked Router, so the router picks the model and effort for the next message. */
+  routeNext?: boolean;
 };
 
 /**
@@ -179,30 +185,7 @@ export type HostRequest =
   | ({ id: number; type: "command_search" } & CommandSearch)
   /** What a saved conversation did: model, cost, files… */
   | { id: number; type: "session_details"; cwd: string; session: string }
-  | { id: number; type: "session_state"; session?: string }
-  /**
-   * What a new conversation would start with (models, model, effort), for a
-   * folder with none; `model` and `level` stand in for the saved defaults.
-   */
-  | {
-      id: number;
-      type: "draft_state";
-      model?: { provider: string; id: string };
-      level?: ThinkingLevel;
-    }
-  | {
-      id: number;
-      type: "set_model";
-      provider: string;
-      modelId: string;
-      session?: string;
-    }
-  | {
-      id: number;
-      type: "set_thinking_level";
-      level: ThinkingLevel;
-      session?: string;
-    }
+  | ModelChoiceRequest
   /** Resolves once pi has accepted the message; the run streams as events. */
   | {
       id: number;
@@ -295,6 +278,7 @@ export type HostResponses = SkillResponses &
   TaskResponses &
   TerminalResponses &
   GitResponses &
+  ModelChoiceResponses &
   ChildResponses & {
     status: ProviderStatus[];
     login: ProviderStatus;
@@ -306,10 +290,6 @@ export type HostResponses = SkillResponses &
     read_session: AgentMessage[];
     session_details: SessionDetails;
     command_search: CommandSearchResult;
-    session_state: SessionState;
-    draft_state: SessionState;
-    set_model: SessionState;
-    set_thinking_level: SessionState;
     prompt: undefined;
     abort: QueuedMessage[];
     compact: undefined;
