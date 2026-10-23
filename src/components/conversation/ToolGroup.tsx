@@ -9,7 +9,7 @@ import type { ToolRun } from "@/lib/transcript";
 import { groupSummary } from "@/lib/toolRows";
 import { cn } from "@/lib/utils";
 
-/** Consecutive reads, searches and shell commands, or subagents, folded into one line. */
+/** Consecutive reads, searches and shell commands, subagents, or calls of one read-only MCP tool, folded into one line. */
 export function ToolGroup({
   calls,
   tools,

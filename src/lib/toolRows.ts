@@ -8,6 +8,7 @@ import { SUBAGENT_TOOL } from "../../shared/subagents";
 import { readPlan, TASK_TOOL } from "../../shared/tasks";
 import { compactionOf, type CompactionItem } from "./compaction";
 import { shownReview } from "./diffTabs";
+import { mcpCall, mcpReason } from "./mcpToolCall";
 import { shownError } from "./runError";
 import type { Item, ToolRun } from "./transcript";
 
@@ -22,7 +23,8 @@ export type Row =
   | { kind: "end"; message: AssistantMessage };
 
 // Look-around tools that fold into one summary line, as in Claude Code.
-// Subagents fold too, but only with each other.
+// Subagents fold too, but only with each other; MCP calls that only read fold
+// only with calls of the same tool.
 const QUIET = new Set([
   "read",
   "outline",
@@ -33,7 +35,23 @@ const QUIET = new Set([
   SUBAGENT_TOOL,
 ]);
 
-const isSubagent = (call: ToolCall) => call.name === SUBAGENT_TOOL;
+/** The read-only MCP server tool a call runs (`clickup · clickup_get_task`), or null. */
+function mcpTool(call: ToolCall) {
+  // Without `args`: the tool's own arguments would be parsed for nothing.
+  const args = { ...call.arguments, args: undefined };
+  const mcp = mcpCall(call.name, args);
+  if (mcp?.kind !== "call" || !mcp.tool || mcpReason(call.name, args)) {
+    return null;
+  }
+  return [mcp.server, mcp.tool].filter(Boolean).join(" · ");
+}
+
+/** Calls fold together only when their keys match. */
+function foldKey(call: ToolCall) {
+  if (call.name === SUBAGENT_TOOL) return call.name;
+  const mcp = mcpTool(call);
+  return mcp ? `mcp:${mcp}` : "quiet";
+}
 
 type Block = AssistantMessage["content"][number];
 
@@ -50,7 +68,7 @@ const isPlanAfterPlan = (
 // A failed call stands alone, so a red row always means that call, and so do
 // a command that changed files and a background command.
 const standsAlone = (call: ToolCall, run: ToolRun | undefined) =>
-  !QUIET.has(call.name) ||
+  !(QUIET.has(call.name) || mcpTool(call)) ||
   run?.status === "error" ||
   !!call.arguments.background ||
   readShellEdits(run?.result?.details).length > 0;
@@ -66,7 +84,7 @@ function pushCall(rows: Row[], call: ToolCall, tools: Record<string, ToolRun>) {
     rows.push({ kind: "tool", call });
     return;
   }
-  if (last?.kind === "group" && isSubagent(last.calls[0]) === isSubagent(call))
+  if (last?.kind === "group" && foldKey(last.calls[0]) === foldKey(call))
     last.calls.push(call);
   else rows.push({ kind: "group", calls: [call] });
 }
@@ -154,6 +172,8 @@ function outlines(calls: ToolCall[]) {
 
 /** "Read 2 files, ran 1 shell command" for a folded group. */
 export function groupSummary(calls: ToolCall[]) {
+  const mcp = mcpTool(calls[0]);
+  if (mcp) return `Called ${mcp} ${plural(calls.length, "time", "times")}`;
   const count = (...names: string[]) =>
     calls.filter((c) => names.includes(c.name)).length;
   const outlined = outlines(calls);

@@ -175,7 +175,7 @@ src/                     React frontend (almost all logic lives here)
     compaction.ts        Compaction in the conversation: running, then its summary; saved summaries
     rewind.ts            Editing user messages: which offer Edit (named, after the latest compaction), when (idle),
                          the conversation cut back to before one
-    toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands, parses edit diffs
+    toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands and of one read-only MCP tool's calls, parses edit diffs
     runError.ts          A run's error as shown: a Claude limit in Claude Code's words, without the bridge's prefix
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels

@@ -156,6 +156,51 @@ describe("toRows", () => {
     ]);
   });
 
+  it("keeps MCP calls that may change something on their own rows", () => {
+    const create = (id: string) => ({
+      ...call("mcp", id),
+      arguments: { server: "clickup", tool: "create_task" },
+    });
+    expect(toRows([assistant([create("a"), create("b")])])).toEqual([
+      { kind: "tool", call: create("a") },
+      { kind: "tool", call: create("b") },
+    ]);
+  });
+
+  it("never folds an MCP tool named like another fold key with quiet calls", () => {
+    const quiet = { ...call("mcp", "a"), arguments: { tool: "get_quiet" } };
+    expect(toRows([assistant([call("read", "r"), quiet])])).toEqual([
+      { kind: "tool", call: call("read", "r") },
+      { kind: "tool", call: quiet },
+    ]);
+  });
+
+  it("folds read-only MCP calls of the same tool, apart from other tools and quiet calls", () => {
+    const mcp = (id: string, tool: string) => ({
+      ...call("mcp__clickup", id),
+      arguments: { tool },
+    });
+    const rows = toRows([
+      assistant([
+        mcp("a", "get_task"),
+        mcp("b", "get_task"),
+        mcp("c", "get_list"),
+        call("read", "d"),
+        mcp("e", "get_list"),
+        mcp("f", "get_list"),
+      ]),
+    ]);
+    expect(rows).toEqual([
+      { kind: "group", calls: [mcp("a", "get_task"), mcp("b", "get_task")] },
+      { kind: "tool", call: mcp("c", "get_list") },
+      { kind: "tool", call: call("read", "d") },
+      { kind: "group", calls: [mcp("e", "get_list"), mcp("f", "get_list")] },
+    ]);
+    expect(groupSummary([mcp("a", "get_task"), mcp("b", "get_task")])).toBe(
+      "Called clickup · get_task 2 times",
+    );
+  });
+
   it("text breaks a group", () => {
     const rows = toRows([
       assistant([
