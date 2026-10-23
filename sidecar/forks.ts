@@ -31,6 +31,7 @@ const REPORT_CHARS = 60_000;
 const REPORT_PROMPT = `You summarize a coding agent's latest work for another agent: the conversation it was forked from, which shares its context up to the fork but not what follows. Write a short report (at most 250 words) of what it did and found: results and numbers, decisions, files changed, problems left open. Plain prose, no preamble.`;
 
 type Entry = {
+  id: string;
   type: string;
   customType?: string;
   details?: { parent?: string };
@@ -81,27 +82,58 @@ export function takeNotes(id: string): string[] {
   return waiting;
 }
 
+// The run's own steps: a reply that went on to call tools, and their results.
+const inRun = (e: { type: string; message?: AgentMessage }) =>
+  e.type === "message" &&
+  (e.message?.role === "toolResult" ||
+    (e.message as { stopReason?: string }).stopReason === "toolUse");
+
+const settled = (e: Entry) =>
+  e.type === "custom_message" ||
+  e.type === "compaction" ||
+  (!!e.message && !inRun(e));
+
+// Its checkpoint holds the files as of the cut only when nothing answered it since.
+function cutOf(branch: Entry[]) {
+  const at = branch.findLastIndex(settled);
+  if (at < 0) return {};
+  const last = branch.slice(0, at + 1).findLast((e) => e.message);
+  const user = last?.message?.role === "user" ? last.id : undefined;
+  return { cut: branch[at], user };
+}
+
 /**
  * Copies `folder`'s saved conversation `from` into a new one, `to`, named
  * `name` and told it's a fork; throws when `from` has nothing saved yet.
+ * A `running` one is copied up to the latest entry its run isn't still
+ * adding to; returned is the user message whose checkpoint has the files then.
  */
 export function forkSession(
   folder: string,
   from: string,
   to: string,
   name: string,
+  running = false,
 ) {
   const source = SessionManager.findById(folder, from);
   if (!source) throw new Error("There's nothing to fork yet.");
   const dir = SessionManager.create(folder).getSessionDir();
   const fork = SessionManager.forkFrom(source, folder, dir, { id: to });
+  const { cut, user } = running ? cutOf(fork.getBranch() as Entry[]) : {};
+  if (cut) fork.branch(cut.id);
   fork.appendSessionInfo(name);
+  const working = cut && cut.message?.role !== "assistant";
   fork.appendCustomMessageEntry(
     FORKED,
-    `You are a fork of conversation ${from}: the user copied it, with its files as they were, into this new conversation to work on something separately. The original waits for you; once the user closes you, a summary of what you did is sent to it and it carries on.`,
+    `You are a fork of conversation ${from}: the user copied it, with its files as they were, into this new conversation to work on something separately. ` +
+      (working
+        ? "The original was still working on the last message when you were forked; it finishes that, then waits for you."
+        : "The original waits for you.") +
+      " Once the user closes you, a summary of what you did is sent to it and it carries on.",
     false,
     { parent: from },
   );
+  return user;
 }
 
 /** Deletes fork `to`'s saved file, after the fork failed to start. */

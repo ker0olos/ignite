@@ -24,7 +24,11 @@ import {
 } from "./worktreeGit.ts";
 import { cloneIgnored } from "./worktreeClone.ts";
 import { setReady, startReady, whenReady } from "./worktreeReady.ts";
-import { checkpointRef } from "./checkpoints.ts";
+import {
+  checkpointRef,
+  keepCheckpoint,
+  takeCheckpoint,
+} from "./checkpoints.ts";
 
 let base: string;
 let repo: string;
@@ -267,6 +271,22 @@ describe("workspaces", () => {
     await workspaces.fork(repo, "missing", "c");
     expect(read((await workspaces.open(repo, "c")).dir, "app.ts")).toBe(
       "one\n",
+    );
+  });
+
+  it("starts a fork from its original's checkpoint for a message, when there is one", async () => {
+    const workspaces = createWorkspaces(root);
+    const ws = await workspaces.open(repo, "a");
+    write(join(ws.dir, "app.ts"), "before\n");
+    await keepCheckpoint(ws.dir, "a", "e1", (await takeCheckpoint(ws.dir))!);
+    write(join(ws.dir, "app.ts"), "mid-run\n");
+    await workspaces.fork(repo, "a", "b", "e1");
+    expect(read((await workspaces.open(repo, "b")).dir, "app.ts")).toBe(
+      "before\n",
+    );
+    await workspaces.fork(repo, "a", "c", "none");
+    expect(read((await workspaces.open(repo, "c")).dir, "app.ts")).toBe(
+      "mid-run\n",
     );
   });
 

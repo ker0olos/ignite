@@ -82,8 +82,14 @@ describe("fork", () => {
       "first",
       "copy",
       "run the benchmarks",
+      false,
     );
-    expect(ctx.workspaces.fork).toHaveBeenCalledWith("/work", "first", "copy");
+    expect(ctx.workspaces.fork).toHaveBeenCalledWith(
+      "/work",
+      "first",
+      "copy",
+      undefined,
+    );
     expect(start).toHaveBeenCalledWith(
       ctx,
       "/work",
@@ -100,17 +106,18 @@ describe("fork", () => {
     expect(forkSession.mock.calls[0][3]).toBe("Fork of Plan it");
   });
 
-  it.each([
-    ["mid-run", { running: true }],
-    ["while the router reads its message", { routing: {} }],
-    ["with messages queued", { session: { pendingMessageCount: 1 } }],
-  ])("refuses to fork a conversation %s", async (_, busy) => {
+  it("forks a running conversation from the message its run answers, files as they were then", async () => {
     const ctx = host();
-    Object.assign(ctx.agents.get("first")!, busy);
-    await expect(fork(ctx, "/work", "first")).rejects.toThrow(
-      "Wait for this conversation's run to end",
+    ctx.agents.get("first")!.running = true;
+    forkSession.mockReturnValueOnce("entry-1");
+    await fork(ctx, "/work", "first");
+    expect(forkSession.mock.calls[0][4]).toBe(true);
+    expect(ctx.workspaces.fork).toHaveBeenCalledWith(
+      "/work",
+      "first",
+      "copy",
+      "entry-1",
     );
-    expect(forkSession).not.toHaveBeenCalled();
   });
 
   it("deletes the copy and tells the original nothing when the fork can't start", async () => {

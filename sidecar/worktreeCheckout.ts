@@ -15,7 +15,7 @@ import {
   stateRef,
   unbranched,
 } from "./worktreeGit.ts";
-import { dropCheckpoints } from "./checkpoints.ts";
+import { checkpointRef, dropCheckpoints } from "./checkpoints.ts";
 
 const LOCK = `${APP_NAME} pid `;
 // A worktree younger than this may not be locked yet; sweeps leave it be.
@@ -167,17 +167,25 @@ export async function remove(
   return true;
 }
 
-/** Gives conversation `to` a copy of `from`'s files in `repo` (its worktree at `path` if open, else its saved state). */
+/** Gives conversation `to` a copy of `from`'s files in `repo`: as they were before message `entry` if checkpointed, else its worktree at `path` if open, else its saved state. */
 export async function forkCheckout(
   repo: string,
   path: string,
   from: string,
   to: string,
+  entry?: string,
 ) {
-  const saved = existsSync(path) ? null : await verified(repo, stateRef(from));
-  const state = saved
-    ? await unbranched(repo, saved)
-    : existsSync(path) && (await snapshot(path));
+  const checkpoint =
+    entry && (await verified(repo, checkpointRef(from, entry)));
+  const saved =
+    checkpoint || existsSync(path)
+      ? null
+      : await verified(repo, stateRef(from));
+  const state =
+    checkpoint ||
+    (saved
+      ? await unbranched(repo, saved)
+      : existsSync(path) && (await snapshot(path)));
   if (state) await git(repo, ["update-ref", stateRef(to), state]);
 }
 
