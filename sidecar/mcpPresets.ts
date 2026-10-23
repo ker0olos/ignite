@@ -11,6 +11,7 @@ export type Preset = {
 
 // ponytail: hand-picked on top of the adapter's list; entries checked against
 // the servers' docs in Sept 2026 (npm @playwright/mcp, live OAuth endpoints).
+// Figma is the adapter's (its desktop app): Figma's remote server refuses pi's sign-in.
 const EXTRA_PRESETS: Preset[] = [
   {
     id: "playwright",
@@ -61,12 +62,6 @@ const EXTRA_PRESETS: Preset[] = [
     name: "Vercel",
     summary: "Manage Vercel projects, deployments and logs.",
     entry: { url: "https://mcp.vercel.com", auth: "oauth" },
-  },
-  {
-    id: "figma",
-    name: "Figma",
-    summary: "Read Figma designs to turn them into code.",
-    entry: { url: "https://mcp.figma.com/mcp", auth: "oauth" },
   },
   {
     id: "atlassian",
