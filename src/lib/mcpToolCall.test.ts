@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   approvalArgs,
   approvalCallout,
+  argsLine,
   argsText,
   mcpCall,
   mcpReason,
@@ -47,6 +48,20 @@ describe("approvalArgs", () => {
   it("shows arguments that aren't an object as they are", () => {
     expect(argsText("raw")).toBe("raw");
     expect(argsText([1])).toBe("[\n  1\n]");
+  });
+});
+
+describe("argsLine", () => {
+  it("shows the arguments on one line without the reason, values as JSON", () => {
+    expect(
+      argsLine({
+        query: "steering",
+        types: ["decision"],
+        limit: 5,
+        reason: "Why",
+      }),
+    ).toBe('query: steering, types: ["decision"], limit: 5');
+    expect(argsLine({ reason: "Why" })).toBe("");
   });
 });
 

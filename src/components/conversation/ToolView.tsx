@@ -30,7 +30,7 @@ import { ToolOutcomeBody } from "@/components/conversation/ToolOutcomeBody";
 import { useStreamedCall } from "@/hooks/useStreamedCall";
 import { rowPages } from "@/lib/artifact";
 import type { ToolRun } from "@/lib/transcript";
-import { mcpCall } from "@/lib/mcpToolCall";
+import { argsLine, mcpCall } from "@/lib/mcpToolCall";
 import { readQuestions } from "@/lib/questions";
 import { canSkipWait, showsNothingYet } from "@/lib/toolRows";
 import { relativeTo } from "@/lib/paths";
@@ -124,8 +124,11 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   chrome_navigate: (call) => String(call.arguments.url ?? ""),
 };
 
+// Tools with no shape of their own (memory_search, MCP direct tools…) show every argument.
 function toolArg(call: ToolCall, folder: string) {
-  return TOOL_ARGS[call.name]?.(call, folder) ?? "";
+  const arg = TOOL_ARGS[call.name]?.(call, folder);
+  if (arg !== undefined) return arg;
+  return Object.hasOwn(TOOL_TITLES, call.name) ? "" : argsLine(call.arguments);
 }
 
 function hasOutcome(
