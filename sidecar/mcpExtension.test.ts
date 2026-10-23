@@ -51,7 +51,10 @@ it("installs the adapter with the app's servers only", async () => {
   });
   await mcp(pi);
   expect(createMcpAdapter).toHaveBeenCalledWith({
-    config: { mcpServers: { docs: { command: "npx" } } },
+    config: {
+      mcpServers: { docs: { command: "npx" } },
+      settings: { allowScriptToolSave: false },
+    },
   });
   expect(install).toHaveBeenCalledOnce();
 });
@@ -72,10 +75,18 @@ it("gives the adapter's tools a reason the tools never see", async () => {
   expect(execute.mock.calls[0].slice(0, 2)).toEqual(["id", { tool: "x" }]);
 });
 
+it("hides pi's own MCP API from the adapter, so its calls don't nest", async () => {
+  const registerMcpServer = vi.fn();
+  await mcp({ ...pi, registerMcpServer } as unknown as ExtensionAPI);
+  const adapterPi = install.mock.calls.at(-1)![0] as ExtensionAPI;
+  expect(adapterPi.registerMcpServer).toBeUndefined();
+  expect(adapterPi.events).toBe(pi.events);
+});
+
 it("installs it with no servers before any are added", async () => {
   await mcp(pi);
   expect(createMcpAdapter).toHaveBeenCalledWith({
-    config: { mcpServers: {} },
+    config: { mcpServers: {}, settings: { allowScriptToolSave: false } },
   });
 });
 

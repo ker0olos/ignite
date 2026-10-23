@@ -19,11 +19,7 @@ ignoredOptionalDependencies:
 
 minimumReleaseAgeExclude:
   - "@anthropic-ai/sandbox-runtime@0.0.80"
-
-# pi-mcp-adapter's peer range stops at pi-ai 0.87; it runs on the one pi-coding-agent brings.
-peerDependencyRules:
-  allowedVersions:
-    pi-mcp-adapter>@earendil-works/pi-ai: "*"
+  - pi-mcp-adapter@6.0.0
 
 # A one-document lockfile: Dependabot reads only pnpm 12's first document (the pnpm version),
 # so it would see no dependencies (dependabot-core#15904).

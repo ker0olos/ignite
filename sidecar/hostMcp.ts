@@ -6,6 +6,7 @@ import {
   type McpStatusSnapshot,
   type Session,
 } from "./hostTypes.ts";
+import { MCP_ADAPTER_COMMAND } from "./mcpConfig.ts";
 
 const MCP_STATUSES: Record<string, McpServerStatus> = {
   connected: "connected",
@@ -48,7 +49,7 @@ function mcpSession(ctx: HostContext): Promise<Session> {
 /** The MCP session if it has the adapter, which a slash command needs to not reach the model. */
 export async function adapterSession(
   ctx: HostContext,
-  command = "mcp",
+  command = MCP_ADAPTER_COMMAND,
 ): Promise<Session | undefined> {
   const s = await mcpSession(ctx).catch(() => undefined);
   return s?.extensionRunner.getCommand(command) ? s : undefined;
@@ -139,7 +140,9 @@ async function checkUrlServers(ctx: HostContext, names: string[]) {
     for (const name of urls) {
       // The result arrives as a status snapshot; a failure is shown there.
       const s = await adapterSession(ctx);
-      await s?.prompt(`/mcp reconnect ${name}`, {}).catch(() => {});
+      await s
+        ?.prompt(`/${MCP_ADAPTER_COMMAND} reconnect ${name}`, {})
+        .catch(() => {});
       ctx.checking.delete(name);
       await pushMcpServers(ctx);
     }

@@ -105,12 +105,15 @@ describe("adapterConfig", () => {
     };
     expect(adapterConfig(file)).toEqual({
       mcpServers: { a: { command: "x" } },
-      settings: { idleTimeout: 5 },
+      settings: { idleTimeout: 5, allowScriptToolSave: false },
     });
   });
 
-  it("has no servers or settings for an empty file", () => {
-    expect(adapterConfig({})).toEqual({ mcpServers: {} });
+  it("has no servers for an empty file, and never offers saving scripts", () => {
+    expect(adapterConfig({})).toEqual({
+      mcpServers: {},
+      settings: { allowScriptToolSave: false },
+    });
   });
 });
 

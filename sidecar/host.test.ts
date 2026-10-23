@@ -207,7 +207,7 @@ function fakeSession() {
       getCommand: vi.fn(
         (name: string): unknown =>
           [
-            "mcp",
+            "mcp-adapter",
             "app-mcp-sign-in",
             "app-mcp-sign-out",
             "app-mcp-copy-sign-in",
@@ -3167,7 +3167,7 @@ describe("MCP servers", () => {
         ?.status;
     const checks = (session: ReturnType<typeof fakeSession>) =>
       session.prompt.mock.calls.filter(
-        ([text]: unknown[]) => text === "/mcp reconnect web",
+        ([text]: unknown[]) => text === "/mcp-adapter reconnect web",
       );
 
     it("connects a saved URL server once in the MCP session, with no folder open", async () => {
@@ -3309,14 +3309,21 @@ describe("MCP servers", () => {
     const { request, responses, mcp } = withoutFolder();
     await request({ id: 1, type: "mcp_sign_in", name: "docs" });
     expect(mcp.prompt).toHaveBeenNthCalledWith(1, "/app-mcp-sign-in docs", {});
-    expect(mcp.prompt).toHaveBeenNthCalledWith(2, "/mcp reconnect docs", {});
+    expect(mcp.prompt).toHaveBeenNthCalledWith(
+      2,
+      "/mcp-adapter reconnect docs",
+      {},
+    );
     expect(responses()[0]).toMatchObject({ ok: true });
   });
 
   it("connects a signed-in server in idle conversations with the adapter", async () => {
     const { request, session } = await withSession();
     await request({ id: 2, type: "mcp_sign_in", name: "docs" });
-    expect(session.prompt).toHaveBeenCalledWith("/mcp reconnect docs", {});
+    expect(session.prompt).toHaveBeenCalledWith(
+      "/mcp-adapter reconnect docs",
+      {},
+    );
 
     session.prompt.mockClear();
     session.isStreaming = true;
@@ -3330,7 +3337,7 @@ describe("MCP servers", () => {
   it("can't sign in without the adapter's sign-in command", async () => {
     const { request, responses, mcp } = withoutFolder();
     mcp.extensionRunner.getCommand.mockImplementation(
-      (name: string) => name === "mcp" || undefined,
+      (name: string) => name === "mcp-adapter" || undefined,
     );
     await request({ id: 1, type: "mcp_sign_in", name: "docs" });
     expect(responses()[0]).toMatchObject({

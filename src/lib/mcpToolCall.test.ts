@@ -5,7 +5,6 @@ import {
   argsText,
   mcpCall,
   mcpReason,
-  scriptToolsText,
 } from "./mcpToolCall";
 
 describe("approvalArgs", () => {
@@ -31,13 +30,6 @@ describe("approvalArgs", () => {
       }),
     ).toEqual({ code: "reason: fraudulent", lang: "yaml" });
     expect(approvalArgs("mcp", { tool: "list_projects" })).toBeNull();
-  });
-
-  it("shows a script's code", () => {
-    expect(approvalArgs("mcpScript", { code: "emit(1)" })).toEqual({
-      code: "emit(1)",
-      lang: "js",
-    });
   });
 
   it("shows other tools' arguments without the reason, values as JSON", () => {
@@ -73,6 +65,18 @@ describe("mcpCall", () => {
       tool: "list_issues",
       args: { repo: "a/b" },
     });
+  });
+
+  it("reads a call to a tool named by server and tool, as pi names them", () => {
+    expect(mcpCall("mcp__github__delete_repo", { repo: "a/b" })).toEqual({
+      kind: "call",
+      server: "github",
+      tool: "delete_repo",
+      args: { repo: "a/b" },
+    });
+    expect(mcpReason("mcp__github__delete_repo", {})).toBe(
+      "May make changes: delete_repo",
+    );
   });
 
   it("reads a call through the mcp tool, with or without a server", () => {
@@ -114,44 +118,6 @@ describe("mcpCall", () => {
       kind: "connect",
       server: "github",
     });
-  });
-
-  it("reads scripts", () => {
-    expect(mcpCall("mcpScript", { code: "emit(1)" })).toEqual({
-      kind: "script",
-      code: "emit(1)",
-    });
-    expect(mcpCall("mcpScript", {})).toEqual({ kind: "script", code: "" });
-  });
-
-  it("names the tools a script calls", () => {
-    const code = `
-      await tools.search({ query: "x" });
-      const d = await tools.describe({ path: "a_b" });
-      await tools.call("supabase-motr_generate_typescript_types", {});
-      await tools["linear_create-issue"]({});
-      await tools.github_list_issues({});
-      await devtools.open({});
-      await tools.call('supabase-motr_generate_typescript_types', {});`;
-    expect(scriptToolsText(code)).toBe(
-      "supabase-motr_generate_typescript_types, linear_create-issue, github_list_issues",
-    );
-    expect(mcpReason("mcpScript", { code })).toBe(
-      "Runs MCP calls from a script: supabase-motr_generate_typescript_types, linear_create-issue, github_list_issues",
-    );
-  });
-
-  it("says a script also calls others it doesn't name", () => {
-    expect(
-      scriptToolsText("await tools.a_b({}); await tools.call(d.path, {})"),
-    ).toBe("a_b and others");
-    expect(
-      scriptToolsText("const { x_del } = tools; await tools.call('a_b')"),
-    ).toBe("a_b and others");
-    expect(scriptToolsText("await tools.call(`${s}_x`, {})")).toBe("");
-    expect(mcpReason("mcpScript", { code: "await tools.call(p, {})" })).toBe(
-      "Runs MCP calls from a script",
-    );
   });
 
   it("treats anything else as housekeeping", () => {

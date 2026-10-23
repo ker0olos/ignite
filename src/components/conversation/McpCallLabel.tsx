@@ -1,4 +1,4 @@
-import { scriptToolsText, type McpCall } from "@/lib/mcpToolCall";
+import type { McpCall } from "@/lib/mcpToolCall";
 
 /** Label for an MCP-adapter tool call, formatted per call kind. */
 export function McpCallLabel({
@@ -33,20 +33,6 @@ export function McpCallLabel({
       ) : (
         <>Connected to {call.server}</>
       );
-    case "script": {
-      const tools = scriptToolsText(call.code);
-      return (
-        <>
-          Ran an MCP script
-          {tools && (
-            <span className="font-normal text-muted-foreground">
-              {" · "}
-              {tools}
-            </span>
-          )}
-        </>
-      );
-    }
     case "other":
       return <>Checked MCP servers</>;
   }

@@ -642,7 +642,7 @@ the choice to the agent). The approval gate never asks about `ask_user` itself. 
 MCP, everything); approved commands run as is. **Auto** asks for bash
 commands on the denylist in `lib/dangerousCommands.ts`, for file tools
 whose resolved path (symlinks followed) is outside the open folder, and for
-MCP calls (`mcp`, `mcp__<server>`, `mcpScript`, and direct tools, known by
+MCP calls (`mcp`, `mcp__<server>` and direct tools, known by
 the extension that registered them) unless the tool's name reads as a read
 only (`get_list`, not `create_comment` or `query`; `lib/mcpToolCall.ts`). Every
 other bash command runs without asking inside an OS sandbox
@@ -1028,11 +1028,13 @@ and the conversation shows a trust prompt once; the answer is saved with
 current run) with the folder's resources.
 
 MCP servers come from [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adapter)
-(pinned 2.38.0), loaded into every session by `sidecar/mcpExtension.ts` with
+(pinned 6.0.0), loaded into every session by `sidecar/mcpExtension.ts` with
 the app's `mcp.json` as its whole config, so it never reads `~/.config/mcp`,
 a project's `.mcp.json` or other apps' MCP configs. Servers connect on first
-use; the model reaches them through the adapter's `mcp` and `mcp__<server>`
-tools. Saving a change reloads the session (after the current run), and a
+use (one with no cached tools starts as a session opens, only to list them);
+the model reaches them through the adapter's `mcp` and `mcp__<server>` tools.
+It never sees pi's own MCP API (`withoutPiMcp`), so calls don't nest as
+`mcp__<server>__<tool>`. Saving a change reloads the session (after the current run), and a
 URL server that was just added, imported or edited connects once, so one that
 needs OAuth shows "Needs sign-in" (with a Sign in button running the adapter's
 `/mcp-auth`) during setup rather than when the agent first needs it. Status

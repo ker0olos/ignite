@@ -1,11 +1,10 @@
-# MCP servers (pi-mcp-adapter 2.38.0)
+# MCP servers (pi-mcp-adapter 6.0.0)
 
 `AD` = `node_modules/pi-mcp-adapter`. It ships TypeScript source (`AD/index.ts`,
 loaded by pi's extension loader) plus compiled `AD/dist/` for the public
-subpaths (`./types`, `./config`, `./metadata-cache`, `./oauth`). Peer range
-covers pi-ai 0.84 to 0.87; `overrides` in package.json gives it pi-ai 1.0
-(it only imports `StringEnum` and types). README is the reference; `AD/types.ts` and
-`AD/index.ts` win when it disagrees.
+subpaths (`./types`, `./config`, `./metadata-cache`, `./oauth`). `AD/docs/` and
+`AD/CHANGELOG.md` are the reference; `AD/types.ts` and `AD/index.ts` win when
+they disagree.
 
 ## Why this adapter
 
@@ -13,9 +12,21 @@ Checked Sept 2026 against the other pi MCP extensions on npm
 (`pi-mcp-client`, `@ian-pascoe/pi-mcp`, forks). It is the most used and
 maintained, declares pi 0.87 support, has an isolated programmatic config
 mode, a versioned status channel on pi's event bus, a `disabled` flag, and a
-`/mcp reconnect` command. It proxies tools (`mcp` search/call, one
-`mcp__<server>` per server, `mcpScript`) instead of registering every MCP tool,
-so servers cost little context.
+`/mcp-adapter reconnect` command. It proxies tools (`mcp` search/call, one
+`mcp__<server>` per server) instead of registering every MCP tool, so servers
+cost little context, and starts a server only on first use (pi's built-in MCP,
+tried and dropped, starts every server in every session).
+
+## pi's own MCP API is hidden from it
+
+On pi 0.99+ the adapter (5.0+) sees `pi.registerMcpServer` and then registers
+every cached tool as a deferred `mcp__<server>__<tool>` and reruns each `mcp`
+call as a nested `ctx.executeTool` call of it. That nested call has no
+`reason` (our `withReason` makes it required, so pi's validation fails it), asks
+for approval a second time, and shows as its own tool row. `mcpExtension.ts`
+hands the adapter a `pi` without `registerMcpServer` (`withoutPiMcp`), so it
+behaves as on older pi: no deferred tools, no nesting, `/mcp` still registered,
+pi's own `mcp.json` and sign-ins never read.
 
 ## How the app loads it
 
@@ -76,7 +87,7 @@ or `bearerToken` runs a shell command. Other per-server fields (`lifecycle`,
   `isServerCacheValid(entry, definition)` from `pi-mcp-adapter/metadata-cache`
   (plain JS, importable from the host). The cache path follows
   `PI_CODING_AGENT_DIR`.
-- Reconnect: `session.prompt("/mcp reconnect <name>")`. Extension commands
+- Reconnect: `session.prompt("/mcp-adapter reconnect <name>")`. Extension commands
   run immediately, even while streaming, and add nothing to the conversation.
 
 ## Lifecycle traps
@@ -133,7 +144,7 @@ Code-credentials`, `mcpOAuth`, matched by `serverUrl`, `expiresAt` in ms)
   shows its status unless the shown conversation's is more than idle; after
   a sign-in, idle conversations reconnect the server too.
 - Servers stay `lazy`. After a URL server is added, imported or edited the
-  host sends the adapter's `/mcp reconnect <name>` once in that session, so
+  host sends the adapter's `/mcp-adapter reconnect <name>` once in that session, so
   its real status (connected, needs-auth, failed) shows during setup.
   Local command servers are never started this way.
 - Sign in runs our own command, `/app-mcp-sign-in <name>`, registered by

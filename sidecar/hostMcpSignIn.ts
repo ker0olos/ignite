@@ -1,4 +1,5 @@
 import {
+  MCP_ADAPTER_COMMAND,
   MCP_SIGN_IN_COMMAND,
   MCP_SIGN_OUT_COMMAND,
   MCP_COPY_SIGN_IN_COMMAND,
@@ -28,11 +29,16 @@ export async function signIn(ctx: HostContext, name: string) {
   // Opens the sign-in page through the app and waits for the browser's
   // callback; a failure comes back as an extension_error.
   await s.prompt(`/${MCP_SIGN_IN_COMMAND} ${name}`, {});
-  await s.prompt(`/mcp reconnect ${name}`, {});
+  const reconnect = `/${MCP_ADAPTER_COMMAND} reconnect ${name}`;
+  await s.prompt(reconnect, {});
   for (const agent of ctx.agents.values()) {
     const own = agent.session;
-    if (own && !own.isStreaming && own.extensionRunner.getCommand("mcp")) {
-      await own.prompt(`/mcp reconnect ${name}`, {}).catch(() => {});
+    if (
+      own &&
+      !own.isStreaming &&
+      own.extensionRunner.getCommand(MCP_ADAPTER_COMMAND)
+    ) {
+      await own.prompt(reconnect, {}).catch(() => {});
     }
   }
   return mcpServers(ctx);
