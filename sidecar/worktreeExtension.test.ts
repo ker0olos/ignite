@@ -1,11 +1,17 @@
 // @vitest-environment node
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { ApprovalGate } from "../src/lib/approvalPolicy.ts";
 import worktreeGuidance, {
-  GIT_GUIDANCE,
+  gitGuidance,
   groupGuidance,
   guidance,
 } from "./worktreeExtension.ts";
+
+const mode = vi.hoisted(() => ({ current: "auto" as ApprovalGate }));
+vi.mock("./approvalSettings.ts", () => ({
+  approvalMode: async () => mode.current,
+}));
 
 describe("guidance", () => {
   it("tells the agent where it works and how its work reaches the user", () => {
@@ -44,14 +50,29 @@ describe("the worktree extension", () => {
     return handlers;
   };
 
-  it("tells an agent in the user's own folder how to use git there", async () => {
+  const worktreeSection = async () => {
     const sections: Record<string, string> = {};
     await load().get("before_agent_start")!(
       { systemPromptOptions: { sections } },
       { cwd: "/work" },
     );
-    expect(sections.worktree).toContain(GIT_GUIDANCE);
-    expect(sections.worktree).toContain("the user's checkouts");
-    expect(sections.worktree).not.toContain("your own git worktree");
+    return sections.worktree;
+  };
+
+  it("tells an agent in the user's own folder how to use git there", async () => {
+    mode.current = "auto";
+    const section = await worktreeSection();
+    expect(section).toContain(gitGuidance(true));
+    expect(section).toContain("the user's checkouts");
+    expect(section).not.toContain("your own git worktree");
+  });
+
+  it("has the agent ask before delivering under full access, where no review asks", async () => {
+    mode.current = "full";
+    const section = await worktreeSection();
+    expect(section).toContain(gitGuidance(false));
+    expect(section).toContain("ask with the ask_user tool first");
+    mode.current = "manual";
+    expect(await worktreeSection()).toContain("review is that asking");
   });
 });

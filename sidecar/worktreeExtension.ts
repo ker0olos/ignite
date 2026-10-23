@@ -5,16 +5,24 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
+import { ASK_TOOL } from "../shared/questions.ts";
 import { basename } from "node:path";
+import { approvalMode } from "./approvalSettings.ts";
 import { folderOf, gitOr, groupCheckouts, inGroupCopy } from "./worktreeGit.ts";
 
-export const GIT_GUIDANCE = `## Using git
+const REVIEW_ASKS = `When instructions say to do these only if asked, the ${GIT_TOOL} tool's review is that asking: it waits for the user before anything runs, so make the call with \`pr\` and let them approve or decline it there.`;
+
+// Full access runs git calls without a review, so nothing would ask.
+const ASK_FIRST = `When instructions say to do these only if asked, ask with the ${ASK_TOOL} tool first (or say so in your reply when it's unavailable): your git calls run without a review. Once they agree, make the call with \`pr\`.`;
+
+/** How to use git and deliver work; `reviewed` when commits and pushes wait for the user's review. */
+export const gitGuidance = (reviewed: boolean) => `## Using git
 Run git and GitHub commands with the ${GIT_TOOL} and ${GH_TOOL} tools, one command per call; in a folder with several repositories, name the one you mean with -C <repo>.
 Deliver work as a pull request, one per repository you changed:
 1. Look first: \`status\`, \`branch --show-current\`, and \`log --oneline -5\` for the commit message style.
 2. Create a branch named for the change (e.g. fix/realtime-toast) and commit to it. Stage your own files by path; don't use -a or \`add .\` when the tree has changes that aren't yours.
 3. Commit with the ${GIT_TOOL} tool's \`pr\` (title and body) to commit, push and open the pull request in one call the user approves once. While that pull request is open, later changes to it are more commits pushed to the same branch (\`push: true\`). Once it's merged, the branch is done: start the next change on a new branch from the freshly fetched default branch, even if the repository is still on the old one.
-4. Stop there. Never leave committing, pushing or opening the pull request to the user, with a command or link for them to run or an offer in your reply. When instructions say to do these only if asked, the ${GIT_TOOL} tool's review is that asking: it waits for the user before anything runs, so make the call with \`pr\` and let them approve or decline it there. Don't merge the pull request, merge into or push the default branch, or pull the default branch into yours, unless the user asks.
+4. Stop there. Never leave committing, pushing or opening the pull request to the user, with a command or link for them to run or an offer in your reply. ${reviewed ? REVIEW_ASKS : ASK_FIRST} Don't merge the pull request, merge into or push the default branch, or pull the default branch into yours, unless the user asks.
 Never force push, rewrite pushed history, or delete branches. If a push is rejected, say why and stop.`;
 
 /** CLAUDE.md, memories and the user name the user's folder; the agent must read them as its own copy. */
@@ -68,6 +76,7 @@ async function where(cwd: string) {
 export default function worktreeGuidance(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event, ctx) => {
     // A section, not added text: claude-bridge passes Claude Code only the prompt's sections.
-    event.systemPromptOptions.sections.worktree = `${GIT_GUIDANCE}\n\n${await where(ctx.cwd)}`;
+    const reviewed = (await approvalMode()) !== "full";
+    event.systemPromptOptions.sections.worktree = `${gitGuidance(reviewed)}\n\n${await where(ctx.cwd)}`;
   });
 }

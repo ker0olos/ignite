@@ -165,9 +165,13 @@ describe("endsWithQuestion", () => {
     expect(
       endsWithQuestion([reply("Done. If you’d like, I can open the PR.")]),
     ).toBe(true);
-    expect(endsWithQuestion([reply("I'm happy to push it if you want.")])).toBe(
-      true,
-    );
+    for (const text of [
+      "I'm happy to push it if you want.",
+      "Done. Happy to open the PR if you want.",
+      "Just tell me which one.",
+      "Let me know whether to push.",
+    ])
+      expect(endsWithQuestion([reply(text)])).toBe(true);
     expect(
       endsWithQuestion([
         {
@@ -188,6 +192,10 @@ describe("endsWithQuestion", () => {
       "I'd say something is off with the cache, fixed in X.",
       "If you want to iterate, start from index i.",
       "If you want to reproduce it, I left the script in /tmp/repro.sh.",
+      "If you want to run it locally, I can't reach the staging DB from the sandbox.",
+      "If you want it faster, I couldn't find a way.",
+      "All tests pass. Let me know if anything else comes up.",
+      "Tell me if anything breaks.",
     ])
       expect(endsWithQuestion([reply(text)])).toBe(false);
     expect(
