@@ -495,7 +495,7 @@ src-tauri/               Rust shell: registers plugins, nothing else
 .github/workflows/binary.yml Builds and attests the binary per platform once per src-tauri/ tree,
                          as pre-release `bin-<tree hash>` (sidecar/appBinary.ts downloads it)
 .github/dependabot.yml   Daily PRs for new pi and pi-claude-bridge versions (new models arrive through them),
-                         and sandbox-runtime's
+                         and @anthropic-ai's (sandbox-runtime, claude-agent-sdk)
 ```
 
 Two places hold persisted data:
