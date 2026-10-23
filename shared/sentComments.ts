@@ -21,6 +21,14 @@ const HEADER = /^@(.+):\d+(?:-\d+)?(?: \(removed\))?$/;
 // `[^\n]`, not `.`: a CRLF file's lines keep their `\r`.
 const QUOTED = /^ *(\d+) (added {2}|removed| {7}) {2}([^\n]*)$/;
 const KIND = { "added  ": "add", removed: "del", "       ": "ctx" } as const;
+// pi appends these after the text when it resizes or converts an image; an
+// "[Image omitted: …]" among them stays, so the user sees the image was dropped.
+const IMAGE_NOTE =
+  /\[Image(?:: original \d+x\d+, displayed at \d+x\d+\. Multiply coordinates by [\d.]+ to map to original image\.| converted from \S+ to \S+\.)\]/
+    .source;
+const IMAGE_NOTES = new RegExp(
+  `(?:^|\\n\\n)(?:${IMAGE_NOTE}\\n)*${IMAGE_NOTE}$`,
+);
 
 /** `src/app.ts:42-45`: by the new file's numbers, or the old file's when every line was removed. */
 export function commentPlace(path: string, lines: CommentLine[]): string {
@@ -111,9 +119,11 @@ export function readComments(message: string): {
   return { text: message.slice(0, m!.index).trimEnd(), comments };
 }
 
-/** A message's own text (a skill still expanded), and the files and diff comments it carries. */
+/** A message's own text (a skill still expanded, pi's image notes left out), and the files and diff comments it carries. */
 export function readMessage(message: string) {
-  const { text: rest, comments } = readComments(message);
+  const { text: rest, comments } = readComments(
+    message.replace(IMAGE_NOTES, ""),
+  );
   const { text, files } = readFiles(rest);
   return { text, files, comments };
 }

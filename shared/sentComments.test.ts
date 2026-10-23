@@ -154,4 +154,29 @@ describe("typedMessage", () => {
     );
     expect(typedMessage("")).toBe("");
   });
+
+  it("leaves out the image notes pi appends, and still reads the comments before them", () => {
+    const notes =
+      "\n\n[Image converted from image/heic to image/png.]\n[Image: original 2314x1374, displayed at 2000x1188. Multiply coordinates by 1.16 to map to original image.]";
+    expect(typedMessage(`why no total?${notes}`)).toBe("why no total?");
+    expect(typedMessage(`${withComments("", [comment])}${notes}`)).toBe(
+      "1 comment on src/app.ts",
+    );
+    expect(
+      typedMessage(`${withFiles("", [{ path: "/d/a.pdf" }])}${notes}`),
+    ).toBe("a.pdf");
+    expect(typedMessage(notes)).toBe("");
+  });
+
+  it("keeps text the user typed that only looks like a note, and pi's omitted-image note", () => {
+    expect(typedMessage("steps\n\n[Image: see the mock]")).toBe(
+      "steps\n\n[Image: see the mock]",
+    );
+    expect(typedMessage("[Image of the login bug]")).toBe(
+      "[Image of the login bug]",
+    );
+    const omitted =
+      "look\n\n[Image omitted: could not be resized below the inline image size limit.]";
+    expect(typedMessage(omitted)).toBe(omitted);
+  });
 });
