@@ -2,10 +2,11 @@ import { useCallback, useEffect } from "react";
 import type { WorkspaceView } from "@/components/app/ViewSwitch";
 import type { useTabs } from "@/hooks/useTabs";
 import { childTabId, startingTerminalTab } from "@/lib/childTabs";
+import { modKey } from "@/lib/approvalKeys";
 import type { HostClient } from "@/lib/piHost";
 import { terminalInput } from "@/lib/runCommand";
 
-/** ⌘J or ⌘1 (or Ctrl, with or without Shift) opens a terminal tab in the shown conversation's worktree, starting at once; returns run-in-terminal. */
+/** ⌘J or ⌘T (Ctrl off macOS, with or without Shift) opens a terminal tab in the shown conversation's worktree, starting at once; returns run-in-terminal. */
 export function useTerminalShortcut(
   host: HostClient | null,
   folder: string,
@@ -57,9 +58,13 @@ export function useTerminalShortcut(
   useEffect(() => {
     if (!host || view !== "conversation") return;
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
-      // J by its letter, so any layout's J; 1 by its key, since Shift turns it into "!".
-      if (e.key.toLowerCase() !== "j" && e.code !== "Digit1") return;
+      if (!modKey(e) || e.altKey) return;
+      // By letter, so Dvorak's J and T; by key where letters aren't Latin.
+      const letter = e.key.toLowerCase();
+      const key = /^[a-z]$/.test(letter)
+        ? letter
+        : e.code.slice(3).toLowerCase();
+      if (key !== "j" && key !== "t") return;
       e.preventDefault();
       openTerminal();
     };

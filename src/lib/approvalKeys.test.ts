@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { approvalHints, approvalKey, isTyping, shortcut } from "./approvalKeys";
+import {
+  approvalHints,
+  approvalKey,
+  isTyping,
+  modKey,
+  shortcut,
+} from "./approvalKeys";
 
 const key = (key: string, mods: Partial<Record<string, boolean>> = {}) =>
   approvalKey({
@@ -30,6 +36,15 @@ describe("shortcut", () => {
   it("uses ⌘ on macOS and Ctrl+ elsewhere", () => {
     expect(shortcut("V", true)).toBe("⌘V");
     expect(shortcut("V", false)).toBe("Ctrl+V");
+  });
+});
+
+describe("modKey", () => {
+  it("is ⌘ on macOS and Ctrl elsewhere", () => {
+    const meta = new KeyboardEvent("keydown", { metaKey: true });
+    const ctrl = new KeyboardEvent("keydown", { ctrlKey: true });
+    expect([modKey(meta, true), modKey(ctrl, true)]).toEqual([true, false]);
+    expect([modKey(meta, false), modKey(ctrl, false)]).toEqual([false, true]);
   });
 });
 

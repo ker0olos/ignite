@@ -18,6 +18,11 @@ export function shortcut(key: string, mac = isMac()) {
   return `${mac ? "⌘" : "Ctrl+"}${key}`;
 }
 
+/** Whether the platform's ⌘ is held: only ⌘ on macOS, so Ctrl keys still reach a terminal's shell. */
+export function modKey(e: KeyboardEvent, mac = isMac()) {
+  return mac ? e.metaKey : e.ctrlKey;
+}
+
 /** The shortcut hints, with the platform's modifier. */
 export function approvalHints(mac = isMac()) {
   return { approve: shortcut("↩", mac), deny: shortcut("⌫", mac) };
