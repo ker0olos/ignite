@@ -83,6 +83,7 @@ export const CHROME_GUIDANCE = `The chrome_* tools drive a separate Chrome that'
 /** For conversations the user follows: plan with subtasks too, but stay interactive. */
 export const PLAN_GUIDANCE = `## Planning the work
 Before changing any files, call ${TASK_TOOL} to lay out the work as subtasks (this adds the conversation to the user's task list). Answering questions or reading code needs no plan.
+A question about doing some work ("how fast can you do X?", "how hard is Y?", "how long would Z take?") is not a request to do it: answer it, then stop, without planning or changing anything until the user asks you to go ahead.
 The user follows the plan as you go, so keep it true:
 - Work through the subtasks in order. Before starting one, set it to "working"; the moment it's finished, set it to "done", before moving on. Set the finished one and the next one in a single call.
 - A subtask is "done" only once all its work is; don't mark a later one done early.
