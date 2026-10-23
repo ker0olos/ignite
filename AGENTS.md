@@ -816,11 +816,13 @@ file, named after the text after `/fork` (its first message) or "Fork of …",
 and a hidden message tells the copy it's a fork. Its worktree starts as a
 snapshot of the original's files (its saved state when its worktree is gone),
 detached at its commit; ignored files come from the folder as usual. A
-conversation running, being routed or with messages queued can't be forked,
-and a fork that fails to start deletes its copy. The fork is listed under
+running conversation is copied up to the message its run answers, its files
+from that message's checkpoint, while the original carries on with the run;
+a fork that fails to start deletes its copy. The fork is listed under
 its original like a subagent (`forkOf`, kept in the sidebar's list), and
 while it's open the original takes no messages (`waitingOnFork`: its
-composer's controls are off and its working line says "Waiting for fork"). Closing the fork has the
+composer's controls are off, but Stop and the questions of a run it carries on
+with, and its working line says "Waiting for fork"). Closing the fork has the
 cheapest priced model of the original's provider (the router's) summarize
 what it did since its last report (`sidecar/forks.ts`), else its last reply
 is used; the report is sent to the original as a message, so it carries on.

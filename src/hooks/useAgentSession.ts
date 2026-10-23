@@ -127,6 +127,7 @@ export function useAgentSession(
   return {
     ...seen,
     error,
+    dismissError: useCallback(() => setError(null), []),
     /** Its first message is on its way, the conversation still starting; nothing else sends meanwhile. */
     starting: none && first.starting?.folder === folder,
     /** The first message being sent in any folder, for its sidebar row. */

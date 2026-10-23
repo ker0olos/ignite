@@ -113,9 +113,9 @@ export function Composer({
       }}
     >
       <MentionMenu {...mentions.menu} />
-      {/* While a fork is open, every control here is off (a disabled fieldset). */}
+      {/* While a fork is open, every control here is off (a disabled fieldset), but Stop and the questions of a run it carries on with. */}
       <fieldset
-        disabled={session.waitingOnFork}
+        disabled={session.waitingOnFork && !running && !asking}
         className={cn(FIELDSET, asking && QUESTION_CARD)}
       >
         <QueuedMessages
@@ -146,7 +146,7 @@ export function Composer({
           onKeyDown={onKeyDown}
           {...askingInput(asking)}
         />
-        {session.error && <ComposerError error={session.error} />}
+        <ComposerError session={session} />
         <ComposerBar
           host={host}
           session={session}

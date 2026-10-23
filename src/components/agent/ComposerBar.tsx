@@ -38,7 +38,7 @@ export function ComposerBar({
     <div className="flex h-6 items-center gap-3.5 px-0.5 whitespace-nowrap max-sm:h-10">
       <ComposerAddMenu
         onAttach={onAttach}
-        canFork={!session.none && !running}
+        canFork={!session.none}
         onFork={() => void session.fork()}
       />
       <ComposerToolbar

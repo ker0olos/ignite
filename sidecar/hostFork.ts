@@ -15,10 +15,6 @@ import { pushProjects, waitsOnFork } from "./hostProjects.ts";
 import { close, launch, open, prompt, start } from "./hostSession.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
 
-// Mid-run, the copy would end on tool calls that never get results.
-const busy = (agent: Agent) =>
-  agent.running || !!agent.routing || !!agent.session?.pendingMessageCount;
-
 const forkName = (task?: string, title?: string) =>
   task
     ? titleOf({ role: "user", content: task, timestamp: 0 })
@@ -35,17 +31,17 @@ export async function fork(
   task?: string,
 ): Promise<OpenedSession> {
   const agent = ctx.agents.get(from);
-  if (agent && busy(agent))
-    throw new Error(
-      "Wait for this conversation's run to end, or stop it, before forking it.",
-    );
   const to = ctx.sessions.create();
   const title = forkName(task, agent?.title);
-  forkSession(folder, from, to, title);
+  const entry = forkSession(folder, from, to, title, agent?.running);
   start(ctx, folder, to, {
     title,
     forkOf: from,
-    files: () => ctx.workspaces.fork(folder, from, to),
+    files: async () => {
+      // The message's checkpoint may still be being kept.
+      await agent?.checkpoint;
+      await ctx.workspaces.fork(folder, from, to, entry);
+    },
   });
   let opened: OpenedSession;
   try {
@@ -56,10 +52,13 @@ export async function fork(
   }
   // Closed while its files were copied: the original isn't waiting on it.
   if (!ctx.agents.has(to)) throw new Error("The fork was closed as it opened.");
+  const upTo = agent?.running
+    ? "up to the message you were working on, and a copy of your files"
+    : "up to now and a copy of your files";
   noteFor(
     from,
     `The user forked this conversation into a new one (${to})${task ? ` to work on: ${task}` : ""}. ` +
-      "It has your context up to now and a copy of your files, and works separately; you wait until the user closes it, then its report comes to you.",
+      `It has your context ${upTo}, and works separately; you wait until the user closes it, then its report comes to you.`,
   );
   return opened;
 }

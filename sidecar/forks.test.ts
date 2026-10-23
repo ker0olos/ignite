@@ -81,6 +81,49 @@ describe("forks", () => {
     expect(unreported({ sessionManager: fork })).toBeNull();
   });
 
+  it("copies a running conversation up to the message its run answers", () => {
+    const first = sessionFor(cwd, cwd, "first");
+    say(first, "plan it", "planned");
+    first.appendMessage({ role: "user", content: "build it", timestamp: 2 });
+    first.appendMessage({ ...reply(""), stopReason: "toolUse" });
+    first.appendMessage({
+      role: "toolResult",
+      toolCallId: "t1",
+      toolName: "bash",
+      content: [],
+      isError: false,
+      timestamp: 3,
+    });
+    const entry = forkSession(cwd, "first", "copy", "bench", true);
+    const fork = sessionFor(cwd, cwd, "copy");
+    const branch = fork.getBranch();
+    expect(branch.find((e) => e.id === entry)).toMatchObject({
+      message: { content: "build it" },
+    });
+    const messages = fork.buildSessionContext().messages;
+    expect(messages.map((m) => m.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+      "custom",
+    ]);
+    expect(JSON.stringify(messages.at(-1))).toContain("still working");
+  });
+
+  it("takes the checkpoint of a run's message past the hidden ones after it, and none once it's answered", () => {
+    const first = sessionFor(cwd, cwd, "first");
+    first.appendMessage({ role: "user", content: "build it", timestamp: 1 });
+    const user = first.getLeafId();
+    first.appendCustomMessageEntry("terminal", "output", false);
+    expect(forkSession(cwd, "first", "a", "a", true)).toBe(user);
+    first.appendMessage(reply("built"));
+    expect(forkSession(cwd, "first", "b", "b", true)).toBeUndefined();
+    const note = sessionFor(cwd, cwd, "b")
+      .buildSessionContext()
+      .messages.at(-1);
+    expect(JSON.stringify(note)).not.toContain("still working");
+  });
+
   it("refuses to fork a conversation with nothing saved", () => {
     expect(() => forkSession(cwd, "missing", "copy", "x")).toThrow(
       "nothing to fork",

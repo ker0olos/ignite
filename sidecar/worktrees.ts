@@ -108,12 +108,12 @@ export function createWorkspaces(root = WORKTREES) {
       return { dir };
     },
 
-    /** Starts conversation `to`'s worktree(s) as a copy of `from`'s files (open or saved), detached at its commit. */
-    async fork(folder: string, from: string, to: string) {
+    /** Starts conversation `to`'s worktree(s) as a copy of `from`'s files (before message `entry`, open or saved), detached at its commit. */
+    async fork(folder: string, from: string, to: string, entry?: string) {
       const found = await repoFor(folder);
       if (found) {
         const path = worktreePath(found.repo, from, root);
-        await forkCheckout(found.repo, path, from, to);
+        await forkCheckout(found.repo, path, from, to, entry);
       } else
         await forkGroup(folder, worktreePath(folder, from, root), from, to);
     },
