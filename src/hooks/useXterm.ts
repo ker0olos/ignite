@@ -44,7 +44,7 @@ export function useXterm(
       fontSize: 13,
       lineHeight: 1.4,
       scrollback: 5000,
-      allowTransparency: true,
+      allowTransparency: false,
       allowProposedApi: true,
       // VS Code's default: lifts dim ANSI colors off the background
       minimumContrastRatio: 4.5,

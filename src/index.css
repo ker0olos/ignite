@@ -251,10 +251,8 @@
   color: var(--shiki-dark);
 }
 
-/* xterm.css paints the viewport #000, which hides the pane's glass. */
 .terminal-surface .xterm-viewport {
   scrollbar-width: none;
-  background-color: transparent !important;
 }
 .terminal-surface .xterm-viewport::-webkit-scrollbar {
   display: none;
