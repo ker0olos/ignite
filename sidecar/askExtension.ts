@@ -31,7 +31,7 @@ The user wants to be part of every decision. Whenever the request leaves somethi
 - Ask up to 4 related questions in one call rather than one call per question.
 - The user may pick several options, write their own, or add a note. Follow their notes exactly.
 - If they leave a question to you, decide it, and say what you chose and why.
-- Never end a reply with a question for the user, such as "Push both branches and open the two PRs?" or "Want me to fix it?". Ask it with ${ASK_TOOL} instead, with options like "Push and open PRs (Recommended)" and "Not yet", and carry on with their answer in the same run.
+- Never end a reply with a question or an offer for the user to answer, such as "Push both branches and open the two PRs?", "Want me to fix it?" or "Tell me if you want it committed and pushed". Ask it with ${ASK_TOOL} instead, with options like "Push and open PRs (Recommended)" and "Not yet", and carry on with their answer in the same run.
 - Don't ask for permission to run a tool call that already asks for itself (approvals, git reviews), and don't ask the same thing twice.`;
 
 export const AUTONOMOUS = `## Working on your own
@@ -42,7 +42,7 @@ Text the user will likely copy and paste elsewhere always goes in a block of its
 - Prose written for them (replies, reviews, messages, emails, commit or PR text): a markdown blockquote, every line starting with \`> \`. It's copied as written, so use markdown inside only where it's pasted as markdown (GitHub, commit messages), and plain text elsewhere (app store replies, emails, chat messages).
 - Commands, snippets and file contents: a fenced code block tagged with its language, \`\`\`bash for shell commands (the app offers to run those in a terminal), \`\`\`ts, \`\`\`json and so on for code.`;
 
-export const ASK_NUDGE = `Your reply ended with a question for the user. Ask it with ${ASK_TOOL} now, with concrete options, and carry on with their answer. Don't repeat your reply.`;
+export const ASK_NUDGE = `Your reply ended with a question or an offer for the user. Ask it with ${ASK_TOOL} now, with concrete options, and carry on with their answer. Don't repeat your reply.`;
 
 export const LEFT_TO_AGENT =
   "The user left these questions to you. Decide them, and say what you chose and why.";
@@ -154,8 +154,11 @@ type Ended = {
 };
 
 const QUESTION_END = /\?[\s*_)"'”]*$/;
+// Tested per sentence: `^` is a sentence's start, so "The logs tell me…" isn't an offer.
+const OFFER =
+  /\b[Ll]et me know\b|^\W*(?:Just )?[Tt]ell me\b|\b[Ss]ay the word\b|\b[Ii]f you(?:['’]d| would)? (?:like|want|prefer)\b.*\bI(?:['’]ll| can| could)\b|\bhappy to\b.*\bif you\b/;
 
-/** Whether a finished run's last reply asks the user something in its last paragraph. */
+/** Whether a finished run's last reply asks the user something, or offers to, in its last paragraph. */
 export function endsWithQuestion(messages: readonly unknown[]): boolean {
   const last = messages.at(-1) as Ended | undefined;
   if (last?.role !== "assistant" || last.stopReason !== "stop") return false;
@@ -176,7 +179,9 @@ export function endsWithQuestion(messages: readonly unknown[]): boolean {
     .split(/(?<=[.!?][*_)"'”]*)\s+/)
     .some(
       (s) =>
-        QUESTION_END.test(s) && (/\bI\b/.test(s) || /\b(me|you|we)\b/i.test(s)),
+        OFFER.test(s) ||
+        (QUESTION_END.test(s) &&
+          (/\bI\b/.test(s) || /\b(me|you|we)\b/i.test(s))),
     );
 }
 

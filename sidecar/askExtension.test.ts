@@ -151,6 +151,25 @@ describe("endsWithQuestion", () => {
     );
     expect(
       endsWithQuestion([
+        reply(
+          "Nothing is committed in `motr-server`. Tell me if you want it committed and pushed, or opened as a PR.",
+        ),
+      ]),
+    ).toBe(true);
+    expect(
+      endsWithQuestion([reply("Done. Let me know if you'd like the PR.")]),
+    ).toBe(true);
+    expect(endsWithQuestion([reply("If you want, I can push it too.")])).toBe(
+      true,
+    );
+    expect(
+      endsWithQuestion([reply("Done. If you’d like, I can open the PR.")]),
+    ).toBe(true);
+    expect(endsWithQuestion([reply("I'm happy to push it if you want.")])).toBe(
+      true,
+    );
+    expect(
+      endsWithQuestion([
         {
           role: "assistant",
           stopReason: "stop",
@@ -164,6 +183,13 @@ describe("endsWithQuestion", () => {
   });
 
   it("is false otherwise", () => {
+    for (const text of [
+      "The logs tell me the race is in flush().",
+      "I'd say something is off with the cache, fixed in X.",
+      "If you want to iterate, start from index i.",
+      "If you want to reproduce it, I left the script in /tmp/repro.sh.",
+    ])
+      expect(endsWithQuestion([reply(text)])).toBe(false);
     expect(
       endsWithQuestion([reply("If you want, use `a ?? b` here instead.")]),
     ).toBe(false);

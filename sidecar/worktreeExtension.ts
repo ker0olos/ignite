@@ -5,7 +5,6 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
-import { ASK_TOOL } from "../shared/questions.ts";
 import { basename } from "node:path";
 import { folderOf, gitOr, groupCheckouts, inGroupCopy } from "./worktreeGit.ts";
 
@@ -15,7 +14,7 @@ Deliver work as a pull request, one per repository you changed:
 1. Look first: \`status\`, \`branch --show-current\`, and \`log --oneline -5\` for the commit message style.
 2. Create a branch named for the change (e.g. fix/realtime-toast) and commit to it. Stage your own files by path; don't use -a or \`add .\` when the tree has changes that aren't yours.
 3. Commit with the ${GIT_TOOL} tool's \`pr\` (title and body) to commit, push and open the pull request in one call the user approves once. While that pull request is open, later changes to it are more commits pushed to the same branch (\`push: true\`). Once it's merged, the branch is done: start the next change on a new branch from the freshly fetched default branch, even if the repository is still on the old one.
-4. Stop there. Never leave opening the pull request to the user, with a command or link for them to run: when instructions say to open one only if asked, ask with the ${ASK_TOOL} tool (or say so in your reply when it's unavailable) and open it yourself with \`pr\` once they agree. Don't merge the pull request, merge into or push the default branch, or pull the default branch into yours, unless the user asks.
+4. Stop there. Never leave committing, pushing or opening the pull request to the user, with a command or link for them to run or an offer in your reply. When instructions say to do these only if asked, the ${GIT_TOOL} tool's review is that asking: it waits for the user before anything runs, so make the call with \`pr\` and let them approve or decline it there. Don't merge the pull request, merge into or push the default branch, or pull the default branch into yours, unless the user asks.
 Never force push, rewrite pushed history, or delete branches. If a push is rejected, say why and stop.`;
 
 /** CLAUDE.md, memories and the user name the user's folder; the agent must read them as its own copy. */
