@@ -92,6 +92,7 @@ export function FolderConversations({
           <ConversationForks
             agent={agent}
             shown={shown}
+            shortcuts={shortcuts}
             onShow={(fork) => void conversations.show(cwd, fork)}
             // Closing the shown fork shows its original.
             onClose={(fork) =>

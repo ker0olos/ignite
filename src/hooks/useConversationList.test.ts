@@ -27,10 +27,11 @@ async function setup(saved: Record<string, unknown> = {}, remember = true) {
       return () => void listeners.delete(cb);
     },
   } as unknown as HostClient;
-  const push = (agents: AgentStatus[]) =>
-    act(() => listeners.forEach((cb) => cb({ type: "agents", agents })));
+  const send = (message: HostMessage) =>
+    act(() => listeners.forEach((cb) => cb(message)));
+  const push = (agents: AgentStatus[]) => send({ type: "agents", agents });
   const hook = renderHook(() => useConversationList(host, null, remember));
-  return { ...hook, push, store };
+  return { ...hook, push, send, store };
 }
 
 describe("useConversationList", () => {
@@ -105,6 +106,13 @@ describe("useConversationList", () => {
     push([agent("2")]);
     push([agent("2"), agent("1")]);
     expect(result.current.rows("/a").map((r) => r.session)).toEqual(["2", "1"]);
+  });
+
+  it("drops a fork that failed to start", async () => {
+    const { result, push, send } = await setup();
+    push([agent("1"), agent("2")]);
+    send({ type: "conversation_dropped", cwd: "/a", session: "2" });
+    expect(result.current.rows("/a").map((r) => r.session)).toEqual(["1"]);
   });
 
   it("remembers nothing when told not to", async () => {

@@ -6,10 +6,13 @@ import type { TaggedAgentStatus } from "@/lib/conversations";
 export function ConversationForks({
   agent,
   shown,
+  shortcuts,
   onShow,
   onClose,
 }: {
   agent: TaggedAgentStatus;
+  /** Each numbered row's ⌘ digit, by conversation. */
+  shortcuts: Map<string, number>;
   /** The shown conversation, when this folder is the shown one. */
   shown: string | null;
   onShow: (session: string) => void;
@@ -25,6 +28,7 @@ export function ConversationForks({
       onOpen={() => onShow(fork.session)}
       onClear={() => onClose(fork.session)}
       clearLabel={`Close ${fork.title || "fork"} and send its report back`}
+      shortcut={shortcuts.get(fork.session)}
     />
   ));
 }

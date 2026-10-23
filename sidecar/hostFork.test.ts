@@ -7,9 +7,22 @@ import type { HostContext } from "./hostTypes.ts";
 
 const forkSession = vi.fn();
 const dropFork = vi.fn();
-const open = vi.fn(async (_ctx: unknown, _cwd: string, id: string) => ({
-  session: id,
-}));
+let files = Promise.resolve();
+const start = vi.fn(
+  (
+    ctx: HostContext,
+    _cwd: string,
+    id: string,
+    forking: { forkOf: string; files: () => Promise<void> },
+  ) => {
+    ctx.agents.set(id, { id, forkOf: forking.forkOf } as never);
+    files = forking.files();
+  },
+);
+const open = vi.fn(async (_ctx: unknown, _cwd: string, id: string) => {
+  await files;
+  return { session: id };
+});
 const prompt = vi.fn(async () => {});
 const close = vi.fn(async (ctx: HostContext, _cwd: string, id?: string) => {
   ctx.agents.delete(id!);
@@ -26,7 +39,7 @@ const summarize = vi.fn(async () => "2x faster");
 const launch = vi.fn<
   (ctx: HostContext, cwd: string, id: string) => Promise<void>
 >(async () => {});
-vi.mock("./hostSession.ts", () => ({ open, close, prompt, launch }));
+vi.mock("./hostSession.ts", () => ({ open, close, prompt, launch, start }));
 vi.mock("./hostProjects.ts", async (real) => ({
   ...(await real<typeof import("./hostProjects.ts")>()),
   pushProjects: vi.fn(),
@@ -41,11 +54,16 @@ const host = () =>
     sessions: { create: () => "copy" },
     workspaces: { fork: vi.fn(async () => {}) },
     agents: new Map([["first", { title: "Plan it", running: false }]]),
+    shown: "first",
+    lastShown: new Map([["/work", "first"]]),
+    send: vi.fn(),
   }) as unknown as HostContext;
 
 beforeEach(() => {
   process.env.PI_CODING_AGENT_DIR = mkdtempSync(join(tmpdir(), "host-fork-"));
   forkSession.mockClear();
+  dropFork.mockClear();
+  files = Promise.resolve();
 });
 
 afterEach(() => {
@@ -66,6 +84,12 @@ describe("fork", () => {
       "run the benchmarks",
     );
     expect(ctx.workspaces.fork).toHaveBeenCalledWith("/work", "first", "copy");
+    expect(start).toHaveBeenCalledWith(
+      ctx,
+      "/work",
+      "copy",
+      expect.objectContaining({ title: "run the benchmarks", forkOf: "first" }),
+    );
     expect(takeNotes("first")[0]).toContain(
       "forked this conversation into a new one (copy) to work on: run the benchmarks",
     );
@@ -92,9 +116,33 @@ describe("fork", () => {
   it("deletes the copy and tells the original nothing when the fork can't start", async () => {
     const ctx = host();
     vi.mocked(ctx.workspaces.fork).mockRejectedValueOnce(new Error("locked"));
+    vi.mocked(open).mockImplementationOnce(async () => {
+      ctx.shown = "copy";
+      ctx.lastShown.set("/work", "copy");
+      await files;
+      return { session: "copy" };
+    });
     await expect(fork(ctx, "/work", "first")).rejects.toThrow("locked");
     expect(dropFork).toHaveBeenCalledWith("/work", "copy");
     expect(takeNotes("first")).toEqual([]);
+    expect(ctx.send).toHaveBeenCalledWith({
+      type: "conversation_dropped",
+      cwd: "/work",
+      session: "copy",
+    });
+    expect(ctx.shown).toBe("first");
+    expect(ctx.lastShown.get("/work")).toBe("first");
+  });
+
+  it("tells the original nothing when the fork is closed while it opens", async () => {
+    const ctx = host();
+    vi.mocked(open).mockImplementationOnce(async () => {
+      ctx.agents.delete("copy");
+      return { session: "copy" };
+    });
+    await expect(fork(ctx, "/work", "first")).rejects.toThrow("closed");
+    expect(takeNotes("first")).toEqual([]);
+    expect(dropFork).not.toHaveBeenCalledWith("/work", "copy");
   });
 });
 

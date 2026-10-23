@@ -104,7 +104,10 @@ export function FolderList({
         cwd === folder ? shown : null,
         conversationLimit.enabled && !expanded[cwd],
         conversationLimit.max,
-      ).map((r) => ({ cwd, session: r.session })),
+      )
+        // A fork is numbered after its original, as it shows under it.
+        .flatMap((r) => [r, ...(r.forks ?? [])])
+        .map((r) => ({ cwd, session: r.session })),
     ),
     (cwd, session) => void conversations.show(cwd, session),
   );

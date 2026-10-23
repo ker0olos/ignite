@@ -1,4 +1,5 @@
 import { LoaderCircle, Square, X, type LucideIcon } from "lucide-react";
+import { ChildRowEnd } from "@/components/sidebar/ChildRowEnd";
 import { cn } from "@/lib/utils";
 
 /** One subagent or background command under its conversation in the sidebar; opens its tab. */
@@ -12,6 +13,7 @@ export function ChildRow({
   onStop,
   onClear,
   clearLabel = `Clear ${name}`,
+  shortcut,
 }: {
   icon: LucideIcon;
   name: string;
@@ -24,6 +26,8 @@ export function ChildRow({
   /** Offered once it's finished: takes it off the sidebar. */
   onClear: () => void;
   clearLabel?: string;
+  /** Its ⌘ digit, for a fork. */
+  shortcut?: number;
 }) {
   const action = running
     ? onStop && { label: `Stop ${name}`, icon: Square, run: onStop }
@@ -59,19 +63,7 @@ export function ChildRow({
           </span>
         )}
       </button>
-      {action && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            action.run();
-          }}
-          aria-label={action.label}
-          title={action.label}
-          className="mr-1 shrink-0 rounded-md p-1 opacity-0 hover:bg-foreground/10 focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
-        >
-          <action.icon className="size-3 text-muted-foreground" />
-        </button>
-      )}
+      <ChildRowEnd action={action} shortcut={shortcut} />
     </div>
   );
 }

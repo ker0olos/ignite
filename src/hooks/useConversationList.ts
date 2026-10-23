@@ -62,6 +62,8 @@ export function useConversationList(
   useEffect(() => {
     if (!host) return;
     return host.subscribe((message) => {
+      if (message.type === "conversation_dropped")
+        return setListed((l) => without(l, message.cwd, message.session));
       if (message.type !== "agents") return;
       const running = new Set(message.agents.map((a) => a.session));
       for (const id of closing.current) {
