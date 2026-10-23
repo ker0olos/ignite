@@ -24,6 +24,7 @@ export function ConversationForks({
       icon={GitFork}
       name={fork.title || "Fork"}
       running={fork.running}
+      waiting={fork.waiting}
       selected={fork.session === shown}
       onOpen={() => onShow(fork.session)}
       onClear={() => onClose(fork.session)}

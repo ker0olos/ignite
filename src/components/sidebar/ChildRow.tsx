@@ -1,4 +1,10 @@
-import { LoaderCircle, Square, X, type LucideIcon } from "lucide-react";
+import {
+  CircleAlert,
+  LoaderCircle,
+  Square,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { ChildRowEnd } from "@/components/sidebar/ChildRowEnd";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +14,7 @@ export function ChildRow({
   name,
   detail,
   running,
+  waiting,
   selected,
   onOpen,
   onStop,
@@ -19,6 +26,8 @@ export function ChildRow({
   name: string;
   detail?: string;
   running: boolean;
+  /** Waits on the user (a fork's approval or question). */
+  waiting?: boolean;
   selected: boolean;
   onOpen: () => void;
   /** Offered while it runs, when it can be stopped from here. */
@@ -46,7 +55,12 @@ export function ChildRow({
         aria-current={selected || undefined}
         className="flex h-full min-w-0 flex-1 items-center gap-2 px-2 text-[13px]"
       >
-        {running ? (
+        {waiting ? (
+          <CircleAlert
+            aria-label="Waiting for you"
+            className="size-3.5 shrink-0 text-warning"
+          />
+        ) : running ? (
           <LoaderCircle
             aria-label="Running"
             className="size-3.5 shrink-0 animate-spin text-warning"

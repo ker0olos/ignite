@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import type { Conversations } from "@/hooks/useConversations";
@@ -163,6 +164,22 @@ it("numbers a fork right after its original, ⌘ showing it", () => {
   expect(conversations.show).toHaveBeenCalledWith("/proj", "f");
   press("Digit4");
   expect(conversations.show).toHaveBeenCalledWith("/proj", "b");
+});
+
+it("marks a fork waiting on the user instead of spinning", () => {
+  const fork = { ...row("/proj", "f", "Fork"), running: true };
+  setup("a", [], undefined, {
+    ...ROWS,
+    "/proj": [
+      {
+        ...row("/proj", "a", "Fix bug"),
+        forks: [{ ...fork, waiting: true }],
+      },
+    ],
+  });
+  const forkRow = screen.getByText("Fork").closest("button")!;
+  within(forkRow).getByLabelText("Waiting for you");
+  expect(within(forkRow).queryByLabelText("Running")).toBeNull();
 });
 
 it("opens a new conversation in a folder when it's clicked", () => {
