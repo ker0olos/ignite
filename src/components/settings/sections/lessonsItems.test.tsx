@@ -26,7 +26,7 @@ describe("lessonsItems", () => {
     expect(lessonsItems({ lessons: lessons({}) })).toEqual([]);
   });
 
-  it("lists each lesson with where it applies and how often it came up", () => {
+  it("lists each lesson, newest first, with where it applies and how often it came up", () => {
     const items = lessonsItems({
       lessons: lessons({
         lessons: [
@@ -60,18 +60,18 @@ describe("lessonsItems", () => {
       }),
     });
     expect(items.map((i) => i.title)).toEqual([
-      "Run tests",
-      "No force-push",
-      "Pull first",
       "No -f either",
+      "Pull first",
+      "No force-push",
+      "Run tests",
     ]);
-    expect(items[1].keywords).toContain("tempo git --force");
+    expect(items[2].keywords).toContain("tempo git --force");
     const { container } = render(<>{items.map((i) => i.hint)}</>);
     expect(container.textContent).toBe(
-      "Every folderEvery conversation" +
-        "tempoBlocksgitwith“--force”came up 2×" +
+      "Every folderBlocksgitmatching/push.*-f/" +
         "Every folderBeforegit" +
-        "Every folderBlocksgitmatching/push.*-f/",
+        "tempoBlocksgitwith“--force”came up 2×" +
+        "Every folderEvery conversation",
     );
   });
 

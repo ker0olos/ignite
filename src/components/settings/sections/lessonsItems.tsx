@@ -29,7 +29,8 @@ export function lessonsItems({
       },
     ];
   }
-  return (lessons.lessons ?? []).map((l) => ({
+  // Saved in the order they were added, so newest last.
+  return (lessons.lessons ?? []).toReversed().map((l) => ({
     section: "Lessons",
     title: l.text,
     hint: <LessonTags lesson={l} hits={l.hits} />,

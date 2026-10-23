@@ -64,6 +64,24 @@ describe("reflectorItems", () => {
     ).toMatchObject({ title: "Nothing learned yet" });
   });
 
+  it("lists the newest point first", () => {
+    const items = reflectorItems({
+      reflector: hook({
+        reflections: [
+          point({ id: "old", at: 1 }),
+          point({ id: "new", at: 3 }),
+          point({ id: "mid", at: 2 }),
+        ],
+      }) as never,
+      onOpenConversation: vi.fn(),
+    });
+    expect(items.map((i) => i.id)).toEqual([
+      "reflection-new",
+      "reflection-mid",
+      "reflection-old",
+    ]);
+  });
+
   it("shows where the point goes and where it came from", () => {
     const open = vi.fn();
     const from = { conversation: "c1", folder: "/f", title: "Sentry triage" };

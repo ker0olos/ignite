@@ -34,34 +34,36 @@ export function reflectorItems({
       },
     ];
   }
-  return (reflector.reflections ?? []).map((r) => ({
-    section: "Reflector",
-    title: r.text,
-    titleView: (
-      <ReflectionText
-        key={r.text}
-        text={r.text}
-        onSave={(t) => void reflector.edit(r.id, t)}
-      />
-    ),
-    hint: <ReflectionTags reflection={r} />,
-    id: `reflection-${r.id}`,
-    alignTop: true,
-    keywords: `reflector working style feedback preferences how to work ${ENTRY_POINTS[r.entry].label}`,
-    control: (
-      <span className="flex items-start gap-5">
-        <ReflectionSource
-          reflection={r}
-          onOpenConversation={onOpenConversation}
+  return (reflector.reflections ?? [])
+    .toSorted((a, b) => b.at - a.at)
+    .map((r) => ({
+      section: "Reflector",
+      title: r.text,
+      titleView: (
+        <ReflectionText
+          key={r.text}
+          text={r.text}
+          onSave={(t) => void reflector.edit(r.id, t)}
         />
-        <RemoveButton
-          name="this point"
-          onConfirm={() => void reflector.remove(r.id)}
-          description="The agent no longer reads it, so it may work the old way again."
-          variant="outline"
-          icon={<X />}
-        />
-      </span>
-    ),
-  }));
+      ),
+      hint: <ReflectionTags reflection={r} />,
+      id: `reflection-${r.id}`,
+      alignTop: true,
+      keywords: `reflector working style feedback preferences how to work ${ENTRY_POINTS[r.entry].label}`,
+      control: (
+        <span className="flex items-start gap-5">
+          <ReflectionSource
+            reflection={r}
+            onOpenConversation={onOpenConversation}
+          />
+          <RemoveButton
+            name="this point"
+            onConfirm={() => void reflector.remove(r.id)}
+            description="The agent no longer reads it, so it may work the old way again."
+            variant="outline"
+            icon={<X />}
+          />
+        </span>
+      ),
+    }));
 }
