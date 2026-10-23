@@ -12,6 +12,7 @@ import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
 import type { Dock } from "@/lib/tabs";
 import type { TerminalLabel } from "@/lib/childTabs";
+import { cn } from "@/lib/utils";
 
 /** A dock's open file, diff, subagent and background tabs, and the active one's view. */
 export function EditorPane({
@@ -43,7 +44,12 @@ export function EditorPane({
   return (
     <div
       data-tab-dock={dock}
-      className="flex h-full min-w-0 flex-col glass:bg-background"
+      className={cn(
+        "flex h-full min-w-0 flex-col",
+        childTab && childTab.kind !== "agent"
+          ? "glass:bg-sidebar/40"
+          : "glass:bg-background",
+      )}
     >
       <FileTabs
         files={tabs[dock].files}

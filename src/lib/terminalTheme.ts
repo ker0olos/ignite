@@ -88,9 +88,12 @@ function canvasColor(color: string): string {
 export function terminalTheme(): ITheme {
   const root = document.documentElement;
   const style = getComputedStyle(root);
-  return themeFromTokens(
+  const theme = themeFromTokens(
     (t) => style.getPropertyValue(t).trim(),
     canvasColor,
     root.classList.contains("dark") ? "dark" : "light",
   );
+  // Clear so the pane (glass) shows through; its rgb still sets minimumContrastRatio.
+  theme.background = theme.background?.replace(/rgb\((.*)\)/, "rgba($1, 0)");
+  return theme;
 }
