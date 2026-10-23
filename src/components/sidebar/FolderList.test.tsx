@@ -6,8 +6,8 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import type { AgentStatus } from "../../../shared/hostProtocol";
 import type { Conversations } from "@/hooks/useConversations";
+import type { TaggedAgentStatus } from "@/lib/conversations";
 import { childTabId } from "@/lib/childTabs";
 import { confirmCloseConversation } from "@/lib/lifecycle";
 import { FolderList } from "./FolderList";
@@ -23,7 +23,7 @@ const row = (cwd: string, session: string, title: string, running = false) => ({
   running,
   waiting: false,
 });
-const ROWS: Record<string, AgentStatus[]> = {
+const ROWS: Record<string, TaggedAgentStatus[]> = {
   "/proj": [row("/proj", "a", "Fix bug"), row("/proj", "b", "", true)],
   "/other": [
     {
@@ -146,6 +146,23 @@ it("closes a conversation once asked, passing the others in its folder", async (
   await waitFor(() =>
     expect(conversations.close).toHaveBeenCalledWith("/proj", "a", ["a", "b"]),
   );
+});
+
+it("numbers a fork right after its original, ⌘ showing it", () => {
+  const { conversations } = setup("a", [], undefined, {
+    ...ROWS,
+    "/proj": [
+      { ...row("/proj", "a", "Fix bug"), forks: [row("/proj", "f", "Fork")] },
+      row("/proj", "b", ""),
+    ],
+  });
+  // "/other"'s one conversation is ⌘1.
+  const press = (code: string) =>
+    fireEvent.keyDown(window, { code, metaKey: true, ctrlKey: true });
+  press("Digit3");
+  expect(conversations.show).toHaveBeenCalledWith("/proj", "f");
+  press("Digit4");
+  expect(conversations.show).toHaveBeenCalledWith("/proj", "b");
 });
 
 it("opens a new conversation in a folder when it's clicked", () => {

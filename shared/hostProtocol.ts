@@ -328,6 +328,8 @@ export type HostMessage =
   | { type: "approval_request"; session: string; request: ApprovalRequest }
   /** A conversation opened, closed, started or finished a run, or began or stopped waiting. */
   | { type: "agents"; agents: AgentStatus[] }
+  /** A fork that failed to start: off its folder's list. */
+  | { type: "conversation_dropped"; cwd: string; session: string }
   /** A folder's tasks changed: saved by a window, or updated by an agent. */
   | { type: "tasks"; cwd: string; tasks: Task[] }
   /** Check for updates found one and is building it, to run on the next start. */

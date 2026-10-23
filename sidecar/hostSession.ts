@@ -136,12 +136,22 @@ export async function launch(ctx: HostContext, cwd: string, id: string) {
   await (ctx.agents.get(id) ?? start(ctx, cwd, id)).opening;
 }
 
-function start(ctx: HostContext, cwd: string, id: string): Agent {
+/** A fork as it starts: listed under its original at once, its files copied before its worktree opens. */
+type Forking = { title: string; forkOf: string; files: () => Promise<void> };
+
+/** Starts conversation `id`'s session in the background; the app hears of it at once. */
+export function start(
+  ctx: HostContext,
+  cwd: string,
+  id: string,
+  forking?: Forking,
+): Agent {
   const agent = {
     id,
     cwd,
     workdir: cwd,
-    title: "",
+    title: forking?.title ?? "",
+    ...(forking && { forkOf: forking.forkOf }),
     session: null,
     running: false,
     unsubscribe: () => {},
@@ -167,8 +177,11 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
     live() ? askApproval(ctx, agent, ask) : ask.answer(false);
   ctx.agents.set(id, agent);
   pushProjects(ctx);
-  agent.opening = inWorkspace(ctx, agent, (workdir) =>
-    ctx.openSession(cwd, workdir, id, onMcpStatus, onApproval),
+  agent.opening = inWorkspace(
+    ctx,
+    agent,
+    (workdir) => ctx.openSession(cwd, workdir, id, onMcpStatus, onApproval),
+    forking?.files,
   )
     .then((s) => {
       agent.session = s;
@@ -181,7 +194,10 @@ function start(ctx: HostContext, cwd: string, id: string): Agent {
       return s;
     })
     .catch((error: unknown) => {
-      if (live()) ctx.agents.delete(id);
+      if (live()) {
+        ctx.agents.delete(id);
+        pushProjects(ctx);
+      }
       throw error;
     });
   return agent;
@@ -192,8 +208,9 @@ async function inWorkspace(
   ctx: HostContext,
   agent: Agent,
   open: (workdir: string) => Promise<Session>,
+  files = async () => {},
 ) {
-  const making = ctx.workspaces.open(agent.cwd, agent.id);
+  const making = files().then(() => ctx.workspaces.open(agent.cwd, agent.id));
   agent.placed = making.then(
     (ws) => void (agent.workdir = ws.dir),
     () => {},

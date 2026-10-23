@@ -3,7 +3,7 @@ import { AgentStatusIcon } from "@/components/app/AgentStatusIcon";
 import { ConversationTagMenu } from "@/components/sidebar/ConversationTagMenu";
 import { TagChip } from "@/components/sidebar/TagChip";
 import { conversationTitle, type TaggedAgentStatus } from "@/lib/conversations";
-import { shortcut as shortcutLabel } from "@/lib/approvalKeys";
+import { RowShortcut } from "@/components/sidebar/RowShortcut";
 import { cn } from "@/lib/utils";
 
 const ROW_TAGS = 2;
@@ -74,11 +74,7 @@ export function ConversationRow({
         )}
       </button>
       <div className="relative mr-1 flex shrink-0 items-center gap-0.5">
-        {shortcut !== undefined && (
-          <span className="pointer-events-none absolute inset-y-0 right-1 flex items-center text-[13px] text-muted-foreground group-hover:opacity-0 group-has-[:focus-visible]:opacity-0 pointer-coarse:hidden">
-            {shortcutLabel(String(shortcut))}
-          </span>
-        )}
+        {shortcut !== undefined && <RowShortcut digit={shortcut} />}
         <ConversationTagMenu
           title={title}
           tags={tags}

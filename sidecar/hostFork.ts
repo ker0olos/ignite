@@ -12,7 +12,7 @@ import {
   unreported,
 } from "./forks.ts";
 import { pushProjects, waitsOnFork } from "./hostProjects.ts";
-import { close, launch, open, prompt } from "./hostSession.ts";
+import { close, launch, open, prompt, start } from "./hostSession.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
 
 // Mid-run, the copy would end on tool calls that never get results.
@@ -40,21 +40,36 @@ export async function fork(
       "Wait for this conversation's run to end, or stop it, before forking it.",
     );
   const to = ctx.sessions.create();
-  forkSession(folder, from, to, forkName(task, agent?.title));
+  const title = forkName(task, agent?.title);
+  forkSession(folder, from, to, title);
+  start(ctx, folder, to, {
+    title,
+    forkOf: from,
+    files: () => ctx.workspaces.fork(folder, from, to),
+  });
   let opened: OpenedSession;
   try {
-    await ctx.workspaces.fork(folder, from, to);
     opened = (await open(ctx, folder, to))!;
   } catch (error) {
-    dropFork(folder, to);
+    unfork(ctx, folder, from, to);
     throw error;
   }
+  // Closed while its files were copied: the original isn't waiting on it.
+  if (!ctx.agents.has(to)) throw new Error("The fork was closed as it opened.");
   noteFor(
     from,
     `The user forked this conversation into a new one (${to})${task ? ` to work on: ${task}` : ""}. ` +
       "It has your context up to now and a copy of your files, and works separately; you wait until the user closes it, then its report comes to you.",
   );
   return opened;
+}
+
+// The app listed the fork as it started; the original shows again.
+function unfork(ctx: HostContext, folder: string, from: string, to: string) {
+  dropFork(folder, to);
+  if (ctx.shown === to) ctx.shown = from;
+  if (ctx.lastShown.get(folder) === to) ctx.lastShown.set(folder, from);
+  ctx.send({ type: "conversation_dropped", cwd: folder, session: to });
 }
 
 /**
