@@ -90,7 +90,7 @@ the project, MCP changes, commits and pushes always ask.
 
 ## Install
 
-You need [Node.js](https://nodejs.org) 22.18 or newer.
+You need git and [Node.js](https://nodejs.org) 22.18 or newer.
 
 ```sh
 git clone https://github.com/ker0olos/ignite.git && cd ignite
@@ -102,6 +102,9 @@ app menu on Linux, or the Start Menu on Windows. It updates itself.
 
 `npm run uninstall` removes
 Ignite and keeps your conversations.
+
+<sub>Why git clone instead of a download? Ignite runs from source so you get
+fixes the moment they merge, and so you can [change any part of its source](#make-it-yours).</sub>
 
 ## Make it yours
 
