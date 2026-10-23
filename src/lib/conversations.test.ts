@@ -4,6 +4,7 @@ import {
   orderedRows,
   replyNote,
   rowsOf,
+  visibleRows,
   withFirstMessage,
   withRunning,
   without,
@@ -129,6 +130,21 @@ describe("allTags", () => {
         "9": ["closed"],
       }),
     ).toEqual(["bug", "ui"]);
+  });
+});
+
+describe("visibleRows", () => {
+  const rows = [agent("/a", "1"), agent("/a", "2"), agent("/a", "3")];
+
+  it("keeps every row unless collapsed", () => {
+    expect(visibleRows(rows, null, false, 1)).toBe(rows);
+  });
+
+  it("collapsed, keeps the first `max` and the shown one", () => {
+    expect(visibleRows(rows, "3", true, 1).map((r) => r.session)).toEqual([
+      "1",
+      "3",
+    ]);
   });
 });
 

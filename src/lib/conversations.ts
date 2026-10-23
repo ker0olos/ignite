@@ -111,6 +111,18 @@ export function orderedRows(
   return order === "newest_first" ? [...rows].reverse() : rows;
 }
 
+/** A folder's rows the sidebar shows: past `max` only the shown one, while collapsed. */
+export function visibleRows<R extends AgentStatus>(
+  rows: R[],
+  shown: string | null,
+  collapsed: boolean,
+  max: number,
+): R[] {
+  return collapsed
+    ? rows.filter((r, i) => i < max || r.session === shown)
+    : rows;
+}
+
 /** `rows` with the conversation `starting` starts named by its first message until the sidecar names it, and working until pi has the message. */
 export function withFirstMessage<R extends AgentStatus>(
   rows: R[],

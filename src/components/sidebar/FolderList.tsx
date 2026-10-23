@@ -3,7 +3,8 @@ import { ProjectRow } from "@/components/app/ProjectRow";
 import { ConversationTagFilter } from "@/components/sidebar/ConversationTagFilter";
 import { FolderConversations } from "@/components/sidebar/FolderConversations";
 import type { Conversations } from "@/hooks/useConversations";
-import type { TaggedAgentStatus } from "@/lib/conversations";
+import { useConversationShortcuts } from "@/hooks/useConversationShortcuts";
+import { visibleRows, type TaggedAgentStatus } from "@/lib/conversations";
 import { sortedByName } from "@/lib/paths";
 import type { TerminalLabel } from "@/lib/childTabs";
 
@@ -95,6 +96,18 @@ export function FolderList({
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (path: string) =>
     setExpanded((open) => ({ ...open, [path]: !open[path] }));
+  const sorted = sortedByName(folders);
+  const shortcuts = useConversationShortcuts(
+    sorted.flatMap((cwd) =>
+      visibleRows(
+        rows(cwd),
+        cwd === folder ? shown : null,
+        conversationLimit.enabled && !expanded[cwd],
+        conversationLimit.max,
+      ).map((r) => ({ cwd, session: r.session })),
+    ),
+    (cwd, session) => void conversations.show(cwd, session),
+  );
 
   return (
     <div className="flex flex-col gap-1">
@@ -106,7 +119,7 @@ export function FolderList({
           onClear={onClearTagFilter}
         />
       </div>
-      {sortedByName(folders).map((path) => (
+      {sorted.map((path) => (
         <Fragment key={path}>
           <ProjectRow
             path={path}
@@ -124,6 +137,7 @@ export function FolderList({
             childActions={childActions}
             tags={tags}
             onSetTags={onSetConversationTags}
+            shortcuts={shortcuts}
             expanded={!!expanded[path]}
             max={conversationLimit.max}
             limited={conversationLimit.enabled}

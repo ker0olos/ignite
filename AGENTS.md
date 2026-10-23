@@ -91,7 +91,8 @@ src/                     React frontend (almost all logic lives here)
     useFileExists.ts     Whether a path exists, checked once; inline code links only to ones that do
     useXterm.ts          An xterm fitted to its element and themed like the app (read-only and interactive views)
     useTerminalSession.ts A terminal view's connection to the host: snapshot, live output, keystrokes
-    useTerminalShortcut.ts ⌘J or ⌘1 (Ctrl+J / Ctrl+1) opens a terminal tab; returns run-in-terminal
+    useTerminalShortcut.ts ⌘J or ⌘T (Ctrl+J / Ctrl+T) opens a terminal tab; returns run-in-terminal
+    useConversationShortcuts.ts ⌘1…⌘9 (Ctrl+1…9) show the sidebar's first nine conversation rows
     useRunInTerminal.ts  Run-in-terminal for assistant shell code blocks' Run button
     useAudioPlayer.ts    An audio element's playing, time and length; toggle and seek
     useWaveform.ts       A clip's waveform bars, decoded once with AudioContext
@@ -780,7 +781,7 @@ also feeds a headless xterm, so agents read the rendered screen, not escape
 codes: before each run, what the folder's terminals printed since that
 conversation last looked is added as a hidden message (like Claude Code's
 `!`), and `terminal_read` reads them on demand. Agents can't type into them.
-⌘J or ⌘1 (Ctrl+J or Ctrl+1) opens a new one as a tab beside the conversation. While a
+⌘J or ⌘T (Ctrl+J or Ctrl+T) opens a new one as a tab beside the conversation. While a
 command runs in it, its tab and sidebar row are named by that command line
 (the terminal's foreground process, read with `ps` after output; not on
 Windows), and "Terminal" at the prompt. Closing the

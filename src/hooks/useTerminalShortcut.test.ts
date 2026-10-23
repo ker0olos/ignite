@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { HostClient } from "@/lib/piHost";
 import { childTabId, isStarting, terminalOf } from "@/lib/childTabs";
 import { useTerminalShortcut } from "./useTerminalShortcut";
@@ -43,8 +43,12 @@ function setup(view: "conversation" | "tasks" = "conversation", fails = false) {
   return { request, open, rename, closeEverywhere, closeStandIn, ...hook };
 }
 
+beforeEach(() => {
+  vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mac");
+});
+
 describe("useTerminalShortcut", () => {
-  it("opens a terminal tab on ⌘J or ⌘1, also with Shift or Ctrl: starting at once, then the shell's", async () => {
+  it("opens a terminal tab on ⌘J or ⌘T, also with Shift or another layout: starting at once, then the shell's", async () => {
     const { request, open, rename } = setup();
     const e = press({ metaKey: true });
     expect(e.defaultPrevented).toBe(true);
@@ -64,10 +68,11 @@ describe("useTerminalShortcut", () => {
       childTabId({ kind: "terminal", session: "", terminal: "t1" }),
     );
     press({ metaKey: true, shiftKey: true });
-    press({ ctrlKey: true });
-    press({ metaKey: true, code: "Digit1", key: "1" });
+    press({ metaKey: true, code: "KeyT", key: "t" });
     // Dvorak: J is on another key.
     press({ metaKey: true, code: "KeyC", key: "j" });
+    // Russian: T's key types "е".
+    press({ metaKey: true, code: "KeyT", key: "е" });
     expect(new Set(open.mock.calls.map(([t]) => t)).size).toBe(5);
     await waitFor(() => expect(rename).toHaveBeenCalledTimes(5));
   });
@@ -96,12 +101,14 @@ describe("useTerminalShortcut", () => {
     );
   });
 
-  it("ignores other keys, Alt, and a bare J", () => {
+  it("ignores other keys, Alt, a bare J, and Ctrl on macOS (the shell's)", () => {
     const { request } = setup();
     press({});
+    press({ ctrlKey: true, code: "KeyT", key: "t" });
     press({ metaKey: true, altKey: true });
     press({ metaKey: true, code: "Backquote", key: "`" });
     press({ metaKey: true, code: "KeyJ", key: "h" });
+    press({ metaKey: true, code: "Digit1", key: "1" });
     expect(request).not.toHaveBeenCalled();
   });
 

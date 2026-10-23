@@ -3,6 +3,7 @@ import { AgentStatusIcon } from "@/components/app/AgentStatusIcon";
 import { ConversationTagMenu } from "@/components/sidebar/ConversationTagMenu";
 import { TagChip } from "@/components/sidebar/TagChip";
 import { conversationTitle, type TaggedAgentStatus } from "@/lib/conversations";
+import { shortcut as shortcutLabel } from "@/lib/approvalKeys";
 import { cn } from "@/lib/utils";
 
 const ROW_TAGS = 2;
@@ -14,6 +15,7 @@ const ROW_TAGS = 2;
 export function ConversationRow({
   agent,
   selected,
+  shortcut,
   allTags = [],
   onShow,
   onClose,
@@ -23,6 +25,8 @@ export function ConversationRow({
   /** Every tag in use, offered as suggestions. */
   allTags?: string[];
   selected: boolean;
+  /** Its ⌘ digit, shown until the row is hovered and its buttons take the place. */
+  shortcut?: number;
   onShow: () => void;
   onClose: () => void;
   onSetTags: (tags: string[]) => void;
@@ -69,7 +73,12 @@ export function ConversationRow({
           </span>
         )}
       </button>
-      <div className="mr-1 flex shrink-0 items-center gap-0.5">
+      <div className="relative mr-1 flex shrink-0 items-center gap-0.5">
+        {shortcut !== undefined && (
+          <span className="pointer-events-none absolute inset-y-0 right-1 flex items-center text-[13px] text-muted-foreground group-hover:opacity-0 group-has-[:focus-visible]:opacity-0 pointer-coarse:hidden">
+            {shortcutLabel(String(shortcut))}
+          </span>
+        )}
         <ConversationTagMenu
           title={title}
           tags={tags}

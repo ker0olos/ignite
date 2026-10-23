@@ -7,7 +7,11 @@ import type { ChildActions } from "@/components/sidebar/FolderList";
 import type { Conversations } from "@/hooks/useConversations";
 import { FolderTerminals } from "@/components/sidebar/FolderTerminals";
 import { terminalsByOwner } from "@/lib/childTabs";
-import { conversationTitle, type TaggedAgentStatus } from "@/lib/conversations";
+import {
+  conversationTitle,
+  visibleRows,
+  type TaggedAgentStatus,
+} from "@/lib/conversations";
 import { confirmCloseConversation } from "@/lib/lifecycle";
 
 /** One folder's listed conversations, the shown one selected, each with its subagents, background commands and terminals; then the folder's other terminals. */
@@ -19,6 +23,7 @@ export function FolderConversations({
   childActions,
   tags,
   onSetTags,
+  shortcuts,
   expanded,
   max,
   limited,
@@ -33,16 +38,15 @@ export function FolderConversations({
   /** Every tag in use, offered as suggestions. */
   tags: string[];
   onSetTags: (session: string, tags: string[]) => void;
+  /** Each numbered row's ⌘ digit, by conversation. */
+  shortcuts: Map<string, number>;
   expanded: boolean;
   max: number;
   limited: boolean;
   onToggle: () => void;
 }) {
   const sessions = rows.map((r) => r.session);
-  const visible =
-    limited && !expanded
-      ? rows.filter((r, i) => i < max || r.session === shown)
-      : rows;
+  const visible = visibleRows(rows, shown, limited && !expanded, max);
   const hidden = rows.length - visible.length;
   // A row's conversation and its forks: their terminals show under it.
   const family = (r: TaggedAgentStatus) => [
@@ -72,6 +76,7 @@ export function FolderConversations({
           <ConversationRow
             agent={agent}
             selected={agent.session === shown}
+            shortcut={shortcuts.get(agent.session)}
             onShow={() => void conversations.show(cwd, agent.session)}
             onClose={() =>
               void confirmCloseConversation(conversationTitle(agent)).then(
