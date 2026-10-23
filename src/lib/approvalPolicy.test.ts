@@ -181,9 +181,6 @@ describe("approvalFor", () => {
     expect(approvalFor("auto", "mcp", { tool: "x_delete" }, place)).toEqual({
       reason: "May make changes: x_delete",
     });
-    expect(approvalFor("auto", "mcpScript", { code: "" }, place)).toEqual({
-      reason: "Runs MCP calls from a script",
-    });
     expect(approvalFor("auto", "mcp", { search: "status" }, place)).toBeNull();
     expect(approvalFor("auto", "mcp__clickup", {}, place)).toBeNull();
   });

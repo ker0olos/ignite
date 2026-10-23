@@ -379,9 +379,10 @@ describe("MCP servers in the sidecar", () => {
       (m): m is HostMessage => m.type === "response" && m.id === 1,
     );
     sidecar.send({ id: 2, type: "new_session", cwd: home });
+    // A server with no cached tools is started once for them, then stopped until used.
     const pushed = await sidecar.next(
       (m): m is Extract<HostMessage, { type: "mcp_servers" }> =>
-        m.type === "mcp_servers" && m.servers[0]?.status === "connected",
+        m.type === "mcp_servers" && m.servers[0]?.tools.length === 1,
     );
     expect(pushed.servers).toEqual([
       {
@@ -393,7 +394,7 @@ describe("MCP servers in the sidecar", () => {
           args: [server],
           env: {},
         },
-        status: "connected",
+        status: "idle",
         tools: ["echo"],
       } satisfies McpServer,
     ]);

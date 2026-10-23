@@ -19,6 +19,8 @@ export const MCP_SIGN_IN_COMMAND = "app-mcp-sign-in";
 export const MCP_SIGN_OUT_COMMAND = "app-mcp-sign-out";
 /** Copies Claude Code's sign-in for a server, also registered by mcpExtension.ts. */
 export const MCP_COPY_SIGN_IN_COMMAND = "app-mcp-copy-sign-in";
+/** The adapter's own command (`reconnect <name>`, status…). */
+export const MCP_ADAPTER_COMMAND = "mcp-adapter";
 /** Event-bus channel on which that command hands over the page to open. */
 export const MCP_AUTH_URL_EVENT = "app/mcp-auth-url";
 
@@ -73,7 +75,8 @@ export async function writeMcpFile(path: string, file: McpFile) {
 export function adapterConfig(file: McpFile) {
   return {
     mcpServers: file.mcpServers ?? {},
-    ...(file.settings && { settings: file.settings }),
+    // Its `save-script` action always fails under a supplied config; off, the model isn't offered it.
+    settings: { ...file.settings, allowScriptToolSave: false },
   };
 }
 

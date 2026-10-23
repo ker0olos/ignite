@@ -5,16 +5,14 @@ import { ASK_TOOL } from "../../shared/questions.ts";
 
 /**
  * pi-mcp-adapter's tools as the conversation shows them. The model reaches
- * MCP servers through `mcp` (search, describe, connect or call a tool), one
- * `mcp__<server>` tool per server, and `mcpScript` (JavaScript that makes
- * several calls).
+ * MCP servers through `mcp` (search, describe, connect or call a tool) and one
+ * `mcp__<server>` tool per server.
  */
 export type McpCall =
   | { kind: "call"; server?: string; tool: string; args: unknown }
   | { kind: "search"; query: string }
   | { kind: "describe"; tool: string }
   | { kind: "connect"; server: string }
-  | { kind: "script"; code: string }
   /** Status, auth and other housekeeping. */
   | { kind: "other" };
 
@@ -35,11 +33,21 @@ export function mcpCall(
   name: string,
   args: Record<string, unknown>,
 ): McpCall | null {
-  if (name === "mcpScript") return { kind: "script", code: text(args.code) };
   if (name.startsWith("mcp__")) {
+    const rest = name.slice("mcp__".length);
+    const split = rest.indexOf("__");
+    // pi's own naming (`mcp__<server>__<tool>`), which the adapter uses when it sees pi's MCP API.
+    if (split > 0) {
+      return {
+        kind: "call",
+        server: rest.slice(0, split),
+        tool: rest.slice(split + 2),
+        args,
+      };
+    }
     return {
       kind: "call",
-      server: name.slice("mcp__".length),
+      server: rest,
       tool: text(args.tool),
       args: toolArgs(args.args),
     };
@@ -84,26 +92,6 @@ function readsOnly(tool: string): boolean {
   return words.some((w) => READS.has(w)) && !words.some((w) => CHANGES.has(w));
 }
 
-const TOOLS_REF = /(?<![\w$.])tools\b/g;
-const NAMED_CALL =
-  /(?<![\w$.])tools\s*(?:\.\s*call\s*\(\s*|\[\s*)(["'])([^"'\n]+)\1|(?<![\w$.])tools\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
-
-/**
- * The tools an `mcpScript` calls by name (`<server>_<tool>`), "and others"
- * when it also reaches `tools` some other way (a computed path, an alias); "" when none.
- */
-export function scriptToolsText(code: string): string {
-  const named = [...code.matchAll(NAMED_CALL)]
-    .map((m) => m[2] ?? m[3])
-    .filter((name) => name !== "call");
-  const names = [
-    ...new Set(named.filter((n) => n !== "search" && n !== "describe")),
-  ];
-  if (!names.length) return "";
-  const others = code.match(TOOLS_REF)!.length > named.length;
-  return names.join(", ") + (others ? " and others" : "");
-}
-
 /**
  * Why Auto asks before an MCP call (it may change something), or null.
  * `direct`: the tool is one of the adapter's direct tools (`<server>_<tool>`).
@@ -116,12 +104,6 @@ export function mcpReason(
   const call = direct
     ? { kind: "call" as const, tool: name }
     : mcpCall(name, args);
-  if (call?.kind === "script") {
-    const tools = scriptToolsText(call.code);
-    return tools
-      ? `Runs MCP calls from a script: ${tools}`
-      : "Runs MCP calls from a script";
-  }
   if (call?.kind !== "call" || !call.tool || readsOnly(call.tool)) return null;
   return `May make changes: ${call.tool}`;
 }
@@ -174,7 +156,6 @@ function yaml(args: unknown) {
 /** What a waiting call's approval shows of its arguments, or null when its row already does. */
 export function approvalArgs(name: string, args: Record<string, unknown>) {
   const mcp = mcpCall(name, args);
-  if (mcp?.kind === "script") return { code: mcp.code, lang: "js" };
   // The server tool's own arguments: a `reason` there is the server's, not the agent's.
   if (mcp?.kind === "call") return yaml(mcp.args);
   if (mcp || SHOWN.has(name)) return null;

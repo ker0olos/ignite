@@ -85,13 +85,24 @@ export async function closingConnections<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * `pi` without pi's own MCP API. Seeing it, the adapter reruns each `mcp` call
+ * as a nested `mcp__<server>__<tool>` call, which has no `reason` and asks again.
+ */
+function withoutPiMcp(pi: ExtensionAPI): ExtensionAPI {
+  return new Proxy(pi, {
+    get: (target, key) =>
+      key === "registerMcpServer" ? undefined : Reflect.get(target, key),
+  });
+}
+
 export default async function mcp(pi: ExtensionAPI) {
   const config = adapterConfig(
     await readMcpFile(join(getAgentDir(), "mcp.json")),
   );
   // Tools with an MCP Apps UI would open it in the browser; their text result is enough.
   process.env.MCP_UI_VIEWER = "none";
-  createMcpAdapter({ config })(retryingTools(reasonedTools(pi)));
+  createMcpAdapter({ config })(retryingTools(reasonedTools(withoutPiMcp(pi))));
 
   // Like the adapter's /mcp-auth, but the app opens the sign-in page: the
   // adapter's own browser launch loses the URL when the app starts it.
