@@ -127,12 +127,29 @@ export function argsText(args: unknown): string {
     return typeof args === "string" ? args : JSON.stringify(args, null, 2);
   }
   return Object.entries(args)
-    .map(([key, value]) => {
-      if (typeof value !== "string") return `${key}: ${JSON.stringify(value)}`;
-      if (!value.includes("\n")) return `${key}: ${value}`;
-      return `${key}: |\n${value.replace(/^/gm, "  ")}`;
-    })
+    .map(([key, value]) =>
+      typeof value === "string" && value.includes("\n")
+        ? `${key}: |\n${value.replace(/^/gm, "  ")}`
+        : argLine(key, value),
+    )
     .join("\n");
+}
+
+function argLine(key: string, value: unknown) {
+  return `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`;
+}
+
+function withoutReason(args: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(args).filter(([k]) => k !== "reason"),
+  );
+}
+
+/** A tool's arguments on one line, for its row's title; the agent's `reason` left out. */
+export function argsLine(args: Record<string, unknown>): string {
+  return Object.entries(withoutReason(args))
+    .map(([key, value]) => argLine(key, value))
+    .join(", ");
 }
 
 // Built-in tools whose row already shows what they'd do (path, pattern, review).
@@ -159,9 +176,7 @@ export function approvalArgs(name: string, args: Record<string, unknown>) {
   // The server tool's own arguments: a `reason` there is the server's, not the agent's.
   if (mcp?.kind === "call") return yaml(mcp.args);
   if (mcp || SHOWN.has(name)) return null;
-  return yaml(
-    Object.fromEntries(Object.entries(args).filter(([k]) => k !== "reason")),
-  );
+  return yaml(withoutReason(args));
 }
 
 // The app's own tools, whose rows already show what they'd do: only the app's reason warns.
