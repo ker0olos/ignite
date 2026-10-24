@@ -9,7 +9,6 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
-  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,6 +24,7 @@ import {
   worktreePath,
 } from "./worktreeGit.ts";
 import { ghDir, groupRepos } from "./worktreeGroup.ts";
+import { checkpointRef } from "./checkpoints.ts";
 
 // Runs while a worktree is being saved, as a conversation opening it then would.
 const whileSaving = vi.hoisted(() => ({
@@ -146,10 +146,9 @@ describe("a folder of repositories", () => {
     expect(read(fork.dir, "server", "made.ts")).toBe("made\n");
   });
 
-  it("sweeps a copy whose app is gone, keeping its work, and leaves a live one", async () => {
+  it("keeps a copy whose app is gone, for its conversation to reopen", async () => {
     const workspaces = createWorkspaces(root);
     const ws = await workspaces.open(folder, "a");
-    await workspaces.open(folder, "live");
     write(join(ws.dir, "web", "app.ts"), "agent\n");
     for (const name of ["server", "web"]) {
       const checkout = join(ws.dir, name);
@@ -163,35 +162,33 @@ describe("a folder of repositories", () => {
         checkout,
       );
     }
-    utimesSync(ws.dir, 0, 0);
-    await workspaces.sweep();
-    expect(existsSync(ws.dir)).toBe(false);
-    expect(existsSync(worktreePath(folder, "live", root))).toBe(true);
-    const again = await workspaces.open(folder, "a");
+    const again = await createWorkspaces(root).open(folder, "a");
     expect(read(again.dir, "web", "app.ts")).toBe("agent\n");
+    expect(read(again.dir, "server", "app.ts")).toBe("server\n");
   });
 
-  it("leaves a copy its conversation opens while the sweep saves it", async () => {
+  it("takes back every worktree of a copy reopened while it's being closed, checkpoints and all", async () => {
     const workspaces = createWorkspaces(root);
     const ws = await workspaces.open(folder, "a");
     write(join(ws.dir, "web", "app.ts"), "agent\n");
     for (const name of ["server", "web"]) {
-      const checkout = join(ws.dir, name);
-      git(join(folder, name), "worktree", "unlock", checkout);
-      git(
-        join(folder, name),
-        "worktree",
-        "lock",
-        "--reason",
-        "ignite pid 999999",
-        checkout,
-      );
+      const repo = join(folder, name);
+      git(repo, "update-ref", checkpointRef("a", "e1"), "HEAD");
     }
-    utimesSync(ws.dir, 0, 0);
-    whileSaving.run = () => workspaces.open(folder, "a");
-    await workspaces.sweep();
+    let opened: Promise<unknown> | undefined;
+    // Not awaited: the open runs on while git removes the worktree just saved.
+    whileSaving.run = async () => {
+      opened = workspaces.open(folder, "a");
+    };
+    await workspaces.close(folder, "a");
+    await opened;
     expect(read(ws.dir, "web", "app.ts")).toBe("agent\n");
     expect(read(ws.dir, "server", "app.ts")).toBe("server\n");
+    expect(groupCheckouts(ws.dir)).toHaveLength(2);
+    for (const name of ["server", "web"])
+      expect(
+        git(join(folder, name), "rev-parse", checkpointRef("a", "e1")),
+      ).toBeTruthy();
   });
 
   it("leaves a copy another live window uses when this one closes it", async () => {

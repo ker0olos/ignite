@@ -6,6 +6,7 @@ import { expect, it, vi } from "vitest";
 import type { Agent, HostContext } from "./hostTypes.ts";
 import {
   closeTerminalsIn,
+  endTerminalsIn,
   releaseWorkspace,
   terminalDir,
   terminalOpen,
@@ -54,8 +55,12 @@ const releasing = (removes: boolean) => {
   const inside = openTerminal("/", 80, 24, () => {}, dir);
   // As workspaces.close: it calls back only when it removes the worktree (no other window uses it).
   const close = vi.fn(
-    async (_f: string, _id: string, removing?: () => Promise<void>) => {
-      if (removes) await removing?.();
+    async (
+      _f: string,
+      _id: string,
+      removing?: (path: string) => Promise<void>,
+    ) => {
+      if (removes) await removing?.(dir);
     },
   );
   const ctx = { workspaces: { close } } as unknown as HostContext;
@@ -65,7 +70,7 @@ const releasing = (removes: boolean) => {
 
 it("ends a worktree's terminals just before it's removed, also when its conversation failed to open", async () => {
   const { dir, inside, close, ctx, agent } = releasing(true);
-  await releaseWorkspace(ctx, agent);
+  await releaseWorkspace(ctx, agent.cwd, agent.id);
   expect(terminalsStartedIn(dir)).toEqual([]);
   expect(close).toHaveBeenCalledWith("/", "s1", expect.any(Function));
   closeTerminal(inside.terminal);
@@ -73,17 +78,21 @@ it("ends a worktree's terminals just before it's removed, also when its conversa
 
 it("leaves a worktree's terminals running when another window keeps it", async () => {
   const { dir, inside, ctx, agent } = releasing(false);
-  await releaseWorkspace(ctx, agent);
+  await releaseWorkspace(ctx, agent.cwd, agent.id);
   expect(terminalsStartedIn(dir)).toEqual([inside.terminal]);
   closeTerminal(inside.terminal);
 });
 
-it("doesn't wait for a worktree's terminals to exit when quitting", async () => {
-  const { dir, ctx, agent } = releasing(true);
-  const started = Date.now();
-  await releaseWorkspace(ctx, agent, true);
+it("ends a quitting conversation's worktree terminals, no one else's", async () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-")));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), "folder-")));
+  const other = realpathSync(mkdtempSync(join(tmpdir(), "worktree-")));
+  openTerminal(cwd, 80, 24, () => {}, dir);
+  const outside = openTerminal(cwd, 80, 24, () => {}, other);
+  endTerminalsIn({ cwd, workdir: dir } as Agent);
   expect(terminalsStartedIn(dir)).toEqual([]);
-  expect(Date.now() - started).toBeLessThan(1000);
+  expect(terminalsStartedIn(other)).toEqual([outside.terminal]);
+  closeTerminal(outside.terminal);
 });
 
 it("ends a worktree's terminals, and starts none there until it's removed", async () => {

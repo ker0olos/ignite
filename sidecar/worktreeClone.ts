@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { copyFile, mkdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
@@ -89,6 +90,15 @@ export async function cloneIgnored(
   whole = process.platform === "darwin",
 ) {
   await cloneEntries(repo, await ignoredEntries(repo), into, flags, whole);
+}
+
+/** The entries of `entries` that `into` lacks. */
+export const missingIn = (into: string, entries: string[]) =>
+  entries.filter((e) => !existsSync(join(into, e)));
+
+/** Like cloneIgnored, for only the entries `into` lacks: all of them when it's new, what a clone a quit cut off hadn't brought when it's reopened. */
+export async function cloneMissing(repo: string, into: string) {
+  await cloneEntries(repo, missingIn(into, await ignoredEntries(repo)), into);
 }
 
 // cp -c clones each batch; where it can't, only files are copied.

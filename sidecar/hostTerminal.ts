@@ -10,31 +10,33 @@ type Open = Extract<TerminalRequest, { type: "terminal_open" }>;
 const removing = new Set<string>();
 const beingRemoved = (dir: string) => [...removing].some((r) => within(dir, r));
 
-/** Ends the terminals started in `dir` (a worktree about to go), waiting for them unless quitting; none starts there until `removed()`. */
-export async function closeTerminalsIn(dir: string, wait = true) {
+/** Ends the terminals started in `dir` (a worktree about to go); none starts there until `removed()`. */
+export async function closeTerminalsIn(dir: string) {
   removing.add(dir);
   // One failing to end never leaves the worktree marked as being removed.
-  const ending = Promise.allSettled(terminalsStartedIn(dir).map(endTerminal));
-  if (wait) await ending;
+  await Promise.allSettled(terminalsStartedIn(dir).map(endTerminal));
   return () => void removing.delete(dir);
 }
 
-/** Saves and removes a conversation's worktree, ending the terminals in it first, if it's removed (no other window uses it). */
+/** Saves and removes conversation `id`'s worktree, ending the terminals in it first, if it's removed (no other window uses it). */
 export async function releaseWorkspace(
   ctx: HostContext,
-  agent: Agent,
-  quitting = false,
+  cwd: string,
+  id: string,
 ) {
-  const { cwd, id, workdir } = agent;
   let removed: (() => void) | undefined;
-  const closing =
-    workdir === cwd
-      ? ctx.workspaces.close(cwd, id)
-      : ctx.workspaces.close(cwd, id, async () => {
-          removed = await closeTerminalsIn(workdir, !quitting);
-        });
-  await closing.catch(() => {});
+  await ctx.workspaces
+    .close(cwd, id, async (path) => {
+      removed = await closeTerminalsIn(path);
+    })
+    .catch(() => {});
   removed?.();
+}
+
+/** Ends the terminals in a quitting conversation's worktree and what they started, without waiting; the worktree stays. */
+export function endTerminalsIn(agent: Agent) {
+  if (agent.workdir === agent.cwd) return;
+  for (const id of terminalsStartedIn(agent.workdir)) void endTerminal(id);
 }
 
 /** Where a terminal for `session` of `cwd` starts: its worktree, once made; none yet (null): `fallback`; unknown (undefined): the shown one's. */

@@ -1,7 +1,13 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { access, cp, mkdtemp, rm } from "node:fs/promises";
-import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import {
   basename,
@@ -180,10 +186,12 @@ function gitDirs(worktree: string) {
   return { own, common: isAbsolute(common) ? common : resolve(own, common) };
 }
 
-/** Why a worktree is locked (`git worktree lock --reason`), or null. */
-export function lockReason(worktree: string): string | null {
+/** Why a worktree is locked (`git worktree lock --reason`) and since when, or null. */
+export function worktreeLock(worktree: string) {
   try {
-    return readFileSync(join(gitDirs(worktree).own, "locked"), "utf8").trim();
+    const file = join(gitDirs(worktree).own, "locked");
+    const reason = readFileSync(file, "utf8").trim();
+    return { reason, since: statSync(file).mtimeMs };
   } catch {
     return null;
   }

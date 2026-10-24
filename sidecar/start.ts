@@ -223,8 +223,6 @@ async function openSubagent(
 const workspaces = createWorkspaces();
 const base = { agentDir, credentials: logins.store, uiContext: headlessUI };
 const draft = createDraft({ ...base, claudeBridge });
-// Worktrees left by an app that crashed or was killed; this one's are locked to it.
-void workspaces.sweep();
 
 // pi's types are pi-ai's; they match Runtime and Session structurally.
 const host = createHost(
@@ -283,7 +281,7 @@ const lines = createLineSplitter((line) => {
 });
 
 process.stdin.on("data", lines.push);
-// Finish answering what was already asked, save and remove the worktrees, then exit.
+// Finish answering what was already asked, end the conversations (their worktrees stay), then exit.
 process.stdin.on("end", async () => {
   lines.end();
   await Promise.allSettled(inFlight);

@@ -27,7 +27,7 @@ import { follow, reportTo } from "./hostFollow.ts";
 import { forkOf } from "./forks.ts";
 import { withEntryIds } from "./hostCheckpoint.ts";
 import { hand, takeTurn } from "./hostSend.ts";
-import { releaseWorkspace } from "./hostTerminal.ts";
+import { endTerminalsIn, releaseWorkspace } from "./hostTerminal.ts";
 import { commandReason } from "./wire.ts";
 import { skillInfo } from "./skillArgs.ts";
 
@@ -224,24 +224,31 @@ async function inWorkspace(
   try {
     return await open(ws.dir);
   } catch (error) {
-    await releaseWorkspace(ctx, agent);
+    await releaseWorkspace(ctx, agent.cwd, agent.id);
     throw error;
   }
 }
 
-/** Ends conversation `id`, or all of the folder's, denying their waiting tool calls. */
+/** Ends conversation `id` (its worktree removed, open here or not), or all of the folder's (theirs kept), denying their waiting tool calls. */
 export async function close(ctx: HostContext, cwd: string, id?: string) {
   const closing = [...ctx.agents.values()].filter(
     (a) => a.cwd === cwd && (id === undefined || a.id === id),
   );
-  await Promise.all(closing.map((a) => end(ctx, a)));
+  await Promise.all(
+    closing.map((a) => end(ctx, a, id === undefined ? "hide" : "close")),
+  );
+  if (id !== undefined && !closing.length) await releaseWorkspace(ctx, cwd, id);
 }
 
-async function end(ctx: HostContext, agent: Agent, quitting = false) {
+async function end(
+  ctx: HostContext,
+  agent: Agent,
+  why: "close" | "hide" | "quit",
+) {
   ctx.agents.delete(agent.id);
   agent.closed = true;
   // Quitting leaves them waiting, to ask again on the next launch (hostResume.ts).
-  if (!quitting) denyAll(ctx, agent);
+  if (why !== "quit") denyAll(ctx, agent);
   agent.routing?.controller.abort();
   pushProjects(ctx);
   const s = await agent.opening.catch(() => null);
@@ -251,12 +258,13 @@ async function end(ctx: HostContext, agent: Agent, quitting = false) {
   await s.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
   s.dispose();
   // Its work stays saved with the conversation; see worktrees.ts.
-  await releaseWorkspace(ctx, agent, quitting);
+  if (why === "close") await releaseWorkspace(ctx, agent.cwd, agent.id);
+  else if (why === "quit") endTerminalsIn(agent);
 }
 
-/** Ends every conversation, as the app quits. */
+/** Ends every conversation, as the app quits or reloads; their worktrees stay. */
 export async function closeAll(ctx: HostContext) {
-  await Promise.all([...ctx.agents.values()].map((a) => end(ctx, a, true)));
+  await Promise.all([...ctx.agents.values()].map((a) => end(ctx, a, "quit")));
 }
 
 // pi's prompt() resolves when the whole run ends; the app follows the run

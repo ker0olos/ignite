@@ -2389,7 +2389,7 @@ describe("workspaces", () => {
     expect(responses()[1]).toMatchObject({ data: { workdir: "/wt/new1" } });
   });
 
-  it("closes an agent's workspace after its session, on close and quit", async () => {
+  it("removes an agent's workspace after its session only when its conversation closes", async () => {
     const session = fakeSession();
     const { request, workspaces, host } = withWorktrees(async () => session);
     await request({
@@ -2413,18 +2413,26 @@ describe("workspaces", () => {
       expect.any(Function),
     );
     expect(order).toEqual(["dispose", "close"]);
+    workspaces.close.mockClear();
+    // A hidden folder's and a quitting app's stay, for the conversations to reopen.
     await request({ id: 3, type: "new_session", cwd: "/work" });
     await request({ id: 5, type: "close_session", cwd: "/work" });
-    expect(workspaces.close).toHaveBeenLastCalledWith(
-      "/work",
-      "new1",
-      expect.any(Function),
-    );
     await request({ id: 4, type: "new_session", cwd: "/other" });
     await host.shutdown();
-    expect(workspaces.close).toHaveBeenLastCalledWith(
-      "/other",
-      "new2",
+    expect(workspaces.close).not.toHaveBeenCalled();
+  });
+
+  it("removes the workspace of a conversation closed before it reopened", async () => {
+    const { request, workspaces } = withWorktrees();
+    await request({
+      id: 1,
+      type: "close_session",
+      cwd: "/work",
+      session: "s1",
+    });
+    expect(workspaces.close).toHaveBeenCalledWith(
+      "/work",
+      "s1",
       expect.any(Function),
     );
   });
@@ -3853,7 +3861,11 @@ describe("task start and delete", () => {
     await tasks.save("/work", task());
     await request({ id: 1, ...start });
     await request({ id: 2, type: "task_delete", cwd: "/work", taskId: "t1" });
-    expect(workspaces.close).toHaveBeenCalledWith("/work", "new1");
+    expect(workspaces.close).toHaveBeenCalledWith(
+      "/work",
+      "new1",
+      expect.any(Function),
+    );
     expect(await tasks.list("/work")).toEqual([]);
   });
 });

@@ -59,9 +59,6 @@ beforeEach(() => {
 
 afterEach(() => rmSync(base, { recursive: true, force: true }));
 
-/** Makes a worktree look old enough for a sweep to consider. */
-const age = (path: string) => utimesSync(path, 0, 0);
-
 /** Gives the repository an origin with main pushed; returns its path. */
 const withRemote = () => {
   const remote = join(base, "remote.git");
@@ -290,23 +287,6 @@ describe("workspaces", () => {
     );
   });
 
-  it("sweeps worktrees whose app is gone, keeping their work", async () => {
-    const workspaces = createWorkspaces(root);
-    const ws = await workspaces.open(repo, "a");
-    await workspaces.open(repo, "live");
-    write(join(ws.dir, "app.ts"), "agent\n");
-    const path = worktreePath(repo, "a", root);
-    git(repo, "worktree", "unlock", path);
-    git(repo, "worktree", "lock", "--reason", "ignite pid 999999", path);
-    age(path);
-    await workspaces.sweep();
-    expect(existsSync(path)).toBe(false);
-    expect(existsSync(worktreePath(repo, "live", root))).toBe(true);
-    expect(read((await workspaces.open(repo, "a")).dir, "app.ts")).toBe(
-      "agent\n",
-    );
-  });
-
   it("opens again a worktree whose folder was deleted while locked", async () => {
     const workspaces = createWorkspaces(root);
     const path = worktreePath(repo, "a", root);
@@ -316,12 +296,11 @@ describe("workspaces", () => {
     expect(read(path, "app.ts")).toBe("one\n");
   });
 
-  it("removes a worktree whose repository is gone", async () => {
+  it("removes a closed conversation's worktree whose repository is gone", async () => {
     const workspaces = createWorkspaces(root);
     await workspaces.open(repo, "a");
     rmSync(repo, { recursive: true, force: true });
-    age(worktreePath(repo, "a", root));
-    await workspaces.sweep();
+    await workspaces.close(repo, "a");
     expect(readdirSync(root)).toEqual([]);
   });
 });
@@ -366,16 +345,59 @@ describe("keeping work safe", () => {
     expect(existsSync(path)).toBe(true);
   });
 
-  it("takes over a crashed app's worktree when it reopens, so sweeps leave it be", async () => {
+  it("finishes a quit app's clone when its worktree reopens, keeping what's there", async () => {
+    write(join(repo, ".env"), "KEY=1\n");
+    write(join(repo, "node_modules", "dep", "index.js"), "dep\n");
+    const ws = await createWorkspaces(root).open(repo, "a");
+    await whenReady(ws.dir);
+    write(join(ws.dir, ".env"), "KEY=agent\n");
+    rmSync(join(ws.dir, "node_modules"), { recursive: true });
+    const path = worktreePath(repo, "a", root);
+    git(repo, "worktree", "unlock", path);
+    git(repo, "worktree", "lock", "--reason", "ignite pid 999999", path);
+    const again = await createWorkspaces(root).open(repo, "a");
+    await whenReady(again.dir);
+    expect(read(again.dir, "node_modules", "dep", "index.js")).toBe("dep\n");
+    expect(read(again.dir, ".env")).toBe("KEY=agent\n");
+  });
+
+  it("takes over a worktree locked before this boot, whatever now has its pid", async () => {
     const workspaces = createWorkspaces(root);
     await workspaces.open(repo, "a");
     const path = worktreePath(repo, "a", root);
     git(repo, "worktree", "unlock", path);
+    git(
+      repo,
+      "worktree",
+      "lock",
+      "--reason",
+      `ignite pid ${process.ppid}`,
+      path,
+    );
+    const locked = git(
+      path,
+      "rev-parse",
+      "--path-format=absolute",
+      "--git-path",
+      "locked",
+    );
+    utimesSync(locked, 0, 0);
+    await workspaces.close(repo, "a");
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it("keeps a crashed app's worktree, its work and all, for its conversation to reopen", async () => {
+    const workspaces = createWorkspaces(root);
+    const ws = await workspaces.open(repo, "a");
+    write(join(ws.dir, "app.ts"), "agent\n");
+    const path = worktreePath(repo, "a", root);
+    git(repo, "worktree", "unlock", path);
     git(repo, "worktree", "lock", "--reason", "ignite pid 999999", path);
-    await workspaces.open(repo, "a");
-    age(path);
-    await workspaces.sweep();
-    expect(existsSync(path)).toBe(true);
+    const again = await createWorkspaces(root).open(repo, "a");
+    expect(read(again.dir, "app.ts")).toBe("agent\n");
+    expect(git(repo, "worktree", "list", "--porcelain")).toContain(
+      `locked ignite pid ${process.pid}`,
+    );
   });
 
   it("leaves a worktree another live window uses when this one closes it", async () => {
@@ -392,15 +414,6 @@ describe("keeping work safe", () => {
       path,
     );
     await workspaces.close(repo, "a");
-    expect(existsSync(path)).toBe(true);
-  });
-
-  it("leaves a new worktree alone even before it's locked", async () => {
-    const workspaces = createWorkspaces(root);
-    await workspaces.open(repo, "a");
-    const path = worktreePath(repo, "a", root);
-    git(repo, "worktree", "unlock", path);
-    await workspaces.sweep();
     expect(existsSync(path)).toBe(true);
   });
 });

@@ -13,6 +13,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { dropCheckpoints } from "./checkpoints.ts";
 import {
   create,
   forkCheckout,
@@ -22,7 +23,7 @@ import {
   remove,
   tidy,
 } from "./worktreeCheckout.ts";
-import { cloneEntries, cloneIgnored } from "./worktreeClone.ts";
+import { cloneEntries, cloneMissing, missingIn } from "./worktreeClone.ts";
 import { setReady } from "./worktreeReady.ts";
 import {
   gitOr,
@@ -30,6 +31,7 @@ import {
   inGroupCopy,
   remoteName,
   repoFile,
+  repoOf,
   WORKTREES,
 } from "./worktreeGit.ts";
 
@@ -66,15 +68,11 @@ export async function groupOwner(path: string) {
   return owners.includes("mine") ? "mine" : "gone";
 }
 
-// ponytail: other files are copied in afresh, so the agent's changes to them aren't kept.
-// A repository with no commit yet stays out: copying its .git would have the agent commit to a copy.
-// Files come in at once, as pi reads the folder's instructions (CLAUDE.md) when
-// the session opens; the folders it returns are cloned after.
-async function copyLooseFiles(folder: string, path: string) {
+// The folder's entries that aren't repositories, with whether each is a file (stat follows links).
+async function looseEntries(folder: string) {
   const names = (await readdir(folder).catch(() => [])).filter(
     (n) => !existsSync(join(folder, n, ".git")),
   );
-  // stat follows links, so a CLAUDE.md linked to AGENTS.md counts as a file.
   const isFile = await Promise.all(
     names.map((n) =>
       stat(join(folder, n)).then(
@@ -83,18 +81,27 @@ async function copyLooseFiles(folder: string, path: string) {
       ),
     ),
   );
+  return {
+    files: names.filter((_, i) => isFile[i]),
+    folders: names.filter((_, i) => !isFile[i]),
+  };
+}
+
+// ponytail: other files are copied in afresh, so the agent's changes to them aren't kept.
+// A repository with no commit yet stays out: copying its .git would have the agent commit to a copy.
+// Files come in at once, as pi reads the folder's instructions (CLAUDE.md) when
+// the session opens; the folders it returns are cloned after.
+async function copyLooseFiles(folder: string, path: string) {
+  const { files } = await looseEntries(folder);
   await Promise.all(
-    names
-      .filter((_, i) => isFile[i])
-      .map((n) =>
-        copyFile(
-          join(folder, n),
-          join(path, n),
-          constants.COPYFILE_FICLONE,
-        ).catch(() => {}),
-      ),
+    files.map((n) =>
+      copyFile(
+        join(folder, n),
+        join(path, n),
+        constants.COPYFILE_FICLONE,
+      ).catch(() => {}),
+    ),
   );
-  return names.filter((_, i) => !isFile[i]);
 }
 
 /** Saves each worktree in the workspace under conversation `id`, then deletes it all. Throws, keeping it, when one can't be saved. */
@@ -104,8 +111,12 @@ export async function removeGroup(
   held?: () => Promise<boolean>,
 ) {
   leave(path);
-  for (const checkout of groupCheckouts(path))
-    if (!(await remove(checkout, id, held))) return false;
+  const checkouts = groupCheckouts(path);
+  const repos = checkouts.map(repoOf);
+  // Checkpoints go only with the whole copy: a reopen can stop it partway.
+  for (const checkout of checkouts)
+    if (!(await remove(checkout, id, held, true))) return false;
+  for (const repo of repos) if (repo) await dropCheckpoints(repo, id);
   await rm(path, { recursive: true, force: true });
   await tidy(dirname(path));
   return true;
@@ -115,6 +126,18 @@ export async function removeGroup(
 async function discard(repo: string, checkout: string) {
   await rm(checkout, { recursive: true, force: true });
   await gitOr(repo, ["worktree", "prune"]);
+}
+
+// A quit or crashed app's worktrees are ours now, and get what their clone hadn't brought yet.
+async function takeOver(repos: string[], path: string) {
+  const taken: string[] = [];
+  for (const repo of repos) {
+    const checkout = join(path, basename(repo));
+    if (owner(checkout) !== "gone") continue;
+    await lock(repo, checkout);
+    taken.push(repo);
+  }
+  return taken;
 }
 
 /** Opens conversation `id`'s copy of `folder` at `path`, adding a worktree for each of its `repos` not there yet. */
@@ -140,17 +163,19 @@ export async function openGroup(
     if (fresh) await removeGroup(path, id).catch(() => {});
     throw (made[failed] as PromiseRejectedResult).reason;
   }
-  for (const repo of repos) {
-    const checkout = join(path, basename(repo));
-    if (!missing.includes(repo) && owner(checkout) !== "alive")
-      await lock(repo, checkout);
-  }
-  const looseFolders = fresh ? await copyLooseFiles(folder, path) : [];
+  const taken = await takeOver(
+    repos.filter((r) => !missing.includes(r)),
+    path,
+  );
+  if (fresh) await copyLooseFiles(folder, path);
+  const cloning = [...missing, ...taken];
+  if (!fresh && !cloning.length) return { dir: path };
+  const { folders } = await looseEntries(folder);
   // One at a time: in parallel they starve Claude Code's start of the disk.
   setReady(path, async () => {
-    for (const repo of missing)
-      await cloneIgnored(repo, join(path, basename(repo))).catch(() => {});
-    await cloneEntries(folder, looseFolders, path).catch(() => {});
+    for (const repo of cloning)
+      await cloneMissing(repo, join(path, basename(repo))).catch(() => {});
+    await cloneEntries(folder, missingIn(path, folders), path).catch(() => {});
   });
   return { dir: path };
 }

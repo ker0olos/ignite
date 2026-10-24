@@ -1,13 +1,13 @@
 /** One agent worktree of one repository: creating it (fresh or from saved state), whose it is, saving and removing it. */
-import { readdir, rm, rmdir, mkdir, stat, writeFile } from "node:fs/promises";
+import { readdir, rm, rmdir, mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, uptime } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
 import {
   git,
   gitOr,
-  lockReason,
+  worktreeLock,
   repoFile,
   repoOf,
   restore,
@@ -18,8 +18,6 @@ import {
 import { checkpointRef, dropCheckpoints } from "./checkpoints.ts";
 
 const LOCK = `${APP_NAME} pid `;
-// A worktree younger than this may not be locked yet; sweeps leave it be.
-const NEW_MS = 60_000;
 
 const verified = (repo: string, ref: string) =>
   gitOr(repo, ["rev-parse", "-q", "--verify", `${ref}^{commit}`]);
@@ -60,7 +58,7 @@ export async function remoteDefault(repo: string): Promise<string | null> {
   return null;
 }
 
-/** Locks the worktree at `path` with this process's pid, so sweeps know it's in use. */
+/** Locks the worktree at `path` with this process's pid, so another window closing its conversation leaves it be. */
 export const lock = async (repo: string, path: string) => {
   await gitOr(repo, ["worktree", "unlock", path]);
   await git(repo, [
@@ -136,12 +134,14 @@ export function leave(path: string) {
 
 /**
  * Saves the worktree's state (and branch) under conversation `id`, then
- * deletes it. Throws, keeping it, when the state can't be saved.
+ * deletes it, and its checkpoints unless `keepCheckpoints`. Throws, keeping it,
+ * when the state can't be saved.
  */
 export async function remove(
   path: string,
   id = basename(path),
   held?: () => Promise<boolean>,
+  keepCheckpoints = false,
 ) {
   leave(path);
   const repo = repoOf(path);
@@ -155,10 +155,9 @@ export async function remove(
   await git(repo, ["update-ref", stateRef(id), await snapshot(path, message)]);
   // The save takes a while, and a conversation may open the worktree meanwhile.
   if (await held?.()) return false;
-  await dropCheckpoints(repo, id);
+  if (!keepCheckpoints) await dropCheckpoints(repo, id);
   await gitOr(repo, ["worktree", "unlock", path]);
-  // Windows can't delete a file another process holds open; then a later
-  // sweep tries again, as the lock names a process that's gone by then.
+  // Windows can't delete a file another process holds open.
   await git(repo, ["worktree", "remove", "--force", path]).catch(() =>
     rm(path, { recursive: true, force: true, maxRetries: 3 }),
   );
@@ -191,10 +190,11 @@ export async function forkCheckout(
 
 /** Whose a worktree is, by its lock: this process's, another live one's, or nobody's. */
 export function owner(path: string): "mine" | "alive" | "gone" {
-  const pid = Number(
-    lockReason(path)?.match(new RegExp(`^${LOCK}(\\d+)`))?.[1],
-  );
+  const lock = worktreeLock(path);
+  const pid = Number(lock?.reason.match(new RegExp(`^${LOCK}(\\d+)`))?.[1]);
   if (!pid) return "gone";
+  // Locked before this boot: its pid may now be another process's.
+  if (lock!.since < Date.now() - uptime() * 1000) return "gone";
   if (pid === process.pid) return "mine";
   try {
     process.kill(pid, 0);
@@ -203,7 +203,3 @@ export function owner(path: string): "mine" | "alive" | "gone" {
     return (error as NodeJS.ErrnoException).code === "EPERM" ? "alive" : "gone";
   }
 }
-
-/** Whether `path` was made too recently for a sweep to judge it. */
-export const isNew = async (path: string) =>
-  Date.now() - (await stat(path)).mtimeMs < NEW_MS;

@@ -6,19 +6,16 @@
  * each (worktreeGroup.ts); any other folder outside git is shared.
  */
 import { existsSync } from "node:fs";
-import { readdir } from "node:fs/promises";
-import { join, resolve, sep } from "node:path";
+import { resolve, sep } from "node:path";
 import {
   create,
   forkCheckout,
-  isNew,
   lock,
   owner,
   prefetch,
   remove,
-  tidy,
 } from "./worktreeCheckout.ts";
-import { cloneIgnored } from "./worktreeClone.ts";
+import { cloneMissing } from "./worktreeClone.ts";
 import { dropDoppler } from "./doppler.ts";
 import { dropReady, setReady } from "./worktreeReady.ts";
 import type { WorktreeLayout } from "../shared/git.ts";
@@ -52,21 +49,36 @@ async function repoFor(folder: string) {
   return { repo, prefix };
 }
 
-/** Saves and deletes the workspace at `path` (one worktree or a folder of them) once no live process holds it. */
+// A conversation reopened while its workspace is being removed stops that at
+// its next worktree, and waits for it, so it never takes one git is deleting.
+const opening = new Map<string, number>();
+const releasing = new Map<string, Promise<unknown>>();
+
+async function openWhenReleased<T>(path: string, open: () => Promise<T>) {
+  opening.set(path, (opening.get(path) ?? 0) + 1);
+  try {
+    await releasing.get(path);
+    return await open();
+  } finally {
+    const left = opening.get(path)! - 1;
+    if (left) opening.set(path, left);
+    else opening.delete(path);
+  }
+}
+
+/** Saves and deletes the workspace at `path` (one worktree or a folder of them) unless another live window holds it. */
 async function release(
   path: string,
   id: string,
-  sweeping = false,
-  removing?: () => Promise<void>,
+  removing?: (path: string) => Promise<void>,
 ) {
   if (!existsSync(path)) return dropDoppler(path);
   const group = isGroup(path);
-  const held = async () => {
-    const who = group ? await groupOwner(path) : owner(path);
-    return sweeping ? who !== "gone" : who === "alive";
-  };
-  if ((await held()) || (sweeping && (await isNew(path)))) return;
-  await removing?.();
+  const held = async () =>
+    opening.has(path) ||
+    (group ? await groupOwner(path) : owner(path)) === "alive";
+  if (await held()) return;
+  await removing?.(path);
   const keep = await dropReady(path);
   const removed = await (
     group ? removeGroup(path, id, held) : remove(path, id, held)
@@ -79,6 +91,32 @@ async function release(
   dropDoppler(path);
 }
 
+async function openOne(
+  found: { repo: string; prefix: string },
+  path: string,
+  id: string,
+): Promise<Workspace> {
+  const dir = resolve(path, found.prefix);
+  if (existsSync(path)) {
+    // Another window's, still in use, stays its; else (a quit or crash) it's
+    // ours now, and gets what its clone hadn't brought yet.
+    if (owner(path) === "gone") {
+      await lock(found.repo, path);
+      setReady(path, () => cloneMissing(found.repo, path).catch(() => {}));
+    }
+    return { dir };
+  }
+  try {
+    await create(found.repo, path, id);
+  } catch (error) {
+    await remove(path, id).catch(() => {});
+    throw error;
+  }
+  // ponytail: a failed clone leaves the agent without some ignored files.
+  setReady(path, () => cloneMissing(found.repo, path).catch(() => {}));
+  return { dir };
+}
+
 /** Agents' worktrees under `root`. */
 export function createWorkspaces(root = WORKTREES) {
   return {
@@ -88,24 +126,11 @@ export function createWorkspaces(root = WORKTREES) {
       if (!found) {
         const repos = await groupRepos(folder);
         if (!repos.length) return shared(folder);
-        return openGroup(folder, repos, worktreePath(folder, id, root), id);
+        const path = worktreePath(folder, id, root);
+        return openWhenReleased(path, () => openGroup(folder, repos, path, id));
       }
       const path = worktreePath(found.repo, id, root);
-      const dir = resolve(path, found.prefix);
-      if (existsSync(path)) {
-        // Another window's, still in use, stays its; else (a crash) it's ours now.
-        if (owner(path) !== "alive") await lock(found.repo, path);
-        return { dir };
-      }
-      try {
-        await create(found.repo, path, id);
-      } catch (error) {
-        await remove(path, id).catch(() => {});
-        throw error;
-      }
-      // ponytail: a failed clone leaves the agent without some ignored files.
-      setReady(path, () => cloneIgnored(found.repo, path).catch(() => {}));
-      return { dir };
+      return openWhenReleased(path, () => openOne(found, path, id));
     },
 
     /** Starts conversation `to`'s worktree(s) as a copy of `from`'s files (before message `entry`, open or saved), detached at its commit. */
@@ -133,22 +158,21 @@ export function createWorkspaces(root = WORKTREES) {
         : null;
     },
 
-    /** Saves and deletes conversation `id`'s workspace, unless another window still uses it. */
-    async close(folder: string, id: string, removing?: () => Promise<void>) {
+    /** Saves and deletes conversation `id`'s workspace as it's closed, unless another window still uses it. Nothing else removes one: a reload or quit leaves it for the conversation to reopen. */
+    async close(
+      folder: string,
+      id: string,
+      removing?: (path: string) => Promise<void>,
+    ) {
       const found = await repoFor(folder);
       const path = worktreePath(found?.repo ?? folder, id, root);
-      await release(path, id, false, removing);
-    },
-
-    /** Saves and deletes workspaces whose app process is gone (it crashed or was killed). */
-    async sweep() {
-      for (const repoKey of await readdir(root).catch(() => [])) {
-        for (const id of await readdir(join(root, repoKey)).catch(() => [])) {
-          if (id.startsWith(".")) continue;
-          await release(join(root, repoKey, id), id, true).catch(() => {});
-        }
-        await tidy(join(root, repoKey));
-      }
+      const done = release(path, id, removing);
+      const settled = done.catch(() => {});
+      releasing.set(path, settled);
+      void settled.then(() => {
+        if (releasing.get(path) === settled) releasing.delete(path);
+      });
+      await done;
     },
   };
 }
