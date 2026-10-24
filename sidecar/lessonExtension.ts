@@ -36,10 +36,6 @@ export const LESSON_GUIDANCE =
 
 const DECLINED = "The user kept the lesson as it is.";
 
-const heldReason = (l: Lesson) =>
-  `Held by a lesson from a past mistake [${l.id}]: ${l.text}\n` +
-  "If this call already follows it, make the same call again.";
-
 const blockedReason = (l: Lesson) =>
   `Blocked by a lesson from a past mistake [${l.id}]: ${l.text}\n` +
   "Do it another way. If the user explicitly asks for exactly this, lesson_remove asks them to remove the lesson.";
@@ -53,7 +49,7 @@ const Params = Type.Object({
     [Type.Literal("tool_call"), Type.Literal("system_prompt")],
     {
       description:
-        "tool_call (preferred): shown exactly when you call `tool`. system_prompt: in every system prompt; only for lessons no single tool is about.",
+        "tool_call (preferred): about one `tool`; with `match`, blocks the mistaken call itself. system_prompt: in every system prompt; only for lessons no single tool is about.",
     },
   ),
   tool: Type.Optional(
@@ -67,7 +63,7 @@ const Params = Type.Object({
       description:
         "For tool_call: exact text (3+ characters) that only the mistaken call's arguments contain, e.g. --no-verify. " +
         "Arguments read as their values joined by spaces (git's args as `commit -m x`), without your `reason`. " +
-        "A call containing it is always blocked. Leave it out for a reminder before the tool's first call in each conversation.",
+        "A call containing it is always blocked. Leave it out for a reminder in the system prompt, tagged with the tool.",
     }),
   ),
   regex: Type.Optional(
@@ -174,16 +170,14 @@ function registerRemove(pi: ExtensionAPI, file: string) {
 export default function lessons(pi: ExtensionAPI, file = LESSONS_FILE) {
   // Read once per conversation: a system prompt that changes loses its prompt cache.
   let prompt: string | undefined;
-  const reminded = new Set<string>();
 
   registerAdd(pi, file);
   registerRemove(pi, file);
 
   pi.on("before_agent_start", (event, ctx) => {
+    // A tool_call lesson without `match` can't tell which calls it's about, so it's listed here instead.
     prompt ??= list(
-      lessonsFor(readLessons(file), folderOf(ctx.cwd)).filter(
-        (l) => l.level === "system_prompt",
-      ),
+      lessonsFor(readLessons(file), folderOf(ctx.cwd)).filter((l) => !l.match),
     );
     const saved = prompt ? `\n\nLessons from past mistakes:\n${prompt}` : "";
     event.systemPromptOptions.sections.lessons = `${LESSON_GUIDANCE}${saved}`;
@@ -192,13 +186,9 @@ export default function lessons(pi: ExtensionAPI, file = LESSONS_FILE) {
   pi.on("tool_call", (event, ctx) => {
     const all = lessonsFor(readLessons(file), folderOf(ctx.cwd));
     const input = event.input as Record<string, unknown>;
-    const lesson = lessonFor(all, event.toolName, input, reminded);
+    const lesson = lessonFor(all, event.toolName, input);
     if (!lesson) return;
-    reminded.add(lesson.id);
     recordHit(file, lesson.id);
-    return {
-      block: true,
-      reason: lesson.match ? blockedReason(lesson) : heldReason(lesson),
-    };
+    return { block: true, reason: blockedReason(lesson) };
   });
 }

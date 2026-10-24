@@ -60,15 +60,21 @@ const start = () => {
   return sections;
 };
 
-it("adds the guidance and the system_prompt lessons, read once per conversation", () => {
+it("adds the guidance and every lesson without a match, read once per conversation", () => {
   addLesson(file, { text: "Be brief", level: "system_prompt" });
   addLesson(file, { text: "Elsewhere", level: "system_prompt", folder: "/x" });
   addLesson(file, { text: "Git only", level: "tool_call", tool: "git" });
+  addLesson(file, {
+    text: "No -f",
+    level: "tool_call",
+    tool: "git",
+    match: "push -f",
+  });
   const first = start();
   addLesson(file, { text: "Later", level: "system_prompt" });
   expect(first.lessons).toContain(LESSON_GUIDANCE);
   expect(first.lessons).toMatch(
-    /Lessons from past mistakes:\n- \[\w+\] Be brief$/,
+    /Lessons from past mistakes:\n- \[\w+\] Be brief\n- \[\w+\] \(git\) Git only$/,
   );
   expect(start()).toEqual(first);
 });
@@ -77,7 +83,7 @@ it("adds only the guidance when there are no system_prompt lessons", () => {
   expect(start()).toEqual({ lessons: LESSON_GUIDANCE });
 });
 
-it("blocks a matching call every time and holds an unmatched tool once", () => {
+it("blocks a matching call every time and never holds other calls", () => {
   addLesson(file, {
     text: "No --no-verify",
     level: "tool_call",
@@ -91,12 +97,9 @@ it("blocks a matching call every time and holds an unmatched tool once", () => {
     reason: expect.stringContaining("Blocked by a lesson"),
   });
   expect(call("git", skip)).toMatchObject({ block: true });
-  expect(call("git", { args: ["status"] })).toMatchObject({
-    reason: expect.stringContaining("Held by a lesson"),
-  });
   expect(call("git", { args: ["status"] })).toBe(undefined);
   expect(call("bash", { command: "ls" })).toBe(undefined);
-  expect(readLessons(file).map((l) => l.hits)).toEqual([2, 1]);
+  expect(readLessons(file).map((l) => l.hits)).toEqual([2, 0]);
 });
 
 it("lesson_add saves without asking, for every folder or this one, and lists similar lessons", async () => {

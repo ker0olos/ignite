@@ -168,35 +168,25 @@ describe("lessonFor", () => {
   const remind = lesson({ id: "r" });
   const commit = { args: ["commit", "-m", "x"] };
 
-  it("finds a matching call's lesson every time", () => {
+  it("finds only a matching call's lesson", () => {
     const input = { args: ["commit", "--no-verify"] };
-    const seen = new Set(["nv"]);
-    expect(lessonFor([remind, noVerify], "git", input, seen)?.id).toBe("nv");
+    expect(lessonFor([remind, noVerify], "git", input)?.id).toBe("nv");
+    expect(lessonFor([remind, noVerify], "git", commit)).toBe(undefined);
   });
 
   it("matches across array arguments but not the reason", () => {
     const force = lesson({ id: "f", match: "push --force" });
     const push = { args: ["push", "--force"] };
-    expect(lessonFor([force], "git", push, new Set())?.id).toBe("f");
+    expect(lessonFor([force], "git", push)?.id).toBe("f");
     const why = { args: ["push"], reason: "push --force is wrong" };
-    expect(lessonFor([force], "git", why, new Set())).toBe(undefined);
-  });
-
-  it("reminds of a lesson without a match once", () => {
-    expect(lessonFor([noVerify, remind], "git", commit, new Set())?.id).toBe(
-      "r",
-    );
-    expect(lessonFor([noVerify, remind], "git", commit, new Set(["r"]))).toBe(
-      undefined,
-    );
+    expect(lessonFor([force], "git", why)).toBe(undefined);
   });
 
   it("only looks at the called tool's tool_call lessons", () => {
-    const prompt = lesson({ id: "p", level: "system_prompt" });
-    expect(lessonFor([remind, prompt], "bash", commit, new Set())).toBe(
-      undefined,
-    );
-    expect(lessonFor([prompt], "git", commit, new Set())).toBe(undefined);
+    const onGit = lesson({ id: "g", match: "commit" });
+    expect(lessonFor([onGit], "bash", commit)).toBe(undefined);
+    const prompt = { ...onGit, level: "system_prompt" as const };
+    expect(lessonFor([prompt], "git", commit)).toBe(undefined);
   });
 
   it("tells background bash calls from foreground ones", () => {
@@ -209,21 +199,21 @@ describe("lessonFor", () => {
       background: false,
     });
     const any = lesson({ id: "any", tool: "bash", match: "run dev" });
-    expect(lessonFor([fg], "bash", dev, new Set())?.id).toBe("fg");
-    expect(lessonFor([fg], "bash", bg, new Set())).toBe(undefined);
-    expect(lessonFor([fg, any], "bash", bg, new Set())?.id).toBe("any");
+    expect(lessonFor([fg], "bash", dev)?.id).toBe("fg");
+    expect(lessonFor([fg], "bash", bg)).toBe(undefined);
+    expect(lessonFor([fg, any], "bash", bg)?.id).toBe("any");
     const loose = { ...dev, background: "true" };
-    expect(lessonFor([fg], "bash", loose, new Set())).toBe(undefined);
+    expect(lessonFor([fg], "bash", loose)).toBe(undefined);
     expect(list([fg])).toBe(
       '- [fg] (bash (foreground only): "run dev") Don\'t',
     );
   });
 
   it("matches an MCP call by its server tool or the tool it calls", () => {
-    const issue = lesson({ id: "i", tool: "create_issue" });
-    const input = { tool: "create_issue", args: "{}" };
-    expect(lessonFor([issue], "mcp__github", input, new Set())?.id).toBe("i");
-    expect(lessonFor([issue], "mcp", input, new Set())?.id).toBe("i");
+    const issue = lesson({ id: "i", tool: "create_issue", match: "title" });
+    const input = { tool: "create_issue", args: '{"title":"x"}' };
+    expect(lessonFor([issue], "mcp__github", input)?.id).toBe("i");
+    expect(lessonFor([issue], "mcp", input)?.id).toBe("i");
   });
 });
 
@@ -235,8 +225,7 @@ describe("regex lessons", () => {
   });
 
   it("blocks every spelling a regex catches, and only those", () => {
-    const call = (...args: string[]) =>
-      lessonFor([force], "git", { args }, new Set())?.id;
+    const call = (...args: string[]) => lessonFor([force], "git", { args })?.id;
     expect(call("push", "-f")).toBe("f");
     expect(call("push", "origin", "main", "--force")).toBe("f");
     expect(call("push", "--force-with-lease")).toBe(undefined);
@@ -245,20 +234,18 @@ describe("regex lessons", () => {
 
   it("sees a whole call, across lines, unless it's quadratic", () => {
     const late = { args: ["push", "x".repeat(5_000), "-f"] };
-    expect(lessonFor([force], "git", late, new Set())?.id).toBe("f");
+    expect(lessonFor([force], "git", late)?.id).toBe("f");
     const slow = { ...force, quadratic: true };
-    expect(lessonFor([slow], "git", late, new Set())).toBe(undefined);
+    expect(lessonFor([slow], "git", late)).toBe(undefined);
     const lines = { command: "git push origin main \\\n  --force" };
-    expect(
-      lessonFor([{ ...force, tool: "bash" }], "bash", lines, new Set())?.id,
-    ).toBe("f");
+    expect(lessonFor([{ ...force, tool: "bash" }], "bash", lines)?.id).toBe(
+      "f",
+    );
   });
 
   it("skips a broken saved regex", () => {
     const broken = lesson({ id: "b", match: "push(", regex: true });
-    expect(lessonFor([broken], "git", { args: ["push("] }, new Set())).toBe(
-      undefined,
-    );
+    expect(lessonFor([broken], "git", { args: ["push("] })).toBe(undefined);
   });
 
   it("saves a regex marked by its speed, and refuses one that's invalid, too broad or slow", () => {
@@ -297,9 +284,7 @@ describe("regex lessons", () => {
       match: "a.c",
     });
     expect(saved).not.toHaveProperty("regex");
-    expect(lessonFor([saved], "git", { args: ["abc"] }, new Set())).toBe(
-      undefined,
-    );
+    expect(lessonFor([saved], "git", { args: ["abc"] })).toBe(undefined);
     expect(list([force])).toBe(
       "- [f] (git: /push.*(-f|--force)(\\s|$)/) Don't",
     );

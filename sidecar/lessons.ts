@@ -170,15 +170,11 @@ export function callText(value: unknown): string {
   return "";
 }
 
-/**
- * The lesson a tool call runs into: one whose `match` its arguments contain (or, a regex, match),
- * else one with no `match` not yet in `reminded`.
- */
+/** The lesson a tool call runs into: one whose `match` its arguments contain (or, a regex, match). */
 export function lessonFor(
   lessons: Lesson[],
   name: string,
   input: Record<string, unknown>,
-  reminded: Set<string>,
 ): Lesson | undefined {
   const tools = toolsOf(name, input);
   const background = !!input.background;
@@ -190,8 +186,5 @@ export function lessonFor(
       (l.background === undefined || l.background === background),
   );
   const text = callText(input);
-  return (
-    mine.find((l) => matches(l, text)) ??
-    mine.find((l) => !l.match && !reminded.has(l.id))
-  );
+  return mine.find((l) => matches(l, text));
 }

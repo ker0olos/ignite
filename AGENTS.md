@@ -1106,8 +1106,9 @@ on save (`sidecar/lessonRegex.ts`): refused when it's invalid, matches empty
 or ordinary text (it would block every call), or `recheck` (loaded only then)
 finds it worse than quadratic or can't tell; a quadratic one is marked and
 tried on a call's first 4,000 characters only, a linear one on all of it.
-Without `match`, the tool's first
-call in each conversation is held once so the agent reads it. Subagents get
+Without `match`, it's listed in
+the system prompt with the system_prompt lessons, tagged with its tool, and
+holds no call. Subagents get
 the same checks.
 
 Settings → Lessons lists every saved lesson
