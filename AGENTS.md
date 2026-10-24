@@ -30,8 +30,9 @@ src/                     React frontend (almost all logic lives here)
                          its completions menu (MentionRow, a `/command`'s argument chips and CommandHint)
     conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces:
                          a 30px tile (ToolTile: an MCP server's brand mark, else a Lucide glyph; a corner dot while it runs, waits
-                         or failed) beside its title, the outcome under the title (the tile in the margin when the pane has room, so
-                         titles and cards share the reply text's edge); consecutive calls of one tool (or MCP server) share one
+                         or failed) beside its title, the outcome under the title (when the pane is wide, useWidePane, the column
+                         grows by a tile and indents everything but tool rows, so titles and cards share the reply text's edge;
+                         padding only: negative margins or a container query there make WebKit lose the scroll place); consecutive calls of one tool (or MCP server) share one
                          tile (ToolCallGroup) as dots on a line from it, each still showing its argument, why and outcome; a script's (ScriptRow) calls as
                          steps joined by a line,
                          generated images as a media card (MediaCard: model, prompt, size, mark up), generated videos likewise (VideoCard), generated audio as an AudioCard (waveform player); WorkingLine is the run's spinner, step and time,
@@ -71,6 +72,7 @@ src/                     React frontend (almost all logic lives here)
     useSessionSwitch.ts  Showing and closing the shown folder's conversations
     useSessionCache.ts   Every open conversation shown so far, kept current by its events; the one each folder shows
     useOlderRows.ts      A conversation draws its newest rows, older ones as the user scrolls up
+    useWidePane.ts       Whether the conversation's pane is wide enough for tool tiles beside the text's edge
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
     useComposerBegin.ts  That first message: the conversation opens, takes the choices made before it, then gets it
     useCompact.ts        `/compact`: compacts the shown conversation

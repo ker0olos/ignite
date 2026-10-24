@@ -22,7 +22,7 @@ export function ToolCallGroup({
 }: Omit<ToolProps, "call" | "run"> & { calls: ToolCall[] }) {
   const runs = calls.map((c) => tools[c.id]);
   return (
-    <div className="flex flex-col gap-3.5">
+    <div data-tool-row className="flex flex-col gap-3.5">
       <div className="relative flex items-center gap-3.5">
         <span
           aria-hidden

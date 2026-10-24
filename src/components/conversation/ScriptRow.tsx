@@ -12,7 +12,7 @@ export function ScriptRow({ call, run, tools = {}, ...rest }: ToolProps) {
   const output = resultText(run?.result);
   const footer = status === "done" ? tokenFooter(output, run) : null;
   return (
-    <div>
+    <div data-tool-row>
       <div className="relative flex flex-col gap-5">
         {(steps.length > 0 || status === "done") && (
           <span

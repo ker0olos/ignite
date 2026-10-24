@@ -11,7 +11,7 @@ export function ToolRowFrame({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3.5">
+    <div data-tool-row className="flex items-start gap-3.5">
       {tile}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-1">
         {head}

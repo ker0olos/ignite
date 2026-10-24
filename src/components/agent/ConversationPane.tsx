@@ -76,8 +76,7 @@ export const ConversationPane = memo(function ConversationPane({
       inert={!shown}
       className={cn(
         // useStickToBottom keeps the place; the browser's anchoring would move it on a resize.
-        // A container, so tool rows' tiles can sit in its margin (Conversation).
-        "@container absolute inset-0 overscroll-contain overflow-y-auto [overflow-anchor:none]",
+        "absolute inset-0 overscroll-contain overflow-y-auto [overflow-anchor:none]",
         !shown && "invisible",
       )}
     >
