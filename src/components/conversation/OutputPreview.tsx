@@ -2,7 +2,6 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { LinkedText } from "@/components/conversation/LinkedText";
 import { MoreLines } from "@/components/conversation/MoreLines";
-import { RunningLine } from "@/components/conversation/RunningLine";
 import { PREVIEW_CHARS, PREVIEW_LINES } from "@/components/conversation/shared";
 import { isShortOutput, outputPreview } from "@/lib/toolRows";
 import { cn } from "@/lib/utils";
@@ -14,12 +13,10 @@ import { cn } from "@/lib/utils";
 export function OutputPreview({
   text,
   error,
-  running,
   label,
 }: {
   text: string;
   error?: boolean;
-  running?: boolean;
   /** Shown collapsed in place of "Output", however short the output. */
   label?: string;
 }) {
@@ -35,14 +32,8 @@ export function OutputPreview({
         onClick={() => setOpen(true)}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
-        {running ? (
-          <RunningLine />
-        ) : (
-          <>
-            <ChevronRight className="size-3" />
-            {label ?? "Output"}
-          </>
-        )}
+        <ChevronRight className="size-3" />
+        {label ?? "Output"}
       </button>
     );
   }

@@ -25,10 +25,6 @@ function hasOutcome(
   return !showsNothingYet(call, run, text, !!skip && canSkipWait(call, run));
 }
 
-// A running call with nothing to show yet.
-const idle = (run: ToolRun | undefined) =>
-  run?.status === "running" && !run.approval && "Running…";
-
 /** What a tool call shows under its title: its outcome, a generated media's card, or "Didn’t run". Nothing while there's nothing to show. */
 export function ToolCallBody({
   call,
@@ -63,7 +59,7 @@ export function ToolCallBody({
   );
   const body = run?.cancelled
     ? "Didn’t run"
-    : (pickMediaCard({ call: shown, run, folder }) ?? (outcome || idle(run)));
+    : (pickMediaCard({ call: shown, run, folder }) ?? outcome);
   if (!body) return null;
   return (
     <div

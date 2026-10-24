@@ -63,11 +63,7 @@ export function ToolBody({
 
   return (
     <>
-      {text ? (
-        <OutputPreview text={text} running={running} />
-      ) : (
-        !running && <p>(No output)</p>
-      )}
+      {text ? <OutputPreview text={text} /> : !running && <p>(No output)</p>}
       <SkipWaitButton call={call} run={run} />
     </>
   );

@@ -14,12 +14,6 @@ it("shows a short error as is", () => {
   expect(screen.getByText("Not run: the app reloaded.")).toBeTruthy();
 });
 
-it("says output is still coming while its command runs", () => {
-  render(<OutputPreview text={"one\ntwo\nthree"} running />);
-  fireEvent.click(screen.getByRole("button", { name: /Running…/ }));
-  expect(screen.getByText(/two/)).toBeTruthy();
-});
-
 it("keeps even short output under its label until opened", () => {
   render(<OutputPreview text="Merge made." label="Brought in 2 commits" />);
   expect(screen.queryByText("Merge made.")).toBe(null);
