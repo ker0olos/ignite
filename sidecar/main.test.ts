@@ -214,7 +214,7 @@ describe("sidecar process", () => {
     await sidecar.stop();
   }, 30_000);
 
-  it("gives each conversation in a git folder its own worktree, and removes them on quit", async () => {
+  it("gives each conversation in a git folder its own worktree, and keeps them when it quits", async () => {
     const project = join(home, "project");
     await mkdir(project);
     const git = (...args: string[]) =>
@@ -253,12 +253,7 @@ describe("sidecar process", () => {
     expect(a).not.toBe(b);
     expect(await readFile(join(b, "app.ts"), "utf8")).toBe("one\n");
     await sidecar.stop();
-    expect(existsSync(a) || existsSync(b)).toBe(false);
-    const refs = execFileSync("git", ["for-each-ref", `refs/${APP_NAME}`], {
-      cwd: project,
-      encoding: "utf8",
-    });
-    expect(refs.trim().split("\n")).toHaveLength(2);
+    expect(existsSync(a) && existsSync(b)).toBe(true);
   }, 60_000);
 
   it("loads mods/ files in place of the ones they override", async () => {
