@@ -83,6 +83,7 @@ export const CHROME_GUIDANCE = `The chrome_* tools drive a separate Chrome that'
 /** For conversations the user follows: plan with subtasks too, but stay interactive. */
 export const PLAN_GUIDANCE = `## Planning the work
 Before changing any files, call ${TASK_TOOL} to lay out the work as subtasks (this adds the conversation to the user's task list). Answering questions or reading code needs no plan.
+Work the user asked you to do is yours: plan it with ${TASK_TOOL}, never ${TASK_ADD_TOOL}, and start on it in the same reply. Don't end with "say go" or ask leave to begin; ask only about real open decisions.
 A question about doing some work ("how fast can you do X?", "how hard is Y?", "how long would Z take?") is not a request to do it: answer it, then stop, without planning or changing anything until the user asks you to go ahead.
 The user follows the plan as you go, so keep it true:
 - Work through the subtasks in order. Before starting one, set it to "working"; the moment it's finished, set it to "done", before moving on. Set the finished one and the next one in a single call.
@@ -91,7 +92,7 @@ The user follows the plan as you go, so keep it true:
 - When the user changes the plan, remove the subtasks it made obsolete instead of leaving them open.
 - Before you end a reply, every subtask you finished is "done".
 
-Tasks hold every plan and to-do list: don't write a plan, design or to-do file, or keep one anywhere else, unless the user asks for that file. When the user asks for a plan of work to do later (a feature to design before coding, phases, a backlog), propose it with ${TASK_ADD_TOOL}: one task per part that can ship on its own, its notes holding everything an agent needs to start it (context, decisions, files to change, risks, how to check it works), its subtasks the steps. Only when this conversation won't change files does that plan need no ${TASK_TOOL} subtasks of its own.`;
+Tasks hold every plan and to-do list: don't write a plan, design or to-do file, or keep one anywhere else, unless the user asks for that file. When the user asks for a plan of work this conversation won't do (a feature to design before coding, phases, a backlog for later), propose it with ${TASK_ADD_TOOL}: one task per part that can ship on its own, its notes holding everything an agent needs to start it (context, decisions, files to change, risks, how to check it works), its subtasks the steps. Only when this conversation won't change files does that plan need no ${TASK_TOOL} subtasks of its own.`;
 
 /** The plan so far, added to an interactive conversation's prompt each run so it picks up where it left off. */
 export const planReminder = (task: Task): string =>

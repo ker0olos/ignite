@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { TASK_ADD_TOOL, proposedTask, type Task } from "../shared/tasks.ts";
+import {
+  TASK_ADD_TOOL,
+  TASK_TOOL,
+  proposedTask,
+  type Task,
+} from "../shared/tasks.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import { TASK_EVENT, type TaskAsk } from "./taskExtension.ts";
 
@@ -49,7 +54,8 @@ export function registerTaskAdd(pi: ExtensionAPI) {
     description:
       "Add tasks to the user's task list (not started; the user starts them later). " +
       "The user sees them as cards and approves or declines before anything is added. " +
-      "Use it for any plan of work for later (a feature's phases, a backlog, issues gathered from an MCP server) instead of a plan file.",
+      "Use it for work other conversations will do later (a feature's phases, a backlog, issues gathered from an MCP server) instead of a plan file. " +
+      `Never for this conversation's own work: plan that with ${TASK_TOOL}.`,
     parameters: Params,
     async execute(toolCallId, params, signal) {
       const { approved, reason } = await approve(pi, toolCallId, signal);
