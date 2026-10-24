@@ -26,7 +26,12 @@ export function ZoomableImage({
       onEdit={onEdit}
       trigger={
         <DialogTrigger
-          render={<button type="button" className="shrink-0 cursor-zoom-in" />}
+          render={
+            <button
+              type="button"
+              className="max-w-full shrink-0 cursor-zoom-in"
+            />
+          }
           aria-label={`Open ${name}`}
         >
           <img
