@@ -2,11 +2,11 @@ import { resultImages } from "../../../shared/agentTypes";
 import { EditToolBody } from "@/components/conversation/EditToolBody";
 import { GitReviewOutput } from "@/components/conversation/GitReviewOutput";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
-import { ReadToolBody } from "@/components/conversation/ReadToolBody";
 import type { ToolProps } from "@/components/conversation/shared";
 import { SkipWaitButton } from "@/components/conversation/SkipWaitButton";
 import { ToolImages } from "@/components/conversation/ToolImages";
 import { WriteToolBody } from "@/components/conversation/WriteToolBody";
+import { READ_TOOLS } from "@/lib/approvalPolicy";
 import { shownReview } from "@/lib/diffTabs";
 import type { ToolRun } from "@/lib/transcript";
 
@@ -58,9 +58,8 @@ export function ToolBody({
     return <ToolImages images={images} text={text} tool={call.name} />;
   }
 
-  if (call.name === "read") {
-    return <ReadToolBody running={running} text={text} />;
-  }
+  // What a read or search found is the agent's; its title says enough.
+  if (READ_TOOLS.has(call.name)) return null;
 
   return (
     <>

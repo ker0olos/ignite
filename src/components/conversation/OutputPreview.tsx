@@ -8,8 +8,8 @@ import { isShortOutput, outputPreview } from "@/lib/toolRows";
 import { cn } from "@/lib/utils";
 
 /**
- * Plain-text tool output, collapsed to its line count unless it's one short
- * line; opened, a few lines with an expand button. Errors are red.
+ * Plain-text tool output, collapsed to "Output" unless it's one short line;
+ * opened, a few lines with an expand button. Errors are red.
  */
 export function OutputPreview({
   text,
@@ -20,7 +20,7 @@ export function OutputPreview({
   text: string;
   error?: boolean;
   running?: boolean;
-  /** Shown collapsed in place of the line count, however short the output. */
+  /** Shown collapsed in place of "Output", however short the output. */
   label?: string;
 }) {
   const [opened, setOpen] = useState(false);
@@ -28,8 +28,6 @@ export function OutputPreview({
   const open = opened || (!label && isShortOutput(text));
   const [all, setAll] = useState(false);
   const trimmed = text.replace(/\n+$/, "");
-  const lines = trimmed.split("\n").length;
-  const count = `${lines} ${lines === 1 ? "line" : "lines"} of output`;
   if (!open) {
     return (
       <button
@@ -38,11 +36,11 @@ export function OutputPreview({
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
         {running ? (
-          <RunningLine> {count} so far</RunningLine>
+          <RunningLine />
         ) : (
           <>
             <ChevronRight className="size-3" />
-            {label ?? count}
+            {label ?? "Output"}
           </>
         )}
       </button>
