@@ -5,7 +5,6 @@ import {
   inArrivalOrder,
   waitingCalls,
   diffSummary,
-  groupSummary,
   isShortOutput,
   outputPreview,
   parseDiff,
@@ -38,41 +37,17 @@ const assistant = (
 });
 
 describe("toRows", () => {
-  it("folds quiet tool calls across messages into one group", () => {
+  it("shows every tool call as its own row", () => {
     const rows = toRows([
       assistant([call("read", "a")]),
-      {
-        kind: "message",
-        message: {
-          role: "toolResult",
-          toolCallId: "a",
-          toolName: "read",
-          content: [],
-          isError: false,
-          timestamp: 0,
-        },
-      },
-      assistant([call("bash", "b"), call("grep", "c")]),
+      assistant([call("bash", "b"), call("grep", "c"), call("edit", "d")]),
     ]);
     expect(rows).toEqual([
-      {
-        kind: "group",
-        calls: [call("read", "a"), call("bash", "b"), call("grep", "c")],
-      },
+      { kind: "tool", call: call("read", "a") },
+      { kind: "tool", call: call("bash", "b") },
+      { kind: "tool", call: call("grep", "c") },
+      { kind: "tool", call: call("edit", "d") },
     ]);
-  });
-
-  it("keeps edits, writes and other tools on their own rows, splitting groups", () => {
-    const rows = toRows([
-      assistant([
-        call("read", "a"),
-        call("grep", "b"),
-        call("edit"),
-        call("read", "c"),
-        call("ls", "d"),
-      ]),
-    ]);
-    expect(rows.map((r) => r.kind)).toEqual(["group", "tool", "group"]);
   });
 
   it("shows only the latest of plan updates in a row, once it has a plan", () => {
@@ -96,137 +71,31 @@ describe("toRows", () => {
     ]);
   });
 
-  it("takes a failed call out of its group, so the group holds only calls that worked", () => {
-    const rows = toRows(
-      [
-        assistant([
-          call("read", "a"),
-          call("bash", "b"),
-          call("grep", "c"),
-          call("read", "d"),
-          call("ls", "e"),
-        ]),
-      ],
-      { a: { status: "done" }, b: { status: "done" }, c: { status: "error" } },
-    );
-    expect(rows).toEqual([
-      { kind: "group", calls: [call("read", "a"), call("bash", "b")] },
-      { kind: "tool", call: call("grep", "c") },
-      { kind: "group", calls: [call("read", "d"), call("ls", "e")] },
-    ]);
-  });
-
-  it("takes a command that changed files out of its group, so its edits show", () => {
-    const edits = [{ path: "a.ts", diff: "" }];
-    const rows = toRows([assistant([call("read", "a"), call("bash", "b")])], {
-      b: { status: "done", result: { content: [], details: { edits } } },
-    });
-    expect(rows).toEqual([
-      { kind: "tool", call: call("read", "a") },
-      { kind: "tool", call: call("bash", "b") },
-    ]);
-  });
-
-  it("takes a background command out of its group, so it's always in sight", () => {
-    const bg = { ...call("bash", "b"), arguments: { background: true } };
-    const rows = toRows([
-      assistant([call("grep", "a"), bg, call("read", "c")]),
-    ]);
-    expect(rows).toEqual([
-      { kind: "tool", call: call("grep", "a") },
-      { kind: "tool", call: bg },
-      { kind: "tool", call: call("read", "c") },
-    ]);
-  });
-
-  it("folds subagents with each other, never with quiet calls", () => {
-    const rows = toRows([
-      assistant([
-        call("subagent", "a"),
-        call("subagent", "b"),
-        call("read", "c"),
-        call("read", "d"),
-        call("subagent", "e"),
-      ]),
-    ]);
-    expect(rows).toEqual([
-      { kind: "group", calls: [call("subagent", "a"), call("subagent", "b")] },
-      { kind: "group", calls: [call("read", "c"), call("read", "d")] },
-      { kind: "tool", call: call("subagent", "e") },
-    ]);
-  });
-
-  it("keeps MCP calls that may change something on their own rows", () => {
-    const create = (id: string) => ({
-      ...call("mcp", id),
-      arguments: { server: "clickup", tool: "create_task" },
-    });
-    expect(toRows([assistant([create("a"), create("b")])])).toEqual([
-      { kind: "tool", call: create("a") },
-      { kind: "tool", call: create("b") },
-    ]);
-  });
-
-  it("never folds an MCP tool named like another fold key with quiet calls", () => {
-    const quiet = { ...call("mcp", "a"), arguments: { tool: "get_quiet" } };
-    expect(toRows([assistant([call("read", "r"), quiet])])).toEqual([
-      { kind: "tool", call: call("read", "r") },
-      { kind: "tool", call: quiet },
-    ]);
-  });
-
-  it("folds read-only MCP calls of the same tool, apart from other tools and quiet calls", () => {
-    const mcp = (id: string, tool: string) => ({
+  it("puts one MCP server's calls under one tile, and keeps subagents a row each", () => {
+    const mcp = (id: string) => ({
       ...call("mcp__clickup", id),
-      arguments: { tool },
+      arguments: { tool: "get_task" },
     });
     const rows = toRows([
       assistant([
-        mcp("a", "get_task"),
-        mcp("b", "get_task"),
-        mcp("c", "get_list"),
-        call("read", "d"),
-        mcp("e", "get_list"),
-        mcp("f", "get_list"),
+        mcp("a"),
+        mcp("b"),
+        call("subagent", "c"),
+        call("subagent", "d"),
       ]),
     ]);
-    expect(rows).toEqual([
-      { kind: "group", calls: [mcp("a", "get_task"), mcp("b", "get_task")] },
-      { kind: "tool", call: mcp("c", "get_list") },
-      { kind: "tool", call: call("read", "d") },
-      { kind: "group", calls: [mcp("e", "get_list"), mcp("f", "get_list")] },
-    ]);
-    expect(groupSummary([mcp("a", "get_task"), mcp("b", "get_task")])).toBe(
-      "Called clickup · get_task 2 times",
-    );
+    expect(rows.map((r) => r.kind)).toEqual(["calls", "tool", "tool"]);
   });
 
-  it("text breaks a group", () => {
+  it("text sits between tool rows", () => {
     const rows = toRows([
       assistant([
         call("read", "a"),
-        call("read", "b"),
         { type: "text", text: "hm" },
-        call("read", "c"),
-        call("read", "d"),
+        call("read", "b"),
       ]),
     ]);
-    expect(rows.map((r) => r.kind)).toEqual(["group", "text", "group"]);
-  });
-
-  it("shows a lone quiet call as its own row instead of a group of one", () => {
-    const rows = toRows([
-      assistant([
-        call("edit"),
-        call("bash", "b"),
-        { type: "text", text: "ok" },
-      ]),
-    ]);
-    expect(rows).toEqual([
-      { kind: "tool", call: call("edit") },
-      { kind: "tool", call: call("bash", "b") },
-      { kind: "text", text: "ok" },
-    ]);
+    expect(rows.map((r) => r.kind)).toEqual(["tool", "text", "tool"]);
   });
 
   it("shows no row for thinking", () => {
@@ -280,51 +149,6 @@ describe("toRows", () => {
     const text = { type: "text" as const, text: "boom" };
     expect(toRows([assistant([text], "aborted")])[0]?.kind).toBe("text");
     expect(toRows([assistant([text], "toolUse")])[0]?.kind).toBe("text");
-  });
-});
-
-describe("groupSummary", () => {
-  it("counts each kind, singular and plural", () => {
-    expect(
-      groupSummary([
-        call("read", "r1"),
-        call("read", "r2"),
-        call("grep"),
-        call("find"),
-        call("ls"),
-        call("bash"),
-      ]),
-    ).toBe(
-      "Read 2 files, searched for 2 patterns, listed 1 folder, ran 1 shell command",
-    );
-  });
-
-  it("counts the different files reads read, and outlined files and folders", () => {
-    const read = (path: string, also?: object[]) => ({
-      ...call("read", path),
-      arguments: { path, also },
-    });
-    const outline = (path: string) => ({
-      ...call("outline", path),
-      arguments: { path },
-    });
-    expect(
-      groupSummary([
-        read("a.ts", [{ path: "a.ts", offset: 300 }, { path: "b.ts" }]),
-        read("a.ts"),
-        outline("src"),
-        outline("src/app.ts"),
-      ]),
-    ).toBe("Read 2 files, outlined 1 file, outlined 1 folder");
-  });
-
-  it("leaves out kinds that didn't run", () => {
-    expect(groupSummary([call("bash"), call("bash")])).toBe(
-      "Ran 2 shell commands",
-    );
-    expect(groupSummary([call("subagent"), call("subagent")])).toBe(
-      "Ran 2 subagents",
-    );
   });
 });
 
@@ -478,6 +302,21 @@ describe("waitingCalls", () => {
     };
     expect(waitingCalls(items, tools)).toEqual(["b", "c"]);
     expect(waitingCalls(items, {})).toEqual([]);
+  });
+
+  it("lists a script's waiting calls after it, in the order they started", () => {
+    const items = [turn(call("s")), turn(call("c"))];
+    const tools = {
+      s: {
+        status: "running" as const,
+        nested: [call("s/1"), call("s/2"), call("s/3")],
+      },
+      "s/1": { status: "done" as const },
+      "s/2": { status: "running" as const, approval: {} },
+      "s/3": { status: "running" as const, approval: {} },
+      c: { status: "running" as const, approval: {} },
+    };
+    expect(waitingCalls(items, tools)).toEqual(["s/2", "s/3", "c"]);
   });
 });
 

@@ -299,6 +299,13 @@ describe("tool_call", () => {
     expect(asks).toEqual([]);
   });
 
+  it("lets a script through in Manual; the calls it makes ask instead", async () => {
+    await settings("[approval]\nmode = 'manual'\n");
+    const { asks, call } = load();
+    expect(await call("codemode", { code: "", reason: "r" })).toBeUndefined();
+    expect(asks).toEqual([]);
+  });
+
   it("denies a waiting call when the run is stopped", async () => {
     await settings("[approval]\nmode = 'manual'\n");
     const { asks, call } = load();

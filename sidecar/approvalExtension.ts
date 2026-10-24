@@ -19,6 +19,7 @@ import {
 import { GH_TOOL, GIT_TOOL } from "../shared/git.ts";
 import { LESSON_ADD_TOOL, LESSON_REMOVE_TOOL } from "../shared/lessons.ts";
 import { ASK_TOOL } from "../shared/questions.ts";
+import { CODEMODE_TOOL } from "../shared/codemode.ts";
 import { askUser } from "./approvalAsk.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
 import {
@@ -66,7 +67,9 @@ const bashParser = loadBashParser().catch((error: unknown) => {
 export const DENIED = "The user denied this tool call.";
 export const DECLINED_OUTSIDE =
   "The sandbox blocked this command, and the user declined to run it outside the sandbox.";
+// A script (codemode) asks through the calls it makes.
 const SELF_ASKING = new Set([
+  CODEMODE_TOOL,
   ASK_TOOL,
   TASK_ADD_TOOL,
   GIT_TOOL,

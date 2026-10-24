@@ -191,17 +191,22 @@ export type SessionEvent =
       toolCallId: string;
       toolName: string;
       args: Record<string, unknown>;
+      /** Set for a call a script (codemode) made. */
+      parentToolCallId?: string;
     }
   | {
       type: "tool_execution_update";
       toolCallId: string;
       partialResult: ToolResult;
+      parentToolCallId?: string;
     }
   | {
       type: "tool_execution_end";
       toolCallId: string;
       result: ToolResult;
       isError: boolean;
+      durationMs?: number;
+      parentToolCallId?: string;
     }
   | {
       type: "auto_retry_start";

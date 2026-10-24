@@ -2,8 +2,8 @@ import { AssistantText } from "@/components/conversation/AssistantText";
 import { CompactionRow } from "@/components/conversation/CompactionRow";
 import type { Editor, ToolProps } from "@/components/conversation/shared";
 import { EndRow } from "@/components/conversation/EndRow";
-import { ToolGroup } from "@/components/conversation/ToolGroup";
-import { ToolView } from "@/components/conversation/ToolView";
+import { ToolCallGroup } from "@/components/conversation/ToolCallGroup";
+import { ToolCallRow } from "@/components/conversation/ToolCallRow";
 import { UserMessageRow } from "@/components/conversation/UserMessageRow";
 import type { ToolRun } from "@/lib/transcript";
 import type { Row } from "@/lib/toolRows";
@@ -67,9 +67,9 @@ export function RowView({
           codeThemes={codeThemes}
         />
       );
-    case "tool":
+    case "tool": {
       return (
-        <ToolView
+        <ToolCallRow
           call={row.call}
           run={tools[row.call.id]}
           folder={folder}
@@ -79,14 +79,15 @@ export function RowView({
           onApprove={onApprove}
         />
       );
-    case "group":
+    }
+    case "calls":
       return (
-        <ToolGroup
+        <ToolCallGroup
           calls={row.calls}
-          tools={tools}
           folder={folder}
           editor={editor}
           codeThemes={codeThemes}
+          tools={tools}
           onApprove={onApprove}
         />
       );

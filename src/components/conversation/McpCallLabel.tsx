@@ -1,28 +1,17 @@
 import type { McpCall } from "@/lib/mcpToolCall";
 
-/** Label for an MCP-adapter tool call, formatted per call kind. */
+/** Title for an MCP-adapter call that isn't a tool call (search, describe, connect). */
 export function McpCallLabel({
   call,
   failed,
 }: {
-  call: McpCall;
+  call: Exclude<McpCall, { kind: "call" }>;
   failed?: boolean;
 }) {
   const mono = (text: string) => (
     <code className="font-mono text-[12px] font-normal">{text}</code>
   );
   switch (call.kind) {
-    case "call":
-      return (
-        <>
-          {call.server && (
-            <span className="font-normal text-muted-foreground">
-              {call.server} ·{" "}
-            </span>
-          )}
-          {mono(call.tool)}
-        </>
-      );
     case "search":
       return <>Searched MCP tools for “{call.query}”</>;
     case "describe":

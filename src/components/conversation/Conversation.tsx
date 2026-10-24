@@ -11,10 +11,17 @@ import { WaitingCallsContext } from "@/hooks/useWaitingPlace";
 import { useOlderRows } from "@/hooks/useOlderRows";
 import { workingLine, writingText } from "@/lib/runStep";
 import type { Item, Transcript } from "@/lib/transcript";
-import { toRows } from "@/lib/toolRows";
+import { toRows, type Row } from "@/lib/toolRows";
 import { editableEntries } from "@/lib/rewind";
 import { editOriginals } from "@/lib/media";
 import type { CodeThemes } from "@/lib/codeThemes";
+
+// Tool rows' tiles sit in the margin, so their titles and cards share the text's edge,
+// once the pane (a container) has room for them beside the column.
+const marginTiles = (row: Row) =>
+  row.kind === "tool" || row.kind === "calls"
+    ? "@min-[860px]:-ml-11"
+    : undefined;
 
 /** The conversation so far, auto-scrolling unless the user has scrolled up. */
 export function Conversation({
@@ -66,11 +73,11 @@ export function Conversation({
       <EditOriginalsContext.Provider value={originals}>
         <div
           ref={contentRef}
-          className="always-bounce mx-auto select-text max-w-3xl space-y-4 px-4 py-6 text-[13px]"
+          className="always-bounce mx-auto select-text max-w-3xl space-y-[18px] px-4 py-6 text-[13px]"
         >
           {start > 0 && <div ref={topRef} />}
-          {rows.slice(start).map((row, j) => (
-            <RowBoundary key={start + j} resetOn={row}>
+          {rows.slice(start).map((row, j) => {
+            const view = (
               <RowView
                 row={row}
                 tools={transcript.tools}
@@ -84,8 +91,15 @@ export function Conversation({
                   row.kind === "user" && editable.has(row.message.entryId ?? "")
                 }
               />
-            </RowBoundary>
-          ))}
+            );
+            // Only tool rows are wrapped: a sticky user message must stay a direct child.
+            const outdent = marginTiles(row);
+            return (
+              <RowBoundary key={start + j} resetOn={row}>
+                {outdent ? <div className={outdent}>{view}</div> : view}
+              </RowBoundary>
+            );
+          })}
           {/* Hidden, its spinner and clock would tick for no one. */}
           {working && shown && !writingText(last) && (
             <RunIndicator

@@ -24,7 +24,6 @@ export function EditToolBody({
   const lines = parseDiff(diff);
   return (
     <>
-      <p>{diffSummary(lines)}</p>
       <CodeLines
         lines={lines}
         path={path}
@@ -32,6 +31,7 @@ export function EditToolBody({
         editor={editor}
         codeThemes={codeThemes}
       />
+      <p>{diffSummary(lines)}</p>
     </>
   );
 }

@@ -1,60 +1,66 @@
 import { useState, type ReactNode } from "react";
 import { ArgPath } from "@/components/conversation/ArgPath";
-import { StatusDot } from "@/components/conversation/StatusDot";
 import { splitPaths } from "@/lib/fileLinks";
-import type { ToolRun } from "@/lib/transcript";
 import { cn } from "@/lib/utils";
 
-/** A tool call's title line: status dot, name, and its argument, shown in full when clicked. */
+/** A tool call's title line: its title, an MCP server's name, and its argument, shown in full when clicked. */
 export function ToolHead({
-  run,
   title,
+  server,
   arg,
   folder,
+  muted,
 }: {
-  run: ToolRun | undefined;
-  title: ReactNode;
+  /** None for a call under its tool's shared tile, which names it. */
+  title?: ReactNode;
+  server?: string;
   arg: string;
   folder: string;
+  /** A call that never ran. */
+  muted?: boolean;
 }) {
   const [full, setFull] = useState(false);
-  const label = (
-    <>
-      <span className="font-semibold">{title}</span>
-      {arg && (
-        <span className="font-mono text-[12px] text-muted-foreground">
-          (
-          {splitPaths(arg).map((part, i) =>
-            part.path ? (
-              <ArgPath key={i} text={part.text} folder={folder} />
-            ) : (
-              part.text
-            ),
-          )}
-          )
-        </span>
-      )}
-    </>
+  const parts = splitPaths(arg).map((part, i) =>
+    part.path ? (
+      <ArgPath key={i} text={part.text} folder={folder} />
+    ) : (
+      part.text
+    ),
   );
   return (
-    <div className="flex min-w-0 items-start gap-2">
-      <span className="flex h-[1lh] items-center">
-        <StatusDot run={run} />
-      </span>
-      {arg ? (
+    <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+      {title && (
+        <span
+          className={cn(
+            "shrink-0 text-[14px] font-semibold text-foreground",
+            muted && "font-medium text-muted-foreground",
+          )}
+        >
+          {title}
+        </span>
+      )}
+      {server && (
+        <span className="shrink-0 text-[13px] text-muted-foreground">
+          {server}
+        </span>
+      )}
+      {arg && (
         <button
           type="button"
           aria-expanded={full}
           onClick={() => setFull(!full)}
           className={cn(
-            "min-w-0 cursor-pointer text-left",
-            full ? "whitespace-pre-wrap [overflow-wrap:anywhere]" : "truncate",
+            "min-w-0 cursor-pointer text-left font-mono [overflow-wrap:anywhere]",
+            // Without a title the argument is the step's heading.
+            title
+              ? "text-[12px] text-muted-foreground"
+              : "text-[12.5px] text-foreground/90",
+            // A long command (a heredoc) wraps to three lines until clicked.
+            full ? "whitespace-pre-wrap" : "line-clamp-3",
           )}
         >
-          {label}
+          {parts}
         </button>
-      ) : (
-        <span className="min-w-0 truncate">{label}</span>
       )}
     </div>
   );

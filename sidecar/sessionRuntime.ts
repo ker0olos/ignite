@@ -4,6 +4,7 @@ import {
   type SessionManager,
   type SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { CODEMODE_TOOL } from "../shared/codemode.ts";
 
 type Credentials = NonNullable<
   Parameters<typeof ModelRuntime.create>[0]
@@ -37,6 +38,9 @@ export const defaultTools = [
   "ls",
 ];
 
+/** A conversation's: the built-ins, and codemode (subagents don't get it). */
+export const conversationTools = [...defaultTools, CODEMODE_TOOL];
+
 type Tools = Pick<
   AgentSession,
   | "getActiveToolNames"
@@ -51,12 +55,12 @@ type Tools = Pick<
  * be active on registration (web_search after signing in, a new MCP server's,
  * an update's). Our extensions still switch their own before each run.
  */
-export function activateCurrentTools(session: Tools) {
+export function activateCurrentTools(session: Tools, tools = defaultTools) {
   const active = session.getActiveToolNames();
   const missing = session.getAllTools().filter((tool) => {
     if (active.includes(tool.name)) return false;
-    if (tool.sourceInfo.path.startsWith("builtin:"))
-      return defaultTools.includes(tool.name);
+    if (tools.includes(tool.name)) return true;
+    if (tool.sourceInfo.path.startsWith("builtin:")) return false;
     const declared =
       tool.exposure === "direct" || tool.exposure === "model-only";
     return (

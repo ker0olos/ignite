@@ -49,6 +49,8 @@ export const SESSION_EXTENSIONS = [
   approval,
   // After approval: snapshots only calls that will run, and sees a rerun outside the sandbox.
   sibling("./shellEditsExtension.ts"),
+  // Last, so a script's record keeps its calls' results as the others left them.
+  sibling("./codemodeExtension.ts"),
 ];
 
 /** A subagent's extensions, in load order. */

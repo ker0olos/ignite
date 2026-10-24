@@ -28,6 +28,7 @@ import { createDraft } from "./draftSession.ts";
 import { MCP_STATUS_EVENT, mcpSessionOpener } from "./mcpSession.ts";
 import {
   activateCurrentTools,
+  conversationTools,
   defaultTools,
   freshExtensions,
   reselectModel,
@@ -147,7 +148,7 @@ async function openSession(
   freshExtensions();
   await resourceLoader.reload();
   // After the reload, which rereads settings from disk and drops overrides.
-  settingsManager.applyOverrides({ defaultTools });
+  settingsManager.applyOverrides({ defaultTools: conversationTools });
   const sessionManager = sessionFor(folder, cwd, id);
   const wanted = savedModel(sessionManager, settingsManager);
   const { session } = await createAgentSession({
@@ -159,7 +160,7 @@ async function openSession(
     resourceLoader,
   });
   // A reopened conversation gets today's tools, not only those it last declared.
-  activateCurrentTools(session);
+  activateCurrentTools(session, conversationTools);
   answerStops(eventBus, session as unknown as Session);
   // Starts extensions (session_start), as pi's own modes do; the error
   // listener also makes a reload start them again.

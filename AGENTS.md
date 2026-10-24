@@ -28,7 +28,12 @@ src/                     React frontend (almost all logic lives here)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
                          (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt;
                          its completions menu (MentionRow, a `/command`'s argument chips and CommandHint)
-    conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces,
+    conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces:
+                         a 30px tile (ToolTile: an MCP server's brand mark, else a Lucide glyph; a corner dot while it runs, waits
+                         or failed) beside its title, the outcome under the title (the tile in the margin when the pane has room, so
+                         titles and cards share the reply text's edge); consecutive calls of one tool (or MCP server) share one
+                         tile (ToolCallGroup) as dots on a line from it, each still showing its argument, why and outcome; a script's (ScriptRow) calls as
+                         steps joined by a line,
                          generated images as a media card (MediaCard: model, prompt, size, mark up), generated videos likewise (VideoCard), generated audio as an AudioCard (waveform player); WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
     settings/            Settings dialog shell, its rows, and one items file per section
@@ -170,6 +175,7 @@ src/                     React frontend (almost all logic lives here)
     gitStatus.ts         Which of a conversation's repositories the composer shows, and their pull requests' state
     gitStatusCache.ts    Each conversation's last known repositories (localStorage, newest 200), shown before a read
     transcript.ts        Rebuilds the conversation from pi's session events
+    toolRunEvents.ts     Tool calls' progress; a script's calls nested under it, live and from its saved result
     streamBlocks.ts      A streamed message's blocks: text, thinking, tool calls (an artifact's JSON as it's written)
     sessionEntry.ts      A conversation as the app keeps it, built from what opening it returned
     sessionStateCache.ts Each conversation's last model and effort (localStorage, newest 200), shown while it opens
@@ -177,7 +183,12 @@ src/                     React frontend (almost all logic lives here)
     compaction.ts        Compaction in the conversation: running, then its summary; saved summaries
     rewind.ts            Editing user messages: which offer Edit (named, after the latest compaction), when (idle),
                          the conversation cut back to before one
-    toolRows.ts          Conversation rows: folds runs of reads/searches/shell commands and of one read-only MCP tool's calls, parses edit diffs
+    toolRows.ts          Conversation rows, parses edit diffs
+    sameTool.ts          Consecutive calls of one tool (or one MCP server) as one row; tools with cards of their own stay alone
+    toolIcon.ts          A tool call's tile: an MCP server's brand mark (simple-icons, on its colour; near-black and light brands
+                         flipped), else a Lucide glyph
+    toolLabels.ts        A tool call's title (an MCP tool's name humanized), argument, the agent's reason, and its tile's badge
+    scriptRows.ts        A script's status line and what it sent the agent
     runError.ts          A run's error as shown: a Claude limit in Claude Code's words, without the bridge's prefix
     modelMenu.ts         Composer model menu: hand-picked featured models, the rest under More
     mcpServers.ts        MCP server form (lines to args/env/headers), status labels
@@ -319,6 +330,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   readSections.ts        read's arguments as models write them (`"[310, 330]"` ranges), its line numbers
   outline.ts             A code file's definitions by line, a folder's files with their top-level ones, and one's lines
                          by name (tree-sitter tags queries: TS, JS, Python, Rust, Go)
+  codemodeExtension.ts   pi's codemode (a script calling the other tools), titled by its first `//` line; each call
+                         it made kept on its result with that call's own result
   hostChildren.ts        Each conversation's subagents and background commands, for the sidebar
   sandboxAllow.ts        What the user always allows the sandbox (~/.ignite/sandbox.json): hosts, sockets, paths;
                          how the agent must write commands allowed outside
@@ -465,6 +478,7 @@ shared/tasks.ts          Tasks and the agent's updates to them (used by both)
 shared/rewind.ts         Editing a user message: the request, what happened to its files
 shared/queue.ts          Messages sent mid-run: how they wait, and taking one back (used by both)
 shared/subagents.ts      The subagent tool's name, effort order and call details (used by both)
+shared/codemode.ts       The codemode tool's name and the calls a script made, as its result keeps them
 shared/shellEdits.ts     The files a bash call changed, as its result carries them (used by both)
 shared/featuredModels.ts The model menu's featured (current generation) models, which the router picks from
 shared/attachedFiles.ts  Dropped files in a message: `@path` with its text inline or only its path, and read back
@@ -961,6 +975,27 @@ from an argument list outside the sandbox, which can't reach adb's server
 (`shared/adb.ts`); Manual asks for every call. `adb shell` with no command and
 a streaming `logcat` are refused, and a call stops after 2 minutes. adb is found on PATH, else in `ANDROID_HOME`,
 `ANDROID_SDK_ROOT` or the default SDK folders.
+
+Every conversation (not subagents) has pi's `codemode` tool
+(`sidecar/codemodeExtension.ts`): the agent writes one JavaScript script that
+calls the other tools (in parallel, chained, filtering what they return), and
+only what the script prints reaches the model. Its first line is a `// why`
+comment, the script's headline (`scriptReason`); a script without one is
+refused. Not a `reason` argument: on OpenAI models codemode is
+grammar-sampled, which allows only its `code`. Scripts get no `models` API
+(it would call models outside the tool pipeline) and can't call `ask_user`.
+Each call the script makes goes through the same pipeline
+as the agent's own (lessons, the plan gate, approval, the sandbox), so the
+script itself never asks; a call that waits shows its prompt in its own step
+and takes its place in the waiting queue.
+pi's events name the script a call belongs to (`parentToolCallId`), and the
+app draws those calls as the script's steps (`lib/toolRunEvents.ts`). pi
+records a script's calls without their results, so the extension keeps them
+on the script's result (`details.calls`, text cut at 4,000 characters, details
+up to 50 KB, about 1 MB a script, past which only names), which is how a
+reopened conversation shows them. Their arguments are taken as each call
+starts, before the sandbox rewrites a command. At most two
+scripts run at once in the sidecar (pi's limit); a third fails at once.
 
 The `subagent` tool (`sidecar/subagentExtension.ts`) lets the agent start
 another pi session on a task: its own model or one from its provider no

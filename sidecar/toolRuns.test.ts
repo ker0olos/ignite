@@ -26,3 +26,16 @@ it("keeps each call's latest progress until pi saves its result or the run ends"
   trackToolRun(agent, event({ type: "agent_settled" }));
   expect(agent.toolRuns.size).toBe(0);
 });
+
+it("keeps a script's call's start beside its latest progress, as only that names the script", () => {
+  const agent = { toolRuns: new Map() } as Agent;
+  const start = event({
+    type: "tool_execution_start",
+    toolCallId: "s/1",
+    parentToolCallId: "s",
+  });
+  const end = event({ type: "tool_execution_end", toolCallId: "s/1" });
+  trackToolRun(agent, start);
+  trackToolRun(agent, end);
+  expect([...agent.toolRuns.values()]).toEqual([start, end]);
+});
