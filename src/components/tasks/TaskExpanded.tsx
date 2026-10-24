@@ -15,7 +15,7 @@ export function TaskExpanded({
   const images = allImages(task);
   return (
     <div className="flex flex-col gap-3.5 pt-0.5 pr-2.5 pl-9">
-      <p className="text-[13px] select-text">
+      <p className="text-[13px] wrap-anywhere select-text">
         {task.notes || <span className="text-muted-foreground">Notes</span>}
       </p>
       {images.length > 0 && (
