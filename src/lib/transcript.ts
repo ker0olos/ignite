@@ -4,10 +4,17 @@ import type {
   AgentMessage,
   AssistantMessage,
   SessionEvent,
+  ToolCall,
   ToolResult,
   UserMessage,
 } from "../../shared/agentTypes";
 import type { GitReview } from "../../shared/git";
+import {
+  applyToolExecutionEvent,
+  recordScript,
+  runStatus,
+  setTool,
+} from "@/lib/toolRunEvents";
 import { applyCompactionEvent, type CompactionItem } from "@/lib/compaction";
 import { applyRouting, ended } from "@/lib/routedMessage";
 import { applyRewindEvent } from "@/lib/rewind";
@@ -27,6 +34,11 @@ export type ToolRun = {
   approval?: { reason?: string; review?: GitReview; allow?: string };
   /** The review the user approved, shown until the result arrives. */
   review?: GitReview;
+  /** A script's calls, in the order they started; each has its own run. */
+  nested?: ToolCall[];
+  /** A script's call that was still running when the script ended. */
+  cancelled?: boolean;
+  durationMs?: number;
 };
 
 /** Where a run stands: the agent at work, waiting for the user to answer a call, or done. */
@@ -57,35 +69,6 @@ export function fromHistory(
     ...EMPTY,
     running,
   });
-}
-
-type ToolExecutionEvent = Extract<
-  SessionEvent,
-  {
-    type:
-      "tool_execution_start" | "tool_execution_update" | "tool_execution_end";
-  }
->;
-
-function applyToolExecutionEvent(
-  t: Transcript,
-  event: ToolExecutionEvent,
-): Transcript {
-  switch (event.type) {
-    case "tool_execution_start":
-      return setTool(t, event.toolCallId, { status: "running" });
-    case "tool_execution_update":
-      return setTool(t, event.toolCallId, {
-        status: "running",
-        result: event.partialResult,
-      });
-    case "tool_execution_end":
-      return setTool(t, event.toolCallId, {
-        status: runStatus(event.isError, event.result.details),
-        result: event.result,
-        approval: undefined,
-      });
-  }
 }
 
 /** Marks a tool call as waiting for the user. */
@@ -215,24 +198,11 @@ function finishMessage(t: Transcript, message: AgentMessage): Transcript {
 // A saved or finished tool result settles its call's row.
 function recordResult(t: Transcript, message: AgentMessage): Transcript {
   if (message.role !== "toolResult" || !("toolCallId" in message)) return t;
-  return setTool(t, message.toolCallId, {
+  const settled = setTool(t, message.toolCallId, {
     status: runStatus(message.isError, message.details),
     result: { content: message.content, details: message.details },
   });
-}
-
-// pi-mcp-adapter reports failures (e.g. a server that won't connect) in details, not isError.
-function runStatus(isError: boolean, details: unknown): ToolRun["status"] {
-  const adapterError =
-    typeof details === "object" &&
-    details !== null &&
-    "error" in details &&
-    typeof details.error === "string";
-  return isError || adapterError ? "error" : "done";
-}
-
-function setTool(t: Transcript, id: string, run: ToolRun): Transcript {
-  return { ...t, tools: { ...t.tools, [id]: { ...t.tools[id], ...run } } };
+  return recordScript(settled, message.toolCallId, message.details);
 }
 
 function updateStreaming(t: Transcript, update: StreamUpdate): Transcript {

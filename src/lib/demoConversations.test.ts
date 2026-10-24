@@ -46,9 +46,10 @@ describe("the dark mode conversation", () => {
     const rows = toRows(transcript.items);
     expect(rows.at(0)?.kind).toBe("user");
     expect(rows.at(-1)?.kind).toBe("text");
-    const git = rows.filter(
-      (r) => r.kind === "tool" && ["git", "gh"].includes(r.call.name),
+    const calls = rows.flatMap((r) =>
+      r.kind === "tool" ? [r.call] : r.kind === "calls" ? r.calls : [],
     );
+    const git = calls.filter((c) => ["git", "gh"].includes(c.name));
     expect(git).toHaveLength(5);
   });
 

@@ -9,6 +9,12 @@
 
 @theme {
   --animate-caret: caret 1s steps(1) infinite;
+  --animate-tool-pulse: tool-pulse 1.4s ease-in-out infinite;
+  @keyframes tool-pulse {
+    50% {
+      opacity: 0.3;
+    }
+  }
   @keyframes caret {
     50% {
       opacity: 0;

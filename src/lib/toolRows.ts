@@ -3,55 +3,24 @@ import type {
   ToolCall,
   UserMessage,
 } from "../../shared/agentTypes";
-import { readShellEdits } from "../../shared/shellEdits";
 import { SUBAGENT_TOOL } from "../../shared/subagents";
 import { readPlan, TASK_TOOL } from "../../shared/tasks";
 import { compactionOf, type CompactionItem } from "./compaction";
 import { shownReview } from "./diffTabs";
-import { mcpCall, mcpReason } from "./mcpToolCall";
 import { shownError } from "./runError";
+import { sameToolRuns } from "./sameTool";
 import type { Item, ToolRun } from "./transcript";
 
-/** One row of the conversation as drawn, with quiet tool calls folded together. */
+/** One row of the conversation as drawn. */
 export type Row =
   | Extract<Item, { kind: "notice" }>
   | CompactionItem
   | { kind: "user"; message: UserMessage }
   | { kind: "text"; text: string }
   | { kind: "tool"; call: ToolCall }
-  | { kind: "group"; calls: ToolCall[] }
+  /** Consecutive calls of one tool, under one tile. */
+  | { kind: "calls"; calls: ToolCall[] }
   | { kind: "end"; message: AssistantMessage };
-
-// Look-around tools that fold into one summary line, as in Claude Code.
-// Subagents fold too, but only with each other; MCP calls that only read fold
-// only with calls of the same tool.
-const QUIET = new Set([
-  "read",
-  "outline",
-  "grep",
-  "find",
-  "ls",
-  "bash",
-  SUBAGENT_TOOL,
-]);
-
-/** The read-only MCP server tool a call runs (`clickup · clickup_get_task`), or null. */
-function mcpTool(call: ToolCall) {
-  // Without `args`: the tool's own arguments would be parsed for nothing.
-  const args = { ...call.arguments, args: undefined };
-  const mcp = mcpCall(call.name, args);
-  if (mcp?.kind !== "call" || !mcp.tool || mcpReason(call.name, args)) {
-    return null;
-  }
-  return [mcp.server, mcp.tool].filter(Boolean).join(" · ");
-}
-
-/** Calls fold together only when their keys match. */
-function foldKey(call: ToolCall) {
-  if (call.name === SUBAGENT_TOOL) return call.name;
-  const mcp = mcpTool(call);
-  return mcp ? `mcp:${mcp}` : "quiet";
-}
 
 type Block = AssistantMessage["content"][number];
 
@@ -65,28 +34,13 @@ const isPlanAfterPlan = (
   tools: Record<string, ToolRun>,
 ) => last?.kind === "tool" && hasPlan(last.call, tools) && hasPlan(call, tools);
 
-// A failed call stands alone, so a red row always means that call, and so do
-// a command that changed files and a background command.
-const standsAlone = (call: ToolCall, run: ToolRun | undefined) =>
-  !(QUIET.has(call.name) || mcpTool(call)) ||
-  run?.status === "error" ||
-  !!call.arguments.background ||
-  readShellEdits(run?.result?.details).length > 0;
-
-/** Folds a quiet call into the group before it, unless it stands alone. */
+/** Adds a call, replacing the plan update before it when both carry a plan. */
 function pushCall(rows: Row[], call: ToolCall, tools: Record<string, ToolRun>) {
-  const last = rows.at(-1);
-  if (isPlanAfterPlan(call, last, tools)) {
+  if (isPlanAfterPlan(call, rows.at(-1), tools)) {
     rows[rows.length - 1] = { kind: "tool", call };
-    return;
-  }
-  if (standsAlone(call, tools[call.id])) {
+  } else {
     rows.push({ kind: "tool", call });
-    return;
   }
-  if (last?.kind === "group" && foldKey(last.calls[0]) === foldKey(call))
-    last.calls.push(call);
-  else rows.push({ kind: "group", calls: [call] });
 }
 
 /** Adds one assistant content block to `rows`. */
@@ -108,13 +62,7 @@ function pushBlock(
 const isEndOfRun = (assistant: AssistantMessage) =>
   assistant.stopReason === "error" || assistant.stopReason === "aborted";
 
-// Folding one call saves no space and hides what it ran.
-const unfoldSingle = (row: Row): Row =>
-  row.kind === "group" && row.calls.length === 1
-    ? { kind: "tool", call: row.calls[0] }
-    : row;
-
-/** Flattens the transcript into rows, folding two or more consecutive quiet tool calls that didn't fail. */
+/** Flattens the transcript into rows: a tool call each, or consecutive calls of one tool together. */
 export function toRows(
   items: Item[],
   tools: Record<string, ToolRun> = {},
@@ -141,57 +89,12 @@ export function toRows(
       rows.push({ kind: "end", message: assistant });
     }
   }
-  return rows.map(unfoldSingle);
+  return sameToolRuns(rows);
 }
 
-const plural = (n: number, one: string, many: string) =>
+/** "1 line", "2 lines". */
+export const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
-
-const partPaths = (also: unknown) =>
-  Array.isArray(also) ? also.map((p) => (p as { path?: unknown })?.path) : [];
-
-/** The different files the group's reads read, `also` parts included. */
-const filesRead = (calls: ToolCall[]) =>
-  new Set(
-    calls
-      .filter((c) => c.name === "read")
-      .flatMap((c) => [
-        c.arguments.path ?? c.id,
-        ...partPaths(c.arguments.also),
-      ]),
-  ).size;
-
-/** The group's outlines: of files, and of folders (a path with no extension). */
-function outlines(calls: ToolCall[]) {
-  const paths = calls
-    .filter((c) => c.name === "outline")
-    .map((c) => String(c.arguments.path ?? ""));
-  const folders = paths.filter((p) => !/\.[a-z]+$/i.test(p)).length;
-  return { files: paths.length - folders, folders };
-}
-
-/** "Read 2 files, ran 1 shell command" for a folded group. */
-export function groupSummary(calls: ToolCall[]) {
-  const mcp = mcpTool(calls[0]);
-  if (mcp) return `Called ${mcp} ${plural(calls.length, "time", "times")}`;
-  const count = (...names: string[]) =>
-    calls.filter((c) => names.includes(c.name)).length;
-  const outlined = outlines(calls);
-  const parts = [
-    [filesRead(calls), "read", "file", "files"],
-    [outlined.files, "outlined", "file", "files"],
-    [outlined.folders, "outlined", "folder", "folders"],
-    [count("grep", "find"), "searched for", "pattern", "patterns"],
-    [count("ls"), "listed", "folder", "folders"],
-    [count("bash"), "ran", "shell command", "shell commands"],
-    [count(SUBAGENT_TOOL), "ran", "subagent", "subagents"],
-  ] as const;
-  const text = parts
-    .filter(([n]) => n > 0)
-    .map(([n, verb, one, many]) => `${verb} ${plural(n, one, many)}`)
-    .join(", ");
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
 
 export type DiffLine =
   { kind: "add" | "del" | "ctx"; num: number; text: string } | { kind: "gap" };
@@ -277,7 +180,13 @@ export function showsNothingYet(
   return !shownReview(run);
 }
 
-/** Every call waiting for the user, in transcript order. */
+// A call and the calls its script made, in order.
+const withNested = (id: string, tools: Record<string, ToolRun>) => [
+  id,
+  ...(tools[id]?.nested ?? []).map((c) => c.id),
+];
+
+/** Every call waiting for the user, a script's calls included, in transcript order. */
 export function waitingCalls(
   items: Item[],
   tools: Record<string, ToolRun>,
@@ -285,7 +194,9 @@ export function waitingCalls(
   return items.flatMap((item) =>
     item.kind === "message" && item.message.role === "assistant"
       ? (item.message as AssistantMessage).content.flatMap((b) =>
-          b.type === "toolCall" && tools[b.id]?.approval ? [b.id] : [],
+          b.type === "toolCall"
+            ? withNested(b.id, tools).filter((id) => tools[id]?.approval)
+            : [],
         )
       : [],
   );

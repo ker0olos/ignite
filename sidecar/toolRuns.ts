@@ -8,6 +8,11 @@ import type { Agent } from "./hostTypes.ts";
 export function trackToolRun(agent: Agent, event: SessionEvent) {
   switch (event.type) {
     case "tool_execution_start":
+      // A script's call keeps its start too: only that names its script.
+      if (event.parentToolCallId)
+        agent.toolRuns.set(`${event.toolCallId} start`, event);
+      agent.toolRuns.set(event.toolCallId, event);
+      return;
     case "tool_execution_update":
     case "tool_execution_end":
       agent.toolRuns.set(event.toolCallId, event);

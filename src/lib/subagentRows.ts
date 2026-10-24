@@ -84,12 +84,3 @@ export function runState(
   if (!details.running) return "finished";
   return subagentRows(details, tools).waiting ? "waiting" : "working";
 }
-
-/** Whether a call's run is a subagent with one of its own calls waiting for the user. */
-export function subagentWaits(
-  run: ToolRun | undefined,
-  tools: Record<string, ToolRun>,
-): boolean {
-  const details = readSubagent(run?.result?.details);
-  return !!details && runState(details, tools) === "waiting";
-}

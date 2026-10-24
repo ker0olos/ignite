@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   createAgentSession,
+  createCodemodeExtension,
   DefaultResourceLoader,
   SessionManager,
   SettingsManager,
@@ -12,6 +13,7 @@ import { Type } from "typebox";
 import { describe, expect, it, vi } from "vitest";
 import {
   activateCurrentTools,
+  conversationTools,
   defaultTools,
   runtimeFor,
 } from "./sessionRuntime.ts";
@@ -118,6 +120,40 @@ describe("activateCurrentTools", () => {
       new Set([...defaultTools, "extra_tool"]),
     );
     session.dispose();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("gives a conversation codemode, registered inactive, new or reopened", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "tools-"));
+    const open = async (entries: unknown[]) => {
+      const settingsManager = SettingsManager.inMemory({
+        defaultTools: conversationTools,
+      });
+      const resourceLoader = new DefaultResourceLoader({
+        cwd: dir,
+        agentDir: dir,
+        settingsManager,
+        extensionFactories: [createCodemodeExtension()],
+      });
+      await resourceLoader.reload();
+      const { session } = await createAgentSession({
+        cwd: dir,
+        agentDir: dir,
+        settingsManager,
+        resourceLoader,
+        sessionManager: SessionManager.inMemory(
+          dir,
+          undefined,
+          entries as never,
+        ),
+      });
+      activateCurrentTools(session, conversationTools);
+      return session;
+    };
+    for (const session of [await open([]), await open(declaredRead)]) {
+      expect(session.getActiveToolNames()).toContain("codemode");
+      session.dispose();
+    }
     rmSync(dir, { recursive: true, force: true });
   });
 });

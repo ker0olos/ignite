@@ -6,7 +6,6 @@ import {
   subagentConversation,
   subagentRows,
   subagentSummary,
-  subagentWaits,
 } from "./subagentRows";
 import type { ToolRun, Transcript } from "./transcript";
 
@@ -175,30 +174,6 @@ describe("runState", () => {
     expect(runState(details([call], true), {})).toBe("working");
     const asking = { n1: { status: "running" as const, approval: {} } };
     expect(runState(details([call], true), asking)).toBe("waiting");
-  });
-});
-
-describe("subagentWaits", () => {
-  const call: AgentMessage = {
-    role: "assistant",
-    content: [{ type: "toolCall", id: "n1", name: "bash", arguments: {} }],
-    provider: "anthropic",
-    model: "claude-haiku",
-    stopReason: "toolUse",
-    timestamp: 0,
-  };
-  const run = (running: boolean): ToolRun => ({
-    status: "running",
-    result: { content: [], details: details([call], running) },
-  });
-  const asking = { n1: { status: "running" as const, approval: {} } };
-
-  it("is true only for a running subagent whose own call waits on the user", () => {
-    expect(subagentWaits(run(true), asking)).toBe(true);
-    expect(subagentWaits(run(true), {})).toBe(false);
-    expect(subagentWaits(run(false), asking)).toBe(false);
-    expect(subagentWaits({ status: "done" }, asking)).toBe(false);
-    expect(subagentWaits(undefined, asking)).toBe(false);
   });
 });
 

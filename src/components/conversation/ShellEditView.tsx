@@ -9,7 +9,7 @@ import type { CodeThemes } from "@/lib/codeThemes";
 import { parseUnifiedDiff } from "@/lib/gitDiff";
 import { diffSummary } from "@/lib/toolRows";
 
-/** A file a shell command changed, under its bash call: the path, a summary, an image's versions to compare and its diff. */
+/** A file a shell command changed, under its bash call: the path, an image's versions to compare, its diff and a summary. */
 export function ShellEditView({
   edit,
   editor,
@@ -25,11 +25,7 @@ export function ShellEditView({
   const after = edit.after ?? edit.before;
   return (
     <>
-      <p>
-        <span className="text-foreground">{edit.path}</span>
-        {" · "}
-        {lines.length ? diffSummary(lines) : "Changed"}
-      </p>
+      <p className="text-foreground">{edit.path}</p>
       {before && after && (
         <ImageCompare before={before} after={after} name={edit.path} />
       )}
@@ -42,6 +38,7 @@ export function ShellEditView({
           codeThemes={codeThemes}
         />
       )}
+      <p>{lines.length ? diffSummary(lines) : "Changed"}</p>
     </>
   );
 }
