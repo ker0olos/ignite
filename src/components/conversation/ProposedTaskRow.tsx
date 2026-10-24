@@ -39,7 +39,7 @@ export function ProposedTaskRow({ task }: { task: ProposedTask }) {
       {(text || subtasks.length > 0) && (
         <div className="-mt-0.5 flex flex-col pb-1.5 pl-[26px]">
           {text && (
-            <p className="line-clamp-3 pb-1 text-[13px] whitespace-pre-wrap text-muted-foreground">
+            <p className="line-clamp-3 pb-1 text-[13px] whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
               {text}
             </p>
           )}

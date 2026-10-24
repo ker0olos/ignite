@@ -46,7 +46,7 @@ export function UserBubble({
       {text && (
         <div className="flex w-full items-center justify-end gap-1">
           {action}
-          <div className="max-w-[85%] rounded-2xl bg-muted px-3 py-2 text-[length:var(--message-text,14px)] whitespace-pre-wrap">
+          <div className="max-w-[85%] rounded-2xl bg-muted px-3 py-2 text-[length:var(--message-text,14px)] whitespace-pre-wrap [overflow-wrap:anywhere]">
             {text}
           </div>
         </div>
