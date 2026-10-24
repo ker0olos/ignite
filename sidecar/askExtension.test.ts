@@ -11,12 +11,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
 import ask, {
   ASKING,
-  ASK_NUDGE,
   AUTONOMOUS,
   COPYABLE,
   LEFT_TO_AGENT,
   askEnabled,
-  endsWithQuestion,
   replyText,
 } from "./askExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
@@ -92,158 +90,23 @@ function load(active = ["read", "bash"]) {
     registerTool: (t: ToolDefinition) => (tool = t),
     getActiveTools: () => active,
     setActiveTools: (names: string[]) => (active = names),
-    sendMessage: (message: { content: string }) => sent.push(message.content),
     events,
   } as unknown as ExtensionAPI);
-  const sent: string[] = [];
-  const end = (messages: unknown[]) => handlers.get("agent_end")!({ messages });
   const asks: ApprovalAsk[] = [];
   events.on(APPROVAL_EVENT, (data) => void asks.push(data as ApprovalAsk));
   const run = (signal?: AbortSignal) =>
     tool!.execute("t1", { questions: [] }, signal, undefined, {} as never);
-  // `custom`: a run a custom message started (the nudge itself), not the user.
-  const start = async (prompt = "Hi", custom = false) => {
+  const start = async (prompt = "Hi") => {
     const sections: Record<string, string> = {};
     await handlers.get("before_agent_start")!({
-      ...(custom
-        ? {
-            messageType: "custom",
-            message: { customType: "ask-nudge", content: prompt },
-          }
-        : { messageType: "user", prompt }),
+      messageType: "user",
+      prompt,
       systemPromptOptions: { sections },
     });
     return sections;
   };
-  return { asks, run, start, end, sent, active: () => active };
+  return { asks, run, start, active: () => active };
 }
-
-const reply = (text: string, stopReason = "stop") => ({
-  role: "assistant",
-  stopReason,
-  content: [{ type: "text", text }],
-});
-
-describe("endsWithQuestion", () => {
-  it("is true for a finished reply ending in a question", () => {
-    expect(endsWithQuestion([reply("Done. Push both branches?")])).toBe(true);
-    expect(endsWithQuestion([reply("**Open the PR?**\n")])).toBe(true);
-    expect(
-      endsWithQuestion([
-        { role: "assistant", stopReason: "stop", content: "Fix it?" },
-      ]),
-    ).toBe(true);
-  });
-
-  it("is true for a question to the user in the last paragraph", () => {
-    expect(
-      endsWithQuestion([
-        reply(
-          "Done.\n\nShould I commit and push both? I won't open a PR unless you ask.",
-        ),
-      ]),
-    ).toBe(true);
-    expect(
-      endsWithQuestion([reply("**Should I push both?** I'll wait.")]),
-    ).toBe(true);
-    expect(endsWithQuestion([reply("(Want me to push?) I'll wait.")])).toBe(
-      true,
-    );
-    expect(
-      endsWithQuestion([
-        reply(
-          "Nothing is committed in `motr-server`. Tell me if you want it committed and pushed, or opened as a PR.",
-        ),
-      ]),
-    ).toBe(true);
-    expect(
-      endsWithQuestion([reply("Done. Let me know if you'd like the PR.")]),
-    ).toBe(true);
-    expect(endsWithQuestion([reply("If you want, I can push it too.")])).toBe(
-      true,
-    );
-    expect(
-      endsWithQuestion([reply("Done. If you’d like, I can open the PR.")]),
-    ).toBe(true);
-    for (const text of [
-      "I'm happy to push it if you want.",
-      "Done. Happy to open the PR if you want.",
-      "Just tell me which one.",
-      "Let me know whether to push.",
-    ])
-      expect(endsWithQuestion([reply(text)])).toBe(true);
-    expect(
-      endsWithQuestion([
-        {
-          role: "assistant",
-          stopReason: "stop",
-          content: [
-            { type: "text", text: "Should I push?" },
-            { type: "text", text: "I won't open a PR." },
-          ],
-        },
-      ]),
-    ).toBe(true);
-  });
-
-  it("is false otherwise", () => {
-    for (const text of [
-      "The logs tell me the race is in flush().",
-      "I'd say something is off with the cache, fixed in X.",
-      "If you want to iterate, start from index i.",
-      "If you want to reproduce it, I left the script in /tmp/repro.sh.",
-      "If you want to run it locally, I can't reach the staging DB from the sandbox.",
-      "If you want it faster, I couldn't find a way.",
-      "All tests pass. Let me know if anything else comes up.",
-      "Tell me if anything breaks.",
-    ])
-      expect(endsWithQuestion([reply(text)])).toBe(false);
-    expect(
-      endsWithQuestion([reply("If you want, use `a ?? b` here instead.")]),
-    ).toBe(false);
-    expect(
-      endsWithQuestion([reply("Is index i out of range? No, it's guarded.")]),
-    ).toBe(false);
-    expect(endsWithQuestion([reply("Why? Because it broke.")])).toBe(false);
-    expect(
-      endsWithQuestion([reply("Want me to push?\n\nPushed it anyway.")]),
-    ).toBe(false);
-    expect(
-      endsWithQuestion([reply("Done.\n\n```ts\nconst a = b ? c : d;\n```")]),
-    ).toBe(false);
-    expect(endsWithQuestion([reply("Push?", "aborted")])).toBe(false);
-    expect(endsWithQuestion([{ role: "user", content: "Push?" }])).toBe(false);
-    expect(
-      endsWithQuestion([
-        { role: "assistant", stopReason: "stop", content: undefined },
-      ]),
-    ).toBe(false);
-    expect(endsWithQuestion([])).toBe(false);
-  });
-});
-
-describe("agent_end", () => {
-  it("nudges once per user message to ask with the tool", async () => {
-    const { start, end, sent } = load();
-    await start();
-    await end([reply("Push?")]);
-    await start(ASK_NUDGE, true);
-    await end([reply("Push?")]);
-    expect(sent).toEqual([ASK_NUDGE]);
-    await start("next");
-    await end([reply("Merge?")]);
-    expect(sent).toEqual([ASK_NUDGE, ASK_NUDGE]);
-  });
-
-  it("leaves replies alone without the tool or a question", async () => {
-    const { start, end, sent } = load(["read", "ask_user"]);
-    await end([reply("Done.")]);
-    await settings("[conversation]\nask_questions = false\n");
-    await start();
-    await end([reply("Push?")]);
-    expect(sent).toEqual([]);
-  });
-});
 
 const text = (result: { content: { type: string; text?: string }[] }) =>
   result.content[0].text;

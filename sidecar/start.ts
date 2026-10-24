@@ -17,7 +17,7 @@ import {
 import type { HostMessage, HostRequest } from "../shared/hostProtocol.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { createClaudeCode, forgetClaudePath } from "./claudeCode.ts";
-import { codexBackend, withCodexLogin } from "./credentials.ts";
+import { loadLogins } from "./credentials.ts";
 import { createHeadlessUI } from "./headlessUI.ts";
 import { createHost } from "./host.ts";
 import { importOnStart } from "./memory.ts";
@@ -47,6 +47,7 @@ import { createSkillStore } from "./skillStore.ts";
 import { createRemote } from "./remote.ts";
 import { taskAnswerer, taskStoreIn } from "./hostTasks.ts";
 import { TASK_EVENT } from "./taskExtension.ts";
+import { answerStops } from "./stopJudge.ts";
 import { answerKeys } from "./fallbackExtension.ts";
 import {
   claudeBridge,
@@ -73,18 +74,7 @@ await forgetClaudePath(agentDir).catch((error) =>
   log(`claude-bridge.json: ${error}`),
 );
 
-// ponytail: pi doesn't export its auth.json store, so it's loaded by path;
-// recheck on pi upgrades (the version is pinned).
-const { AuthStorage } = await import(
-  new URL(
-    "./core/auth-storage.js",
-    import.meta.resolve("@earendil-works/pi-coding-agent"),
-  ).href
-);
-const logins = withCodexLogin(
-  AuthStorage.create(join(agentDir, "auth.json")),
-  AuthStorage.fromStorage(codexBackend(join(homedir(), ".codex", "auth.json"))),
-);
+const logins = await loadLogins(agentDir);
 
 const runtime = await ModelRuntime.create({
   credentials: logins.store,
@@ -170,6 +160,7 @@ async function openSession(
   });
   // A reopened conversation gets today's tools, not only those it last declared.
   activateCurrentTools(session);
+  answerStops(eventBus, session as unknown as Session);
   // Starts extensions (session_start), as pi's own modes do; the error
   // listener also makes a reload start them again.
   await session.bindExtensions({

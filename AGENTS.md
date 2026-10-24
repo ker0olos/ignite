@@ -387,6 +387,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          Settings' points: list, edit, remove
   reflectorExtension.ts  The reflector's points (~/.ignite/reflector.json), each beside its entry point's guidance
   askExtension.ts        ask_user: the agent asks the user multiple-choice questions, or works alone
+  stopNudge.ts           When a run ends, a hidden message sends the agent on with work it stopped partway
+                         through, or has it ask its question with ask_user (a few per user message)
+  stopJudge.ts           Which of those, judged by the cheapest model of the conversation's provider
   taskStore.ts           Each folder's tasks in ~/.ignite/tasks, written one at a time, pushed on change
   todoFile.ts            .todo files' open items (the folder's and its folders'), for the Tasks view; deleting one
   hostTasks.ts           Starts a task in a background conversation; answers the task extension
@@ -641,7 +644,13 @@ the text box, whose text and images are a note on the picks, or the user's own
 answer when none is picked, with mentions, images, dropped files and paste as usual (files go in that question's note, and the conversation's diff comments in the last answer's). Its row
 says "Asking you · 1 of 2", and once answered lists the answers (from the
 result's `details`). `approval_answer` carries the answers (declining leaves
-the choice to the agent). The approval gate never asks about `ask_user` itself. **Manual** asks for every tool call (built-in,
+the choice to the agent). The approval gate never asks about `ask_user` itself.
+When a run ends on its own, the cheapest priced model of its provider reads
+its end (`sidecar/stopJudge.ts`): if the agent stopped partway through work it
+can carry on with alone, a hidden message sends it on; if it left the user a
+question or offer, it's told to ask it with `ask_user` (`sidecar/stopNudge.ts`;
+at most 3 per user message, none while a `bash_wait` waits or where `ask_user`
+is off). **Manual** asks for every tool call (built-in,
 MCP, everything); approved commands run as is. **Auto** asks for bash
 commands on the denylist in `lib/dangerousCommands.ts`, for file tools
 whose resolved path (symlinks followed) is outside the open folder, and for

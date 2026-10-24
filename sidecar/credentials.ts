@@ -1,8 +1,28 @@
 import { execFile } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { Credential, CredentialStore } from "@earendil-works/pi-ai";
 
 const CODEX = "openai-codex";
+
+// ponytail: pi doesn't export its auth.json store, so it's loaded by path;
+// recheck on pi upgrades (the version is pinned).
+/** The app's logins: `agentDir`'s auth.json, falling back to the Codex CLI's ChatGPT login. */
+export async function loadLogins(agentDir: string) {
+  const { AuthStorage } = await import(
+    new URL(
+      "./core/auth-storage.js",
+      import.meta.resolve("@earendil-works/pi-coding-agent"),
+    ).href
+  );
+  return withCodexLogin(
+    AuthStorage.create(join(agentDir, "auth.json")),
+    AuthStorage.fromStorage(
+      codexBackend(join(homedir(), ".codex", "auth.json")),
+    ),
+  );
+}
 
 type LockResult<T> = { result: T; next?: string };
 

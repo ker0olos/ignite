@@ -20,6 +20,7 @@ import {
 import { TASK_TOOL } from "../shared/tasks.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
+import { nudgeStops } from "./stopNudge.ts";
 
 export const ASKING = `## Deciding with the user
 The user wants to be part of every decision. Whenever the request leaves something open (an approach, a design, a library, a data shape, names others will see, scope, a trade-off, or which of several ways to carry out a task), ask with the ${ASK_TOOL} tool before you commit, instead of choosing yourself.
@@ -41,8 +42,6 @@ export const COPYABLE = `## Text to copy
 Text the user will likely copy and paste elsewhere always goes in a block of its own, which has a copy button; never leave it as a plain paragraph. Keep your commentary about it, such as length or alternatives, outside the block.
 - Prose written for them (replies, reviews, messages, emails, commit or PR text): a markdown blockquote, every line starting with \`> \`. It's copied as written, so use markdown inside only where it's pasted as markdown (GitHub, commit messages), and plain text elsewhere (app store replies, emails, chat messages).
 - Commands, snippets and file contents: a fenced code block tagged with its language, \`\`\`bash for shell commands (the app offers to run those in a terminal), \`\`\`ts, \`\`\`json and so on for code.`;
-
-export const ASK_NUDGE = `Your reply ended with a question or an offer for the user. Ask it with ${ASK_TOOL} now, with concrete options, and carry on with their answer; when it's whether to commit, push or open a pull request, follow the git guidance instead. Don't repeat your reply.`;
 
 export const LEFT_TO_AGENT =
   "The user left these questions to you. Decide them, and say what you chose and why.";
@@ -147,52 +146,8 @@ export function askDetails(answers: QuestionAnswer[]): AskDetails {
   };
 }
 
-type Ended = {
-  role?: string;
-  stopReason?: string;
-  content?: string | { type: string; text?: string }[];
-};
-
-const QUESTION_END = /\?[\s*_)"'”]*$/;
-// Tested per sentence: `^` is a sentence's start, so "The logs tell me which…" isn't an offer.
-const OFFERS = [
-  /\b(?:[Ll]et me know|[Tt]ell me) (?:if|whether) you(?:['’]d| would)? (?:like|want|prefer)\b/,
-  /\b[Ll]et me know (?:whether|which)\b|^\W*(?:Just )?[Tt]ell me (?:whether|which)\b/,
-  /\b[Ss]ay the word\b/,
-  /\b[Ii]f you(?:['’]d| would)? (?:like|want|prefer)\b.*\bI(?:['’]ll| can| could)\b(?!['’]t)/,
-  /\b[Hh]appy to\b.*\bif you\b/,
-];
-
-/** Whether a finished run's last reply asks the user something, or offers to, in its last paragraph. */
-export function endsWithQuestion(messages: readonly unknown[]): boolean {
-  const last = messages.at(-1) as Ended | undefined;
-  if (last?.role !== "assistant" || last.stopReason !== "stop") return false;
-  const text =
-    typeof last.content === "string"
-      ? last.content
-      : (last.content ?? [])
-          .filter((part) => part.type === "text")
-          .map((part) => part.text)
-          .join("\n");
-  if (QUESTION_END.test(text)) return true;
-  const paragraph = text
-    .replace(/```[\s\S]*?```|`[^`\n]*`/g, "")
-    .trim()
-    .split(/\n\s*\n/)
-    .at(-1)!;
-  return paragraph
-    .split(/(?<=[.!?][*_)"'”]*)\s+/)
-    .some(
-      (s) =>
-        OFFERS.some((offer) => offer.test(s)) ||
-        (QUESTION_END.test(s) &&
-          (/\bI\b/.test(s) || /\b(me|you|we)\b/i.test(s))),
-    );
-}
-
 export default function ask(pi: ExtensionAPI) {
-  // One nudge per user message, so a reply that still asks can't loop.
-  let nudged = false;
+  const userWrote = nudgeStops(pi);
   pi.registerTool({
     name: ASK_TOOL,
     label: "Ask the user",
@@ -226,19 +181,8 @@ export default function ask(pi: ExtensionAPI) {
     },
   });
 
-  pi.on("agent_end", async (event) => {
-    if (nudged || !pi.getActiveTools().includes(ASK_TOOL)) return;
-    if (!endsWithQuestion(event.messages)) return;
-    nudged = true;
-    pi.sendMessage(
-      { customType: "ask-nudge", content: ASK_NUDGE, display: false },
-      { triggerTurn: true, deliverAs: "followUp" },
-    );
-  });
-
   pi.on("before_agent_start", async (event) => {
-    // The nudge itself starts a run as a custom message, not the user's.
-    if (event.messageType === "user" && event.prompt.trim()) nudged = false;
+    userWrote(event);
     const asking = await askEnabled();
     const others = pi.getActiveTools().filter((name) => name !== ASK_TOOL);
     pi.setActiveTools(asking ? [...others, ASK_TOOL] : others);
