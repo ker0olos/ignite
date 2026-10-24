@@ -634,7 +634,7 @@ Two places hold persisted data:
 ## The agent (pi)
 
 The harness drives [pi](https://github.com/earendil-works/pi)
-(`@earendil-works/pi-coding-agent`, pinned 1.0.0), run as a Node sidecar.
+(`@earendil-works/pi-coding-agent` 1.4), run as a Node sidecar.
 Before touching agent or provider-credential code, read the project skill in
 `.claude/skills/pi/` (SKILL.md, then auth.md, host.md, sessions.md or mcp.md). The
 old `@mariozechner/*` packages and most online material describe an older,
@@ -997,7 +997,8 @@ on the script's result (`details.calls`, text cut at 4,000 characters, details
 up to 50 KB, about 1 MB a script, past which only names), which is how a
 reopened conversation shows them. Their arguments are taken as each call
 starts, before the sandbox rewrites a command. At most two
-scripts run at once in the sidecar (pi's limit); a third fails at once.
+scripts run at once in the sidecar (pi's limit, `PI_CODEMODE_MAX_WORKERS`);
+a third waits up to 60 seconds for one to finish.
 
 The `subagent` tool (`sidecar/subagentExtension.ts`) lets the agent start
 another pi session on a task: its own model or one from its provider no

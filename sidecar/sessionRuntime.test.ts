@@ -113,8 +113,8 @@ describe("activateCurrentTools", () => {
         declaredRead as never,
       ),
     });
-    // pi 1.3 restores the transcript's loadout alone.
-    expect(session.getActiveToolNames()).toEqual(["read"]);
+    // pi 1.4 restores the transcript's loadout and new extension tools, not the default tools.
+    expect(session.getActiveToolNames()).toEqual(["read", "extra_tool"]);
     activateCurrentTools(session);
     expect(new Set(session.getActiveToolNames())).toEqual(
       new Set([...defaultTools, "extra_tool"]),
