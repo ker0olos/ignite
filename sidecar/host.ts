@@ -31,6 +31,7 @@ import { answered } from "./hostAnswers.ts";
 import { setTrust } from "./hostTrust.ts";
 import { compact, stop, unqueue } from "./hostQueue.ts";
 import { appHandlers } from "./appUpdate.ts";
+import { fileImages } from "./gitImages.ts";
 import { fileDiff } from "./gitReview.ts";
 import {
   conversationGitStatus,
@@ -132,6 +133,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   memory_changed: (ctx) => changeMcp(ctx, async () => {}).then(() => {}),
   set_trust: (ctx, r) => setTrust(ctx, r.cwd, r.trusted),
   git_diff: (_ctx, r) => fileDiff(r.repo, r.range, r.path),
+  git_image: (_ctx, r) => fileImages(r.repo, r.range, r.path),
   git_status: async (ctx, r) => {
     const repos = await conversationGitStatus(ctx, r.session);
     const cwd = ctx.agents.get(r.session)?.cwd;

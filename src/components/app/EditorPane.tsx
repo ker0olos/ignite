@@ -2,12 +2,13 @@ import { FileTabs } from "@/components/app/FileTabs";
 import { ChildView } from "@/components/children/ChildView";
 import { DiffView } from "@/components/files/DiffView";
 import { FileView } from "@/components/files/FileView";
+import { ImageDiffView } from "@/components/files/ImageDiffView";
 import type { useAgentSession } from "@/hooks/useAgentSession";
 import type { TabDragState } from "@/hooks/useTabDrag";
 import type { useTabs } from "@/hooks/useTabs";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { readChildTab } from "@/lib/childTabs";
-import { readDiffTab } from "@/lib/diffTabs";
+import { readDiffTab, showsImage } from "@/lib/diffTabs";
 import type { HostClient } from "@/lib/piHost";
 import type { Settings } from "@/lib/settings";
 import type { Dock } from "@/lib/tabs";
@@ -61,6 +62,8 @@ export function EditorPane({
           tab={childTab}
           {...{ folder, session, host, editor, codeThemes }}
         />
+      ) : diffTab && showsImage(diffTab) ? (
+        <ImageDiffView key={active} tab={diffTab} host={session.host} />
       ) : diffTab ? (
         <DiffView
           key={active}

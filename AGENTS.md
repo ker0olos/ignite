@@ -22,7 +22,8 @@ src/                     React frontend (almost all logic lives here)
     sidebar/             Title-bar strip, every folder (by name) with its conversations, file tree,
                          MCP sign-in warning banner, the update banner (installing, then restart)
     files/               Lazy directory tree (the shown conversation's worktree, once it has one), read-only syntax-highlighted file view, FileIcon (every file icon),
-                         diff tabs whose lines take comments (gutter "+", comment box)
+                         diff tabs whose lines take comments (gutter "+", comment box); an image's diff tab
+                         compares its two versions instead
     command/             ⌘K command center: search box, results, preview (conversation details, file, folder)
     agent/               Conversation area wiring (recently shown conversations stay mounted, hidden), task composer
                          (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt;
@@ -104,6 +105,7 @@ src/                     React frontend (almost all logic lives here)
     useGitStatus.ts      The shown conversation's repositories (branch, uncommitted, unpushed, pull request): cached
                          ones at once, read again in the background, then every 5s (1s while it opens)
     useGitRepoDetails.ts A repository's uncommitted files and unpushed commits, while its composer popover is open
+    useGitImages.ts      An image diff tab's two versions (a new or deleted one compared with itself)
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
     useQuestionDeck.ts   The agent's waiting questions the composer answers: step, each one's picks, text and images
@@ -426,6 +428,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   gitPlace.ts            A review's repository (origin owner/name, else folder name) and branch
   gitStatus.ts           The repositories a conversation's git calls and edits touched, and what isn't committed, pushed or merged
   gitUntracked.ts        New files git doesn't track yet: listed as added, and their whole-file diffs
+  gitImages.ts           An image's versions before and after a review's range (git_image), for its diff tab
   ghReview.ts            What `gh pr create` would open: title, branches, GitHub's compare of them
   headlessUI.ts          The UI context bound to sessions: declines prompts, passes errors to the app
   mcpPresets.ts          One-click MCP presets (the adapter's and ours)

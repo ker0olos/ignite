@@ -1,5 +1,7 @@
 /** The git and gh tools' names, and what a commit or push shows for review (used by both). */
 
+import type { ImageContent } from "./agentTypes.ts";
+
 export const GIT_TOOL = "git";
 export const GH_TOOL = "gh";
 
@@ -85,9 +87,14 @@ export function validRange(range: string): boolean {
 /** A folder's conversations work in `<base>/<id>/<prefix>` (`prefix`: the folder's place in its repository); null: they share the folder. */
 export type WorktreeLayout = { base: string; prefix: string } | null;
 
+/** An image's two versions in a review's range; one is missing when it's added, deleted or too large. */
+export type GitImages = { before?: ImageContent; after?: ImageContent };
+
 export type GitRequest =
   /** One file's diff in a review's range (see GitReview). */
   | { id: number; type: "git_diff"; repo: string; range: string; path: string }
+  /** One image's versions in a review's range (not a pull request's). */
+  | { id: number; type: "git_image"; repo: string; range: string; path: string }
   /** The repositories an open conversation worked in, as they stand now; none before it opens. */
   | { id: number; type: "git_status"; session: string }
   /** A repository's uncommitted files and unpushed commits. */
@@ -101,6 +108,7 @@ export type GitRequest =
 
 export type GitResponses = {
   git_diff: string;
+  git_image: GitImages;
   /** null until the conversation's session is open (its worktree isn't known yet). */
   git_status: GitRepoStatus[] | null;
   git_repo_details: GitRepoDetails;

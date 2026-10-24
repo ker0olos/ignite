@@ -5,6 +5,7 @@ import {
   readChildTab,
   type TerminalLabel,
 } from "@/lib/childTabs";
+import { imageType } from "@/lib/images";
 import { basename, relativeTo } from "@/lib/paths";
 
 /** A file's diff at some range, opened as a tab alongside file paths. */
@@ -39,6 +40,10 @@ export function readDiffTab(id: string): DiffTab | null {
     return null;
   }
 }
+
+/** Whether a diff tab shows an image's two versions (an SVG's text diff stays; a pull request's images aren't fetched). */
+export const showsImage = (tab: DiffTab) =>
+  !!imageType(tab.path) && !tab.range.startsWith("gh:");
 
 /** A range as shown to the user: "Staged", "Working Tree", or shortened hashes. */
 export function rangeLabel(range: string): string {

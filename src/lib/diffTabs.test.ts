@@ -5,6 +5,7 @@ import {
   readDiffTab,
   readGitReview,
   shownReview,
+  showsImage,
   tabLabel,
 } from "./diffTabs";
 
@@ -42,6 +43,14 @@ describe("diffTabId / readDiffTab", () => {
   it("returns null when a field is missing", () => {
     expect(readDiffTab(`diff:${JSON.stringify({ repo: "/repo" })}`)).toBeNull();
   });
+});
+
+it("shows an image's versions, but an SVG's and a pull request's diff", () => {
+  expect(showsImage({ ...tab, path: "a/B.JPEG" })).toBe(true);
+  expect(showsImage({ ...tab, path: "a.svg" })).toBe(false);
+  expect(showsImage({ ...tab, path: "a.png", range: "gh:o/r:a...b" })).toBe(
+    false,
+  );
 });
 
 describe("rangeLabel", () => {
