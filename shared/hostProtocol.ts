@@ -333,7 +333,7 @@ export type HostMessage =
   /** A folder's tasks changed: saved by a window, or updated by an agent. */
   | { type: "tasks"; cwd: string; tasks: Task[] }
   /** Check for updates found one and is building it, to run on the next start. */
-  | { type: "app_update_installing" }
+  | { type: "app_update_installing"; version?: AppVersion }
   /** The MCP servers changed (a status, or a saved change). */
   | { type: "mcp_servers"; servers: McpServer[] }
   /** A terminal printed, or its shell exited. */

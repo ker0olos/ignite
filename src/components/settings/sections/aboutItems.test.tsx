@@ -6,6 +6,7 @@ import { aboutItems } from "./aboutItems";
 
 const about = (over: Partial<Parameters<typeof aboutItems>[0]["about"]>) => ({
   version: null,
+  shown: null,
   error: null,
   update: "idle" as UpdateState,
   warning: null,
@@ -29,7 +30,7 @@ describe("aboutItems", () => {
       date: "2026-09-28T09:00:00Z",
       subject: "Hi",
     };
-    const [known] = aboutItems({ about: about({ version }) });
+    const [known] = aboutItems({ about: about({ version, shown: version }) });
     expect(known.title).toBe("Hi");
     expect(known.description).toMatch(/^a1b2c3d · /);
     expect(known.keywords).toContain("a1b2c3d4");

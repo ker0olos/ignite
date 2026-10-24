@@ -122,7 +122,7 @@ src/                     React frontend (almost all logic lives here)
     useMcpServers.ts     MCP servers in pi's mcp.json, with live status pushed by the sidecar
     useSkills.ts         The app's skills and plugins, and other apps' to import, while Settings is open
     useMemory.ts         The folder's memories while Settings is open: its latest, or a search's matches, of one type
-    useAbout.ts          The commit the app runs from; Check for updates, reloading every window,
+    useAbout.ts          The commit the app runs from (the update's, once one is found); Check for updates, reloading every window,
                          or (launcher) built in the background every 6h, then Restart
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
     useInstalledThemes.ts The code and icon themes to pick from, scanned again on every open

@@ -10,7 +10,7 @@ export function aboutItems({
 }: {
   about: ReturnType<typeof useAbout>;
 }): Item[] {
-  const { version, error, update, check, restart } = about;
+  const { shown: version, error, update, check, restart } = about;
   const button = updateButton(update);
   return [
     {

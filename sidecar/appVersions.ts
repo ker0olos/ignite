@@ -99,7 +99,7 @@ export async function stageUpdate(
   root: string,
   mods: string,
   warn: (text: string) => void = console.warn,
-  installing: () => void = () => {},
+  installing: (sha: string) => void = () => {},
 ): Promise<string | null> {
   const clone = await cloneOf(root);
   await git(clone, ["fetch", "-q", "origin", "main"]);
@@ -112,7 +112,7 @@ export async function stageUpdate(
     .catch(() => false);
   if (!ahead) return null;
   if (await awaitingCI(clone, root, latest)) return null;
-  installing();
+  installing(latest);
   await withLock(() => buildVersion(clone, latest, root, mods, warn));
   await moveClone(clone, latest).catch(() => {});
   await writeState("next", latest);

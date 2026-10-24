@@ -95,8 +95,11 @@ it("says it's installing once the sidecar builds the update it found", async () 
     done = result.current.check();
   });
   expect(result.current.update).toBe("checking");
-  act(() => host.push({ type: "app_update_installing" }));
+  const NEXT = { ...VERSION, sha: "e5f6", subject: "Newer" };
+  act(() => host.push({ type: "app_update_installing", version: NEXT }));
   expect(result.current.update).toBe("installing");
+  expect(result.current.shown).toEqual(NEXT);
+  expect(result.current.version).toEqual(VERSION);
   await act(async () => {
     finish({ updated: false, ready: true });
     await done;
@@ -134,17 +137,22 @@ it("does nothing without a host", async () => {
   expect(result.current.update).toBe("idle");
 });
 
-it("readies an update the launcher built, and restarts into it", async () => {
+it("readies an update the launcher built, shows its commit, and restarts into it", async () => {
   const quit = vi.fn(async () => {});
+  const NEXT = { ...VERSION, sha: "e5f6", subject: "Newer" };
   const host = fakeHost(async (type) =>
-    type === "app_update" ? { updated: false, ready: true } : VERSION,
+    type === "app_update"
+      ? { updated: false, ready: true, next: NEXT }
+      : VERSION,
   );
   const confirm = vi.fn(async () => true);
   const { result } = renderHook(() =>
     useAbout(host, false, vi.fn(), false, quit, confirm),
   );
+  await waitFor(() => expect(result.current.version).toEqual(VERSION));
   await act(() => result.current.check());
   expect(result.current.update).toBe("ready");
+  expect(result.current.shown).toEqual(NEXT);
   await act(() => result.current.restart());
   expect(host.request).toHaveBeenCalledWith({ type: "app_restart" });
   expect(quit).toHaveBeenCalledWith(0);
@@ -159,6 +167,41 @@ it("doesn't restart when the user cancels", async () => {
   await act(() => result.current.restart());
   expect(host.request).not.toHaveBeenCalledWith({ type: "app_restart" });
   expect(quit).not.toHaveBeenCalled();
+});
+
+it("shows the running commit again when the build fails", async () => {
+  const NEXT = { ...VERSION, sha: "e5f6", subject: "Newer" };
+  let fail: (e: Error) => void = () => {};
+  const host = fakeHost((type) =>
+    type === "app_update"
+      ? new Promise((_, reject) => (fail = reject))
+      : Promise.resolve(VERSION),
+  );
+  const { result } = renderHook(() => useAbout(host, true, vi.fn(), false));
+  await waitFor(() => expect(result.current.version).toEqual(VERSION));
+  let done: Promise<void> = Promise.resolve();
+  act(() => {
+    done = result.current.check();
+  });
+  act(() => host.push({ type: "app_update_installing", version: NEXT }));
+  expect(result.current.shown).toEqual(NEXT);
+  await act(async () => {
+    fail(new Error("cargo failed"));
+    await done;
+  });
+  expect(result.current.shown).toEqual(VERSION);
+});
+
+it("keeps showing the ready update while a newer one builds", async () => {
+  const A = { ...VERSION, sha: "aaaa", subject: "A" };
+  const B = { ...VERSION, sha: "bbbb", subject: "B" };
+  const host = fakeHost(async (type) =>
+    type === "app_update" ? { updated: false, ready: true, next: A } : VERSION,
+  );
+  const { result } = renderHook(() => useAbout(host, false, vi.fn(), false));
+  await act(() => result.current.check());
+  act(() => host.push({ type: "app_update_installing", version: B }));
+  expect(result.current.shown).toEqual(A);
 });
 
 it("stays ready through a later check that fails", async () => {

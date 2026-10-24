@@ -13,7 +13,12 @@ export type AppUpdateRequest =
 
 export type AppUpdateResponses = {
   app_version: AppVersion;
-  /** `warning`: the update's binary couldn't be verified (appBinary.ts). */
-  app_update: { updated: boolean; ready?: boolean; warning?: string };
+  /** `next`: the ready update's commit; `warning`: its binary couldn't be verified (appBinary.ts). */
+  app_update: {
+    updated: boolean;
+    ready?: boolean;
+    next?: AppVersion;
+    warning?: string;
+  };
   app_restart: undefined;
 };

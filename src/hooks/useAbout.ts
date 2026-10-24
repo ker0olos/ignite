@@ -30,6 +30,9 @@ export function useAbout(
   confirm = confirmRestart,
 ) {
   const [version, setVersion] = useState<AppVersion | null>(null);
+  // The commit being installed, and the one a restart runs.
+  const [installing, setInstalling] = useState<AppVersion | null>(null);
+  const [ready, setReady] = useState<AppVersion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [update, setUpdate] = useState<UpdateState>("idle");
   const [warning, setWarning] = useState<string | null>(null);
@@ -46,8 +49,9 @@ export function useAbout(
   useEffect(
     () =>
       host?.subscribe((m) => {
-        if (m.type === "app_update_installing")
-          setUpdate((u) => (u === "ready" ? u : "installing"));
+        if (m.type !== "app_update_installing") return;
+        setUpdate((u) => (u === "ready" ? u : "installing"));
+        if (m.version) setInstalling(m.version);
       }),
     [host],
   );
@@ -86,6 +90,7 @@ export function useAbout(
       const result = await host.request({ type: "app_update" });
       const { updated, ready } = result;
       if (result.warning) setWarning(result.warning);
+      if (result.next) setReady(result.next);
       setUpdate(ready ? "ready" : updated ? "updated" : "up-to-date");
       if (updated) await emit(RELOAD);
     } catch (e) {
@@ -121,8 +126,15 @@ export function useAbout(
   }, [host, quit, confirm]);
 
   return {
-    /** Null until the sidecar has answered. */
+    /** The commit the app runs; null until the sidecar has answered. */
     version,
+    /** What Settings shows: the update's commit while it's installed or ready, else the running one. */
+    shown:
+      (update === "ready"
+        ? ready
+        : update === "installing"
+          ? installing
+          : null) ?? version,
     error,
     update,
     /** Why the ready update's binary couldn't be verified, if it couldn't. */

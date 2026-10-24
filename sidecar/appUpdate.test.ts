@@ -126,6 +126,33 @@ describe("appUpdate in a launcher version", () => {
   });
 });
 
+describe("appUpdate's found commit", () => {
+  it("names the update it installs and readies, from the clone's commits", async () => {
+    const root = join(dir, "apps", "a".repeat(40));
+    git(dir, "clone", "-q", origin, root);
+    await commit(origin, "README.md", "hello\n", "Second");
+    git(root, "fetch", "-q");
+    const latest = git(root, "rev-parse", "origin/main");
+    const installing = vi.fn();
+    const stage = vi.fn(async (...args: unknown[]) => {
+      (args[3] as (sha: string) => void)(latest);
+      return latest;
+    });
+    const result = await appUpdate({
+      root,
+      stage,
+      installing,
+      apps: join(dir, "apps"),
+    });
+    expect(result.next).toMatchObject({ sha: latest, subject: "Second" });
+    await vi.waitFor(() =>
+      expect(installing).toHaveBeenCalledWith(
+        expect.objectContaining({ sha: latest }),
+      ),
+    );
+  });
+});
+
 describe("appUpdate's warning", () => {
   it("passes on why the staged update's binary wasn't verified", async () => {
     const stage = vi.fn(async (_root, _mods, warn?: (t: string) => void) => {

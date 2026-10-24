@@ -5,7 +5,8 @@
 import { execFile } from "node:child_process";
 import { basename, dirname, relative } from "node:path";
 import { promisify } from "node:util";
-import type { AppVersion } from "../shared/hostProtocol.ts";
+import type { AppUpdateResponses } from "../shared/appUpdate.ts";
+import type { AppVersion, HostMessage } from "../shared/hostProtocol.ts";
 import { APPS } from "./appBuild.ts";
 import { readState, stageUpdate, writeState } from "./appVersions.ts";
 import { linkPackages } from "./appPackages.ts";
@@ -26,9 +27,12 @@ async function git(root: string, args: string[]): Promise<string> {
   }
 }
 
-/** The commit the app runs from. */
-export async function appVersion(root = appRoot()): Promise<AppVersion> {
-  const out = await git(root, ["log", "-1", "--format=%H%n%cI%n%s"]);
+/** The commit the app runs from, or another (`rev`) its checkout has. */
+export async function appVersion(
+  root = appRoot(),
+  rev = "HEAD",
+): Promise<AppVersion> {
+  const out = await git(root, ["log", "-1", "--format=%H%n%cI%n%s", rev]);
   const [sha, date, ...subject] = out.split("\n");
   return { sha, date, subject: subject.join("\n") };
 }
@@ -37,25 +41,37 @@ export async function appVersion(root = appRoot()): Promise<AppVersion> {
 const isVersion = (root: string, apps: string) =>
   relative(apps, dirname(root)) === "";
 
+// A launcher version is a worktree of the user's clone, so it has the commits fetched there.
+const versionOf = (root: string, sha: string) =>
+  appVersion(root, sha).catch(() => undefined);
+
 async function stagedUpdate(
   root: string,
   stage: typeof stageUpdate,
-  installing: () => void,
+  installing: (version?: AppVersion) => void,
 ) {
   let warning: string | undefined;
   const warn = (text: string) => {
     warning = text;
   };
   const mods = process.env.IGNITE_MODS ?? "";
+  const found = (sha: string) => void versionOf(root, sha).then(installing);
   const staged =
-    (await stage(root, mods, warn, installing)) ?? (await readState("next"));
+    (await stage(root, mods, warn, found)) ?? (await readState("next"));
   const ready = !!staged && staged !== basename(root);
-  return { updated: false, ready, ...(warning && { warning }) };
+  const next = ready ? await versionOf(root, staged) : undefined;
+  return {
+    updated: false,
+    ready,
+    ...(next && { next }),
+    ...(warning && { warning }),
+  };
 }
 
 /**
  * Run from the launcher, builds the latest code to run on the next start
- * (`installing` once it has found one); `ready` once one waits. Otherwise pulls
+ * (`installing`, with its commit, once it has found one); `ready` (and `next`,
+ * its commit) once one waits. Otherwise pulls
  * it (fast-forward only, so local work is never merged over) and reinstalls
  * dependencies when the lockfile changed.
  */
@@ -65,7 +81,13 @@ export async function appUpdate({
   stage = stageUpdate,
   apps = APPS,
   installing = () => {},
-} = {}): Promise<{ updated: boolean; ready?: boolean; warning?: string }> {
+}: {
+  root?: string;
+  install?: (dir: string) => Promise<unknown>;
+  stage?: typeof stageUpdate;
+  apps?: string;
+  installing?: (version?: AppVersion) => void;
+} = {}): Promise<AppUpdateResponses["app_update"]> {
   if (isVersion(root, apps)) return stagedUpdate(root, stage, installing);
   const before = await git(root, ["rev-parse", "HEAD"]);
   await git(root, ["pull", "--ff-only", "--quiet"]);
@@ -89,9 +111,12 @@ const appRestart = () => writeState("restart", "1");
 /** The host's version and update requests. */
 export const appHandlers = {
   app_version: () => appVersion(),
-  app_update: (ctx: { send(m: { type: "app_update_installing" }): void }) =>
+  app_update: (ctx: {
+    send(m: Extract<HostMessage, { type: "app_update_installing" }>): void;
+  }) =>
     appUpdate({
-      installing: () => ctx.send({ type: "app_update_installing" }),
+      installing: (version) =>
+        ctx.send({ type: "app_update_installing", version }),
     }),
   app_restart: () => appRestart(),
 };
