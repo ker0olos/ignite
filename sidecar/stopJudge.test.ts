@@ -18,7 +18,10 @@ const RUN = [
   text("assistant", "Next I'll do the sidebar."),
 ] as never[];
 
-const session = (answer: () => Promise<object>, current = MODELS[0]) => {
+const session = (
+  answer: () => Promise<object>,
+  current: (typeof MODELS)[number] | null = MODELS[0],
+) => {
   const completeSimple = vi.fn(answer);
   const s = {
     model: current,
