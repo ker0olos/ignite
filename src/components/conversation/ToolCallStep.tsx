@@ -6,11 +6,12 @@ import { useStreamedCall } from "@/hooks/useStreamedCall";
 import { BADGE_CLASSES, callReason, toolBadge } from "@/lib/toolLabels";
 import { cn } from "@/lib/utils";
 
-/** One step under a shared tile: a dot on the line in the tile's column, the call beside it. */
+/** One step under a shared tile: a dot on the line in the tile's column, the call beside it (`titled` under Explored, where tools differ). */
 export function ToolCallStep({
   last,
+  titled,
   ...props
-}: ToolProps & { last: boolean }) {
+}: ToolProps & { last: boolean; titled: boolean }) {
   const { call, run } = props;
   const shown = useStreamedCall(call);
   const why = run?.approval ? "" : callReason(call);
@@ -24,11 +25,11 @@ export function ToolCallStep({
       )}
       <ToolRowFrame
         tile={
-          <span className="relative z-[1] flex w-[30px] shrink-0 justify-center pt-1.5">
+          <span className="relative z-[1] flex w-[30px] shrink-0 justify-center pt-[7px]">
             <span
               className={cn(
-                "size-[9px] rounded-full ring-[3px] ring-background",
-                BADGE_CLASSES[toolBadge(run) ?? "ok"],
+                "size-[7px] rounded-full ring-[3px] ring-background",
+                BADGE_CLASSES[(!run?.cancelled && toolBadge(run)) || "ok"],
               )}
             />
           </span>
@@ -39,7 +40,7 @@ export function ToolCallStep({
               call={shown}
               run={run}
               folder={props.folder}
-              grouped
+              grouped={!titled}
             />
             {why && <p className="text-[13.5px] text-foreground/85">{why}</p>}
           </>

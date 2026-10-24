@@ -11,6 +11,7 @@ import { LESSON_ADD_TOOL, LESSON_REMOVE_TOOL } from "../../shared/lessons";
 import { ASK_TOOL } from "../../shared/questions";
 import { SUBAGENT_TOOL } from "../../shared/subagents";
 import { TASK_ADD_TOOL, TASK_TOOL } from "../../shared/tasks";
+import { READ_TOOLS } from "./approvalPolicy";
 import { mcpCall } from "./mcpToolCall";
 import { toolTitle } from "./toolLabels";
 import type { Row } from "./toolRows";
@@ -31,9 +32,15 @@ const ALONE = new Set([
   LESSON_REMOVE_TOOL,
 ]);
 
+/** Whether a call only looks at files; consecutive ones share one Explored row. */
+export function exploreCall(call: ToolCall) {
+  return READ_TOOLS.has(call.name);
+}
+
 // What a call shares with the calls beside it to sit under one tile: its tool's title, or its MCP server; null when it stays alone.
 function sameToolKey(call: ToolCall): string | null {
   if (ALONE.has(call.name)) return null;
+  if (exploreCall(call)) return "explore";
   const mcp = mcpCall(call.name, call.arguments);
   if (mcp)
     return mcp.kind === "call" && mcp.server ? `mcp:${mcp.server}` : null;

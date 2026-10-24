@@ -12,7 +12,10 @@ export function ToolGlyph({ icon }: { icon: ToolIcon }) {
     return (
       <Icon
         aria-hidden
-        className={cn("size-[15px]", !icon.color && "text-foreground/85")}
+        className={cn(
+          icon.plain ? "size-4" : "size-[15px]",
+          !icon.color && !icon.plain && "text-foreground/85",
+        )}
         style={{ color: icon.color }}
       />
     );

@@ -6,7 +6,9 @@ import {
   groupCount,
   mcpArg,
   mcpTitle,
+  toolArg,
   toolBadge,
+  toolTitle,
 } from "./toolLabels";
 
 const call = (args: Record<string, unknown>): ToolCall => ({
@@ -26,14 +28,14 @@ describe("groupCount", () => {
 });
 
 describe("groupBadge", () => {
-  it("shows waiting first, then running, then failed, else nothing", () => {
+  it("shows waiting first, then running, else nothing (a failure shows on its step)", () => {
     const done = { status: "done" as const };
     const failed = { status: "error" as const };
     const running = { status: "running" as const };
     const waiting = { status: "running" as const, approval: {} };
     expect(groupBadge([done, failed, running, waiting])).toBe("waiting");
     expect(groupBadge([failed, running])).toBe("running");
-    expect(groupBadge([done, failed])).toBe("error");
+    expect(groupBadge([done, failed])).toBeNull();
     expect(groupBadge([done, done])).toBeNull();
   });
 });
@@ -54,6 +56,22 @@ describe("mcpArg", () => {
     );
     expect(mcpArg({ kind: "call", tool: "t", args: "A-1" })).toBe("A-1");
     expect(mcpArg({ kind: "call", tool: "t", args: undefined })).toBe("");
+  });
+});
+
+describe("outline", () => {
+  it("is titled, with its path relative to the folder", () => {
+    const outline = { ...call({ path: "/work/src/app.ts" }), name: "outline" };
+    expect(toolTitle(outline)).toBe("Outline");
+    expect(toolArg(outline, "/work")).toBe("src/app.ts");
+  });
+});
+
+describe("an old conversation's mcpScript", () => {
+  it("is titled as a script, without its code beside the title", () => {
+    const script = { ...call({ code: "emit(1)" }), name: "mcpScript" };
+    expect(toolTitle(script)).toBe("MCP script");
+    expect(toolArg(script, "/work")).toBe("");
   });
 });
 

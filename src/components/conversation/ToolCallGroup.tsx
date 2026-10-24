@@ -3,7 +3,8 @@ import type { ToolProps } from "@/components/conversation/shared";
 import { ToolCallStep } from "@/components/conversation/ToolCallStep";
 import { ToolTile } from "@/components/conversation/ToolTile";
 import { mcpCall } from "@/lib/mcpToolCall";
-import { serverName, toolIcon } from "@/lib/toolIcon";
+import { exploreCall } from "@/lib/sameTool";
+import { EXPLORE_ICON, serverName, toolIcon } from "@/lib/toolIcon";
 import { groupBadge, groupCount, toolTitle } from "@/lib/toolLabels";
 
 // The tile's title: the tool's, or for MCP calls their server's.
@@ -14,23 +15,27 @@ function groupTitle(call: ToolCall) {
     : toolTitle(call);
 }
 
-/** Consecutive calls of one tool under one tile and title, as dots on a line from it, each with its own argument, why and outcome. */
+/** Consecutive calls of one tool (or reads and searches, as Explored) under one tile and title, as dots on a line from it, each with its own argument, why and outcome. */
 export function ToolCallGroup({
   calls,
   tools = {},
   ...rest
 }: Omit<ToolProps, "call" | "run"> & { calls: ToolCall[] }) {
   const runs = calls.map((c) => tools[c.id]);
+  const explored = exploreCall(calls[0]);
   return (
     <div data-tool-row className="flex flex-col gap-3.5">
       <div className="relative flex items-center gap-3.5">
         <span
           aria-hidden
-          className="absolute top-[30px] -bottom-5 left-[14.5px] w-px bg-foreground/12"
+          className="absolute top-[26px] -bottom-5 left-[14.5px] w-px bg-foreground/12"
         />
-        <ToolTile icon={toolIcon(calls[0])} badge={groupBadge(runs)} />
+        <ToolTile
+          icon={explored ? EXPLORE_ICON : toolIcon(calls[0])}
+          badge={groupBadge(runs)}
+        />
         <span className="text-[14px] font-semibold text-foreground">
-          {groupTitle(calls[0])}
+          {explored ? "Explored" : groupTitle(calls[0])}
         </span>
         <span className="text-[13px] text-muted-foreground">
           {groupCount(calls)}
@@ -42,6 +47,7 @@ export function ToolCallGroup({
             key={call.id}
             {...rest}
             last={i === calls.length - 1}
+            titled={explored}
             call={call}
             run={tools[call.id]}
             tools={tools}

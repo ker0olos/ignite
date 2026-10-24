@@ -21,6 +21,14 @@ describe("sameToolRuns", () => {
     ]);
   });
 
+  it("puts consecutive reads, searches and listings under one row", () => {
+    const [a, b, c, d] = [call("grep"), call("ls"), call("read"), call("bash")];
+    expect(sameToolRuns([tool(a), tool(b), tool(c), tool(d)])).toEqual([
+      { kind: "calls", calls: [a, b, c] },
+      tool(d),
+    ]);
+  });
+
   it("starts again after other tools and text", () => {
     const [a, b, c, d] = [call("git"), call("read"), call("read"), call("git")];
     expect(sameToolRuns([tool(a), tool(b), text, tool(c), tool(d)])).toEqual([

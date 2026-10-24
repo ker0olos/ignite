@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ToolCall } from "../../shared/agentTypes";
-import { serverName, tileTone, toolIcon } from "./toolIcon";
+import { serverName, tileClass, tileTone, toolIcon } from "./toolIcon";
 
 const call = (name: string, args: Record<string, unknown> = {}): ToolCall => ({
   type: "toolCall",
@@ -53,9 +53,18 @@ describe("toolIcon", () => {
       kind: "brand",
       hex: "#181717",
     });
-    expect(toolIcon(call("bash")).kind).toBe("lucide");
+    expect(toolIcon(call("bash"))).toMatchObject({
+      kind: "lucide",
+      plain: true,
+    });
     expect(toolIcon(call("grep"))).toEqual(toolIcon(call("find")));
-    expect(toolIcon(call("something_else")).kind).toBe("lucide");
+    expect(toolIcon(call("chrome_eval"))).not.toEqual(
+      toolIcon(call("memory_get")),
+    );
+    expect(toolIcon(call("something_else"))).not.toHaveProperty("plain");
+    expect(toolIcon(call("mcp__nothing", { tool: "x" }))).not.toHaveProperty(
+      "plain",
+    );
   });
 });
 
@@ -64,5 +73,13 @@ describe("serverName", () => {
     expect(serverName("github")).toBe("GitHub");
     expect(serverName("context7")).toBe("context7");
     expect(serverName("acme")).toBe("acme");
+  });
+});
+
+describe("tileClass", () => {
+  it("fills a tile by its icon", () => {
+    expect(tileClass({ kind: "done" })).toContain("bg-success");
+    expect(tileClass(toolIcon(call("bash")))).toBe("bg-muted");
+    expect(tileClass(toolIcon(call("gh")))).toBe("bg-primary");
   });
 });

@@ -17,7 +17,7 @@ export function ScriptRow({ call, run, tools = {}, ...rest }: ToolProps) {
         {(steps.length > 0 || status === "done") && (
           <span
             aria-hidden
-            className="absolute top-[30px] bottom-[30px] left-[14.5px] w-px bg-foreground/12"
+            className="absolute top-[26px] bottom-[30px] left-[14.5px] w-px bg-foreground/12"
           />
         )}
         <ScriptHeader

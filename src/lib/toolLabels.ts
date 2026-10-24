@@ -31,7 +31,11 @@ export function resultText(result: ToolResult | undefined) {
     .join("\n");
 }
 
+/** pi-mcp-adapter's script tool before 6.0.0, still in older conversations. */
+export const LEGACY_MCP_SCRIPT = "mcpScript";
+
 const TOOL_TITLES: Record<string, string> = {
+  [LEGACY_MCP_SCRIPT]: "MCP script",
   read: "Read",
   write: "Write",
   edit: "Update",
@@ -39,6 +43,7 @@ const TOOL_TITLES: Record<string, string> = {
   grep: "Search",
   find: "Find",
   ls: "List",
+  outline: "Outline",
   [GIT_TOOL]: "Git",
   [GH_TOOL]: "GitHub",
   [ASK_TOOL]: "Questions",
@@ -113,6 +118,7 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   write: pathArg,
   edit: pathArg,
   ls: (call, folder) => pathArg(call, folder) || ".",
+  outline: pathArg,
   bash: (call) => String(call.arguments.command ?? ""),
   grep: (call) => String(call.arguments.pattern ?? ""),
   find: (call) => String(call.arguments.pattern ?? ""),
@@ -134,6 +140,7 @@ const TOOL_ARGS: Record<string, (call: ToolCall, folder: string) => string> = {
   chrome_eval: (call) => String(call.arguments.expression ?? ""),
   chrome_navigate: (call) => String(call.arguments.url ?? ""),
   [CODEMODE_TOOL]: () => "",
+  [LEGACY_MCP_SCRIPT]: () => "",
 };
 
 /** What a tool call shows beside its title; tools with no shape of their own (memory_search, MCP direct tools…) show every argument. */
@@ -156,7 +163,15 @@ export const BADGE_CLASSES: Record<ToolBadge, string> = {
   running: "animate-tool-pulse bg-muted-foreground",
   error: "bg-destructive",
   waiting: "bg-warning",
-  ok: "bg-success",
+  ok: "bg-muted-foreground/45",
+};
+
+/** A badge as a bare glyph's colour, where there is no tile to put a dot on. */
+export const GLYPH_BADGE_CLASSES: Record<ToolBadge, string> = {
+  running: "animate-tool-pulse",
+  error: "text-destructive",
+  waiting: "text-warning",
+  ok: "",
 };
 
 /** The badge on a call's tile; none once it's done. */
@@ -174,12 +189,10 @@ export function groupCount(calls: ToolCall[]) {
   return `${calls.length} ${noun}${calls.length === 1 ? "" : "s"}`;
 }
 
-/** The badge on a tile several calls share: waiting, else running, else failed, by any of them. */
+/** The badge on a tile several calls share: waiting, else running, by any of them; a failure shows on its own step. */
 export function groupBadge(runs: (ToolRun | undefined)[]): ToolBadge | null {
   const badges = runs.map(toolBadge);
   return (
-    (["waiting", "running", "error"] as const).find((b) =>
-      badges.includes(b),
-    ) ?? null
+    (["waiting", "running"] as const).find((b) => badges.includes(b)) ?? null
   );
 }

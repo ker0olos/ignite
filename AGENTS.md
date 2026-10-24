@@ -29,11 +29,11 @@ src/                     React frontend (almost all logic lives here)
                          (which also answers the agent's questions; one strip of attachments: images, dropped files, diff comments), model/effort/approval menus, git status, trust prompt;
                          its completions menu (MentionRow, a `/command`'s argument chips and CommandHint)
     conversation/        Transcript rendering: messages (the user's edited in place), tool rows (with approve/deny) and their pieces:
-                         a 30px tile (ToolTile: an MCP server's brand mark, else a Lucide glyph; a corner dot while it runs, waits
-                         or failed) beside its title, the outcome under the title (when the pane is wide, useWidePane, the column
+                         a 30px tile (ToolTile: an MCP server's brand mark with a corner dot while it runs, waits or failed; a built-in
+                         tool's bare Lucide glyph instead, pulsing or coloured) beside its title, the outcome under the title (when the pane is wide, useWidePane, the column
                          grows by a tile and indents everything but tool rows, so titles and cards share the reply text's edge;
-                         padding only: negative margins or a container query there make WebKit lose the scroll place); consecutive calls of one tool (or MCP server) share one
-                         tile (ToolCallGroup) as dots on a line from it, each still showing its argument, why and outcome; a script's (ScriptRow) calls as
+                         padding only: negative margins or a container query there make WebKit lose the scroll place); consecutive calls of one tool (or MCP server), or reads and searches
+                         (Explored), share one tile (ToolCallGroup) as dots on a line from it (grey, red once failed), each still showing its argument, why and outcome; a script's (ScriptRow) calls as
                          steps joined by a line,
                          generated images as a media card (MediaCard: model, prompt, size, mark up), generated videos likewise (VideoCard), generated audio as an AudioCard (waveform player); WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning
@@ -186,7 +186,7 @@ src/                     React frontend (almost all logic lives here)
     rewind.ts            Editing user messages: which offer Edit (named, after the latest compaction), when (idle),
                          the conversation cut back to before one
     toolRows.ts          Conversation rows, parses edit diffs
-    sameTool.ts          Consecutive calls of one tool (or one MCP server) as one row; tools with cards of their own stay alone
+    sameTool.ts          Consecutive calls of one tool (or one MCP server), or reads and searches, as one row; tools with cards of their own stay alone
     toolIcon.ts          A tool call's tile: an MCP server's brand mark (simple-icons, on its colour; near-black and light brands
                          flipped), else a Lucide glyph
     toolLabels.ts        A tool call's title (an MCP tool's name humanized), argument, the agent's reason, and its tile's badge

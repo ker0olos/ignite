@@ -45,12 +45,19 @@ import { SUBAGENT_TOOL } from "../../shared/subagents";
 import { TASK_ADD_TOOL, TASK_TOOL } from "../../shared/tasks";
 import { PRESETS, type Mark } from "@/components/mcp/marks";
 import { mcpCall } from "./mcpToolCall";
+import { LEGACY_MCP_SCRIPT } from "./toolLabels";
 
 /** How a brand's tile is drawn: its colour with a white glyph, the text colour on the page's (a near-black brand), or the card's with a coloured glyph (a light brand). */
 export type TileTone = "brand" | "inverse" | "card";
 
+/** `plain` (built-in tools) draws the glyph alone, without a tile. */
 export type ToolIcon =
-  | { kind: "lucide"; icon: ComponentType<LucideProps>; color?: string }
+  | {
+      kind: "lucide";
+      icon: ComponentType<LucideProps>;
+      color?: string;
+      plain?: boolean;
+    }
   | { kind: "brand"; path: string; hex: string; tone: TileTone }
   | { kind: "done" };
 
@@ -66,6 +73,13 @@ export function tileTone(hex: string): TileTone {
   return l > 150 ? "card" : "brand";
 }
 
+/** A tile's fill for its icon (a brand tile's own colour is set inline). */
+export function tileClass(icon: ToolIcon) {
+  if (icon.kind === "done") return "border-success bg-success text-background";
+  if (icon.kind === "lucide") return "bg-muted";
+  return { brand: "", inverse: "bg-primary", card: "bg-card" }[icon.tone];
+}
+
 const TOOL_ICONS: Record<string, ComponentType<LucideProps>> = {
   read: File,
   write: Pencil,
@@ -78,6 +92,7 @@ const TOOL_ICONS: Record<string, ComponentType<LucideProps>> = {
   terminal_read: Terminal,
   [GIT_TOOL]: GitBranch,
   [CODEMODE_TOOL]: Code,
+  [LEGACY_MCP_SCRIPT]: Code,
   [ASK_TOOL]: MessageCircleQuestion,
   [SUBAGENT_TOOL]: Bot,
   [IMAGE_TOOL]: Image,
@@ -131,9 +146,22 @@ export function toolIcon(call: ToolCall): ToolIcon {
     return mark ? markIcon(mark) : { kind: "lucide", icon: Plug };
   }
   if (call.name === GH_TOOL) return markIcon(PRESETS.github);
-  const named = TOOL_ICONS[call.name];
-  if (named) return { kind: "lucide", icon: named };
-  if (call.name.startsWith("chrome_")) return { kind: "lucide", icon: Globe };
-  if (call.name.startsWith("memory_")) return { kind: "lucide", icon: Brain };
-  return { kind: "lucide", icon: Wrench };
+  const icon = builtInIcon(call.name);
+  // Any other tool is an extension's or an MCP server's, so it keeps a tile.
+  return icon
+    ? { kind: "lucide", icon, plain: true }
+    : { kind: "lucide", icon: Wrench };
 }
+
+function builtInIcon(name: string) {
+  if (TOOL_ICONS[name]) return TOOL_ICONS[name];
+  if (name.startsWith("chrome_")) return Globe;
+  return name.startsWith("memory_") ? Brain : undefined;
+}
+
+/** The Explored row's icon, over consecutive reads and searches. */
+export const EXPLORE_ICON: ToolIcon = {
+  kind: "lucide",
+  icon: Search,
+  plain: true,
+};

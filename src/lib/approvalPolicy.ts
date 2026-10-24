@@ -35,7 +35,8 @@ export const WINDOWS_SHELL = "Shell commands aren't sandboxed on Windows";
 const SHELL_TOOLS = new Set(["bash", "powershell"]);
 
 // Built-in tools whose `path` argument names what they read or change.
-const READ_TOOLS = new Set(["read", "grep", "find", "ls", "outline"]);
+/** The file tools that only read. */
+export const READ_TOOLS = new Set(["read", "grep", "find", "ls", "outline"]);
 const FILE_TOOLS = new Set([...READ_TOOLS, "edit", "write"]);
 // Devices every shell script uses; they hold no files.
 const HARMLESS = /^\/dev\/(?:null|zero|stdin|stdout|stderr|tty|fd\/\d+)$/;
