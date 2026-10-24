@@ -55,11 +55,12 @@ export function ToolHead({
             title
               ? "text-[12px] text-muted-foreground"
               : "text-[12.5px] text-foreground/90",
-            // A long command (a heredoc) wraps to three lines until clicked.
-            full ? "whitespace-pre-wrap" : "line-clamp-3",
           )}
         >
-          {parts}
+          {/* A long command (a heredoc) shows one line until clicked; WebKit won't clamp a button itself. */}
+          <span className={full ? "whitespace-pre-wrap" : "line-clamp-1"}>
+            {parts}
+          </span>
         </button>
       )}
     </div>
