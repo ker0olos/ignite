@@ -1,6 +1,10 @@
 # npm's flat node_modules: pi's extensions load packages they don't declare.
 nodeLinker: hoisted
 
+# No install before `pnpm exec`/`run`: in an agent's worktree it would run unasked (its node_modules
+# is the user's folder's, often another branch's), and in the sandbox.
+verifyDepsBeforeRun: false
+
 # Only node-pty's script is needed (its native module).
 allowBuilds:
   "@google/genai": false
