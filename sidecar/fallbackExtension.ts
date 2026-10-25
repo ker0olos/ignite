@@ -12,12 +12,12 @@ import {
   keyFailed,
   keysAfter,
   limitedUntil,
-  limitHit,
   limitUntil,
   resetFrom,
   resetIn,
   SUBSCRIPTION,
 } from "./fallback.ts";
+import { limitHit } from "../shared/fallbackKeys.ts";
 import { loadKeys, type FallbackKey } from "./fallbackKeys.ts";
 
 /** pi event bus channel asking the host to set (or, with `key: null`, drop) a key in this session's model runtime. */
@@ -178,8 +178,17 @@ export default function fallback(pi: ExtensionAPI) {
     };
   });
 
+  /** Known to be out: straight to a key, not through Claude Code's slow failure first. */
+  const startOnKey = async (ctx: ExtensionContext) => {
+    if (ctx.model?.provider !== SUBSCRIPTION) return;
+    const { provider, id } = ctx.model;
+    if (await switchKey(ctx, { provider, id })) pi.appendEntry(ENTRY, state);
+  };
+
   pi.on("before_agent_start", async (_event, ctx) => {
-    if (!state.from || Date.now() < limitedUntil()) return;
+    const out = Date.now() < limitedUntil();
+    if (!state.from && out) return startOnKey(ctx);
+    if (!state.from || out) return;
     const model = ctx.modelRegistry.find(state.from.provider, state.from.id);
     if (!model || !(await pi.setModel(model))) return;
     if (state.keyId) dropKey();

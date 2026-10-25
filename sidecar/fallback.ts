@@ -10,17 +10,7 @@ export const SUBSCRIPTION = "claude-bridge";
 
 const HOUR = 60 * 60 * 1000;
 
-// claude-bridge leads a plan limit with "Claude quota exceeded"; the rest is Claude Code's own wording.
-const LIMIT_HIT = /quota exceeded|usage limit|out of (extra )?usage/i;
-
 type Failed = { stopReason?: string; errorMessage?: string };
-
-/** Whether `message` failed because the subscription ran out. */
-export function limitHit(message: Failed): boolean {
-  return (
-    message.stopReason === "error" && LIMIT_HIT.test(message.errorMessage ?? "")
-  );
-}
 
 // What a key's own failure reads like (spent, refused, throttled past pi's retries), not a
 // transient or request error, which another key wouldn't fix.

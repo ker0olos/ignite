@@ -5,11 +5,11 @@ import {
   keyFailed,
   keysAfter,
   limitedUntil,
-  limitHit,
   limitUntil,
   resetFrom,
   resetIn,
 } from "./fallback.ts";
+import { limitHit } from "../shared/fallbackKeys.ts";
 import type { FallbackKey } from "./fallbackKeys.ts";
 
 const LIMIT = Symbol.for("ignite.subscriptionLimit");

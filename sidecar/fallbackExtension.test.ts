@@ -303,6 +303,43 @@ describe("the fallback extension", () => {
     expect(x.appended).toHaveLength(1);
   });
 
+  it("starts on a key while the subscription is known to be out, and back after the reset", async () => {
+    vi.useFakeTimers({ now: 1_000_000 });
+    limitUntil(1_000_000 + HOUR);
+    const x = load({
+      catalog: [opus, { provider: "claude-bridge", id: "claude-opus-5-5" }],
+    });
+    await x.run("before_agent_start");
+    expect(x.used).toEqual([{ provider: "anthropic", key: "key-a" }]);
+    expect(x.model()).toEqual(opus);
+    expect(x.appended).toMatchObject([
+      { customType: "ignite.fallback", data: { keyId: "a" } },
+    ]);
+
+    vi.setSystemTime(1_000_000 + 2 * HOUR);
+    await x.run("before_agent_start");
+    expect(x.model()).toMatchObject({ provider: "claude-bridge" });
+  });
+
+  it("leaves a conversation that isn't on the subscription while it's out", async () => {
+    limitUntil(Date.now() + HOUR);
+    const x = load({ catalog: [opus] });
+    x.pi.setModel({ provider: "openai-codex", id: "gpt-5.5" });
+    x.pi.setModel.mockClear();
+    await x.run("before_agent_start");
+    expect(x.pi.setModel).not.toHaveBeenCalled();
+    expect(x.used).toEqual([]);
+  });
+
+  it("stays on the subscription, though out, when no key works", async () => {
+    limitUntil(Date.now() + HOUR);
+    keys.list = [];
+    const x = load({ catalog: [opus] });
+    await x.run("before_agent_start");
+    expect(x.pi.setModel).not.toHaveBeenCalled();
+    expect(x.appended).toEqual([]);
+  });
+
   it("starts on the subscription with nothing saved", async () => {
     limitUntil(0);
     const x = load({ catalog: [opus] });
