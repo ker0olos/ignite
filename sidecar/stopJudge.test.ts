@@ -3,7 +3,13 @@ import { expect, it, vi } from "vitest";
 import { judgeInput, judgeStop } from "./stopJudge.ts";
 
 const model = (id: string, output: number) =>
-  ({ provider: "anthropic", id, name: id, cost: { output } }) as never;
+  ({
+    provider: "anthropic",
+    id,
+    name: id,
+    cost: { output },
+    input: ["text"],
+  }) as never;
 const MODELS = [model("opus", 25), model("haiku", 5)];
 
 const text = (role: string, t: string) => ({

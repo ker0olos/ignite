@@ -3,6 +3,7 @@ import type { QueueKind } from "../shared/queue.ts";
 import { denyAll, waitsOnUser, WROTE_INSTEAD } from "./hostApproval.ts";
 import { checkpointFirst } from "./hostCheckpoint.ts";
 import { reportTo } from "./hostFollow.ts";
+import { holdQueue, judgeFollowUp } from "./hostQueue.ts";
 import { routeMessage } from "./hostRoute.ts";
 import type { Agent, HostContext, Session } from "./hostTypes.ts";
 import { rememberImages } from "./queuedImages.ts";
@@ -41,12 +42,19 @@ export async function hand(
   done: () => void,
 ) {
   await settleResume(agent);
-  if (s.isStreaming) rememberImages(agent, text, images);
+  const streaming = s.isStreaming;
   // A message sent mid-run steers the run; others may be routed (hostRoute.ts).
-  else if (!(await routeMessage(ctx, agent, s, text, images))) return false;
-  else await checkpointFirst(agent);
+  if (!streaming) {
+    if (!(await routeMessage(ctx, agent, s, text, images))) return false;
+    await checkpointFirst(agent);
+  }
   // A message written instead of answering says why, so it steers even when queued.
   const behavior = waitsOnUser(agent) ? "steer" : queue;
+  const release = streaming ? await holdQueue(agent) : () => {};
+  const settled = () => {
+    release();
+    done();
+  };
   const options = {
     ...(s.isStreaming && { streamingBehavior: behavior }),
     ...(images?.length ? { images } : {}),
@@ -56,14 +64,30 @@ export async function hand(
       denyAll(ctx, agent, true);
       // Run as a command, it starts no message to take the snapshot.
       if (result === "handled") agent.snapshot = undefined;
-      done();
+      if (result === "queued") queued(agent, s, behavior, images);
+      settled();
     },
   };
   const failed = onError ?? reportTo(ctx, agent);
-  s.prompt(text, options).then(done, (error: unknown) => {
+  s.prompt(text, options).then(settled, (error: unknown) => {
     agent.snapshot = undefined;
-    done();
+    settled();
     failed(error);
   });
   return true;
+}
+
+// pi has just queued it last, as it expanded it (a skill's text, say), while the queue's edits are held.
+function queued(
+  agent: Agent,
+  s: Session,
+  behavior: QueueKind,
+  images?: ImageContent[],
+) {
+  const list =
+    behavior === "steer" ? s.getSteeringMessages() : s.getFollowUpMessages();
+  const text = list.at(-1)!;
+  rememberImages(agent, text, images);
+  if (behavior === "followUp")
+    void judgeFollowUp(s, agent, text, images).catch(() => {});
 }

@@ -1,3 +1,4 @@
+import type { ImageContent } from "../shared/agentTypes.ts";
 import type { QueueKind, QueuedMessage, Unqueue } from "../shared/queue.ts";
 import {
   current,
@@ -10,6 +11,7 @@ import { cancelWaits } from "./backgroundBash.ts";
 import { withSummaryProgress } from "./compactProgress.ts";
 import { denyAll } from "./hostApproval.ts";
 import { prompt } from "./hostSession.ts";
+import { judgeQueued } from "./queueJudge.ts";
 import { rememberImages, takeImages } from "./queuedImages.ts";
 
 type Queued = QueuedMessage & { kind: QueueKind };
@@ -39,6 +41,7 @@ export async function stop(ctx: HostContext, session?: string) {
   if (agent) {
     denyAll(ctx, agent);
     cancelWaits(agent.id);
+    dropJudging(agent);
   }
   const routing = agent?.routing;
   routing?.controller.abort();
@@ -81,20 +84,87 @@ export async function compact(
   await withSummaryProgress(s.agent, progress, run).catch(() => {});
 }
 
-/** Takes one queued message back, moves it up or sends it now (see Unqueue). */
+const edits = new WeakMap<Agent, Promise<unknown>>();
+
+// Each edit empties pi's queues and fills them again, so one runs at a time.
+function editQueue<T>(agent: Agent, edit: () => Promise<T>): Promise<T> {
+  const next = (edits.get(agent) ?? Promise.resolve()).then(edit, edit);
+  edits.set(
+    agent,
+    next.catch(() => {}),
+  );
+  return next;
+}
+
+// Finds the message, edits it in place or takes it out, and queues the rest again.
+function edit(
+  s: Session,
+  agent: Agent,
+  { kind, text, action }: Omit<Unqueue, "session">,
+) {
+  return editQueue(agent, async () => {
+    const queued = take(s, agent);
+    const i = queued.findIndex((q) => q.kind === kind && q.text === text);
+    const found = queued[i];
+    if (action === "up") swapUp(queued, i);
+    else if (action === "switch") switchKind(queued, i);
+    else if (found) queued.splice(i, 1);
+    await requeue(s, agent, queued);
+    return found;
+  });
+}
+
+/** Holds the queue's edits from when the last one ends until `release`, while pi queues a new message. */
+export function holdQueue(agent: Agent): Promise<() => void> {
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  return new Promise((start) => {
+    void editQueue(agent, () => {
+      start(release);
+      return held;
+    });
+  });
+}
+
+const judging = new WeakMap<Agent, Map<string, AbortController>>();
+
+// Stop drops every judgment; the user acting on a message drops its own, so the judge never overrides them.
+function dropJudging(agent: Agent, text?: string) {
+  const pending = judging.get(agent);
+  for (const [t, controller] of pending ?? []) {
+    if (text === undefined || t === text) controller.abort();
+  }
+}
+
+/** Moves follow-up `text` to the steering queue when the judge reads it as about the work in progress. */
+export async function judgeFollowUp(
+  s: Session,
+  agent: Agent,
+  text: string,
+  images?: ImageContent[],
+) {
+  const pending = judging.get(agent) ?? new Map<string, AbortController>();
+  judging.set(agent, pending);
+  const controller = new AbortController();
+  pending.get(text)?.abort();
+  pending.set(text, controller);
+  const kind = await judgeQueued(s, text, images, controller.signal);
+  if (pending.get(text) === controller) pending.delete(text);
+  if (kind !== "steer" || controller.signal.aborted || agent.closed) return;
+  await edit(s, agent, { kind: "followUp", text, action: "switch" });
+}
+
+/** Takes one queued message back, moves it up, switches its kind or sends it now (see Unqueue). */
 export async function unqueue(
   ctx: HostContext,
-  { kind, text, action, session }: Unqueue,
+  { session, ...change }: Unqueue,
 ): Promise<QueuedMessage | null> {
   const agent = target(ctx, session)!;
   const s = await current(ctx, session);
-  const queued = take(s, agent);
-  const i = queued.findIndex((q) => q.kind === kind && q.text === text);
-  const taken = queued[i];
-  if (action === "up") swapUp(queued, i);
-  else if (taken) queued.splice(i, 1);
-  await requeue(s, agent, queued);
+  dropJudging(agent, change.text);
+  const taken = await edit(s, agent, change);
   if (!taken) return null;
+  const { action } = change;
   if (action === "now") {
     denyAll(ctx, agent, true);
     await s.abort();
@@ -109,6 +179,16 @@ function swapUp(queued: Queued[], i: number) {
   const [a, b] = [queued[i - 1], queued[i]];
   queued[i - 1] = { ...b, kind: a.kind };
   queued[i] = { ...a, kind: b.kind };
+}
+
+// pi delivers every steer before any follow-up: a new steer goes last of them, a new follow-up first.
+function switchKind(queued: Queued[], i: number) {
+  if (i < 0) return;
+  const kind = queued[i].kind === "steer" ? "followUp" : "steer";
+  queued[i] = { ...queued[i], kind };
+  queued.sort(
+    (a, b) => Number(a.kind !== "steer") - Number(b.kind !== "steer"),
+  );
 }
 
 // Awaited in turn, so they keep their order and are queued before any abort.

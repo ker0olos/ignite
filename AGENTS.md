@@ -290,7 +290,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   readyExtension.ts      Holds writes, commands, git and reads of missing files until the workspace is ready
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
   hostAnswers.ts         Requests that get no response: prompt answers, approval answers, skip wait
-  hostQueue.ts           Messages sent mid-run: stop takes them back; one taken back, moved up or sent now
+  hostQueue.ts           Messages sent mid-run: stop takes them back; one taken back, moved up, switched
+                         between steer and follow-up, or sent now
+  queueJudge.ts          Whether one steers the run (read after the current tool call) or waits for its end,
+                         judged by the cheapest model; each waits as a follow-up until it's judged
   compactProgress.ts     `/compact`'s progress: the summary's tokens, read off pi's stream as it's written
   queuedImages.ts        Queued messages' images (pi's queue lists only text), forgotten once delivered
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)

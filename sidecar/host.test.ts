@@ -167,7 +167,7 @@ function fakeSession() {
         text: string,
         o: {
           streamingBehavior?: "steer" | "followUp";
-          preflightResult?: () => void;
+          preflightResult?: (result?: string) => void;
         } = {},
       ) => {
         if (session.isStreaming) {
@@ -175,7 +175,7 @@ function fakeSession() {
             o.streamingBehavior === "followUp" ? "followUp" : "steering";
           session.queue[kind].push(text);
         }
-        o.preflightResult?.();
+        o.preflightResult?.(session.isStreaming ? "queued" : undefined);
       },
     ),
     steer: vi.fn(async (text: string) => {
@@ -2168,6 +2168,80 @@ describe("sessions", () => {
       await up(7, "steer", "c");
       expect(session.queue).toEqual({ steering: ["c"], followUp: ["a", "b"] });
       expect(session.abort).not.toHaveBeenCalled();
+    });
+
+    it("switches one's kind: a new steer goes last of them, a new follow-up first", async () => {
+      const { request, session } = await working();
+      const flip = (id: number, kind: "steer" | "followUp", text: string) =>
+        request({ id, type: "unqueue", kind, text, action: "switch" });
+      await flip(5, "followUp", "c");
+      expect(session.queue).toEqual({ steering: ["a", "c"], followUp: ["b"] });
+      await flip(6, "steer", "a");
+      expect(session.queue).toEqual({ steering: ["c"], followUp: ["a", "b"] });
+      expect(session.abort).not.toHaveBeenCalled();
+    });
+
+    const answer = (text: string) => ({
+      stopReason: "stop",
+      content: [{ type: "text", text }],
+    });
+    async function judged(
+      completeSimple: (m: unknown, c: never) => Promise<unknown>,
+    ) {
+      const session = fakeSession();
+      session.isStreaming = true;
+      Object.assign(session.modelRuntime, {
+        getModels: () =>
+          MODELS.map((m) => ({ ...m, cost: { output: 1 }, input: ["text"] })),
+        completeSimple,
+      });
+      const { request } = setup(fakeRuntime().runtime, async () => session);
+      await request({ id: 1, type: "new_session", cwd: "/work" });
+      const later = (id: number, text: string) =>
+        request({ id, type: "prompt", text, queue: "followUp" });
+      return { session, request, later };
+    }
+
+    it("steers a follow-up the judge reads as about the work in progress", async () => {
+      const completeSimple = vi.fn(
+        async (_m: unknown, c: { messages: { content: string }[] }) =>
+          answer(
+            c.messages[0].content.endsWith("wrong key") ? "steer" : "later",
+          ),
+      );
+      const { session, later } = await judged(completeSimple as never);
+      await later(2, "then the docs");
+      await later(3, "wrong key");
+      await vi.waitFor(() => expect(completeSimple).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() =>
+        expect(session.queue).toEqual({
+          steering: ["wrong key"],
+          followUp: ["then the docs"],
+        }),
+      );
+    });
+
+    it("never overrides the user's switch with a judgment made meanwhile", async () => {
+      let verdict: (answer: unknown) => void = () => {};
+      const completeSimple = vi.fn(
+        () => new Promise((resolve) => (verdict = resolve)),
+      );
+      const { session, request, later } = await judged(completeSimple);
+      await later(2, "wrong key");
+      await vi.waitFor(() => expect(completeSimple).toHaveBeenCalled());
+      const flip = (id: number, kind: "steer" | "followUp") =>
+        request({
+          id,
+          type: "unqueue",
+          kind,
+          text: "wrong key",
+          action: "switch",
+        });
+      await flip(3, "followUp");
+      await flip(4, "steer");
+      verdict(answer("steer"));
+      await new Promise((r) => setTimeout(r, 0));
+      expect(session.queue).toEqual({ steering: [], followUp: ["wrong key"] });
     });
 
     it("sends one now, stopping the run", async () => {

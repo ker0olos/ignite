@@ -3,7 +3,7 @@ import {
   serializeConversation,
   type EventBus,
 } from "@earendil-works/pi-coding-agent";
-import type { AgentMessage } from "../shared/agentTypes.ts";
+import type { AgentMessage, ImageContent } from "../shared/agentTypes.ts";
 import type { Session } from "./hostTypes.ts";
 import { cheapest } from "./router.ts";
 import { STOP_EVENT, type StopAsk } from "./stopNudge.ts";
@@ -47,22 +47,35 @@ export function answerStops(bus: EventBus, s: Session) {
 }
 
 /** The verdict on `s`'s run that just ended; null when it can't judge. */
-export async function judgeStop(
+export function judgeStop(
   s: Pick<Session, "model" | "modelRuntime" | "messages">,
   signal?: AbortSignal,
 ): Promise<Verdict | null> {
+  const words = ["continue", "ask", "done"] as const;
+  return oneWord(s, JUDGE_PROMPT, judgeInput(s.messages), words, { signal });
+}
+
+/** The cheapest model of `s`'s provider answering `text` (and `images`, if it reads them) with one of `words`; null when it can't. */
+export async function oneWord<W extends string>(
+  s: Pick<Session, "model" | "modelRuntime">,
+  systemPrompt: string,
+  text: string,
+  words: readonly W[],
+  { signal, images = [] }: { signal?: AbortSignal; images?: ImageContent[] },
+): Promise<W | null> {
   const found = await cheapest(s).catch(() => null);
   if (!found) return null;
+  const seen = found.model.input.includes("image") ? images : [];
   const timeout = AbortSignal.timeout(TIMEOUT_MS);
   const answer = await s.modelRuntime
     .completeSimple(
       found.model,
       {
-        systemPrompt: JUDGE_PROMPT,
+        systemPrompt,
         messages: [
           {
             role: "user",
-            content: judgeInput(s.messages),
+            content: seen.length ? [{ type: "text", text }, ...seen] : text,
             timestamp: Date.now(),
           },
         ],
@@ -75,9 +88,10 @@ export async function judgeStop(
     )
     .catch(() => null);
   if (!answer || answer.stopReason !== "stop") return null;
-  const text = answer.content
+  const reply = answer.content
     .flatMap((c) => (c.type === "text" ? [c.text] : []))
-    .join("");
-  const word = /^\W*(continue|ask|done)\W*$/i.exec(text)?.[1];
-  return word ? (word.toLowerCase() as Verdict) : null;
+    .join("")
+    .replace(/^\W+|\W+$/g, "")
+    .toLowerCase();
+  return words.find((w) => w === reply) ?? null;
 }

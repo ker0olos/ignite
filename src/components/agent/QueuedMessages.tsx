@@ -2,6 +2,7 @@ import { ArrowUp, Pencil, X } from "lucide-react";
 import type { QueuedMessage, Unqueue } from "../../../shared/queue";
 import { typedMessage } from "../../../shared/sentComments";
 import { Kbd } from "@/components/agent/Kbd";
+import { QueueKindChip } from "@/components/agent/QueueKindChip";
 import { isMac } from "@/lib/window";
 import type { Queued } from "@/lib/queue";
 import { cn } from "@/lib/utils";
@@ -35,11 +36,10 @@ export function QueuedMessages({
           <span className="w-4 shrink-0 text-xs text-muted-foreground/70 tabular-nums">
             {i + 1}
           </span>
-          {i === 0 && (
-            <span className="shrink-0 text-xs text-muted-foreground/70">
-              Next
-            </span>
-          )}
+          <QueueKindChip
+            kind={q.kind}
+            onSwitch={() => void unqueue(q, "switch")}
+          />
           <span className="min-w-0 flex-1 truncate text-foreground/80">
             {typedMessage(q.text) || "Image"}
           </span>
@@ -55,8 +55,8 @@ export function QueuedMessages({
           {i === 0 ? (
             <button
               type="button"
-              aria-label="Steer"
-              title="Steer: stop the agent and send this now"
+              aria-label="Send now"
+              title="Send now: stop the agent and send this"
               className={cn(ICON, "w-auto gap-1.5 px-1")}
               onClick={() => void unqueue(q, "now")}
             >
