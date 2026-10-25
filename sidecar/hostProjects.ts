@@ -26,10 +26,20 @@ export function pushProjects(ctx: HostContext) {
   void ctx.keepAwake(agents.some((a) => a.running && !a.waiting));
 }
 
+/** The folder's conversation to show: the last one shown, else another one open; a folder may have none. */
+export function reopened(ctx: HostContext, cwd: string): string | undefined {
+  const last = ctx.lastShown.get(cwd);
+  if (last && ctx.agents.has(last)) return last;
+  return [...ctx.agents.values()].find((a) => a.cwd === cwd)?.id;
+}
+
+/** Conversation `id`'s open forks it waits for (not ones the user stopped it waiting for). */
+export const heldBy = (ctx: HostContext, id: string) =>
+  [...ctx.agents.values()].filter((a) => a.forkOf === id && !a.forkDetached);
+
 /** Whether conversation `id` waits for a fork: one is open, or a closed one's report is on its way. */
 export const waitsOnFork = (ctx: HostContext, id: string) =>
-  !!ctx.agents.get(id)?.forkReports ||
-  [...ctx.agents.values()].some((a) => a.forkOf === id);
+  !!ctx.agents.get(id)?.forkReports || heldBy(ctx, id).length > 0;
 
 /** Throws when conversation `session` (else the shown one) waits for a fork, which takes no messages. */
 export function refuseWhileForked(ctx: HostContext, session?: string) {

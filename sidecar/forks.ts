@@ -23,6 +23,8 @@ import { cheapest } from "./router.ts";
 // In the fork: what it was forked from. Its work up to a REPORTED entry was sent.
 const FORKED = "ignite-fork";
 const REPORTED = "ignite-fork-report";
+// In the fork: the user stopped its original waiting; it sends no report.
+const DETACHED = "ignite-fork-detached";
 
 const TIMEOUT_MS = 60_000;
 // The newest part of a long run is what the original needs most.
@@ -146,6 +148,20 @@ export function dropFork(folder: string, to: string) {
 export function forkOf(s: Pick<Session["sessionManager"], "getBranch">) {
   const branch = s.getBranch() as Entry[];
   return branch.findLast((e) => e.customType === FORKED)?.details?.parent;
+}
+
+/** Marks fork `s` as one its original no longer waits for. */
+export function detachFork(
+  s: Pick<Session["sessionManager"], "appendCustomEntry">,
+) {
+  s.appendCustomEntry(DETACHED);
+}
+
+/** Whether fork `s`'s original stopped waiting for it; read from every entry, so a rewind keeps it. */
+export function isDetached(s: Pick<Session["sessionManager"], "getEntries">) {
+  const entries = s.getEntries() as Entry[];
+  const forked = entries.findLastIndex((e) => e.customType === FORKED);
+  return entries.findLastIndex((e) => e.customType === DETACHED) > forked;
 }
 
 /**

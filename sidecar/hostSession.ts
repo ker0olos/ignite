@@ -8,7 +8,6 @@ import type { QueueKind } from "../shared/queue.ts";
 import {
   current,
   isShown,
-  reopened,
   target,
   type Agent,
   type HostContext,
@@ -21,10 +20,10 @@ import { askApproval, denyAll } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { subagentsIn } from "./hostChildren.ts";
 import { firstTitle } from "../shared/conversations.ts";
-import { pushProjects, refuseWhileForked } from "./hostProjects.ts";
+import { pushProjects, refuseWhileForked, reopened } from "./hostProjects.ts";
 import { prepareResume } from "./hostResume.ts";
 import { follow, reportTo } from "./hostFollow.ts";
-import { forkOf } from "./forks.ts";
+import { forkOf, isDetached } from "./forks.ts";
 import { withEntryIds } from "./hostCheckpoint.ts";
 import { hand, takeTurn } from "./hostSend.ts";
 import { queueOf } from "./nextQueue.ts";
@@ -187,6 +186,7 @@ export function start(
       agent.title = s.sessionManager.getSessionName() ?? firstTitle(s.messages);
       agent.subagents = subagentsIn(s.messages);
       agent.forkOf = forkOf(s.sessionManager);
+      agent.forkDetached ||= !!agent.forkOf && isDetached(s.sessionManager);
       pushProjects(ctx);
       agent.unsubscribe = s.subscribe((event) => follow(ctx, agent, event));
       return s;

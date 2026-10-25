@@ -145,6 +145,7 @@ function fakeSession() {
       getSessionId: () => "s1",
       getLeafId: (): string | null => null,
       appendCustomEntry: vi.fn(() => "entry"),
+      getEntries: () => [],
       getSessionName: (): string | undefined => undefined,
     },
     refreshContext: vi.fn(),

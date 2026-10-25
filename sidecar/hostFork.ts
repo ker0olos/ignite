@@ -2,6 +2,7 @@ import type { AgentMessage } from "../shared/agentTypes.ts";
 import { titleOf } from "../shared/conversations.ts";
 import type { OpenedSession } from "../shared/hostProtocol.ts";
 import {
+  detachFork,
   dropFork,
   dropNote,
   forkReport,
@@ -11,7 +12,7 @@ import {
   summarize,
   unreported,
 } from "./forks.ts";
-import { pushProjects, waitsOnFork } from "./hostProjects.ts";
+import { heldBy, pushProjects, waitsOnFork } from "./hostProjects.ts";
 import { close, launch, open, prompt, start } from "./hostSession.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
 
@@ -63,6 +64,29 @@ export async function fork(
   return opened;
 }
 
+/**
+ * Stops conversation `id` waiting for its open forks: they stay its forks but
+ * send no report when closed, and it takes messages again. False when none held it.
+ */
+export function stopWaiting(ctx: HostContext, id: string): boolean {
+  const forks = heldBy(ctx, id);
+  for (const fork of forks) {
+    fork.forkDetached = true;
+    // Saved in its file, so it stays detached after a restart.
+    void fork.opening.then((s) => detachFork(s.sessionManager)).catch(() => {});
+    noteFor(
+      fork.id,
+      `The user stopped conversation ${id} waiting for you: it carries on separately, and nothing is sent to it when you're closed.`,
+    );
+    noteFor(
+      id,
+      `The user stopped you waiting for your fork "${fork.title}" (${fork.id}): it works separately and sends you no report.`,
+    );
+  }
+  if (forks.length) pushProjects(ctx);
+  return forks.length > 0;
+}
+
 // The app listed the fork as it started; the original shows again.
 function unfork(ctx: HostContext, folder: string, from: string, to: string) {
   dropFork(folder, to);
@@ -82,7 +106,7 @@ export async function closeConversation(
   id?: string,
 ) {
   const fork = id === undefined ? undefined : ctx.agents.get(id);
-  if (!fork?.forkOf) return close(ctx, folder, id);
+  if (!fork?.forkOf || fork.forkDetached) return close(ctx, folder, id);
   const messages = fork.session && unreported(fork.session)?.messages;
   if (messages) void report(ctx, fork, messages, hold(ctx, folder, fork));
   await close(ctx, folder, id);
@@ -92,9 +116,7 @@ export async function closeConversation(
 // (and closes with its folder), unless another fork still holds it.
 function hold(ctx: HostContext, folder: string, fork: Agent) {
   const id = fork.forkOf!;
-  const held = [...ctx.agents.values()].some(
-    (a) => a !== fork && a.forkOf === id,
-  );
+  const held = heldBy(ctx, id).some((a) => a !== fork);
   if (!held && !ctx.agents.has(id))
     void launch(ctx, folder, id).catch(() => {});
   const parent = ctx.agents.get(id) ?? null;

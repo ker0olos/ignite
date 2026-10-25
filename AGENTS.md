@@ -116,6 +116,7 @@ src/                     React frontend (almost all logic lives here)
     useGitImages.ts      An image diff tab's two versions (a new or deleted one compared with itself)
     useBackgroundOutput.ts A background command's output, read again while it runs; stopping it
     useSessionEvents.ts  Applies session events and approval requests; answers approvals
+    useWaitSkips.ts      Cutting the shown conversation's waits short: a bash call's sleep (Skip wait), its forks (Stop waiting)
     useQuestionDeck.ts   The agent's waiting questions the composer answers: step, each one's picks, text and images
                          (lib/questionDrafts.ts keeps them in localStorage until answered, so a reload shows them as left)
     useComposerQuestionKeys.ts Their keys: ⌥1…⌥9 pick from anywhere, ↑/↓ between options and the text, Space picks, ↵ or ⌘↩ on, ⌘N the text, ⌘⌫ skip
@@ -861,7 +862,11 @@ a fork that fails to start deletes its copy. The fork is listed under
 its original like a subagent (`forkOf`, kept in the sidebar's list), and
 while it's open the original takes no messages (`waitingOnFork`: its
 composer's controls are off, but Stop and the questions of a run it carries on
-with, and its working line says "Waiting for fork"). Closing the fork has the
+with, and its working line says "Waiting for fork"). Stop waiting under that
+line (`stop_fork_wait`) frees the original: its open forks stay listed under
+it but are detached (`forkDetached`, an `ignite-fork-detached` entry in the
+fork's file, so a restart or rewind keeps it), send no report when closed,
+and both sides get a note saying so. Closing a fork it still waits for has the
 cheapest priced model of the original's provider (the router's) summarize
 what it did since its last report (`sidecar/forks.ts`), else its last reply
 is used; the report is sent to the original as a message, so it carries on.

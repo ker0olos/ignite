@@ -31,6 +31,7 @@ export const ConversationPane = memo(function ConversationPane({
   skipWait,
   onApprove,
   waitingOnFork,
+  stopForkWait,
   waiting,
   askingStep,
   editor,
@@ -50,6 +51,8 @@ export const ConversationPane = memo(function ConversationPane({
   skipWait: (toolCallId: string) => Promise<boolean>;
   onApprove: ToolProps["onApprove"];
   waitingOnFork: boolean;
+  /** Stops it waiting for its forks. */
+  stopForkWait?: () => Promise<boolean>;
   /** Its waiting calls in the order they began to wait; none while hidden. */
   waiting: string[];
   /** Which question of the composer's the user is on. */
@@ -102,6 +105,7 @@ export const ConversationPane = memo(function ConversationPane({
                     waiting={waiting}
                     onApprove={onApprove}
                     waitingOnFork={waitingOnFork}
+                    stopForkWait={waitingOnFork ? stopForkWait : undefined}
                   />
                 </MessageEditContext.Provider>
               </AskingStepContext.Provider>

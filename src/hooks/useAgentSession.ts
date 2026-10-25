@@ -11,6 +11,7 @@ import { useSessionSwitch } from "@/hooks/useSessionSwitch";
 import { useStartedConversation } from "@/hooks/useStartedConversation";
 import { useStartingMessage } from "@/hooks/useStartingMessage";
 import { useRewind } from "@/hooks/useRewind";
+import { useWaitSkips } from "@/hooks/useWaitSkips";
 
 const NO_SKILLS: never[] = [];
 
@@ -78,14 +79,7 @@ export function useAgentSession(
 
   // On the host, not the shown conversation: kept ones miss no event while none shows.
   const answer = useSessionEvents(host, shownNow, apply, setError, setState);
-  const skipWait = useCallback(
-    async (toolCallId: string) =>
-      !!opened &&
-      opened
-        .request({ type: "skip_wait", toolCallId })
-        .catch((e: Error) => (setError(e.message), false)),
-    [opened],
-  );
+  const { skipWait, stopForkWait } = useWaitSkips(opened, shown, setError);
 
   const setTrust = useCallback(
     async (trusted: boolean) => {
@@ -134,6 +128,8 @@ export function useAgentSession(
     firstMessage: first.starting,
     /** A fork of it is open, or its report is on the way; it takes no messages. */
     waitingOnFork: useForkWait(host, shown),
+    /** Stops it waiting: its open forks carry on separately and send it no report; false when none held it. */
+    stopForkWait,
     send: actions.send,
     compact: actions.compact,
     /** Forks the shown conversation and shows the fork, empty; a refusal shows in its composer. */
