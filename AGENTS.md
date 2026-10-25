@@ -255,6 +255,7 @@ src/                     React frontend (almost all logic lives here)
     utils.ts             `cn` class-name helper (shadcn)
     remote.ts            In a browser (remote access): stands in for Tauri over a WebSocket to the sidecar
     remoteFirst.ts       Installs that stand-in before any other module loads (first import in main.tsx)
+    userActivity.ts      A key, click or focus change on the window, told to the sidecar (the user is back)
   test/                  Test setup, fake Tauri backends (fakeFs, fakeStore), shared shell command cases
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
   main.ts                Entry: turns on mods/ overrides, then loads start.ts
@@ -289,6 +290,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   doppler.ts             Doppler's folder settings in a worktree: a copy of its config naming the worktree too
   readyExtension.ts      Holds writes, commands, git and reads of missing files until the workspace is ready
   hostApproval.ts        Tool calls waiting for the user (askApproval, answerApproval, denyAll)
+  awayTimer.ts           The first waiting call's timer: unanswered, it's answered as the user being away
   hostAnswers.ts         Requests that get no response: prompt answers, approval answers, skip wait
   hostQueue.ts           Messages sent mid-run: stop takes them back; one taken back, moved up or sent now;
                          Next held until the run has really ended, or moved to steer as the judge says
@@ -381,6 +383,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          packages, pnpm); the user's conversations, settings and tasks stay unless `--all`
   appVersions.ts         The launcher's state (good, bad, next, restart), staging an update, pruning versions
   credentials.ts         pi's auth.json, falling back to the Codex CLI's ChatGPT login
+  cacheWarming.ts        pi's `cacheWarming: "idle"`, saved at start unless pi's settings already choose
   fallbackKeys.ts        Anthropic API keys a conversation falls back to when the Claude subscription runs out (~/.ignite/fallback-keys.json)
   fallback.ts            Knowing it ran out (claude-bridge's error), until when (its rate-limit header, else the error's time), the next key
   fallbackExtension.ts   Moves the conversation onto the next key and continues the run; back on the subscription after the reset
@@ -621,7 +624,9 @@ Two places hold persisted data:
   the newest 100 sent messages, shared by every folder (`lib/history.ts`).
 - **pi's own files** in `~/.ignite/pi`: credentials (`auth.json`),
   `settings.json`, where pi keeps the last chosen model and effort as the
-  default for new sessions, and `sessions/`, one JSONL file per
+  default for new sessions (and `cacheWarming: "idle"`, set at start unless
+  already set, so conversations on the fallback keys' Anthropic models stay
+  cached between runs; claude-bridge declares no cache lifetime, so it never warms), and `sessions/`, one JSONL file per
   conversation. A folder can have several open at once, each keyed by pi's
   session id and listed under its folder in the sidebar (the list is kept
   in state.json, and one starts again when clicked). Showing a folder shows
@@ -663,7 +668,19 @@ call would run (its command, or an MCP call's arguments). A denied call returns
 folder denies what's waiting. A hidden folder's question waits until it's
 shown again. When several calls wait, only the first shows its prompt (with
 how many more wait behind it); the rest show their place in line and open
-in turn, so nothing waits off screen. The `ask_user` tool (`sidecar/askExtension.ts`) uses the same
+in turn, so nothing waits off screen. Some calls don't wait forever
+(`sidecar/awayTimer.ts`): the first in line starts its timer the moment it's
+first (shown or not, focused or not), and still unanswered when it runs out it's
+answered as the user being away: an `ask_user` question after 5 minutes (the
+agent decides alone, told what the user had picked or noted without sending it,
+which the composer sends as `question_draft`), and in Auto an approval (a
+denylisted command, a path outside the folder, an MCP call, running outside the
+sandbox) after 2 minutes, denied with a reason telling the agent to carry on
+without it. Manual's prompts, git and gh reviews, `task_add` and lesson changes
+wait forever, and so do the calls behind them. After 3 timed out in a row, later
+ones are answered at once until the user is back: they answer one, send a
+message, or touch the window (a key, a click, focus moving; `user_active`,
+`lib/userActivity.ts`), which never restarts a timer already running. The `ask_user` tool (`sidecar/askExtension.ts`) uses the same
 channel: its call waits as an approval and, once first in line, its questions
 take over the composer (`useQuestionDeck`, `ComposerQuestion`): options above
 the text box, whose text and images are a note on the picks, or the user's own

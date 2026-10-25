@@ -27,3 +27,25 @@ it("keeps a question's dropped files with its answer, sent in its note", () => {
     { path: "/d/b.txt", text: "hi" },
   ]);
 });
+
+it("tells each change to the answers so far, without their images", () => {
+  const onDraft = vi.fn();
+  const call = {
+    type: "toolCall" as const,
+    id: "ask-draft",
+    name: ASK_TOOL,
+    arguments: {
+      questions: [{ question: "Which?", options: [{ label: "A" }] }],
+    },
+  };
+  const { result } = renderHook(() => useQuestionDeck(call, vi.fn(), onDraft));
+  act(() => result.current!.toggle("A"));
+  act(() =>
+    result.current!.setImages([
+      { type: "image", data: "x", mimeType: "image/png" },
+    ]),
+  );
+  expect(onDraft).toHaveBeenLastCalledWith("ask-draft", [
+    { question: "Which?", choices: ["A"] },
+  ]);
+});

@@ -69,6 +69,13 @@ export function toAnswers(
   });
 }
 
+/** The answers so far, without images, which the sidecar sends the agent if the user is away. */
+export const unsentAnswers = (questions: Question[], drafts: Draft[]) =>
+  toAnswers(questions, drafts).map((answer) => ({
+    ...answer,
+    images: undefined,
+  }));
+
 /** What an answer says first: the choices, else what it was answered with, else that it was left to the agent. */
 export function answerLabel(choices: string[], images = 0, files = 0) {
   if (choices.length) return choices.join(", ");

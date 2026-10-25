@@ -21,6 +21,7 @@ import { LESSON_ADD_TOOL, LESSON_REMOVE_TOOL } from "../shared/lessons.ts";
 import { ASK_TOOL } from "../shared/questions.ts";
 import { CODEMODE_TOOL } from "../shared/codemode.ts";
 import { askUser } from "./approvalAsk.ts";
+import { APPROVAL_AWAY } from "./awayTimer.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
 import {
   approvalFor,
@@ -152,6 +153,10 @@ async function ruleFor(
 const allowLabel = (rule: AllowRule) =>
   rule.kind === "commands" ? rule.target : shortHome(rule.target, homedir());
 
+/** In Auto an approval nobody answers is denied in time; Manual's wait for the user. */
+const awayIn = (mode: ApprovalGate) =>
+  mode === "auto" ? APPROVAL_AWAY : undefined;
+
 /** Whether `command` runs a program the user always lets run outside the sandbox. */
 async function runsOutside(command: string): Promise<boolean> {
   const { commands } = await loadAllowed();
@@ -187,6 +192,8 @@ export default function approval(pi: ExtensionAPI) {
       },
       ctx.signal,
       "ran",
+      // Only Auto runs commands in the sandbox.
+      APPROVAL_AWAY,
     );
     if (!approved) {
       return {
@@ -242,6 +249,7 @@ export default function approval(pi: ExtensionAPI) {
         request,
         ctx.signal,
         "before",
+        awayIn(mode),
       );
       if (!approved) return { block: true, reason: reason ?? DENIED };
       // An approved command runs as is, outside the sandbox.

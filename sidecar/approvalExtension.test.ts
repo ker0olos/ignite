@@ -20,6 +20,7 @@ import approval, {
   realPath,
 } from "./approvalExtension.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
+import { APPROVAL_AWAY } from "./awayTimer.ts";
 import { approvalMode } from "./approvalSettings.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { allowAlways, loadAllowed } from "./sandboxAllow.ts";
@@ -257,6 +258,18 @@ describe("tool_call", () => {
     expect(await result).toEqual({ block: true, reason: DENIED });
   });
 
+  it("denies a call nobody answers in Auto, saying the user is away", async () => {
+    const { asks, call } = load();
+    const result = call("bash", { command: "git push --force" });
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0].away).toBe(APPROVAL_AWAY);
+    asks[0].answer(false, undefined, undefined, APPROVAL_AWAY.reason());
+    expect(await result).toEqual({
+      block: true,
+      reason: APPROVAL_AWAY.reason(),
+    });
+  });
+
   it("lets file tools use the temp folder without asking", async () => {
     const { asks, call } = load();
     expect(
@@ -280,6 +293,8 @@ describe("tool_call", () => {
     const result = call("read", { path: "README.md" });
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     expect(asks[0].request).toEqual({ toolCallId: "t1" });
+    // Manual waits for the user however long they're away.
+    expect(asks[0].away).toBeUndefined();
     asks[0].answer(true);
     expect(await result).toBeUndefined();
   });
@@ -493,6 +508,7 @@ describe("the sandbox in Auto", () => {
     const outcome = result(refused, true);
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     expect(asks[0].request.reason).toBe(`Blocked by the sandbox: ${refused}`);
+    expect(asks[0].away).toBe(APPROVAL_AWAY);
     asks[0].answer(false);
     expect(((await outcome) as Outcome).content[0].text).toBe(
       `${refused}\n\n${DECLINED_OUTSIDE}`,

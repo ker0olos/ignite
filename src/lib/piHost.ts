@@ -1,5 +1,6 @@
 import { Child, Command } from "@tauri-apps/plugin-shell";
 import { isRemote, remoteTransport } from "./remote";
+import { watchActivity } from "./userActivity";
 import type {
   HostMessage,
   HostRequest,
@@ -176,12 +177,26 @@ export function prestartPiHost() {
   early.catch(() => {});
 }
 
+// The user touching the window tells the sidecar they're back (sidecar/awayTimer.ts).
+function tellingActivity(client: HostClient): HostClient {
+  const stop = watchActivity(
+    () => void client.send({ type: "user_active" }).catch(() => {}),
+  );
+  return {
+    ...client,
+    close: () => {
+      stop();
+      return client.close();
+    },
+  };
+}
+
 /** Starts the sidecar (or takes the prestarted one) and returns a client for it. */
 export async function openPiHost(): Promise<HostClient> {
-  if (isRemote()) return createHostClient(remoteTransport());
+  if (isRemote()) return tellingActivity(createHostClient(remoteTransport()));
   const transport = early ?? spawnSidecar();
   early = null;
-  const client = createHostClient(await transport);
+  const client = tellingActivity(createHostClient(await transport));
   // A sidecar that stops hearing these samples the app (sidecar/hangWatch.ts).
   const beat = () =>
     void client

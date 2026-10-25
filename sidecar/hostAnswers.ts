@@ -1,5 +1,6 @@
 import type { HostRequest } from "../shared/hostProtocol.ts";
-import { answerApproval } from "./hostApproval.ts";
+import { userBack } from "./awayTimer.ts";
+import { answerApproval, keepAnswers } from "./hostApproval.ts";
 import type { HostContext } from "./hostTypes.ts";
 
 type Answer = Exclude<HostRequest, { id: number }>;
@@ -17,6 +18,10 @@ export function answered(
   } else if (request.type === "approval_answer") {
     const { toolCallId, approved, answers, always } = request;
     answerApproval(ctx, toolCallId, approved, answers, always);
+  } else if (request.type === "question_draft") {
+    keepAnswers(ctx, request.toolCallId, request.answers);
+  } else if (request.type === "user_active") {
+    ctx.agents.forEach(userBack);
   }
   return true;
 }

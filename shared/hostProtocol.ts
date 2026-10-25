@@ -262,7 +262,11 @@ export type HostRequest =
       approved: boolean;
       answers?: QuestionAnswer[];
       always?: boolean;
-    };
+    }
+  /** What the user has answered so far in an ask_user call (no images), sent with it if they're away. */
+  | { type: "question_draft"; toolCallId: string; answers: QuestionAnswer[] }
+  /** The user touched the window (a key, a click, focus): they're back, so calls stop being denied at once after unanswered ones. */
+  | { type: "user_active" };
 
 export type { AgentStatus };
 export type {

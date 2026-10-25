@@ -14,7 +14,9 @@ import ask, {
   AUTONOMOUS,
   COPYABLE,
   LEFT_TO_AGENT,
+  QUESTION_AWAY_MS,
   askEnabled,
+  awayReply,
   replyText,
 } from "./askExtension.ts";
 import { APP_NAME } from "../src/lib/app.ts";
@@ -154,6 +156,41 @@ describe("ask_user", () => {
     await vi.waitFor(() => expect(asks).toHaveLength(1));
     asks[0].answer(false, undefined, undefined, WROTE);
     expect(text(await result)).toBe(WROTE);
+  });
+
+  it("goes on without the user after 5 minutes, saying they're away", async () => {
+    const { asks, run } = load();
+    const result = run();
+    await vi.waitFor(() => expect(asks).toHaveLength(1));
+    const { away } = asks[0];
+    expect(away?.afterMs).toBe(QUESTION_AWAY_MS);
+    asks[0].answer(false, undefined, undefined, away!.reason());
+    const done = await result;
+    expect(text(done)).toMatch(/^The user is away/);
+    expect(done.details).toBeUndefined();
+  });
+});
+
+describe("awayReply", () => {
+  it("adds what the user had answered without sending it", () => {
+    const reply = awayReply([
+      { question: "Where?", choices: ["SQLite"] },
+      { question: "Why?", choices: [], note: "speed" },
+      { question: "When?", choices: [] },
+    ]);
+    expect(reply).toMatch(/^The user is away/);
+    expect(reply).toContain("Q: Where?\nA: SQLite");
+    expect(reply).toContain(
+      "Q: Why?\nA: (left to you; decide it)\nNote: speed",
+    );
+    // A question with nothing answered isn't listed.
+    expect(reply).not.toContain("When?");
+  });
+
+  it("says only that they're away when nothing was answered", () => {
+    const bare = awayReply();
+    expect(awayReply([{ question: "When?", choices: [] }])).toBe(bare);
+    expect(bare).not.toContain("Q:");
   });
 });
 
