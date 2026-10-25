@@ -2,8 +2,9 @@ import { X } from "lucide-react";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
 import { ToolRowFrame } from "@/components/conversation/ToolRowFrame";
 import { ToolTile } from "@/components/conversation/ToolTile";
+import { outputLabel } from "@/lib/scriptRows";
 
-/** A failed script's last step: its error, open. */
+/** A failed script's last step: its error, collapsed. */
 export function ScriptFailed({ text }: { text: string }) {
   return (
     <ToolRowFrame
@@ -19,7 +20,7 @@ export function ScriptFailed({ text }: { text: string }) {
         </span>
       }
     >
-      <OutputPreview text={text} error defaultOpen />
+      <OutputPreview text={text} error label={outputLabel(text, "Error")} />
     </ToolRowFrame>
   );
 }

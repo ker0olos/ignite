@@ -75,9 +75,9 @@ export function scriptEnd(status: ScriptStatus, output: string) {
   return status === "failed" && output ? "failed" : null;
 }
 
-/** The collapsed output's label: "Output · 12 lines". */
-export const outputLabel = (text: string) =>
-  `Output · ${plural(text.replace(/\n+$/, "").split("\n").length, "line", "lines")}`;
+/** The collapsed output's label: "Output · 12 lines", "Error · 3 lines". */
+export const outputLabel = (text: string, name = "Output") =>
+  `${name} · ${plural(text.replace(/\n+$/, "").split("\n").length, "line", "lines")}`;
 
 /** What the agent was sent of what the script's calls returned, or null unless the script cut it down. */
 export function tokenFooter(output: string, run: ToolRun | undefined) {

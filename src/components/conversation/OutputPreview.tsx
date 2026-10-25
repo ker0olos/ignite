@@ -14,15 +14,13 @@ export function OutputPreview({
   text,
   error,
   label,
-  defaultOpen = false,
 }: {
   text: string;
   error?: boolean;
   /** Shown collapsed in place of "Output", however short the output. */
   label?: string;
-  defaultOpen?: boolean;
 }) {
-  const [opened, setOpen] = useState(defaultOpen);
+  const [opened, setOpen] = useState(false);
   // Decided on each render: streaming output starts short and grows.
   const open = opened || (!label && isShortOutput(text));
   const [all, setAll] = useState(false);

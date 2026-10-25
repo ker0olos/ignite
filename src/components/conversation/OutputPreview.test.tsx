@@ -14,13 +14,6 @@ it("shows a short error as is", () => {
   expect(screen.getByText("Not run: the app reloaded.")).toBeTruthy();
 });
 
-it("starts open when asked, however long", () => {
-  render(
-    <OutputPreview text={"Script error:\nboom\nat line 3"} error defaultOpen />,
-  );
-  expect(screen.getByText(/boom/)).toBeTruthy();
-});
-
 it("keeps even short output under its label until opened", () => {
   render(<OutputPreview text="Merge made." label="Brought in 2 commits" />);
   expect(screen.queryByText("Merge made.")).toBe(null);

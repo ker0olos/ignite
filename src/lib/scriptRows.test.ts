@@ -145,6 +145,9 @@ describe("outputLabel", () => {
   it("counts the lines, not trailing newlines", () => {
     expect(outputLabel("done\n")).toBe("Output \u00b7 1 line");
     expect(outputLabel("a\nb\nc")).toBe("Output \u00b7 3 lines");
+    expect(outputLabel("Script error:\nboom", "Error")).toBe(
+      "Error \u00b7 2 lines",
+    );
   });
 });
 
