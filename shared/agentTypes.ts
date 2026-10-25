@@ -52,6 +52,13 @@ export type AssistantMessage = {
     | "deferred";
   errorMessage?: string;
   timestamp: number;
+  /** The tokens the reply's request read and wrote; all 0 on a failed one. */
+  usage?: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+  };
 };
 
 export type ToolResult = {

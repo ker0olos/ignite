@@ -205,6 +205,38 @@ describe("workingLine fork", () => {
   });
 });
 
+describe("workingLine quiet", () => {
+  const big = {
+    ...(assistant([{ type: "text", text: "done" }]) as AssistantMessage),
+    stopReason: "stop" as const,
+    usage: { input: 200_000, output: 0, cacheRead: 0, cacheWrite: 0 },
+  };
+  const line = (items: Transcript["items"], tools = {}) =>
+    workingLine({ items, tools, running: true }, "/w", false)?.quiet;
+  const message = (m: AgentMessage) => ({
+    kind: "message" as const,
+    message: m,
+  });
+
+  it("says why a request waits only while the step is plain Working", () => {
+    expect(line([message(big), message(user)])).toEqual({
+      since: 5,
+      reason: expect.stringContaining("Long conversation (200k tokens)"),
+    });
+    const calling = assistant([call("c1", "bash", { command: "sleep 60" })]);
+    expect(line([message(user), message(calling)])).toBeUndefined();
+  });
+
+  it("sizes the conversation from after its latest compaction", () => {
+    const compacted = [
+      message(big),
+      { kind: "compaction" as const, summary: "s" },
+      message(user),
+    ];
+    expect(line(compacted)?.reason).toContain("Still waiting");
+  });
+});
+
 describe("latestThought", () => {
   const thinking = (text: string, redacted?: boolean) =>
     assistant([{ type: "thinking", thinking: text, redacted }]);

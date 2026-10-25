@@ -36,7 +36,8 @@ src/                     React frontend (almost all logic lives here)
                          (Explored), share one tile (ToolCallGroup) as dots on a line from it (grey, red once failed), each still showing its argument, why and outcome; a script's (ScriptRow) calls as
                          steps joined by a line,
                          generated images as a media card (MediaCard: model, prompt, size, mark up), generated videos likewise (VideoCard), generated audio as an AudioCard (waveform player); WorkingLine is the run's spinner, step and time,
-                         and (with `show_thinking`) the newest sentence of the model's reasoning
+                         and (with `show_thinking`) the newest sentence of the model's reasoning; under it, once a request has
+                         gone 10s unanswered, why (QuietRequestNote)
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              The Memory settings' extras: search, type filters with counts, the folder's memories (each opens to its facts and files)
     lessons/             A lesson's tags (its folder, what brings it up), in Settings
@@ -223,6 +224,8 @@ src/                     React frontend (almost all logic lives here)
     questions.ts         ask_user answers being picked: options, a note or own answer, the call the composer answers
     tasks.ts             A task's status from its conversation, groups, the sheet's draft, pasted images
     runStep.ts           What a running conversation is doing now (its step, start time, elapsed text)
+    quietRequest.ts      A request the model hasn't started answering, and why: a limit moved it to an API key
+                         (sent uncached), a long conversation, or thinking or a busy provider
     runCommand.ts        Which code blocks Run offers for, and a block as terminal keystrokes
     shellDetect.ts       Whether an untagged code block is shell commands (tree-sitter bash, in the webview)
     media.ts             The media cards' data: show_image's, show_audio's and show_video's model and prompt (cards for

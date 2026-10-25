@@ -105,6 +105,7 @@ export function Conversation({
               step={working.step}
               since={working.since}
               thought={working.thought}
+              quiet={working.quiet}
             />
           )}
         </div>

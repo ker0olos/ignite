@@ -1,5 +1,6 @@
 import type { AgentMessage, AssistantMessage } from "../../shared/agentTypes";
 import { stepOf } from "../../shared/steps";
+import { quietRequest, type QuietRequest } from "@/lib/quietRequest";
 import type { Item, ToolRun, Transcript } from "@/lib/transcript";
 
 /** The current run's latest assistant message: none before the last user message counts. */
@@ -66,7 +67,12 @@ export function workingLine(
   return waitingOnFork ? { step: "Waiting for fork" } : null;
 }
 
-type WorkingLine = { step: string; since?: number; thought?: string };
+type WorkingLine = {
+  step: string;
+  since?: number;
+  thought?: string;
+  quiet?: QuietRequest;
+};
 
 function runLine(
   t: Transcript,
@@ -80,11 +86,21 @@ function runLine(
   );
   const since = t.routedAt ?? runStart(messages);
   if (t.routing) return { step: "Routing…", since };
+  const step = currentStep(messages, t.tools, folder);
   return {
-    step: currentStep(messages, t.tools, folder),
+    step,
     since,
     thought: withThought ? latestThought(messages) : undefined,
+    quiet: step === "Working" ? quietRequest(sinceCompaction(t)) : undefined,
   };
+}
+
+// Replies before a compaction measured a conversation since summarized.
+function sinceCompaction(t: Transcript): AgentMessage[] {
+  const at = t.items.findLastIndex((i) => i.kind === "compaction");
+  return t.items
+    .slice(at + 1)
+    .flatMap((i) => (i.kind === "message" ? [i.message] : []));
 }
 
 /** Whether the last item is the reply's text being written, which shows the run itself. */
