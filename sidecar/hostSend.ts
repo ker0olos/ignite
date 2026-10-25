@@ -3,7 +3,7 @@ import type { QueueKind } from "../shared/queue.ts";
 import { denyAll, waitsOnUser, WROTE_INSTEAD } from "./hostApproval.ts";
 import { checkpointFirst } from "./hostCheckpoint.ts";
 import { reportTo } from "./hostFollow.ts";
-import { holdQueue, judgeFollowUp } from "./hostQueue.ts";
+import { holdNext, holdQueue } from "./hostQueue.ts";
 import { routeMessage } from "./hostRoute.ts";
 import type { Agent, HostContext, Session } from "./hostTypes.ts";
 import { rememberImages } from "./queuedImages.ts";
@@ -43,13 +43,18 @@ export async function hand(
 ) {
   await settleResume(agent);
   const streaming = s.isStreaming;
+  // A message written instead of answering says why, so it steers even when queued.
+  const behavior = waitsOnUser(agent) ? "steer" : queue;
+  if (waitsAsNext(s, behavior, text)) {
+    await holdNext(ctx, s, agent, { text, images });
+    done();
+    return true;
+  }
   // A message sent mid-run steers the run; others may be routed (hostRoute.ts).
   if (!streaming) {
     if (!(await routeMessage(ctx, agent, s, text, images))) return false;
     await checkpointFirst(agent);
   }
-  // A message written instead of answering says why, so it steers even when queued.
-  const behavior = waitsOnUser(agent) ? "steer" : queue;
   const release = streaming ? await holdQueue(agent) : () => {};
   const settled = () => {
     release();
@@ -64,7 +69,9 @@ export async function hand(
       denyAll(ctx, agent, true);
       // Run as a command, it starts no message to take the snapshot.
       if (result === "handled") agent.snapshot = undefined;
-      if (result === "queued") queued(agent, s, behavior, images);
+      // pi has just queued it last, as it expanded it (a skill's text, say), while the queue's edits are held.
+      if (result === "queued")
+        rememberImages(agent, lastQueued(s, behavior), images);
       settled();
     },
   };
@@ -77,17 +84,16 @@ export async function hand(
   return true;
 }
 
-// pi has just queued it last, as it expanded it (a skill's text, say), while the queue's edits are held.
-function queued(
-  agent: Agent,
-  s: Session,
-  behavior: QueueKind,
-  images?: ImageContent[],
-) {
-  const list =
+// A follow-up lands in pi's own queue only when its run started while the message was routed.
+function lastQueued(s: Session, behavior: QueueKind) {
+  const queue =
     behavior === "steer" ? s.getSteeringMessages() : s.getFollowUpMessages();
-  const text = list.at(-1)!;
-  rememberImages(agent, text, images);
-  if (behavior === "followUp")
-    void judgeFollowUp(s, agent, text, images).catch(() => {});
+  return queue.at(-1)!;
+}
+
+// A follow-up sent mid-run waits as Next (nextQueue.ts); pi runs a command at once, even mid-run.
+function waitsAsNext(s: Session, behavior: QueueKind, text: string) {
+  if (!s.isStreaming || behavior !== "followUp") return false;
+  const command = text.startsWith("/") && text.slice(1).split(" ")[0];
+  return !command || !s.extensionRunner.getCommand(command);
 }

@@ -11,12 +11,11 @@ export type QueuedMessage = { text: string; images?: ImageContent[] };
 
 /**
  * Takes a queued message back, or with `action` keeps it: `up` swaps it with
- * the one before (each place keeps its kind), `switch` makes a steer a
- * follow-up or the other way, `now` stops the run and sends it.
+ * the one before (each place keeps its kind), `now` stops the run and sends it.
  */
 export type Unqueue = {
   kind: QueueKind;
   text: string;
-  action?: "up" | "switch" | "now";
+  action?: "up" | "now";
   session?: string;
 };

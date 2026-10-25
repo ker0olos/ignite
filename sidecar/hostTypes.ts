@@ -239,11 +239,10 @@ export type Agent = {
   reloadWhenSettled: boolean;
   /** Tool calls waiting for the user, by tool call id. */
   approvals: Map<string, ApprovalAsk>;
-  /**
-   * Queued messages' images by their text, which is all pi's queue lists;
-   * oldest first, as pi delivers and removes the first match.
-   */
+  /** Steers' images by their text, all pi's queue lists; oldest first, as pi delivers the first match. */
   queuedImages: Map<string, ImageContent[][]>;
+  /** Messages sent mid-run that wait until the run has really ended (nextQueue.ts). */
+  next?: { text: string; images?: ImageContent[] }[];
   /** Subagents it started, by id, as its tool calls report them. */
   subagents: Map<string, SubagentStatus>;
   /** Running tool calls' latest progress, by tool call id, until pi saves their results. */

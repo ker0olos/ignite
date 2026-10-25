@@ -13,6 +13,7 @@ import type {
   ThinkingLevel,
 } from "../shared/hostProtocol.ts";
 import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
+import { APP_NAME } from "../src/lib/app.ts";
 import { WROTE_INSTEAD } from "./hostApproval.ts";
 import { forgetWaiting, markWaiting, unmarkWaiting } from "./waitingCalls.ts";
 import { createHost } from "./host.ts";
@@ -319,6 +320,14 @@ function fakeWorkspaces() {
     fork: vi.fn(async () => {}),
     layout: vi.fn(async () => null),
   };
+}
+
+/** The queue as the app last heard it: pi's steers, then the Next messages. */
+function shownQueue(sent: HostMessage[]) {
+  for (const m of [...sent].reverse()) {
+    if (m.type !== "session_event" || m.event.type !== "queue_update") continue;
+    return { steering: m.event.steering, followUp: m.event.followUp };
+  }
 }
 
 /** Wires a host to a fake runtime and records everything it sends. */
@@ -2112,19 +2121,83 @@ describe("sessions", () => {
         text: "c",
         queue: "followUp",
       });
-      return { session, ...host, data: (i: number) => host.responses()[i] };
+      const queue = () => shownQueue(host.sent);
+      return {
+        session,
+        ...host,
+        queue,
+        data: (i: number) => host.responses()[i],
+      };
     }
 
-    it("waits for the run's end when asked to", async () => {
-      const { session } = await working();
-      expect(session.prompt).toHaveBeenCalledWith(
-        "b",
-        expect.objectContaining({
-          streamingBehavior: "followUp",
-          images: [image],
-        }),
+    it("holds Next messages out of pi's queue until the run has really ended", async () => {
+      const { session, queue } = await working();
+      expect(session.prompt).not.toHaveBeenCalledWith("b", expect.anything());
+      expect(session.queue).toEqual({ steering: ["a"], followUp: [] });
+      expect(queue()).toEqual({ steering: ["a"], followUp: ["b", "c"] });
+      session.isStreaming = false;
+      session.emit({ type: "agent_start" } as SessionEvent);
+      session.emit({ type: "agent_end", willRetry: false } as SessionEvent);
+      expect(session.prompt).not.toHaveBeenCalledWith("b", expect.anything());
+      session.emit({ type: "agent_settled" } as SessionEvent);
+      await vi.waitFor(() =>
+        expect(session.prompt).toHaveBeenCalledWith(
+          "b",
+          expect.objectContaining({ images: [image] }),
+        ),
       );
-      expect(session.queue).toEqual({ steering: ["a"], followUp: ["b", "c"] });
+      expect(queue()).toEqual({ steering: ["a"], followUp: ["c"] });
+    });
+
+    it("keeps Next waiting while a bash_wait is still to wake the run", async () => {
+      const { session, queue } = await working();
+      // An exited command whose bash_wait hasn't woken the agent yet.
+      const registry = (
+        globalThis as unknown as Record<
+          symbol,
+          { all: Map<string, object>; listeners: Set<() => void> }
+        >
+      )[Symbol.for(`${APP_NAME}.background`)];
+      const key = "/work:saved:4242";
+      registry.all.set(key, {
+        pid: 4242,
+        session: "/work:saved",
+        command: "npm test",
+        log: "",
+        raw: "",
+        running: false,
+        wake: "wait-1",
+      });
+      try {
+        session.isStreaming = false;
+        session.emit({ type: "agent_start" } as SessionEvent);
+        session.emit({ type: "agent_settled" } as SessionEvent);
+        await new Promise((r) => setTimeout(r, 0));
+        expect(session.prompt).not.toHaveBeenCalledWith("b", expect.anything());
+        expect(queue()).toEqual({ steering: ["a"], followUp: ["b", "c"] });
+        // Its command stopped from the sidebar: no run to wake, so Next goes.
+        registry.all.delete(key);
+        registry.listeners.forEach((listener) => listener());
+        await vi.waitFor(() =>
+          expect(session.prompt).toHaveBeenCalledWith("b", expect.anything()),
+        );
+      } finally {
+        registry.all.delete(key);
+      }
+    });
+
+    it("keeps Next waiting after a run that failed", async () => {
+      const { session, queue } = await working();
+      session.isStreaming = false;
+      session.emit({ type: "agent_start" } as SessionEvent);
+      session.emit({
+        type: "message_end",
+        message: { role: "assistant", stopReason: "error", content: [] },
+      } as unknown as SessionEvent);
+      session.emit({ type: "agent_settled" } as SessionEvent);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(session.prompt).not.toHaveBeenCalledWith("b", expect.anything());
+      expect(queue()).toEqual({ steering: ["a"], followUp: ["b", "c"] });
     });
 
     it("lists what's queued when a conversation is shown again", async () => {
@@ -2141,43 +2214,34 @@ describe("sessions", () => {
     });
 
     it("takes the queue back, with its images, when stopped", async () => {
-      const { request, session, data } = await working();
+      const { request, session, data, queue } = await working();
       await request({ id: 5, type: "abort" });
       expect(data(4)).toMatchObject({
         data: [{ text: "a" }, { text: "b", images: [image] }, { text: "c" }],
       });
       expect(session.queue).toEqual({ steering: [], followUp: [] });
+      expect(queue()).toEqual({ steering: [], followUp: [] });
     });
 
     it("takes one message back and keeps the rest queued in order", async () => {
-      const { request, session, data } = await working();
+      const { request, session, data, queue } = await working();
       await request({ id: 5, type: "unqueue", kind: "followUp", text: "b" });
       expect(data(4)).toMatchObject({ data: { text: "b", images: [image] } });
-      expect(session.queue).toEqual({ steering: ["a"], followUp: ["c"] });
+      expect(queue()).toEqual({ steering: ["a"], followUp: ["c"] });
       expect(session.abort).not.toHaveBeenCalled();
     });
 
     it("moves one up a place, each place keeping its kind", async () => {
-      const { request, session } = await working();
+      const { request, session, queue } = await working();
       const up = (id: number, kind: "steer" | "followUp", text: string) =>
         request({ id, type: "unqueue", kind, text, action: "up" });
       await up(5, "followUp", "c");
-      expect(session.queue).toEqual({ steering: ["a"], followUp: ["c", "b"] });
+      expect(queue()).toEqual({ steering: ["a"], followUp: ["c", "b"] });
       await up(6, "followUp", "c");
-      expect(session.queue).toEqual({ steering: ["c"], followUp: ["a", "b"] });
+      expect(queue()).toEqual({ steering: ["c"], followUp: ["a", "b"] });
+      expect(session.queue).toEqual({ steering: ["c"], followUp: [] });
       await up(7, "steer", "c");
-      expect(session.queue).toEqual({ steering: ["c"], followUp: ["a", "b"] });
-      expect(session.abort).not.toHaveBeenCalled();
-    });
-
-    it("switches one's kind: a new steer goes last of them, a new follow-up first", async () => {
-      const { request, session } = await working();
-      const flip = (id: number, kind: "steer" | "followUp", text: string) =>
-        request({ id, type: "unqueue", kind, text, action: "switch" });
-      await flip(5, "followUp", "c");
-      expect(session.queue).toEqual({ steering: ["a", "c"], followUp: ["b"] });
-      await flip(6, "steer", "a");
-      expect(session.queue).toEqual({ steering: ["c"], followUp: ["a", "b"] });
+      expect(queue()).toEqual({ steering: ["c"], followUp: ["a", "b"] });
       expect(session.abort).not.toHaveBeenCalled();
     });
 
@@ -2195,11 +2259,14 @@ describe("sessions", () => {
           MODELS.map((m) => ({ ...m, cost: { output: 1 }, input: ["text"] })),
         completeSimple,
       });
-      const { request } = setup(fakeRuntime().runtime, async () => session);
+      const { request, sent } = setup(
+        fakeRuntime().runtime,
+        async () => session,
+      );
       await request({ id: 1, type: "new_session", cwd: "/work" });
       const later = (id: number, text: string) =>
         request({ id, type: "prompt", text, queue: "followUp" });
-      return { session, request, later };
+      return { session, request, later, queue: () => shownQueue(sent) };
     }
 
     it("steers a follow-up the judge reads as about the work in progress", async () => {
@@ -2209,43 +2276,45 @@ describe("sessions", () => {
             c.messages[0].content.endsWith("wrong key") ? "steer" : "later",
           ),
       );
-      const { session, later } = await judged(completeSimple as never);
+      const { session, later, queue } = await judged(completeSimple as never);
       await later(2, "then the docs");
       await later(3, "wrong key");
       await vi.waitFor(() => expect(completeSimple).toHaveBeenCalledTimes(2));
       await vi.waitFor(() =>
-        expect(session.queue).toEqual({
+        expect(queue()).toEqual({
           steering: ["wrong key"],
           followUp: ["then the docs"],
         }),
       );
+      expect(session.queue.steering).toEqual(["wrong key"]);
     });
 
-    it("never overrides the user's switch with a judgment made meanwhile", async () => {
-      let verdict: (answer: unknown) => void = () => {};
+    it("drops a judgment once the user moves the message meanwhile", async () => {
+      const verdicts: ((answer: unknown) => void)[] = [];
       const completeSimple = vi.fn(
-        () => new Promise((resolve) => (verdict = resolve)),
+        () => new Promise((resolve) => verdicts.push(resolve)),
       );
-      const { session, request, later } = await judged(completeSimple);
-      await later(2, "wrong key");
-      await vi.waitFor(() => expect(completeSimple).toHaveBeenCalled());
-      const flip = (id: number, kind: "steer" | "followUp") =>
-        request({
-          id,
-          type: "unqueue",
-          kind,
-          text: "wrong key",
-          action: "switch",
-        });
-      await flip(3, "followUp");
-      await flip(4, "steer");
-      verdict(answer("steer"));
+      const { request, later, queue } = await judged(completeSimple);
+      await later(2, "then the docs");
+      await later(3, "wrong key");
+      await vi.waitFor(() => expect(completeSimple).toHaveBeenCalledTimes(2));
+      await request({
+        id: 4,
+        type: "unqueue",
+        kind: "followUp",
+        text: "wrong key",
+        action: "up",
+      });
+      verdicts[1](answer("steer"));
       await new Promise((r) => setTimeout(r, 0));
-      expect(session.queue).toEqual({ steering: [], followUp: ["wrong key"] });
+      expect(queue()).toEqual({
+        steering: [],
+        followUp: ["wrong key", "then the docs"],
+      });
     });
 
     it("sends one now, stopping the run", async () => {
-      const { request, session } = await working();
+      const { request, session, queue } = await working();
       await request({
         id: 5,
         type: "unqueue",
@@ -2258,22 +2327,22 @@ describe("sessions", () => {
         "a",
         expect.not.objectContaining({ streamingBehavior: expect.anything() }),
       );
-      expect(session.queue).toEqual({ steering: [], followUp: ["b", "c"] });
+      expect(queue()).toEqual({ steering: [], followUp: ["b", "c"] });
     });
 
     it("answers null for a message already delivered", async () => {
-      const { request, session, data } = await working();
+      const { request, data, queue } = await working();
       await request({ id: 5, type: "unqueue", kind: "steer", text: "gone" });
       expect(data(4)).toMatchObject({ data: null });
-      expect(session.queue).toEqual({ steering: ["a"], followUp: ["b", "c"] });
+      expect(queue()).toEqual({ steering: ["a"], followUp: ["b", "c"] });
     });
 
     it("keeps the rest queued, not run, once the run has ended", async () => {
-      const { request, session } = await working();
+      const { request, session, queue } = await working();
       session.isStreaming = false;
       const prompts = session.prompt.mock.calls.length;
       await request({ id: 5, type: "unqueue", kind: "steer", text: "a" });
-      expect(session.queue).toEqual({ steering: [], followUp: ["b", "c"] });
+      expect(queue()).toEqual({ steering: [], followUp: ["b", "c"] });
       expect(session.prompt).toHaveBeenCalledTimes(prompts);
     });
 
@@ -2299,22 +2368,23 @@ describe("sessions", () => {
 
     it("forgets a delivered message's images", async () => {
       const { request, session, data } = await working();
-      session.queue.followUp.shift();
+      await request({ id: 5, type: "prompt", text: "x", images: [image] });
+      session.queue.steering.pop();
       session.emit({
         type: "message_start",
         message: {
           role: "user",
-          content: [{ type: "text", text: "b" }, image],
+          content: [{ type: "text", text: "x" }, image],
           timestamp: 1,
         },
       } as SessionEvent);
-      await request({ id: 5, type: "prompt", text: "b", queue: "followUp" });
-      await request({ id: 6, type: "abort" });
-      expect(data(5)).toMatchObject({
-        data: [{ text: "a" }, { text: "c" }, { text: "b" }],
+      await request({ id: 6, type: "prompt", text: "x" });
+      await request({ id: 7, type: "abort" });
+      expect(data(6)).toMatchObject({
+        data: [{ text: "a" }, { text: "x" }, { text: "b" }, { text: "c" }],
       });
       expect(
-        (data(5) as { data: { images?: unknown }[] }).data[2].images,
+        (data(6) as { data: { images?: unknown }[] }).data[1].images,
       ).toBeUndefined();
     });
   });
@@ -2793,13 +2863,13 @@ describe("tool approval", () => {
     );
   });
 
-  it("denies a subagent's call plainly and keeps the message's queue", async () => {
-    const { ask, request, session } = await opened();
+  it("leaves a subagent's waiting call alone while a Next message waits", async () => {
+    const { ask, request, session, sent } = await opened();
     session.isStreaming = true;
     const answer = ask("s1", undefined, false);
     await request({ id: 2, type: "prompt", text: "Later", queue: "followUp" });
-    expect(answer).toHaveBeenCalledWith(false, undefined, undefined, undefined);
-    expect(session.queue.followUp).toEqual(["Later"]);
+    expect(answer).not.toHaveBeenCalled();
+    expect(shownQueue(sent)?.followUp).toEqual(["Later"]);
   });
 
   it("tells waiting calls the user wrote instead when a queued message is sent now", async () => {

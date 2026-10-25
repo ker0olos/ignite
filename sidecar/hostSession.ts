@@ -27,6 +27,7 @@ import { follow, reportTo } from "./hostFollow.ts";
 import { forkOf } from "./forks.ts";
 import { withEntryIds } from "./hostCheckpoint.ts";
 import { hand, takeTurn } from "./hostSend.ts";
+import { queueOf } from "./nextQueue.ts";
 import { endTerminalsIn, releaseWorkspace } from "./hostTerminal.ts";
 import { commandReason } from "./wire.ts";
 import { skillInfo } from "./skillArgs.ts";
@@ -109,10 +110,7 @@ export async function open(
     ...(s.modelWarning && { modelWarning: s.modelWarning }),
     approvals: [...agent.approvals.values()].map((ask) => ask.request),
     toolRuns: [...agent.toolRuns.values()],
-    queue: {
-      steering: [...s.getSteeringMessages()],
-      followUp: [...s.getFollowUpMessages()],
-    },
+    queue: queueOf(agent, s),
   };
 }
 
