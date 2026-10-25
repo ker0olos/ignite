@@ -689,7 +689,8 @@ the allowlist live); a POST or upload gets a 403, and the run asks like any
 block even when the client exited 0 (`sendRefused`). It guards against
 mistakes, not exfiltration: a GET's URL carries data, and raw TCP (SOCKS)
 reaches those hosts unfiltered. Commands run with
-`pipefail`. When a command was blocked (it failed, or its output says so),
+`pipefail`, and without `BASH_ENV` or `ENV` (`start.ts`), whose file bash would
+run in the shell that starts the sandbox, outside it. When a command was blocked (it failed, or its output says so),
 the same call asks the user before it ends; approved, the
 extension runs it outside the sandbox and that output is the result, declined,
 the model gets the sandbox's report. When the sandbox named what it blocked

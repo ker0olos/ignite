@@ -68,6 +68,9 @@ log(`loaded, Node ${process.version}`);
 const agentDir = join(homedir(), `.${APP_NAME}`, "pi");
 process.env.PI_CODING_AGENT_DIR = agentDir;
 process.env.PI_TELEMETRY = "0";
+// bash runs $BASH_ENV's file as it starts (sh, $ENV's), and the agent's starts outside its sandbox.
+delete process.env.BASH_ENV;
+delete process.env.ENV;
 // Claude Code holds back an MCP tool's input until each value is whole, so an artifact's
 // HTML would arrive in one piece at the end; claude-bridge passes this env to it.
 process.env.CLAUDE_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING ??= "1";
