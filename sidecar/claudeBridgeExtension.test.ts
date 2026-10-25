@@ -1,6 +1,15 @@
 // @vitest-environment node
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { mkdtempSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+
+// An agent dir that doesn't exist yet, as on a first launch.
+vi.stubEnv(
+  "PI_CODING_AGENT_DIR",
+  join(realpathSync(mkdtempSync(join(tmpdir(), "bridge-"))), "agent"),
+);
 
 const bridge = vi.hoisted(() => ({
   seam: { setQuery: vi.fn() } as

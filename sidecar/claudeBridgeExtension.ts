@@ -8,6 +8,7 @@
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { mkdirSync } from "node:fs";
 import bridge, { __test } from "pi-claude-bridge/src/index.ts";
 
 /** A bridge query's options as Ignite runs them: user settings only, no hooks, the SDK's own Claude Code. */
@@ -34,6 +35,8 @@ export default function claudeBridge(pi: ExtensionAPI) {
   );
   // It reads its config from process.cwd() as it loads: agentDir has no .pi/ of its own.
   const at = process.cwd();
+  // Not there yet on a first launch, before pi writes into it.
+  mkdirSync(getAgentDir(), { recursive: true });
   process.chdir(getAgentDir());
   try {
     return bridge(pi);
