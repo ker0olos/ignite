@@ -134,13 +134,58 @@ describe("parsePoints", () => {
     ).toEqual([{ ...short, text: "Keep reports to 5 lines.", at: 5 }]);
   });
 
-  it("keeps at most 10 per entry point, the first ones", () => {
-    const many = (entry: string) =>
-      Array.from({ length: 12 }, (_, i) => ({ entry, text: `${entry} ${i}` }));
-    const next = parsePoints(reply([...many("asking"), ...many("always")]), []);
-    expect(next?.filter((p) => p.entry === "asking")).toHaveLength(10);
-    expect(next?.filter((p) => p.entry === "always")).toHaveLength(10);
-    expect(next?.[9].text).toBe("asking 9");
+  it("adds to a full entry point only in place of a drop, never evicting a point unasked", () => {
+    const asking = Array.from({ length: 10 }, (_, i) => ({
+      ...short,
+      id: `a${i}`,
+      entry: "asking" as const,
+      text: `asking ${i}`,
+    }));
+    const add = { entry: "asking", text: "Ask one by one." };
+    expect(parsePoints(reply([add]), asking)).toBeUndefined();
+    const next = parsePoints(reply([add, { id: "a3", drop: true }]), asking);
+    expect(next).toHaveLength(10);
+    expect(next?.[0].text).toBe("Ask one by one.");
+    expect(next?.some((p) => p.id === "a3")).toBe(false);
+  });
+
+  it("spends no edit on a point already handled, and keeps one past the budget", () => {
+    const other = { ...short, id: "r2", text: "Plan first." };
+    const next = parsePoints(
+      reply([
+        { id: "r1" },
+        { id: "r1", text: "x" },
+        { id: "r1", drop: true },
+        { entry: "always", text: "One." },
+        { entry: "always", text: "Two." },
+        { entry: "always", text: "Three." },
+        { id: "r2", drop: true },
+      ]),
+      [short, other],
+    );
+    expect(next?.map((p) => p.text)).toEqual([
+      "Keep reports short.",
+      "One.",
+      "Two.",
+      "Three.",
+      "Plan first.",
+    ]);
+  });
+
+  it("makes at most 3 edits a reply, in its order; past them points stay as they were", () => {
+    const other = { ...short, id: "r2", text: "Plan first." };
+    const next = parsePoints(
+      reply([
+        { entry: "always", text: "One." },
+        { id: "r1", drop: true },
+        { entry: "always", text: "Two." },
+        { entry: "always", text: "Three." },
+        { id: "r2", text: "Plan before every edit." },
+      ]),
+      [short, other],
+    );
+    expect(next?.map((p) => p.text)).toEqual(["One.", "Two.", "Plan first."]);
+    expect(next?.[2]).toBe(other);
   });
 
   it("returns nothing when unchanged, or the reply isn't the points", () => {

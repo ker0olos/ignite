@@ -1186,7 +1186,10 @@ facts and single tool mistakes teach nothing here) or replies with the points
 it keeps, changes (a left-out entry point stays), adds (with an entry point and
 the kind of feedback that taught it) or drops. A point it leaves out stays, so
 only an explicit drop removes one; at most 10 per entry point, a new one
-merged into the one it sharpens. A hand-edited file's broken points are
+merged into the one it sharpens, and at most 3 edits (adds, changes, drops) a
+reflection, so one run's feedback can't rewrite them to fit that run (a full
+entry point takes a new point only in place of a drop, never evicting one
+unasked). A hand-edited file's broken points are
 skipped when read. They're written at once, one
 reflection (or Settings edit) at a time, with no prompt to the user.
 `sidecar/reflectorExtension.ts` (loaded after the extensions it adds to) reads
