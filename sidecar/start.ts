@@ -71,6 +71,8 @@ process.env.PI_TELEMETRY = "0";
 // Claude Code holds back an MCP tool's input until each value is whole, so an artifact's
 // HTML would arrive in one piece at the end; claude-bridge passes this env to it.
 process.env.CLAUDE_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING ??= "1";
+// pi's codemode workers are shared by every conversation here (2 by default), 256 MB each at most.
+process.env.PI_CODEMODE_MAX_WORKERS ??= "4";
 await forgetClaudePath(agentDir).catch((error) =>
   log(`claude-bridge.json: ${error}`),
 );

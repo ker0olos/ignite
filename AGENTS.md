@@ -996,9 +996,10 @@ records a script's calls without their results, so the extension keeps them
 on the script's result (`details.calls`, text cut at 4,000 characters, details
 up to 50 KB, about 1 MB a script, past which only names), which is how a
 reopened conversation shows them. Their arguments are taken as each call
-starts, before the sandbox rewrites a command. At most two
-scripts run at once in the sidecar (pi's limit, `PI_CODEMODE_MAX_WORKERS`);
-a third waits up to 60 seconds for one to finish.
+starts, before the sandbox rewrites a command. At most four
+scripts run at once in the sidecar (`PI_CODEMODE_MAX_WORKERS`, which
+`start.ts` sets unless it's already set; pi's default is two); another
+waits up to 60 seconds for one to finish.
 
 The `subagent` tool (`sidecar/subagentExtension.ts`) lets the agent start
 another pi session on a task: its own model or one from its provider no
