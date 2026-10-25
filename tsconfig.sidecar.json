@@ -14,7 +14,10 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "paths": { "pi-mcp-adapter": ["./sidecar/types/pi-mcp-adapter.d.ts"] }
+    "paths": {
+      "pi-mcp-adapter": ["./sidecar/types/pi-mcp-adapter.d.ts"],
+      "pi-claude-bridge/src/index.ts": ["./sidecar/types/pi-claude-bridge.d.ts"]
+    }
   },
   "include": ["sidecar", "shared"]
 }

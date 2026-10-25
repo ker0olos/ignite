@@ -102,7 +102,7 @@ export async function open(
     ...state,
     session: id,
     workdir: agent.workdir,
-    trust: ctx.trust.get(cwd),
+    trust: ctx.trust.get(cwd, agent.workdir),
     ...messages,
     running: s.isStreaming || !!agent.routing,
     ...(agent.routing && { routing: agent.routing.message }),

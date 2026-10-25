@@ -71,6 +71,8 @@ process.env.PI_TELEMETRY = "0";
 // Claude Code holds back an MCP tool's input until each value is whole, so an artifact's
 // HTML would arrive in one piece at the end; claude-bridge passes this env to it.
 process.env.CLAUDE_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING ??= "1";
+// pi's codemode workers are shared by every conversation here (2 by default), 256 MB each at most.
+process.env.PI_CODEMODE_MAX_WORKERS ??= "4";
 await forgetClaudePath(agentDir).catch((error) =>
   log(`claude-bridge.json: ${error}`),
 );
@@ -119,9 +121,9 @@ async function openSession(
   // Claude calls get the session's cwd (runtimeFor), but pi-claude-bridge
   // still reads process.cwd() for its project config and AskClaude.
   process.chdir(cwd);
-  // Project .pi/ resources load only once the user trusts the folder.
+  // Project .pi/ resources load only once the user trusts the folder, and its .pi/ as it is here.
   const settingsManager = SettingsManager.create(cwd, agentDir, {
-    projectTrusted: trust.get(folder) === "trusted",
+    projectTrusted: trust.get(folder, cwd) === "trusted",
   });
   // One bus per session, so a closed session's listeners go with it.
   const eventBus = createEventBus();
@@ -191,7 +193,7 @@ async function openSubagent(
 ) {
   const settingsManager = SettingsManager.inMemory(
     { defaultTools },
-    { projectTrusted: trust.get(folder) === "trusted" },
+    { projectTrusted: trust.get(folder, cwd) === "trusted" },
   );
   const resourceLoader = new DefaultResourceLoader({
     cwd,

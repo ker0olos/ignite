@@ -47,7 +47,7 @@ function settle(ctx: HostContext, agent: Agent) {
   agent.remembering = rememberRun(agent).catch(() => {});
   if (!agent.reloadWhenSettled) return;
   agent.reloadWhenSettled = false;
-  reload(agent).catch(reportTo(ctx, agent));
+  reload(agent, ctx.trust).catch(reportTo(ctx, agent));
 }
 
 /** Shows a run's failure in its conversation, if the app follows it. */

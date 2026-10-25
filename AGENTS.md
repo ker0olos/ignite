@@ -299,7 +299,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostFollow.ts          Follows a conversation's session events: to the app if shown, run state, settling
   forks.ts               Forks' files, their reports (summaries since the last one) and the notes waiting for the original
   forkExtension.ts       Adds the notes waiting for a conversation (its forks' reports) to its next run
-  trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources
+  trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources,
+                         or its .pi/ (the worktree's) isn't one the user trusted
+  claudeBridgeExtension.ts pi-claude-bridge, its Claude Code kept off the worktree's settings, hooks and config
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
   approvalAsk.ts         The channel calls wait on the user through (pi event bus to the host)
   askingLine.ts          git and gh calls ask in the order the agent made them, though each prepares its review in parallel
@@ -456,7 +458,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   testMemory.ts          A memory for tests, of folder /work/app
   remote.ts              Remote access: browsers share this sidecar; replies routed by id, events to all
   remoteServer.ts        Its HTTP server: proxies the UI from Vite, WebSocket; its links (network, Tailscale)
-  types/                 Type shim for pi-mcp-adapter (its TypeScript fails our strict tsconfig)
+  types/                 Type shims for pi-mcp-adapter and pi-claude-bridge (their TypeScript fails our strict tsconfig)
 demo/tempo/, demo/pantry/ Sample projects `pnpm run demo` opens (not built or tested here)
 docs/                    README screenshots, taken in demo mode
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
@@ -996,9 +998,10 @@ records a script's calls without their results, so the extension keeps them
 on the script's result (`details.calls`, text cut at 4,000 characters, details
 up to 50 KB, about 1 MB a script, past which only names), which is how a
 reopened conversation shows them. Their arguments are taken as each call
-starts, before the sandbox rewrites a command. At most two
-scripts run at once in the sidecar (pi's limit, `PI_CODEMODE_MAX_WORKERS`);
-a third waits up to 60 seconds for one to finish.
+starts, before the sandbox rewrites a command. At most four
+scripts run at once in the sidecar (`PI_CODEMODE_MAX_WORKERS`, which
+`start.ts` sets unless it's already set; pi's default is two); another
+waits up to 60 seconds for one to finish.
 
 The `subagent` tool (`sidecar/subagentExtension.ts`) lets the agent start
 another pi session on a task: its own model or one from its provider no
@@ -1081,7 +1084,12 @@ extensions, skills and settings never load unasked. When a folder has some
 and pi's trust store has no decision, `open_session` reports `trust: "ask"`
 and the conversation shows a trust prompt once; the answer is saved with
 `set_trust` in `trust.json`, and trusting reloads the session (after the
-current run) with the folder's resources.
+current run) with the folder's resources. Trust covers `.pi/` as it was
+trusted (`sidecar/trust.ts`, each fingerprint in `trusted-setup.json`): its
+extensions run in the sidecar, outside the sandbox, and the agent can write its
+worktree's however it likes (edits, git, bash), so a conversation whose `.pi/`
+differs from every one the user trusted asks again, and a reload (an MCP or
+memory change) drops the folder's resources until it's answered.
 
 MCP servers come from [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adapter)
 (pinned 6.0.0), loaded into every session by `sidecar/mcpExtension.ts` with
@@ -1186,7 +1194,10 @@ facts and single tool mistakes teach nothing here) or replies with the points
 it keeps, changes (a left-out entry point stays), adds (with an entry point and
 the kind of feedback that taught it) or drops. A point it leaves out stays, so
 only an explicit drop removes one; at most 10 per entry point, a new one
-merged into the one it sharpens. A hand-edited file's broken points are
+merged into the one it sharpens, and at most 3 edits (adds, changes, drops) a
+reflection, so one run's feedback can't rewrite them to fit that run (a full
+entry point takes a new point only in place of a drop, never evicting one
+unasked). A hand-edited file's broken points are
 skipped when read. They're written at once, one
 reflection (or Settings edit) at a time, with no prompt to the user.
 `sidecar/reflectorExtension.ts` (loaded after the extensions it adds to) reads
@@ -1204,6 +1215,15 @@ no conversation) and removes one.
 Claude subscriptions run through the user's own Claude Code via the
 `pi-claude-bridge` extension (pi provider `claude-bridge`), because Anthropic
 bills pi's direct Claude sign-in to extra usage. See the skill's auth.md.
+Conversations load it through `sidecar/claudeBridgeExtension.ts`: through the
+bridge's `__test.setQuery` seam, every Claude Code it starts gets the user's
+settings only (not the worktree's `.claude/settings*.json`), no hooks (the
+user's own included) and the SDK's own executable, and it reads its config
+from `agentDir`, not the worktree's `.pi/claude-bridge.json`; all of these
+the agent could write, and they'd run outside its sandbox. A bridge without
+the seam doesn't load (its test fails a Dependabot bump that drops it). Not
+a pnpm patch: a launcher version stages the next with its own code, which
+installs packages without `patches/`.
 When the subscription runs out mid-run (claude-bridge's "Claude quota
 exceeded" error), `sidecar/fallbackExtension.ts` moves the conversation onto
 the user's fallback Anthropic API keys (added in the connect screen's Claude
