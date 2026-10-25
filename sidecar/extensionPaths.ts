@@ -5,7 +5,7 @@ const sibling = (name: string) => fileURLToPath(import.meta.resolve(name));
 
 // Runs Claude through the user's own Claude Code (Agent SDK), which Anthropic
 // bills to the Claude plan; pi's direct Claude sign-in draws extra usage.
-export const claudeBridge = sibling("pi-claude-bridge/src/index.ts");
+export const claudeBridge = sibling("./claudeBridgeExtension.ts");
 // pi-mcp-adapter, reading only agentDir/mcp.json.
 export const mcpExtension = sibling("./mcpExtension.ts");
 const exploring = sibling("./exploreExtension.ts");

@@ -322,7 +322,7 @@ export function isShown(ctx: HostContext, agent: Agent): boolean {
 }
 
 /** Reloads its session, which may change its messages without an event: the app gets them again. */
-export async function reload(agent: Agent) {
+export async function reload(agent: Agent, trust: TrustStore) {
   // The memory's writer may still be calling the session's model; a reload would cut it off.
   await agent.remembering;
   if (agent.closed) return;
@@ -332,6 +332,9 @@ export async function reload(agent: Agent) {
     return;
   }
   agent.followed = false;
+  // A reload loads .pi/ afresh: changed since the user trusted it, it waits for them again.
+  if (trust.get(agent.cwd, agent.workdir) !== "trusted")
+    agent.session?.settingsManager.setProjectTrusted(false);
   await agent.session?.reload();
 }
 

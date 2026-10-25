@@ -121,9 +121,9 @@ async function openSession(
   // Claude calls get the session's cwd (runtimeFor), but pi-claude-bridge
   // still reads process.cwd() for its project config and AskClaude.
   process.chdir(cwd);
-  // Project .pi/ resources load only once the user trusts the folder.
+  // Project .pi/ resources load only once the user trusts the folder, and its .pi/ as it is here.
   const settingsManager = SettingsManager.create(cwd, agentDir, {
-    projectTrusted: trust.get(folder) === "trusted",
+    projectTrusted: trust.get(folder, cwd) === "trusted",
   });
   // One bus per session, so a closed session's listeners go with it.
   const eventBus = createEventBus();
@@ -193,7 +193,7 @@ async function openSubagent(
 ) {
   const settingsManager = SettingsManager.inMemory(
     { defaultTools },
-    { projectTrusted: trust.get(folder) === "trusted" },
+    { projectTrusted: trust.get(folder, cwd) === "trusted" },
   );
   const resourceLoader = new DefaultResourceLoader({
     cwd,

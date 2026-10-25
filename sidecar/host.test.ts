@@ -201,7 +201,18 @@ function fakeSession() {
       return session.queue.steering.length + session.queue.followUp.length;
     },
     reload: vi.fn(async () => {}),
-    settingsManager: { setProjectTrusted: vi.fn() },
+    settingsManager: {
+      trusted: false,
+      isProjectTrusted() {
+        return this.trusted;
+      },
+      setProjectTrusted: vi.fn(function (
+        this: { trusted: boolean },
+        trusted: boolean,
+      ) {
+        this.trusted = trusted;
+      }),
+    },
     extensionRunner: {
       emit: vi.fn(async () => {}),
       getCommand: vi.fn(
@@ -2294,12 +2305,32 @@ describe("project trust", () => {
       session: "/work:saved",
     });
     await request({ id: 2, type: "set_trust", cwd: "/work", trusted: true });
-    expect(trust.set).toHaveBeenCalledWith("/work", true);
+    // The folder's .pi/ and the conversation's, as they are now.
+    expect(trust.set).toHaveBeenCalledWith("/work", true, [
+      "/work",
+      expect.any(String),
+    ]);
     expect(session.settingsManager.setProjectTrusted).toHaveBeenCalledWith(
       true,
     );
+    expect(session.settingsManager.isProjectTrusted()).toBe(true);
     expect(session.reload).toHaveBeenCalledOnce();
     expect(responses()[1]).toMatchObject({ id: 2, ok: true });
+  });
+
+  it("reloads without the folder's resources once its .pi/ changed since it was trusted", async () => {
+    const { request, trust, session } = trusting();
+    await request({
+      id: 1,
+      type: "open_session",
+      cwd: "/work",
+      session: "/work:saved",
+    });
+    await request({ id: 2, type: "set_trust", cwd: "/work", trusted: true });
+    trust.decisions.set("/work", "ask");
+    await request({ id: 3, type: "memory_changed" });
+    expect(session.reload).toHaveBeenCalledTimes(2);
+    expect(session.settingsManager.isProjectTrusted()).toBe(false);
   });
 
   it("waits for the run to end before reloading", async () => {
@@ -2326,7 +2357,10 @@ describe("project trust", () => {
       session: "/work:saved",
     });
     await request({ id: 2, type: "set_trust", cwd: "/work", trusted: false });
-    expect(trust.set).toHaveBeenCalledWith("/work", false);
+    expect(trust.set).toHaveBeenCalledWith("/work", false, [
+      "/work",
+      expect.any(String),
+    ]);
     expect(session.settingsManager.setProjectTrusted).not.toHaveBeenCalled();
     expect(session.reload).not.toHaveBeenCalled();
   });

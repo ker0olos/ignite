@@ -125,7 +125,7 @@ async function reloadSessions(ctx: HostContext) {
   await mcp?.reload();
   for (const agent of ctx.agents.values()) {
     if (agent.session?.isStreaming) agent.reloadWhenSettled = true;
-    else await reload(agent);
+    else await reload(agent, ctx.trust);
   }
 }
 
