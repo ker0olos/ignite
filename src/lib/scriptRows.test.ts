@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ToolCall } from "../../shared/agentTypes";
 import {
+  outputLabel,
   scriptBadge,
+  scriptEnd,
+  scriptOutput,
   scriptStatus,
   scriptSummary,
   tokenFooter,
@@ -98,6 +101,50 @@ describe("tokenFooter", () => {
   it("is null when the calls returned nothing", () => {
     expect(tokenFooter("x", run(0))).toBeNull();
     expect(tokenFooter("x", undefined)).toBeNull();
+  });
+
+  it("is null when the script passed on all its calls returned, or more", () => {
+    expect(tokenFooter("x".repeat(200), run(140))).toBeNull();
+    expect(tokenFooter("x".repeat(140), run(140))).toBeNull();
+  });
+});
+
+describe("scriptOutput", () => {
+  it("drops pi's header, completed or failed", () => {
+    expect(
+      scriptOutput(
+        "Script completed\nWall time 226.8 seconds\nOutput:\n\nfil: OK",
+      ),
+    ).toBe("fil: OK");
+    expect(
+      scriptOutput(
+        "Script failed\nWall time 0.1 seconds\nOutput:\n\nScript error:\nboom",
+      ),
+    ).toBe("Script error:\nboom");
+  });
+
+  it("keeps text without the header, and the header's words elsewhere", () => {
+    expect(scriptOutput("Refused: no // why line")).toBe(
+      "Refused: no // why line",
+    );
+    const quoted = "a\nScript completed\nWall time 1 seconds\nOutput:\n";
+    expect(scriptOutput(quoted)).toBe(quoted);
+  });
+});
+
+describe("scriptEnd", () => {
+  it("ends on Done, or on Failed only with an error to show", () => {
+    expect(scriptEnd("done", "")).toBe("done");
+    expect(scriptEnd("failed", "Script error: boom")).toBe("failed");
+    expect(scriptEnd("failed", "")).toBeNull();
+    expect(scriptEnd("running", "x")).toBeNull();
+  });
+});
+
+describe("outputLabel", () => {
+  it("counts the lines, not trailing newlines", () => {
+    expect(outputLabel("done\n")).toBe("Output \u00b7 1 line");
+    expect(outputLabel("a\nb\nc")).toBe("Output \u00b7 3 lines");
   });
 });
 

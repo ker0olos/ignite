@@ -62,10 +62,27 @@ function tokens(chars: number) {
   return `${Math.round(n / 1000)}k`;
 }
 
-/** What the agent was sent of what the script's calls returned, or null when they returned nothing. */
+// pi's header for the model; the script's row already shows its status and time.
+const PI_HEADER =
+  /^Script (?:completed|failed)\nWall time [\d.]+ seconds\nOutput:\n\n?/;
+
+/** What the script printed (or its error), without pi's "Script completed / Wall time / Output:" header. */
+export const scriptOutput = (text: string) => text.replace(PI_HEADER, "");
+
+/** The script's last step: Done once it finished, Failed when it failed with something to say, else none. */
+export function scriptEnd(status: ScriptStatus, output: string) {
+  if (status === "done") return "done";
+  return status === "failed" && output ? "failed" : null;
+}
+
+/** The collapsed output's label: "Output · 12 lines". */
+export const outputLabel = (text: string) =>
+  `Output · ${plural(text.replace(/\n+$/, "").split("\n").length, "line", "lines")}`;
+
+/** What the agent was sent of what the script's calls returned, or null unless the script cut it down. */
 export function tokenFooter(output: string, run: ToolRun | undefined) {
   const seen = scriptDetails(run?.result?.details)?.seen ?? 0;
-  if (!seen) return null;
+  if (output.length >= seen) return null;
   return `Sent the agent ${tokens(output.length)} of ${tokens(seen)} tokens`;
 }
 
