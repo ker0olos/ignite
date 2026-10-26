@@ -1,10 +1,15 @@
-/** web_search: Claude Code's WebSearch, run by Haiku in a separate Claude Code process on the user's Claude login. */
+/** web_search: Claude Code's WebSearch, run by Haiku in a separate Claude Code process on the user's Claude login, else the provider's own (apiWebSearch.ts). */
 import { tmpdir } from "node:os";
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { WEB_SEARCH_TOOL } from "../shared/steps.ts";
+import { searchApi, searchesOwnApi } from "./apiWebSearch.ts";
 import { createClaudeCode, type ClaudeCode } from "./claudeCode.ts";
+import { limitedUntil } from "./fallback.ts";
 
 const SYSTEM_PROMPT =
   "You search the web for another agent. Search, then reply with what you found only, no preamble: " +
@@ -84,7 +89,8 @@ const store = globalThis as { [LOGIN_KEY]?: Login };
 
 /**
  * Whether Claude Code is signed in, shared by every session's copy of this
- * extension: a yes is kept, a no checked again after RECHECK_MS.
+ * extension: a yes is kept, a no checked again after RECHECK_MS (answering the
+ * old no meanwhile, so a run never waits on the check).
  */
 export function claudeSignedIn(claudeCode: ClaudeCode): Promise<boolean> {
   const known = store[LOGIN_KEY];
@@ -97,20 +103,26 @@ export function claudeSignedIn(claudeCode: ClaudeCode): Promise<boolean> {
   void loggedIn.then((yes) => {
     if (yes) store[LOGIN_KEY] = { loggedIn, at: Infinity };
   });
-  return loggedIn;
+  return known?.loggedIn ?? loggedIn;
 }
 
-/** Registers web_search when Claude Code is signed in; `claudeCode` is for tests. */
-export default async function webSearch(
+/** Whether a call searches on the provider's API: on an Anthropic key only while Claude Code can't (signed out, or out of usage). */
+async function onOwnApi(ctx: ExtensionContext, claudeCode: ClaudeCode) {
+  if (!searchesOwnApi(ctx)) return false;
+  if (ctx.model?.provider !== "anthropic") return true;
+  return Date.now() < limitedUntil() || !(await claudeSignedIn(claudeCode));
+}
+
+/** Registers web_search, switched on per run when some search can serve it; `claudeCode` is for tests. */
+export default function webSearch(
   pi: ExtensionAPI,
   claudeCode: ClaudeCode = createClaudeCode(),
 ) {
-  if (!(await claudeSignedIn(claudeCode))) return;
   pi.registerTool({
     name: WEB_SEARCH_TOOL,
     label: "Web search",
     description:
-      "Search the web through the user's Claude Code. Takes a request in plain words " +
+      "Search the web. Takes a request in plain words " +
       '("latest React 19 release notes", "how do Tauri 2 capabilities work") and returns the answer with source links. ' +
       "It reads search results, not whole pages. Use it for research and docs; use the chrome_* tools " +
       "only to read a specific page, test or interact with one.",
@@ -118,9 +130,17 @@ export default async function webSearch(
     parameters: Type.Object({
       request: Type.String({ description: "What to find out." }),
     }),
-    async execute(_id, { request }, signal) {
-      const text = await searchWeb(request, signal);
+    async execute(_id, { request }, signal, _onUpdate, ctx) {
+      const text = (await onOwnApi(ctx, claudeCode))
+        ? await searchApi(ctx, request, SYSTEM_PROMPT, signal)
+        : await searchWeb(request, signal);
       return { content: [{ type: "text", text }], details: {} };
     },
+  });
+
+  pi.on("before_agent_start", async (_event, ctx) => {
+    const on = searchesOwnApi(ctx) || (await claudeSignedIn(claudeCode));
+    const others = pi.getActiveTools().filter((n) => n !== WEB_SEARCH_TOOL);
+    pi.setActiveTools(on ? [...others, WEB_SEARCH_TOOL] : others);
   });
 }

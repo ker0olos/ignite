@@ -33,6 +33,8 @@ const claudeCode = (loggedIn: boolean | Error) => ({
   login: vi.fn(),
 });
 
+const { limitUntil } = await import("./fallback.ts");
+const LIMIT = Symbol.for("ignite.subscriptionLimit");
 const LOGIN_KEY = Symbol.for("ignite:webSearchLogin");
 const clearLogin = () =>
   delete (globalThis as Record<symbol, unknown>)[LOGIN_KEY];
@@ -135,8 +137,11 @@ describe("claudeSignedIn", () => {
       expect(await claudeSignedIn(code)).toBe(false);
       expect(code.status).toHaveBeenCalledTimes(1);
       vi.advanceTimersByTime(30_001);
-      await claudeSignedIn(code);
+      code.status.mockResolvedValue({ installed: true, loggedIn: true });
+      // The old no answers at once while it's checked again.
+      expect(await claudeSignedIn(code)).toBe(false);
       expect(code.status).toHaveBeenCalledTimes(2);
+      expect(await claudeSignedIn(code)).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -148,28 +153,104 @@ describe("claudeSignedIn", () => {
 });
 
 describe("webSearch", () => {
-  const register = async (loggedIn: boolean) => {
+  const register = (loggedIn: boolean) => {
     const registerTool = vi.fn();
-    await webSearch(
-      { registerTool } as unknown as Parameters<typeof webSearch>[0],
+    const handlers: Record<string, (event: unknown, ctx: unknown) => unknown> =
+      {};
+    let active = ["read"];
+    webSearch(
+      {
+        registerTool,
+        on: (name: string, handler: (typeof handlers)[string]) =>
+          (handlers[name] = handler),
+        getActiveTools: () => active,
+        setActiveTools: (names: string[]) => (active = names),
+      } as unknown as Parameters<typeof webSearch>[0],
       claudeCode(loggedIn),
     );
-    return registerTool;
+    return {
+      tool: registerTool.mock.calls[0][0],
+      handlers,
+      active: () => active,
+    };
   };
 
-  it("registers the tool only when Claude Code is signed in", async () => {
-    expect(await register(false)).not.toHaveBeenCalled();
+  // A conversation on `provider`, its replies from the API search "from the API".
+  const on = (provider: string, oauth = false) => {
+    const model = { provider, id: "m", cost: { output: 1 } };
+    return {
+      model,
+      modelRegistry: {
+        isUsingOAuth: () => oauth,
+        getAll: () => [model],
+        getAvailable: () => [model],
+        streamSimple: () => ({
+          result: async () => ({
+            stopReason: "stop",
+            content: [{ type: "text", text: "from the API" }],
+          }),
+        }),
+      },
+    };
+  };
+
+  const startRun = async (loggedIn: boolean, ctx: ReturnType<typeof on>) => {
+    const { handlers, active } = register(loggedIn);
+    await handlers.before_agent_start({}, ctx);
+    return active();
+  };
+
+  const search = async (loggedIn: boolean, ctx: ReturnType<typeof on>) => {
+    messages.push({ type: "result", subtype: "success", result: "found" });
+    const { tool } = register(loggedIn);
+    const result = await tool.execute(
+      "id",
+      { request: "x" },
+      undefined,
+      undefined,
+      ctx,
+    );
+    return result.content[0].text;
+  };
+
+  it("is on for Claude Code only while it's signed in", async () => {
+    expect(await startRun(false, on("claude-bridge"))).toEqual(["read"]);
     clearLogin();
-    const registerTool = await register(true);
-    expect(registerTool.mock.calls[0][0].name).toBe("web_search");
+    expect(register(true).tool.name).toBe("web_search");
+    expect(await startRun(true, on("claude-bridge"))).toEqual([
+      "read",
+      "web_search",
+    ]);
   });
 
-  it("returns the search as the tool's text", async () => {
-    messages.push({ type: "result", subtype: "success", result: "found" });
-    const tool = (await register(true)).mock.calls[0][0];
-    expect(await tool.execute("id", { request: "x" })).toEqual({
-      content: [{ type: "text", text: "found" }],
-      details: {},
-    });
+  it("is on for an Anthropic key or a ChatGPT login without Claude Code", async () => {
+    expect(await startRun(false, on("anthropic"))).toContain("web_search");
+    expect(await startRun(false, on("openai-codex"))).toContain("web_search");
+    expect(await startRun(false, on("google"))).toEqual(["read"]);
+  });
+
+  it("leaves pi's own Claude sign-in to Claude Code", async () => {
+    expect(await startRun(false, on("anthropic", true))).toEqual(["read"]);
+  });
+
+  it("returns Claude Code's search as the tool's text", async () => {
+    expect(await search(true, on("claude-bridge"))).toBe("found");
+  });
+
+  it("searches on a ChatGPT login's own API, signed in to Claude Code or not", async () => {
+    expect(await search(true, on("openai-codex"))).toBe("from the API");
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("searches on an Anthropic key only while Claude Code can't", async () => {
+    expect(await search(false, on("anthropic"))).toBe("from the API");
+    clearLogin();
+    expect(await search(true, on("anthropic"))).toBe("found");
+    limitUntil(Date.now() + 60_000);
+    try {
+      expect(await search(true, on("anthropic"))).toBe("from the API");
+    } finally {
+      delete (globalThis as Record<symbol, unknown>)[LIMIT];
+    }
   });
 });

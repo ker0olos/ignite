@@ -41,8 +41,8 @@ export const FEATURED: Featured[] = [
   },
   {
     providers: ["openai-codex"],
-    id: "gpt-6-sol",
-    label: "GPT-6 Sol",
+    id: "gpt-6.1-sol",
+    label: "GPT-6.1 Sol",
     description: "Strong reasoning for complex coding",
   },
   {

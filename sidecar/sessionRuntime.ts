@@ -52,8 +52,8 @@ type Tools = Pick<
 /**
  * Activates what pi left out reopening a conversation with only the tools its
  * transcript last declared: the default tools, and extension tools that would
- * be active on registration (web_search after signing in, a new MCP server's,
- * an update's). Our extensions still switch their own before each run.
+ * be active on registration (a new MCP server's, an update's). Our extensions
+ * still switch their own before each run.
  */
 export function activateCurrentTools(session: Tools, tools = defaultTools) {
   const active = session.getActiveToolNames();
