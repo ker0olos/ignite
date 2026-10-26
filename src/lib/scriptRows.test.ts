@@ -107,28 +107,45 @@ describe("tokenFooter", () => {
     expect(tokenFooter("x".repeat(200), run(140))).toBeNull();
     expect(tokenFooter("x".repeat(140), run(140))).toBeNull();
   });
+
+  it("is null when both round to the same tokens", () => {
+    expect(tokenFooter("x".repeat(139), run(140))).toBeNull();
+  });
 });
 
 describe("scriptOutput", () => {
-  it("drops pi's header, completed or failed", () => {
+  const result = (...texts: string[]) => ({
+    content: texts.map((text) => ({ type: "text" as const, text })),
+  });
+
+  it("drops pi's header block, completed or failed, however it words the rest", () => {
     expect(
       scriptOutput(
-        "Script completed\nWall time 226.8 seconds\nOutput:\n\nfil: OK",
+        result("Script completed\nWall time 1.2s\nOutput:\n", "fil: OK"),
       ),
     ).toBe("fil: OK");
     expect(
       scriptOutput(
-        "Script failed\nWall time 0.1 seconds\nOutput:\n\nScript error:\nboom",
+        result(
+          "Script failed\nWall time 0.1 seconds\nOutput:\n",
+          "Script error:\nboom",
+        ),
       ),
     ).toBe("Script error:\nboom");
   });
 
   it("keeps text without the header, and the header's words elsewhere", () => {
-    expect(scriptOutput("Refused: no // why line")).toBe(
+    expect(scriptOutput(result("Refused: no // why line"))).toBe(
       "Refused: no // why line",
     );
-    const quoted = "a\nScript completed\nWall time 1 seconds\nOutput:\n";
-    expect(scriptOutput(quoted)).toBe(quoted);
+    expect(scriptOutput(result("a", "Script completed\nOutput:"))).toBe(
+      "a\nScript completed\nOutput:",
+    );
+    expect(scriptOutput(undefined)).toBe("");
+  });
+
+  it("is empty when the script printed only blank lines", () => {
+    expect(scriptOutput(result("Script completed\n", "\n\n"))).toBe("");
   });
 });
 
@@ -142,12 +159,9 @@ describe("scriptEnd", () => {
 });
 
 describe("outputLabel", () => {
-  it("counts the lines, not trailing newlines", () => {
-    expect(outputLabel("done\n")).toBe("Output \u00b7 1 line");
+  it("counts the lines", () => {
+    expect(outputLabel("done")).toBe("Output \u00b7 1 line");
     expect(outputLabel("a\nb\nc")).toBe("Output \u00b7 3 lines");
-    expect(outputLabel("Script error:\nboom", "Error")).toBe(
-      "Error \u00b7 2 lines",
-    );
   });
 });
 

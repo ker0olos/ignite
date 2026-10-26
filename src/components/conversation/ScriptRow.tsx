@@ -9,13 +9,12 @@ import {
   scriptSummary,
   tokenFooter,
 } from "@/lib/scriptRows";
-import { resultText } from "@/lib/toolLabels";
 
 /** A script call: its header, then the calls it made as rows joined by a line through their tiles, and what it sent the agent. */
 export function ScriptRow({ call, run, tools = {}, ...rest }: ToolProps) {
   const status = scriptStatus(run, tools);
   const steps = run?.nested ?? [];
-  const output = scriptOutput(resultText(run?.result));
+  const output = scriptOutput(run?.result);
   const end = scriptEnd(status, output);
   const footer = end === "done" ? tokenFooter(output, run) : null;
   return (
