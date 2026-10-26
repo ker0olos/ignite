@@ -1,4 +1,4 @@
-# MCP servers (pi-mcp-adapter 6.0.0)
+# MCP servers (pi-mcp-adapter 7.0.0)
 
 `AD` = `node_modules/pi-mcp-adapter`. It ships TypeScript source (`AD/index.ts`,
 loaded by pi's extension loader) plus compiled `AD/dist/` for the public
