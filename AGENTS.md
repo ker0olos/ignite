@@ -1157,7 +1157,7 @@ differs from every one the user trusted asks again, and a reload (an MCP or
 memory change) drops the folder's resources until it's answered.
 
 MCP servers come from [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adapter)
-(pinned 6.0.0), loaded into every session by `sidecar/mcpExtension.ts` with
+(pinned 7.0.0), loaded into every session by `sidecar/mcpExtension.ts` with
 the app's `mcp.json` as its whole config, so it never reads `~/.config/mcp`,
 a project's `.mcp.json` or other apps' MCP configs. Servers connect on first
 use (one with no cached tools starts as a session opens, only to list them);
