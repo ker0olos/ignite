@@ -46,6 +46,18 @@ Text the user will likely copy and paste elsewhere always goes in a block of its
 export const LEFT_TO_AGENT =
   "The user left these questions to you. Decide them, and say what you chose and why.";
 
+/** Unanswered once first in line, a question goes on without the user after 5 minutes. */
+export const QUESTION_AWAY_MS = 5 * 60_000;
+
+/** What the model reads when the user is away: decide alone, with whatever they had answered but not sent. */
+export function awayReply(draft: QuestionAnswer[] = []): string {
+  const away =
+    "The user is away: nobody answered these questions in 5 minutes. Decide them yourself and carry on, and say what you chose and why in your final reply. Ask again later only if it still matters.";
+  const said = draft.filter((a) => a.choices.length || a.note);
+  if (!said.length) return away;
+  return `${away}\n\nWhat they had answered before leaving, without sending it:\n\n${replyText(true, said)}`;
+}
+
 const Params = Type.Object({
   questions: Type.Array(
     Type.Object({
@@ -167,6 +179,7 @@ export default function ask(pi: ExtensionAPI) {
           request: { toolCallId },
           answer: (approved, answers, _always, reason) =>
             resolve({ approved, answers, reason }),
+          away: { afterMs: QUESTION_AWAY_MS, reason: awayReply },
         } satisfies ApprovalAsk);
       });
       const text = reply.reason ?? replyText(reply.approved, reply.answers);

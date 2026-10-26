@@ -21,6 +21,14 @@ export type ApprovalAsk = {
   declined?(): void;
   /** When it waits; a tool asking for itself leaves it out ("asking"). */
   wait?: Wait;
+  /** Unanswered this long once first in line, it's answered as the user being away (awayTimer.ts). */
+  away?: Away;
+};
+
+/** What a call does when nobody answers it: after `afterMs`, it's denied with `reason`, given the user's unsent answers to its questions. */
+export type Away = {
+  afterMs: number;
+  reason(draft?: QuestionAnswer[]): string;
 };
 
 type Answer = {
@@ -37,6 +45,7 @@ export const askUser = (
   request: ApprovalRequest,
   signal: AbortSignal | undefined,
   wait?: Wait,
+  away?: Away,
 ) =>
   new Promise<Answer>((resolve) => {
     if (signal?.aborted) return resolve({ approved: false });
@@ -52,5 +61,6 @@ export const askUser = (
       },
       declined: () => (declined = true),
       wait,
+      away,
     } satisfies ApprovalAsk);
   });

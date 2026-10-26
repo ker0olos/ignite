@@ -4,6 +4,7 @@ import {
   type HostRequest,
 } from "../shared/hostProtocol.ts";
 import {
+  target,
   type HostContext,
   type OpenSession,
   type OpenMcpSession,
@@ -28,6 +29,7 @@ import { signIn, signOut } from "./hostMcpSignIn.ts";
 import { describeError } from "./wire.ts";
 import { memoryStatus } from "./memory.ts";
 import { answered } from "./hostAnswers.ts";
+import { userBack } from "./awayTimer.ts";
 import { setTrust } from "./hostTrust.ts";
 import { compact, stop, unqueue } from "./hostQueue.ts";
 import { appHandlers } from "./appUpdate.ts";
@@ -92,6 +94,8 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   session_details: (ctx, r) => sessionDetails(ctx, r.cwd, r.session),
   ...modelHandlers,
   prompt: async (ctx, r) => {
+    const agent = target(ctx, r.session);
+    if (agent) userBack(agent);
     await prompt(ctx, r.text, r.images, r.session, undefined, r.queue);
     return undefined;
   },

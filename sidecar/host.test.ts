@@ -2777,6 +2777,28 @@ describe("tool approval", () => {
     expect(forgetWaiting).toHaveBeenCalledWith("/work:saved");
   });
 
+  it("has calls wait their full time again once the user sends a message", async () => {
+    const { request, reopen } = await opened();
+    const away = { afterMs: 1000, reason: () => "away" };
+    const ask = (toolCallId: string) => {
+      const answer = vi.fn();
+      reopen()({ request: { toolCallId }, answer, away });
+      return answer;
+    };
+    vi.useFakeTimers();
+    for (const id of ["t1", "t2", "t3"]) {
+      ask(id);
+      vi.advanceTimersByTime(1000);
+    }
+    vi.useRealTimers();
+    await request({ id: 2, type: "prompt", text: "back" });
+    vi.useFakeTimers();
+    const next = ask("t4");
+    vi.advanceTimersByTime(999);
+    expect(next).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it("leaves waiting calls unanswered on quit, to ask again on the next launch", async () => {
     const { ask, host, session } = await opened();
     const answer = ask("t1");

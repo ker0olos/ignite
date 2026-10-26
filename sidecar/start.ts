@@ -17,6 +17,7 @@ import {
 import type { HostMessage, HostRequest } from "../shared/hostProtocol.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { createClaudeCode, forgetClaudePath } from "./claudeCode.ts";
+import { warmCachesWhenIdle } from "./cacheWarming.ts";
 import { loadLogins } from "./credentials.ts";
 import { createHeadlessUI } from "./headlessUI.ts";
 import { createHost } from "./host.ts";
@@ -78,6 +79,9 @@ process.env.CLAUDE_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING ??= "1";
 process.env.PI_CODEMODE_MAX_WORKERS ??= "4";
 await forgetClaudePath(agentDir).catch((error) =>
   log(`claude-bridge.json: ${error}`),
+);
+await warmCachesWhenIdle(agentDir).catch((error) =>
+  log(`cache warming not set: ${error}`),
 );
 
 const logins = await loadLogins(agentDir);

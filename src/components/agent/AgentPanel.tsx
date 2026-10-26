@@ -70,6 +70,11 @@ export function AgentPanel({
         answers && withAnswerComments(answers, takeComments(session.session)),
         always,
       ),
+    // Sent with the questions if the user goes away before answering (sidecar/awayTimer.ts).
+    (toolCallId, answers) =>
+      void host
+        ?.send({ type: "question_draft", toolCallId, answers })
+        .catch(() => {}),
   );
 
   return (

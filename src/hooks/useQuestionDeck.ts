@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import type { ToolCall } from "../../shared/agentTypes";
+import type { QuestionAnswer } from "../../shared/questions";
 import type { ToolProps } from "@/components/conversation/shared";
 import { useWaitingOrder } from "@/hooks/useWaitingPlace";
 import {
@@ -8,6 +9,7 @@ import {
   readQuestions,
   toAnswers,
   toggle,
+  unsentAnswers,
 } from "@/lib/questions";
 import {
   type Deck,
@@ -31,10 +33,11 @@ export function useWaitingCalls(transcript: Transcript | null | undefined) {
 /** The questions shown in the composer. */
 export type QuestionDeck = NonNullable<ReturnType<typeof useQuestionDeck>>;
 
-/** An ask_user call's questions one at a time, each with its draft, kept per call while the user switches away; null without one. */
+/** An ask_user call's questions one at a time, each with its draft, kept per call while the user switches away; null without one. `onDraft` hears each change to the answers so far. */
 export function useQuestionDeck(
   call: ToolCall | undefined,
   onApprove: ToolProps["onApprove"],
+  onDraft?: (id: string, answers: QuestionAnswer[]) => void,
 ) {
   const [decks, setDecks] = useState<Record<string, Deck>>({});
   // A reload or closed window writes what's still waiting to be saved.
@@ -58,6 +61,7 @@ export function useQuestionDeck(
     setDecks((all) => {
       const deck = fn(all[id] ?? saved());
       saveDeck(id, deck);
+      onDraft?.(id, unsentAnswers(questions, deck.drafts));
       return { ...all, [id]: deck };
     });
   const change = (fn: (d: Draft) => Draft) =>
