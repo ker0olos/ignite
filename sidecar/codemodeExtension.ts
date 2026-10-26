@@ -9,6 +9,7 @@ import {
 import type { ToolResult } from "../shared/agentTypes.ts";
 import {
   CODEMODE_TOOL,
+  MAX_CALL_TEXT as MAX_TEXT,
   SCRIPT_REASON_RULE,
   scriptReason,
   type ScriptCall,
@@ -17,7 +18,6 @@ import { ASK_TOOL } from "../shared/questions.ts";
 import { wrappedTools } from "./toolReason.ts";
 
 // Kept on the session file with the script's result, so a chatty script can't bloat it.
-export const MAX_TEXT = 4_000;
 const MAX_DETAILS = 50_000;
 const MAX_RECORD = 1_000_000;
 

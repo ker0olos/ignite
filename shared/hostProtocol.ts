@@ -25,6 +25,7 @@ import type {
 } from "./conversations.ts";
 import type * as Lessons from "./lessons.ts";
 import type * as Reflector from "./reflector.ts";
+import type * as Procedures from "./procedures.ts";
 import type * as Fallback from "./fallbackKeys.ts";
 import type { AppUpdateRequest, AppUpdateResponses } from "./appUpdate.ts";
 import type { QuestionAnswer } from "./questions.ts";
@@ -231,6 +232,7 @@ export type HostRequest =
   | SkillRequest
   | Lessons.LessonRequest
   | Reflector.ReflectorRequest
+  | Procedures.ProcedureRequest
   | Fallback.FallbackKeyRequest
   /** The folder's memories for Settings: its latest, or `query`'s best matches, of `kind` only when given. */
   | {
@@ -279,6 +281,7 @@ export type {
 export type HostResponses = SkillResponses &
   Lessons.LessonResponses &
   Reflector.ReflectorResponses &
+  Procedures.ProcedureResponses &
   Fallback.FallbackKeyResponses &
   AppUpdateResponses &
   RewindResponses &

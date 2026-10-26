@@ -248,6 +248,7 @@ async function end(
   // Quitting leaves them waiting, to ask again on the next launch (hostResume.ts).
   if (why !== "quit") denyAll(ctx, agent);
   agent.routing?.controller.abort();
+  agent.picking?.abort();
   pushProjects(ctx);
   const s = await agent.opening.catch(() => null);
   if (!s) return;

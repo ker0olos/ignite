@@ -3,6 +3,7 @@ import type { Section } from "@/components/settings/sections";
 import { useAbout } from "@/hooks/useAbout";
 import { useLessons } from "@/hooks/useLessons";
 import { useMemory } from "@/hooks/useMemory";
+import { useProcedures } from "@/hooks/useProcedures";
 import { useSkills } from "@/hooks/useSkills";
 import { useReflector } from "@/hooks/useReflector";
 import type { HostClient } from "@/lib/piHost";
@@ -25,6 +26,7 @@ export function useSettingsDialog(
     section,
     memory: useMemory(host, folder, open),
     lessons: useLessons(host, open),
+    procedures: useProcedures(host, open),
     reflector: useReflector(host, open),
     skills: useSkills(host, open),
     about,

@@ -20,6 +20,7 @@ import { hotkeysItems } from "@/components/settings/sections/hotkeysItems";
 import { mcpItems } from "@/components/settings/sections/mcpItems";
 import { memoryItems } from "@/components/settings/sections/memoryItems";
 import { lessonsItems } from "@/components/settings/sections/lessonsItems";
+import { proceduresItems } from "@/components/settings/sections/proceduresItems";
 import { providersItems } from "@/components/settings/sections/providersItems";
 import { remoteItems } from "@/components/settings/sections/remoteItems";
 import { skillsItems } from "@/components/settings/sections/skillsItems";
@@ -30,6 +31,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { useAbout } from "@/hooks/useAbout";
 import type { useMcpServers } from "@/hooks/useMcpServers";
 import type { useLessons } from "@/hooks/useLessons";
+import type { useProcedures } from "@/hooks/useProcedures";
 import type { useMemory } from "@/hooks/useMemory";
 import { useScrollToNewServer } from "@/hooks/useScrollToNewServer";
 import type { useSkills } from "@/hooks/useSkills";
@@ -53,6 +55,7 @@ export function SettingsDialog({
   skills,
   memory,
   lessons,
+  procedures,
   reflector,
   about,
   folder,
@@ -73,6 +76,7 @@ export function SettingsDialog({
   skills: ReturnType<typeof useSkills>;
   memory: ReturnType<typeof useMemory>;
   lessons: ReturnType<typeof useLessons>;
+  procedures: ReturnType<typeof useProcedures>;
   reflector: ReturnType<typeof useReflector>;
   about: ReturnType<typeof useAbout>;
   /** The open folder, whose memories the Memory section previews. */
@@ -99,6 +103,7 @@ export function SettingsDialog({
     ...chromeItems({ settings, onChange }),
     ...memoryItems({ memory, folderOpen: !!folder, settings, onChange }),
     ...lessonsItems({ lessons }),
+    ...proceduresItems({ procedures, onOpenConversation }),
     ...reflectorItems({ reflector, onOpenConversation }),
     ...remoteItems({ settings, onChange, status: remote }),
     ...macItems(settings, onChange),

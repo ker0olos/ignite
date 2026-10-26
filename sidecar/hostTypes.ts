@@ -225,6 +225,8 @@ export type Agent = {
     message: UserMessage;
     controller: AbortController;
   };
+  /** Picking the first message's procedures (procedures.ts); Stop and closing abort it. */
+  picking?: AbortController;
   /** Its last run ended in an error. */
   failed?: boolean;
   /** The conversation it was forked from, which waits for it. */

@@ -8,6 +8,7 @@ import type {
   McpServer,
   ProviderStatus,
 } from "../../shared/hostProtocol";
+import type { Procedure } from "../../shared/procedures";
 import type { Reflection } from "../../shared/reflector";
 import type { McpCatalog } from "../../shared/mcpCatalog";
 import type { SkillCatalog, SkillEntry } from "../../shared/skills";
@@ -157,6 +158,31 @@ const demoReflections = (tempo: string, now: number): Reflection[] => [
   },
 ];
 
+const demoProcedures = (tempo: string, now: number): Procedure[] => [
+  {
+    id: 1,
+    title: "Running Tempo's tests",
+    steps: ["Run pnpm install", "Run pnpm test"],
+    folder: tempo,
+    at: now - 5 * HOUR,
+    from: {
+      conversation: "tempo-tests",
+      folder: tempo,
+      title: "Write tests for loading and saving settings",
+    },
+  },
+  {
+    id: 2,
+    title: "Starting Tempo's dev server",
+    steps: [
+      "Free port 5173 by stopping what holds it",
+      "Run pnpm dev in the background",
+    ],
+    folder: tempo,
+    at: now - 2 * DAY,
+  },
+];
+
 /** Each demo project's files, as the command center searches them. */
 export const DEMO_FILES: Record<"tempo" | "pantry", string[]> = {
   tempo: [
@@ -184,6 +210,7 @@ export const DEMO_FILES: Record<"tempo" | "pantry", string[]> = {
 /** The demo host's answers to requests that aren't about a conversation. */
 export const settingsAnswers = (tempo: string, now = Date.now()) => {
   let reflections = demoReflections(tempo, now);
+  let procedures = demoProcedures(tempo, now);
   return {
     status: () => DEMO_STATUSES,
     login: () => DEMO_STATUSES[0],
@@ -206,6 +233,9 @@ export const settingsAnswers = (tempo: string, now = Date.now()) => {
     memory_changed: () => undefined,
     lessons_list: () => [],
     lessons_remove: () => [],
+    procedures_list: () => procedures,
+    procedures_remove: (r: { procedure: number }) =>
+      (procedures = procedures.filter((p) => p.id !== r.procedure)),
     reflections_list: () => reflections,
     reflections_remove: (r: { reflection: string }) =>
       (reflections = reflections.filter((p) => p.id !== r.reflection)),
