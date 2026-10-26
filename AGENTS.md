@@ -259,7 +259,7 @@ src/                     React frontend (almost all logic lives here)
     utils.ts             `cn` class-name helper (shadcn)
     remote.ts            In a browser (remote access): stands in for Tauri over a WebSocket to the sidecar
     remoteFirst.ts       Installs that stand-in before any other module loads (first import in main.tsx)
-    userActivity.ts      A key, click or focus change on the window, told to the sidecar (the user is back)
+    userActivity.ts      A key, click or scroll on the window, told to the sidecar (the user is back)
   test/                  Test setup, fake Tauri backends (fakeFs, fakeStore), shared shell command cases
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
   main.ts                Entry: turns on mods/ overrides, then loads start.ts
