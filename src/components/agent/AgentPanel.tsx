@@ -94,6 +94,7 @@ export function AgentPanel({
               skipWait={session.skipWait}
               onApprove={session.answer}
               waitingOnFork={shown && session.waitingOnFork}
+              stopForkWait={session.stopForkWait}
               rewind={shown ? session.rewind : undefined}
               waiting={shown ? waiting : NONE}
               askingStep={shown && asking ? asking.step : 0}

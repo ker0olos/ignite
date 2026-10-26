@@ -163,6 +163,22 @@ describe("useAgentSession", () => {
     });
   });
 
+  it("stops the shown conversation waiting for its forks, showing why it couldn't", async () => {
+    const host = fakeHost(async (req) =>
+      req.type === "stop_fork_wait" ? Promise.reject(new Error("Gone")) : STATE,
+    );
+    const { result } = renderHook(() => useAgentSession(host, "/work", null));
+    await waitFor(() => expect(result.current.state).toEqual(STATE));
+    let stopped = true;
+    await act(async () => void (stopped = await result.current.stopForkWait()));
+    expect(host.request).toHaveBeenCalledWith({
+      type: "stop_fork_wait",
+      session: result.current.session,
+    });
+    expect(stopped).toBe(false);
+    expect(result.current.error).toBe("Gone");
+  });
+
   it("skips waiting on a bash call, showing why it couldn't", async () => {
     const host = fakeHost(async (req) =>
       req.type === "skip_wait" ? Promise.reject(new Error("Gone")) : STATE,

@@ -1,5 +1,6 @@
 import { CircleAlert, CircleCheck } from "lucide-react";
 import { QuietRequestNote } from "@/components/conversation/QuietRequestNote";
+import { StopForkWaitButton } from "@/components/conversation/StopForkWaitButton";
 import { WorkingLine } from "@/components/conversation/WorkingLine";
 import type { QuietRequest } from "@/lib/quietRequest";
 import type { RunState } from "@/lib/transcript";
@@ -11,12 +12,15 @@ export function RunIndicator({
   since,
   thought,
   quiet,
+  stopForkWait,
 }: {
   state: RunState;
   step?: string;
   since?: number;
   thought?: string;
   quiet?: QuietRequest;
+  /** It waits for a fork: stops it waiting. */
+  stopForkWait?: () => Promise<boolean>;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -36,6 +40,9 @@ export function RunIndicator({
         )}
       </div>
       {state === "working" && quiet && <QuietRequestNote {...quiet} />}
+      {state === "working" && stopForkWait && (
+        <StopForkWaitButton stop={stopForkWait} />
+      )}
     </div>
   );
 }

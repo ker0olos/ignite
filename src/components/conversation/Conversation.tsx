@@ -37,6 +37,7 @@ export function Conversation({
   contentRef,
   onApprove,
   waitingOnFork,
+  stopForkWait,
   shown,
   waiting,
 }: {
@@ -49,6 +50,8 @@ export function Conversation({
   waiting: string[];
   /** A fork of it is open: the working line says so while it waits. */
   waitingOnFork?: boolean;
+  /** Stops it waiting for its forks. */
+  stopForkWait?: () => Promise<boolean>;
   showThinking: boolean;
   stickyUserMessages: boolean;
   folder: string;
@@ -106,6 +109,7 @@ export function Conversation({
               since={working.since}
               thought={working.thought}
               quiet={working.quiet}
+              stopForkWait={stopForkWait}
             />
           )}
         </div>

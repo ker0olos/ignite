@@ -52,10 +52,13 @@ export type ChildRequest =
   /** Stops a background command; false when it had already ended. */
   | { id: number; type: "background_stop"; session: string; pid: number }
   /** Ends a running bash call, the agent carrying on with its output so far; false when none runs. */
-  | { id: number; type: "skip_wait"; toolCallId: string };
+  | { id: number; type: "skip_wait"; toolCallId: string }
+  /** Stops a conversation waiting for its open forks, which then send it no report; false when none held it. */
+  | { id: number; type: "stop_fork_wait"; session: string };
 
 export type ChildResponses = {
   background_output: BackgroundOutput;
   background_stop: boolean;
   skip_wait: boolean;
+  stop_fork_wait: boolean;
 };

@@ -18,7 +18,7 @@ import { status, statusWithin, login } from "./hostAuth.ts";
 import { open, closeAll, prompt } from "./hostSession.ts";
 import { modelHandlers } from "./hostModels.ts";
 import { worktreeHandlers } from "./hostTerminal.ts";
-import { closeConversation, fork } from "./hostFork.ts";
+import { closeConversation, fork, stopWaiting } from "./hostFork.ts";
 import { rewind } from "./hostRewind.ts";
 import { lessonHandlers } from "./hostLessons.ts";
 import { reflectorHandlers } from "./hostReflect.ts";
@@ -150,6 +150,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   background_output: (_ctx, r) => backgroundOutput(r.pid, r.session),
   background_stop: (_ctx, r) => stopBackground(r.pid, r.session),
   skip_wait: (_ctx, r) => skipWait(r.toolCallId),
+  stop_fork_wait: (ctx, r) => stopWaiting(ctx, r.session),
   tasks_list: (ctx, r) => ctx.tasks.list(r.cwd),
   todo_list: (_ctx, r) => readTodos(r.cwd),
   todo_delete: (_ctx, r) => deleteTodo(r.cwd, r.item),

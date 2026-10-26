@@ -6,10 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import {
+  detachFork,
   dropFork,
   dropNote,
   forkOf,
   forkSession,
+  isDetached,
   noteFor,
   summarize,
   takeNotes,
@@ -184,6 +186,20 @@ describe("forks", () => {
     forkSession(cwd, "first", "copy", "bench");
     expect(forkOf(sessionFor(cwd, cwd, "copy"))).toBe("first");
     expect(forkOf(sessionFor(cwd, cwd, "first"))).toBeUndefined();
+  });
+
+  it("keeps a fork detached past a rewind, but not a fork made of it", () => {
+    say(sessionFor(cwd, cwd, "first"), "plan it", "planned");
+    forkSession(cwd, "first", "copy", "bench");
+    const fork = sessionFor(cwd, cwd, "copy");
+    say(fork, "run them", "2x faster");
+    const before = fork.getLeafId()!;
+    expect(isDetached(fork)).toBe(false);
+    detachFork(fork);
+    fork.branch(before);
+    expect(isDetached(sessionFor(cwd, cwd, "copy"))).toBe(true);
+    forkSession(cwd, "copy", "again", "more");
+    expect(isDetached(sessionFor(cwd, cwd, "again"))).toBe(false);
   });
 
   it("delivers a note with the conversation's next run", async () => {

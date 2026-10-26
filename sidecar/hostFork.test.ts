@@ -45,8 +45,8 @@ vi.mock("./hostProjects.ts", async (real) => ({
   pushProjects: vi.fn(),
 }));
 
-const { closeConversation, fork } = await import("./hostFork.ts");
-const { takeNotes } = await import("./forks.ts");
+const { closeConversation, fork, stopWaiting } = await import("./hostFork.ts");
+const { noteFor, takeNotes } = await import("./forks.ts");
 const { refuseWhileForked } = await import("./hostProjects.ts");
 
 const host = () =>
@@ -267,6 +267,86 @@ describe("closing a fork", () => {
     await closeConversation(forked(), "/work", "copy");
     await settled();
     expect(prompt).not.toHaveBeenCalled();
+  });
+
+  it("stops the original waiting: the fork, detached for good, sends no report when closed", async () => {
+    const ctx = forked();
+    const appendCustomEntry = vi.fn();
+    Object.assign(ctx.agents.get("copy")!, {
+      session: { sessionManager: { appendCustomEntry } },
+    });
+    expect(stopWaiting(ctx, "first")).toBe(true);
+    expect(() => refuseWhileForked(ctx, "first")).not.toThrow();
+    expect(appendCustomEntry).toHaveBeenCalledWith("ignite-fork-detached");
+    expect(takeNotes("first")[0]).toContain(
+      'stopped you waiting for your fork "bench" (copy)',
+    );
+    expect(takeNotes("copy")[0]).toContain("stopped conversation first");
+    expect(stopWaiting(ctx, "first")).toBe(false);
+    await closeConversation(ctx, "/work", "copy");
+    await settled();
+    expect(close).toHaveBeenCalledWith(ctx, "/work", "copy");
+    expect(unreported).not.toHaveBeenCalled();
+    expect(prompt).not.toHaveBeenCalled();
+  });
+
+  it("stops the original waiting for a closed fork's report, which then comes as a note", async () => {
+    let finish: (text: string) => void = () => {};
+    summarize.mockReturnValueOnce(new Promise((r) => (finish = r)));
+    const ctx = forked();
+    await closeConversation(ctx, "/work", "copy");
+    expect(() => refuseWhileForked(ctx, "first")).toThrow();
+    expect(stopWaiting(ctx, "first")).toBe(true);
+    expect(() => refuseWhileForked(ctx, "first")).not.toThrow();
+    finish("2x faster");
+    await settled();
+    expect(prompt).not.toHaveBeenCalled();
+    expect(takeNotes("first")).toEqual([expect.stringContaining("2x faster")]);
+  });
+
+  it("wakes the original once released with the exits it was told of while it waited", async () => {
+    const ctx = forked();
+    const sendCustomMessage = vi.fn(async () => {});
+    Object.assign(ctx.agents.get("first")!, {
+      session: { sendCustomMessage },
+      wakeOwed: true,
+    });
+    Object.assign(ctx.agents.get("copy")!, {
+      session: { sessionManager: { appendCustomEntry: vi.fn() } },
+    });
+    noteFor("first", "npm run build exited with code 0");
+    stopWaiting(ctx, "first");
+    expect(sendCustomMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("exited with code 0"),
+      }),
+      { triggerTurn: true, deliverAs: "followUp" },
+    );
+    expect(takeNotes("first")).toEqual([]);
+  });
+
+  it("wakes the original once a fork with nothing to report closes", async () => {
+    unreported.mockReturnValueOnce(null as never);
+    const ctx = forked();
+    const sendCustomMessage = vi.fn(async () => {});
+    Object.assign(ctx.agents.get("first")!, {
+      session: { sendCustomMessage },
+      wakeOwed: true,
+    });
+    noteFor("first", "npm run build exited with code 0");
+    await closeConversation(ctx, "/work", "copy");
+    expect(sendCustomMessage).toHaveBeenCalledOnce();
+  });
+
+  it("opens the original for a fork's report while only a detached fork is left", async () => {
+    const ctx = forked(false);
+    ctx.agents.set("other", {
+      id: "other",
+      forkOf: "first",
+      forkDetached: true,
+    } as never);
+    await closeConversation(ctx, "/work", "copy");
+    expect(launch).toHaveBeenCalledWith(ctx, "/work", "first");
   });
 
   it("closes any other conversation as it is", async () => {

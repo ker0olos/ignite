@@ -107,7 +107,7 @@ export type Session = {
     appendCustomEntry(customType: string): string;
     /** Set for a fork, which would otherwise take its original's title. */
     getSessionName(): string | undefined;
-  };
+  } & Pick<AgentSession["sessionManager"], "getEntries">;
   sendCustomMessage(
     message: { customType: string; content: string; display: boolean },
     options: {
@@ -229,8 +229,12 @@ export type Agent = {
   failed?: boolean;
   /** The conversation it was forked from, which waits for it. */
   forkOf?: string;
-  /** Its closed forks whose reports are still being written. */
-  forkReports?: number;
+  /** A fork its original no longer waits for: it sends no report. */
+  forkDetached?: boolean;
+  /** Its closed forks whose reports are still being written; cleared when the user stops it waiting. */
+  forkReports?: Set<Agent>;
+  /** A bash_wait exit reached it as a note while a fork held it, so it's woken once released. */
+  wakeOwed?: boolean;
   /** Unsubscribe from the session's events. */
   unsubscribe: () => void;
   /** Adapter status per server name, from the session's latest snapshot. */
@@ -340,13 +344,6 @@ export async function reload(agent: Agent, trust: TrustStore) {
 /** Whether the app gets this conversation's events: it holds its messages, or shows it. */
 export function tellsApp(ctx: HostContext, agent: Agent): boolean {
   return !!agent.followed || isShown(ctx, agent);
-}
-
-/** The folder's conversation to show: the last one shown, else another one open; a folder may have none. */
-export function reopened(ctx: HostContext, cwd: string): string | undefined {
-  const last = ctx.lastShown.get(cwd);
-  if (last && ctx.agents.has(last)) return last;
-  return [...ctx.agents.values()].find((a) => a.cwd === cwd)?.id;
 }
 
 /** The open conversation `id` names, else the one the app shows. */
