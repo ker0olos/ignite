@@ -126,6 +126,8 @@ const demoReflections = (tempo: string, now: number): Reflection[] => [
     entry: "asking",
     taught: "note",
     at: now - 2 * HOUR,
+    when: "several things need acting on",
+    evidence: "make subtasks then start with the noise",
     from: {
       conversation: "tempo-reload",
       folder: tempo,
@@ -138,6 +140,7 @@ const demoReflections = (tempo: string, now: number): Reflection[] => [
     entry: "always",
     taught: "reply",
     at: now - 1 * DAY,
+    evidence: "too long, just tell me what's done",
     from: {
       conversation: "tempo",
       folder: tempo,

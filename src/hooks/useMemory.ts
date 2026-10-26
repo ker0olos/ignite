@@ -63,7 +63,7 @@ export function useMemory(
     /** The one type shown, or null for every type. */
     kind,
     setKind: (next: string | null) => setFilter({ folder, query, kind: next }),
-    /** Applies a saved change to the memory setting to the open session. */
+    /** Applies a saved change to the memory or lessons setting to the open sessions, which reload. */
     changed: async () => {
       await host?.request({ type: "memory_changed" }).catch(() => {});
     },

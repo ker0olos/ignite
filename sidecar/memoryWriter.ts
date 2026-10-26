@@ -9,7 +9,6 @@ import type { AgentMessage, AssistantMessage } from "../shared/agentTypes.ts";
 import { CONCEPTS, PROCEDURE, SUMMARY_TYPE } from "../shared/memory.ts";
 import type { Session } from "./hostTypes.ts";
 import { summaryOf, trimmed, typeOf, type NewMemory } from "./memoryDb.ts";
-import { procedureRule } from "./procedures.ts";
 import { cheapest } from "./router.ts";
 
 /** A memory as the writer finds it; the host adds where and when. */
@@ -208,14 +207,14 @@ export function parseWritten(
 
 const TIMEOUT_MS = 120_000;
 
-/** What the run in `messages` is worth remembering, by the cheapest model of `s`'s provider; none when it can't run. A long run takes a call per chunk, keeping the last one's summary; `procedures` (the folder's known ones) also asks for procedures.ts's. */
+/** What the run in `messages` is worth remembering, by the cheapest model of `s`'s provider; none when it can't run. A long run takes a call per chunk, keeping the last one's summary; `procedures` (procedures.ts's rule) also asks for those. */
 export async function write(
   s: Pick<Session, "model" | "modelRuntime">,
   messages: AgentMessage[],
   recorded: string[],
   path: (p: string) => string,
   skip: string[],
-  procedures?: string[],
+  procedures?: string,
 ): Promise<Written[]> {
   const found = await cheapest(s).catch(() => null);
   if (!found) return [];
@@ -230,9 +229,7 @@ export async function write(
       .completeSimple(
         found.model,
         {
-          systemPrompt: procedures
-            ? WRITER_PROMPT + procedureRule(procedures)
-            : WRITER_PROMPT,
+          systemPrompt: procedures ? WRITER_PROMPT + procedures : WRITER_PROMPT,
           messages: [
             {
               role: "user",

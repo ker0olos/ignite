@@ -19,6 +19,7 @@ import { filesItems } from "@/components/settings/sections/filesItems";
 import { hotkeysItems } from "@/components/settings/sections/hotkeysItems";
 import { mcpItems } from "@/components/settings/sections/mcpItems";
 import { memoryItems } from "@/components/settings/sections/memoryItems";
+import { learningItems } from "@/components/settings/sections/learningItems";
 import { lessonsItems } from "@/components/settings/sections/lessonsItems";
 import { proceduresItems } from "@/components/settings/sections/proceduresItems";
 import { providersItems } from "@/components/settings/sections/providersItems";
@@ -102,6 +103,12 @@ export function SettingsDialog({
     ...skillsItems({ skills }),
     ...chromeItems({ settings, onChange }),
     ...memoryItems({ memory, folderOpen: !!folder, settings, onChange }),
+    // Before the sections' own rows, so each switch comes first in its section.
+    ...learningItems({
+      settings,
+      onChange,
+      onLessonsChanged: memory.changed,
+    }),
     ...lessonsItems({ lessons }),
     ...proceduresItems({ procedures, onOpenConversation }),
     ...reflectorItems({ reflector, onOpenConversation }),

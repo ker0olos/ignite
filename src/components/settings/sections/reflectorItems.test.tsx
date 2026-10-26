@@ -102,6 +102,19 @@ describe("reflectorItems", () => {
     expect(open).toHaveBeenCalledWith("/f", "c1");
   });
 
+  it("shows when the point applies and the words that taught it", () => {
+    const item = row(
+      hook({
+        reflections: [
+          point({ when: "reporting a review", evidence: "too long" }),
+        ],
+      }),
+    );
+    expect(screen.getByText("When reporting a review")).toBeTruthy();
+    expect(screen.getByText("“too long”")).toBeTruthy();
+    expect(item.keywords).toContain("reporting a review");
+  });
+
   it("names an edit without a conversation link", () => {
     row(hook({ reflections: [point({ taught: "edit", at: Date.now() })] }));
     expect(screen.getByText(/Your edit/).textContent).toBe(

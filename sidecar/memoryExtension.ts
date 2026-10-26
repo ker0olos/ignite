@@ -5,7 +5,12 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { OBSERVATION_TYPES, SUMMARY_TYPE } from "../shared/memory.ts";
+import {
+  OBSERVATION_TYPES,
+  PROCEDURE,
+  SUMMARY_TYPE,
+} from "../shared/memory.ts";
+import { learningOn } from "./learningSettings.ts";
 import { memoryEnabled } from "./memory.ts";
 import { indexLines, rankedLines, recall } from "./memoryContext.ts";
 import { MEMORY_DB, memoryDb, type Memory } from "./memoryDb.ts";
@@ -68,6 +73,12 @@ const SearchParams = Type.Object({
   limit: Type.Optional(Type.Number({ description: "At most this many (20)." })),
 });
 
+// With Procedures off, the agent gets none of them, though Settings still lists them.
+const hidden = async () => ((await learningOn("procedures")) ? "" : PROCEDURE);
+
+const shown = (memories: Memory[], concept: string) =>
+  concept ? memories.filter((m) => !m.concepts.includes(concept)) : memories;
+
 function registerTools(pi: ExtensionAPI, file: string) {
   pi.registerTool({
     name: "memory_search",
@@ -86,6 +97,7 @@ function registerTools(pi: ExtensionAPI, file: string) {
       const from = since ? Date.parse(since) : undefined;
       const found = search(memoryDb(file), folderOf(ctx.cwd), query, {
         types,
+        without: await hidden(),
         ...(from !== undefined && !Number.isNaN(from) && { since: from }),
         limit: clamp(limit ?? 20, 1, 50),
       });
@@ -107,7 +119,10 @@ function registerTools(pi: ExtensionAPI, file: string) {
     }),
     async execute(_id, { ids }, _signal, _onUpdate, ctx) {
       const folder = folderOf(ctx.cwd);
-      const found = byIds(memoryDb(file), folder, ids.slice(0, MAX_IDS));
+      const found = shown(
+        byIds(memoryDb(file), folder, ids.slice(0, MAX_IDS)),
+        await hidden(),
+      );
       return done(
         found.map(fullText).join("\n\n---\n\n") || "No memory has these ids.",
       );
@@ -126,12 +141,15 @@ function registerTools(pi: ExtensionAPI, file: string) {
       after: Type.Optional(Type.Number({ description: "How many after (3)." })),
     }),
     async execute(_id, { id, before, after }, _signal, _onUpdate, ctx) {
-      const found = around(
-        memoryDb(file),
-        folderOf(ctx.cwd),
-        id,
-        clamp(before ?? 3, 0, 20),
-        clamp(after ?? 3, 0, 20),
+      const found = shown(
+        around(
+          memoryDb(file),
+          folderOf(ctx.cwd),
+          id,
+          clamp(before ?? 3, 0, 20),
+          clamp(after ?? 3, 0, 20),
+        ),
+        await hidden(),
       );
       return index(found, "No memory has this id.");
     },
@@ -149,7 +167,8 @@ export default async function memory(pi: ExtensionAPI, file = MEMORY_DB) {
   pi.on("before_agent_start", async (event, ctx) => {
     if (!(await memoryEnabled())) return;
     try {
-      recalled ??= recall(memoryDb(file), folderOf(ctx.cwd));
+      const without = await hidden();
+      recalled ??= recall(memoryDb(file), folderOf(ctx.cwd), without);
     } catch {
       // An unreadable memory never stops the run; the next one tries again.
       return;

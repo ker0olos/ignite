@@ -12,6 +12,7 @@ import {
 } from "./hostReflect.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
 import { forkReport } from "./forks.ts";
+import { learningOn } from "./learningSettings.ts";
 import { reflect } from "./reflector.ts";
 import { WRAP_UP } from "./taskExtension.ts";
 
@@ -19,6 +20,10 @@ const { file } = vi.hoisted(() => ({
   file: `${process.env.TMPDIR ?? "/tmp"}/host-reflect-${process.pid}.json`,
 }));
 vi.mock("./reflector.ts", () => ({ reflect: vi.fn() }));
+// The real one reads the user's settings.toml.
+vi.mock("./learningSettings.ts", () => ({
+  learningOn: vi.fn(async () => true),
+}));
 vi.mock("./reflectorExtension.ts", async (orig) => ({
   ...(await orig<typeof import("./reflectorExtension.ts")>()),
   REFLECTOR_FILE: file,
@@ -193,6 +198,16 @@ describe("reflectOn", () => {
     expect(JSON.parse(readFileSync(file, "utf8"))).toEqual(next);
   });
 
+  it("reflects on nothing switched off, still clearing the run's corrections", async () => {
+    vi.mocked(learningOn).mockResolvedValueOnce(false);
+    const agent = agentWith([user("triage", 1), user("too long", 5)], 4);
+    agent.corrections = ["The user denied this call: git push"];
+    await reflectOn(agent, file);
+    expect(learningOn).toHaveBeenCalledWith("reflector");
+    expect(reflect).not.toHaveBeenCalled();
+    expect(agent.corrections).toEqual([]);
+  });
+
   it("leaves the points when the reflector keeps them or fails", async () => {
     const agent = agentWith([user("triage", 1), user("too long", 5)], 4);
     vi.mocked(reflect).mockResolvedValue(undefined);
@@ -209,7 +224,13 @@ describe("reflectorHandlers", () => {
   it("lists, edits (as the user's own) and removes points", async () => {
     expect(reflectorHandlers.reflections_list()).toEqual([]);
     const from = { conversation: "c1", folder: "/work", title: "Triage" };
-    writeFileSync(file, JSON.stringify([point({ from }), point({ id: "r2" })]));
+    writeFileSync(
+      file,
+      JSON.stringify([
+        point({ from, when: "reporting", evidence: "shorter" }),
+        point({ id: "r2" }),
+      ]),
+    );
     const edited = await reflectorHandlers.reflections_edit(ctx, {
       reflection: "r1",
       text: "  Be brief.  ",
@@ -221,6 +242,9 @@ describe("reflectorHandlers", () => {
     });
     expect(edited[0].at).toBeGreaterThan(1);
     expect(edited[0].from).toBeUndefined();
+    // Wholly the user's own now, for all work.
+    expect(edited[0].when).toBeUndefined();
+    expect(edited[0].evidence).toBeUndefined();
     expect(edited[1]).toEqual(point({ id: "r2" }));
     const same = await reflectorHandlers.reflections_edit(ctx, {
       reflection: "r1",

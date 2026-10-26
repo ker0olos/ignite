@@ -211,9 +211,9 @@ describe("write", () => {
     expect(context.systemPrompt).not.toContain(procedureRule([]));
   });
 
-  it("asks for procedures when told the run may teach them, naming the known ones", async () => {
+  it("asks for procedures with their rule when the run may teach them", async () => {
     const s = session(answer({ observations: [] }));
-    await write(s, run, [], (p) => p, [], ["Running the tests"]);
+    await write(s, run, [], (p) => p, [], procedureRule(["Running the tests"]));
     const [, context] = vi.mocked(s.modelRuntime.completeSimple).mock.calls[0];
     expect(context.systemPrompt).toContain(
       procedureRule(["Running the tests"]),

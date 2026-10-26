@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
@@ -9,6 +9,7 @@ import { withFiles } from "../shared/attachedFiles.ts";
 import { CODEMODE_TOOL } from "../shared/codemode.ts";
 import { LESSON_ADD_TOOL } from "../shared/lessons.ts";
 import { PROCEDURE } from "../shared/memory.ts";
+import { APP_NAME } from "../src/lib/app.ts";
 import type { Agent, Session } from "./hostTypes.ts";
 import { addMemories, memoryDb } from "./memoryDb.ts";
 import {
@@ -184,6 +185,18 @@ describe("procedureNote", () => {
     const note = procedureNote(picks, "/work/app", "fix", stopped.signal, db);
     stopped.abort();
     expect(await note).toBe("");
+  });
+
+  it("offers nothing, asking no model, switched off", async () => {
+    addMemories(db, [memory({ title: "Running", concepts: [PROCEDURE] })]);
+    await mkdir(join(dir, `.${APP_NAME}`));
+    await writeFile(
+      join(dir, `.${APP_NAME}`, "settings.toml"),
+      "[procedures]\nenabled = false\n",
+    );
+    const s = session(`${firstId(db)}`);
+    expect(await procedureNote(s, "/work/app", "fix", live(), db)).toBe("");
+    expect(s.modelRuntime.completeSimple).not.toHaveBeenCalled();
   });
 });
 

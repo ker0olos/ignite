@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { ReflectionBasis } from "@/components/reflector/ReflectionBasis";
 import { ReflectionTags } from "@/components/reflector/ReflectionTags";
 import { ReflectionText } from "@/components/reflector/ReflectionText";
 import { RemoveButton } from "@/components/mcp/RemoveButton";
@@ -52,10 +53,15 @@ export function reflectorItems({
           onSave={(t) => void reflector.edit(r.id, t)}
         />
       ),
-      hint: <ReflectionTags reflection={r} />,
+      hint: (
+        <>
+          <ReflectionTags reflection={r} />
+          <ReflectionBasis reflection={r} />
+        </>
+      ),
       id: `reflection-${r.id}`,
       alignTop: true,
-      keywords: `reflector working style feedback preferences how to work ${ENTRY_POINTS[r.entry].label}`,
+      keywords: `reflector working style feedback preferences how to work ${ENTRY_POINTS[r.entry].label} ${r.when ?? ""}`,
       control: (
         <span className="flex items-start gap-5">
           <LearnedSource

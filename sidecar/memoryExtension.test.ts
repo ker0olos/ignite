@@ -104,6 +104,34 @@ it("never stops a run when the memory can't be read", async () => {
   file = join(dir, "memory.db");
 });
 
+it("leaves procedures out of what the agent recalls and reads while they're off", async () => {
+  addMemories(memoryDb(file), [
+    memoryOf({ title: "Running the tests", concepts: ["procedure"] }),
+    memoryOf({ title: "Tests were slow", createdAt: 2_000 }),
+  ]);
+  await mkdir(join(dir, `.${APP_NAME}`), { recursive: true });
+  await writeFile(
+    join(dir, `.${APP_NAME}`, "settings.toml"),
+    "[procedures]\nenabled = false\n",
+  );
+  await load();
+  const recalled = (await start()).memory;
+  expect(recalled).toContain("Tests were slow");
+  expect(recalled).not.toContain("Running the tests");
+  expect(await run("memory_search", { query: "tests" })).not.toContain(
+    "Running the tests",
+  );
+  expect(await run("memory_get", { ids: [1] })).toBe(
+    "No memory has these ids.",
+  );
+  expect(await run("memory_timeline", { id: 2, before: 3 })).not.toContain(
+    "Running the tests",
+  );
+  // Back on, the agent gets them again.
+  await writeFile(join(dir, `.${APP_NAME}`, "settings.toml"), "");
+  expect(await run("memory_get", { ids: [1] })).toContain("Running the tests");
+});
+
 it("searches, reads and steps through the folder's memories", async () => {
   addMemories(memoryDb(file), [
     memoryOf({

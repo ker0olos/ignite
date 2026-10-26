@@ -16,6 +16,7 @@ import { typedSkill } from "../shared/skills.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
 import { isForkReport } from "./forks.ts";
+import { learningOn } from "./learningSettings.ts";
 import { callText } from "./lessons.ts";
 import { reflect } from "./reflector.ts";
 import { WRAP_UP } from "./taskExtension.ts";
@@ -139,6 +140,7 @@ export function reflectOn(agent: Agent, file = REFLECTOR_FILE) {
   if (!feedback.length) return reflecting;
   reflecting = reflecting
     .then(async () => {
+      if (!(await learningOn("reflector"))) return;
       const from = {
         conversation: agent.id,
         folder: agent.cwd,
@@ -172,6 +174,9 @@ export const reflectorHandlers = {
                   taught: "edit" as const,
                   at: Date.now(),
                   from: undefined,
+                  // Wholly the user's own now, for all work: the feedback's situation and words no longer apply.
+                  when: undefined,
+                  evidence: undefined,
                 }
               : p,
           )

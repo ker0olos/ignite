@@ -14,6 +14,7 @@ import {
 } from "../shared/lessons.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { APPROVAL_EVENT, type ApprovalAsk } from "./approvalAsk.ts";
+import { learningOn } from "./learningSettings.ts";
 import {
   addLesson,
   lessonFor,
@@ -35,6 +36,8 @@ export const LESSON_GUIDANCE =
   "The next conversation remembers nothing else, so a promise without a lesson is broken.";
 
 const DECLINED = "The user kept the lesson as it is.";
+const OFF =
+  "Lessons are off in Settings, so nothing was saved or removed. Carry on without it.";
 
 const blockedReason = (l: Lesson) =>
   `Blocked by a lesson from a past mistake [${l.id}]: ${l.text}\n` +
@@ -110,7 +113,7 @@ const confirm = (
     } satisfies ApprovalAsk);
   });
 
-function registerAdd(pi: ExtensionAPI, file: string) {
+function registerAdd(pi: ExtensionAPI, file: string, on: () => boolean) {
   pi.registerTool({
     name: LESSON_ADD_TOOL,
     label: "Lesson",
@@ -118,6 +121,7 @@ function registerAdd(pi: ExtensionAPI, file: string) {
       "Save a lesson from a mistake so no later conversation repeats it. Saved at once; the user is asked only to replace one.",
     parameters: Params,
     async execute(id, params, signal, _onUpdate, ctx) {
+      if (!on()) return done(OFF);
       const { folder_only, replaces, ...fields } = params;
       const folder = folderOf(ctx.cwd);
       const old = replaces ? lessonIn(file, folder, replaces) : undefined;
@@ -150,7 +154,7 @@ function registerAdd(pi: ExtensionAPI, file: string) {
   });
 }
 
-function registerRemove(pi: ExtensionAPI, file: string) {
+function registerRemove(pi: ExtensionAPI, file: string, on: () => boolean) {
   pi.registerTool({
     name: LESSON_REMOVE_TOOL,
     label: "Remove lesson",
@@ -158,6 +162,7 @@ function registerRemove(pi: ExtensionAPI, file: string) {
       "Remove a saved lesson, when the user asks for it. The user is asked first.",
     parameters: Type.Object({ id: Type.String() }),
     async execute(toolCallId, { id }, signal, _onUpdate, ctx) {
+      if (!on()) return done(OFF);
       const lesson = lessonIn(file, folderOf(ctx.cwd), id);
       const ask = `Remove the lesson "${lesson.text}"?`;
       if (!(await confirm(pi, toolCallId, ask, signal))) return done(DECLINED);
@@ -167,14 +172,25 @@ function registerRemove(pi: ExtensionAPI, file: string) {
   });
 }
 
-export default function lessons(pi: ExtensionAPI, file = LESSONS_FILE) {
+export default async function lessons(
+  pi: ExtensionAPI,
+  file = LESSONS_FILE,
+  settingsFile?: string,
+) {
+  const read = () => learningOn("lessons", settingsFile);
+  // Off, nothing is saved, listed or blocked; the tools follow a reload.
+  if (!(await read())) return;
+  // Read again as each run starts, not on every call: a switched-off run's calls, subagents' too, then refuse.
+  let enabled = true;
   // Read once per conversation: a system prompt that changes loses its prompt cache.
   let prompt: string | undefined;
 
-  registerAdd(pi, file);
-  registerRemove(pi, file);
+  registerAdd(pi, file, () => enabled);
+  registerRemove(pi, file, () => enabled);
 
-  pi.on("before_agent_start", (event, ctx) => {
+  pi.on("before_agent_start", async (event, ctx) => {
+    enabled = await read();
+    if (!enabled) return;
     // A tool_call lesson without `match` can't tell which calls it's about, so it's listed here instead.
     prompt ??= list(
       lessonsFor(readLessons(file), folderOf(ctx.cwd)).filter((l) => !l.match),
@@ -184,6 +200,7 @@ export default function lessons(pi: ExtensionAPI, file = LESSONS_FILE) {
   });
 
   pi.on("tool_call", (event, ctx) => {
+    if (!enabled) return;
     const all = lessonsFor(readLessons(file), folderOf(ctx.cwd));
     const input = event.input as Record<string, unknown>;
     const lesson = lessonFor(all, event.toolName, input);

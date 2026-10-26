@@ -200,6 +200,86 @@ describe("parsePoints", () => {
     expect(parsePoints('{"points": 3}', [short])).toBeUndefined();
   });
 
+  it("takes when a point applies and the words that taught it", () => {
+    const [added] = parsePoints(
+      reply([
+        {
+          entry: "asking",
+          text: "Ask one decision per question.",
+          when: " several things need acting on ",
+          evidence: "one at a time please",
+        },
+      ]),
+      [],
+    )!;
+    expect(added).toMatchObject({
+      when: "several things need acting on",
+      evidence: "one at a time please",
+    });
+    // Too long, an evidence is cut.
+    const [long] = parsePoints(
+      reply([{ entry: "always", text: "x", evidence: "e".repeat(400) }]),
+      [],
+    )!;
+    expect(long.evidence).toHaveLength(300);
+  });
+
+  it("refuses a new point whose when is too long, rather than let it apply to all work", () => {
+    const tooLong = {
+      entry: "always",
+      text: "One line.",
+      when: "w".repeat(201),
+    };
+    expect(parsePoints(reply([tooLong]), [])).toBeUndefined();
+    // A changed point keeps its own when.
+    const scoped = { ...short, when: "reporting" };
+    const [changed] = parsePoints(
+      reply([{ id: "r1", text: "Shorter.", when: "w".repeat(201) }]),
+      [scoped],
+    )!;
+    expect(changed).toMatchObject({ text: "Shorter.", when: "reporting" });
+  });
+
+  it("writes a when as the prompt reads it after When: one line, no When or colon of its own", () => {
+    const [added] = parsePoints(
+      reply([
+        {
+          entry: "always",
+          text: "Lead with the verdict.",
+          when: " When reporting\n several findings: ",
+        },
+      ]),
+      [],
+    )!;
+    expect(added.when).toBe("reporting several findings");
+  });
+
+  it("keeps a changed point's when and evidence unless given new ones; an empty when clears it", () => {
+    const scoped = { ...short, when: "reporting", evidence: "shorter" };
+    const [changed] = parsePoints(
+      reply([{ id: "r1", text: "Keep reports to 5 lines." }]),
+      [scoped],
+      { at: 5 },
+    )!;
+    expect(changed).toMatchObject({ when: "reporting", evidence: "shorter" });
+    const [cleared] = parsePoints(reply([{ id: "r1", when: "" }]), [scoped])!;
+    expect(cleared.when).toBeUndefined();
+    expect(cleared.text).toBe(scoped.text);
+    const [narrowed] = parsePoints(
+      reply([{ id: "r1", when: "reporting a review" }]),
+      [scoped],
+    )!;
+    expect(narrowed.when).toBe("reporting a review");
+  });
+
+  it("spends no edit on new evidence alone, which changes nothing the agent reads", () => {
+    expect(
+      parsePoints(reply([{ id: "r1", text: short.text, evidence: "new" }]), [
+        short,
+      ]),
+    ).toBeUndefined();
+  });
+
   it("can drop every point, but an empty reply keeps them", () => {
     expect(parsePoints(reply([{ id: "r1", drop: true }]), [short])).toEqual([]);
     expect(parsePoints(reply([]), [short])).toBeUndefined();
@@ -216,6 +296,36 @@ describe("reflectorInput", () => {
     expect(input).toContain("triage sentry");
     expect(reflectorInput([], [], [])).toContain("The points:\n(none)");
   });
+
+  it("lists a point's when and evidence", () => {
+    const scoped = { ...short, when: "reporting", evidence: "too long" };
+    expect(reflectorInput([], [], [scoped])).toContain(
+      '- [r1] (always) Keep reports short. · when: reporting · taught by: "too long"',
+    );
+  });
+
+  it("reads the whole conversation, private text left out; a long one as its opening and its end", () => {
+    const say = (content: string, timestamp: number) =>
+      ({ role: "user", content, timestamp }) as AgentMessage;
+    const kept = reflectorInput([], [say("a <private>key</private> b", 1)], []);
+    expect(kept).toContain("a [private] b");
+    expect(kept).not.toContain("key");
+    const filler = (n: number) =>
+      Array.from({ length: n }, (_, i) => say("x".repeat(5000), i + 2));
+    const long = [
+      say("the request", 1),
+      ...filler(3),
+      say("the middle", 50),
+      ...filler(25),
+      say("the end", 99),
+    ];
+    const cut = reflectorInput([], long, []);
+    expect(cut).toContain("the request");
+    expect(cut).toContain("[…]");
+    expect(cut).toContain("the end");
+    expect(cut).not.toContain("the middle");
+    expect(cut.length).toBeLessThan(101_000);
+  });
 });
 
 describe("reflect", () => {
@@ -226,9 +336,15 @@ describe("reflect", () => {
     expect(await reflect(s, ["f"], messages, [])).toMatchObject([
       { entry: "planning", text: "Plan first." },
     ]);
-    const [, , options] = vi.mocked(s.modelRuntime.completeSimple).mock
-      .calls[0] as unknown as [unknown, unknown, { cacheRetention: string }];
+    const [, context, options] = vi.mocked(s.modelRuntime.completeSimple).mock
+      .calls[0] as unknown as [
+      unknown,
+      { systemPrompt: string },
+      { cacheRetention: string },
+    ];
     expect(options.cacheRetention).toBe("none");
+    // It reads the whole conversation, so earlier feedback isn't new.
+    expect(context.systemPrompt).toContain("Only the feedback listed is new");
   });
 
   it("returns nothing when the call errors or fails", async () => {

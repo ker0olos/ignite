@@ -15,6 +15,7 @@ import { LESSON_ADD_TOOL } from "../shared/lessons.ts";
 import { PROCEDURE } from "../shared/memory.ts";
 import { typedMessage } from "../shared/sentComments.ts";
 import type { Agent, Session } from "./hostTypes.ts";
+import { learningOn } from "./learningSettings.ts";
 import { memoryEnabled } from "./memory.ts";
 import { memoryDb, type Memory } from "./memoryDb.ts";
 import { withConcept } from "./memorySearch.ts";
@@ -130,7 +131,7 @@ export async function procedureNote(
   signal: AbortSignal,
   db?: DatabaseSync,
 ): Promise<string> {
-  if (!(await memoryEnabled())) return "";
+  if (!(await memoryEnabled()) || !(await learningOn("procedures"))) return "";
   const listed = withConcept(db ?? memoryDb(), folder, PROCEDURE, LISTED);
   if (!listed.length) return "";
   const picked = await pick(s, text, listed, signal);
