@@ -33,7 +33,7 @@ src/                     React frontend (almost all logic lives here)
                          tool's bare Lucide glyph instead, pulsing or coloured) beside its title, the outcome under the title (when the pane is wide, useWidePane, the column
                          grows by a tile and indents everything but tool rows, so titles and cards share the reply text's edge;
                          padding only: negative margins or a container query there make WebKit lose the scroll place); consecutive calls of one tool (or MCP server), or reads and searches
-                         (Explored), share one tile (ToolCallGroup) as dots on a line from it (grey, red once failed), each still showing its argument, why and outcome; a script's (ScriptRow) calls as
+                         (Explore), share one tile (ToolCallGroup) as dots on a line from it (grey, red once failed), each still showing its argument, why and outcome; a script's (ScriptRow) calls as
                          steps joined by a line,
                          generated images as a media card (MediaCard: model, prompt, size, mark up), generated videos likewise (VideoCard), generated audio as an AudioCard (waveform player); WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning; under it, once a request has

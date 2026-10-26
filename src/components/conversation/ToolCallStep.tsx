@@ -6,7 +6,7 @@ import { useStreamedCall } from "@/hooks/useStreamedCall";
 import { BADGE_CLASSES, callReason, toolBadge } from "@/lib/toolLabels";
 import { cn } from "@/lib/utils";
 
-/** One step under a shared tile: a dot on the line in the tile's column, the call beside it (`titled` under Explored, where tools differ). */
+/** One step under a shared tile: a dot on the line in the tile's column, the call beside it (`titled` under Explore, where tools differ). */
 export function ToolCallStep({
   last,
   titled,

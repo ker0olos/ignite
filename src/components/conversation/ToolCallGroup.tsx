@@ -15,7 +15,7 @@ function groupTitle(call: ToolCall) {
     : toolTitle(call);
 }
 
-/** Consecutive calls of one tool (or reads and searches, as Explored) under one tile and title, as dots on a line from it, each with its own argument, why and outcome. */
+/** Consecutive calls of one tool (or reads and searches, as Explore) under one tile and title, as dots on a line from it, each with its own argument, why and outcome. */
 export function ToolCallGroup({
   calls,
   tools = {},
@@ -35,7 +35,7 @@ export function ToolCallGroup({
           badge={groupBadge(runs)}
         />
         <span className="text-[14px] font-semibold text-foreground">
-          {explored ? "Explored" : groupTitle(calls[0])}
+          {explored ? "Explore" : groupTitle(calls[0])}
         </span>
         <span className="text-[13px] text-muted-foreground">
           {groupCount(calls)}

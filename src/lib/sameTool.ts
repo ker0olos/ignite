@@ -32,7 +32,7 @@ const ALONE = new Set([
   LESSON_REMOVE_TOOL,
 ]);
 
-/** Whether a call only looks at files; consecutive ones share one Explored row. */
+/** Whether a call only looks at files; consecutive ones share one Explore row. */
 export function exploreCall(call: ToolCall) {
   return READ_TOOLS.has(call.name);
 }

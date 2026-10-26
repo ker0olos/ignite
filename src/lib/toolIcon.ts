@@ -157,7 +157,7 @@ function builtInIcon(name: string) {
   return name.startsWith("memory_") ? Brain : undefined;
 }
 
-/** The Explored row's icon, over consecutive reads and searches. */
+/** The Explore row's icon, over consecutive reads and searches. */
 export const EXPLORE_ICON: ToolIcon = {
   kind: "lucide",
   icon: Search,
