@@ -472,7 +472,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   remoteServer.ts        Its HTTP server: proxies the UI from Vite, WebSocket; its links (network, Tailscale)
   types/                 Type shims for pi-mcp-adapter and pi-claude-bridge (their TypeScript fails our strict tsconfig)
 demo/tempo/, demo/pantry/ Sample projects `pnpm run demo` opens (not built or tested here)
-docs/                    README screenshots, taken in demo mode
+docs/                    README screenshots, taken in demo mode; learning.md: how memory, lessons and the reflector fit together
 shared/hostProtocol.ts   Messages between app and sidecar (used by both)
 shared/auth.ts           A provider sign-in's prompts and events as they cross the wire
 shared/validation.ts     Checks on typed API keys and MCP servers (used by both)
