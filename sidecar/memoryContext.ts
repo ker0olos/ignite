@@ -83,9 +83,9 @@ function render(folder: string, memories: Memory[]): string {
   ].join("\n");
 }
 
-/** `folder`'s recalled memories for a system prompt, within BUDGET; empty when it has none. */
-export function recall(db: DatabaseSync, folder: string): string {
-  let observations = recent(db, folder, OBSERVATIONS);
+/** `folder`'s recalled memories for a system prompt, within BUDGET, `without` a concept's; empty when it has none. */
+export function recall(db: DatabaseSync, folder: string, without = ""): string {
+  let observations = recent(db, folder, OBSERVATIONS, false, without);
   let summaries = recent(db, folder, SUMMARIES, true);
   for (;;) {
     if (!observations.length && !summaries.length) return "";

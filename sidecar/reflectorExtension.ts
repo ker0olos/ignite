@@ -11,6 +11,7 @@ import {
   TAUGHT_BY,
 } from "../shared/reflector.ts";
 import { APP_NAME } from "../src/lib/app.ts";
+import { learningOn } from "./learningSettings.ts";
 
 export const REFLECTOR_FILE = join(homedir(), `.${APP_NAME}`, "reflector.json");
 
@@ -22,7 +23,9 @@ const isPoint = (p: Partial<Reflection> | null): p is Reflection =>
   typeof p.entry === "string" &&
   p.entry in ENTRY_POINTS &&
   typeof p.taught === "string" &&
-  p.taught in TAUGHT_BY;
+  p.taught in TAUGHT_BY &&
+  ["undefined", "string"].includes(typeof p.when) &&
+  ["undefined", "string"].includes(typeof p.evidence);
 
 /** Every whole point; none when the file is missing or unreadable. */
 export function readReflections(file = REFLECTOR_FILE): Reflection[] {
@@ -47,8 +50,11 @@ const SECTIONS: Record<Exclude<EntryPoint, "always">, string[]> = {
   delegating: ["subagents"],
 };
 
+// The evidence stays out: it's for the reflector, and would cost every conversation's prompt.
 const bullets = (points: Reflection[]) =>
-  points.map((p) => `- ${p.text}`).join("\n");
+  points
+    .map((p) => `- ${p.when ? `When ${p.when}: ` : ""}${p.text}`)
+    .join("\n");
 
 /** The prompt's sections with the points added, each where its entry point's guidance is; a point whose entry point isn't in this conversation is left out. */
 export function placeReflections(
@@ -68,10 +74,15 @@ export function placeReflections(
   }
 }
 
-export default function reflector(pi: ExtensionAPI, file = REFLECTOR_FILE) {
+export default function reflector(
+  pi: ExtensionAPI,
+  file = REFLECTOR_FILE,
+  settingsFile?: string,
+) {
   // Read once per conversation: a system prompt that changes loses its prompt cache.
   let points: Reflection[] | undefined;
-  pi.on("before_agent_start", (event) => {
+  pi.on("before_agent_start", async (event) => {
+    if (!(await learningOn("reflector", settingsFile))) return;
     points ??= readReflections(file);
     const asking = pi.getActiveTools().includes(ASK_TOOL);
     placeReflections(event.systemPromptOptions.sections, points, asking);

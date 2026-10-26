@@ -112,6 +112,44 @@ export const SECTION_NAMES = (Object.keys(SECTIONS) as Section[]).filter(
   (s) => s !== "Mac" || isMac(),
 );
 
+const LEARNING_TABS = ["Memory", "Lessons", "Procedures", "Reflector"] as const;
+export type LearningTab = (typeof LEARNING_TABS)[number];
+
+export const LEARNING = {
+  icon: Brain,
+  brief: "What carries between conversations",
+  blurb:
+    "What the agent carries from one conversation to the next. Each part has its own switch.",
+};
+
+export const isLearningTab = (s: Section): s is LearningTab =>
+  (LEARNING_TABS as readonly Section[]).includes(s);
+
+export interface NavEntry {
+  label: string;
+  icon: LucideIcon;
+  brief: string;
+  sections: Section[];
+}
+
+/** The nav's entries: every section, with the learning ones collapsed into one at Memory's place. */
+export function navEntries(): NavEntry[] {
+  return SECTION_NAMES.flatMap((s): NavEntry[] => {
+    if (s === LEARNING_TABS[0]) {
+      return [{ label: "Learning", ...LEARNING, sections: [...LEARNING_TABS] }];
+    }
+    if (isLearningTab(s)) return [];
+    return [
+      {
+        label: s,
+        icon: SECTIONS[s].icon,
+        brief: SECTIONS[s].brief,
+        sections: [s],
+      },
+    ];
+  });
+}
+
 export interface Item {
   section: Section;
   title: string;
@@ -128,6 +166,8 @@ export interface Item {
   keywords?: string;
   /** Lines the control up with the title rather than the row's middle, for rows of several lines. */
   alignTop?: boolean;
+  /** In a card of its own above the section's other rows, as a section's switch is. */
+  alone?: boolean;
   control?: ReactNode;
 }
 

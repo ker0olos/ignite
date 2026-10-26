@@ -38,7 +38,7 @@ src/                     React frontend (almost all logic lives here)
                          generated images as a media card (MediaCard: model, prompt, size, mark up), generated videos likewise (VideoCard), generated audio as an AudioCard (waveform player); WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning; under it, once a request has
                          gone 10s unanswered, why (QuietRequestNote)
-    settings/            Settings dialog shell, its rows, and one items file per section
+    settings/            Settings dialog shell, its rows, and one items file per section; the Learning section's tabs
     memory/              The Memory settings' extras: search, type filters with counts, the folder's memories (each opens to its facts and files)
     lessons/             A lesson's tags (its folder, what brings it up), in Settings
     procedures/          A procedure's folder and steps, in Settings
@@ -132,6 +132,7 @@ src/                     React frontend (almost all logic lives here)
     useLessons.ts        Every saved lesson, while Settings is open; removing one
     useProcedures.ts     Every folder's procedures, while Settings is open; removing one
     useReflector.ts      The reflector's points, while Settings is open; editing or removing one
+    useListFilter.ts     A Learning tab's own search and filter chip (lib/learningFilters.ts filters by them)
     useFallbackKeys.ts   The fallback Anthropic API keys on the connect screen: add, remove, reorder
     useOpenedOnce.ts     Mounts a lazy dialog (Settings, command center) on first open; loads its code soon after startup
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
@@ -153,7 +154,7 @@ src/                     React frontend (almost all logic lives here)
     useImageTarget.ts    The showing input (conversation, task sheet) marked-up images are added to
   lib/
     app.ts               APP_NAME, the single source of the app's name
-    settings.ts          Settings type, defaults, TOML load/save
+    settings.ts          TOML load/save of the settings; settingsDefaults.ts their type, defaults and limits
     composerSettings.ts  The composer's approval mode and whether new conversations start on Router, saved on change
     store.ts             App state (tauri-plugin-store) + cross-window sync
     files.ts             Directory listing and reading files for the viewer
@@ -403,6 +404,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   skills/                Built-in skills (code-review, security-review, design-references), loaded after the app's; a skill of the same name replaces one
   skillCatalog.ts        Other apps' skills to import: Claude Code, Codex, Cursor, ~/.agents, Claude Code plugins
   memory.ts              The memory's on/off setting; what the Memory settings show; cmem's import at start
+  learningSettings.ts    Lessons', the reflector's and procedures' on/off settings
   memoryDb.ts            The memory (~/.ignite/memory.db, node:sqlite): observations and summaries per folder, FTS5
   memorySearch.ts        Reading it: a folder's latest, full-text search, by id, around one
   memoryContext.ts       What a new conversation recalls: an index of the folder's latest memories
@@ -588,6 +590,20 @@ Two places hold persisted data:
   still read) records what conversations do, recalls it in later ones and
   gives the agent the memory tools. Recording and recall check it before each
   run; the tools follow a reload.
+- **Learning settings** (`[lessons]`, `[reflector]`, `[procedures]`, each
+  `enabled`, on by default; the switch first in its tab,
+  `sidecar/learningSettings.ts`). Settings shows Memory, Lessons, Procedures
+  and Reflector as one nav entry, Learning, its four tabs each with a count and
+  "off" when switched off (`LearningTabs`, `lib/learning.ts`); search still
+  finds them under their own names. Off, nothing new is learned and what's saved
+  isn't used, but stays listed. Lessons: no `lesson_add`/`lesson_remove`
+  (switching reloads the conversations, like memory; until then, and in
+  subagents, they refuse), no prompt section, no blocked calls. Reflector: no
+  reflection after a run, no points in the prompt. Procedures (also off with
+  memory): none recorded or picked, and kept out of the agent's memory too (the
+  recalled index, `memory_search`, `memory_get`, `memory_timeline`; Settings →
+  Memory still lists them). Each is read as each run starts (the memory tools'
+  on each call).
 - **Subagent settings** (`[subagents]`): `enabled` (on by default) gives
   the agent the `subagent` tool; `max` (default 2) caps how many of a
   conversation's run at once; it may start any number, and the rest queue
@@ -1236,8 +1252,8 @@ the system prompt with the system_prompt lessons, tagged with its tool, and
 holds no call. Subagents get
 the same checks.
 
-Settings → Lessons lists every saved lesson
-(where it applies, how often it came up) and removes one.
+Settings → Lessons turns them on or off (`[lessons] enabled`) and lists every
+saved lesson (where it applies, how often it came up) and removes one.
 
 The reflector (`sidecar/reflector.ts`) has one job: making the agent work the
 way this user wants, from their feedback, over time. Lessons stay as they are
@@ -1251,11 +1267,19 @@ note or their own answer; a bare pick is a choice for the task), calls they
 denied or wrote over (not a declined `ask_user`, `task_add`, lesson change or
 run outside the sandbox) and rewinds (with what they dropped; the new message
 is the run's). When a run with any settles, the cheapest priced model of its
-provider (the router's) reads it with the points and the run's last 15,000
-characters, and either keeps them (the usual case: task-only choices, project
-facts and single tool mistakes teach nothing here) or replies with the points
-it keeps, changes (a left-out entry point stays), adds (with an entry point and
-the kind of feedback that taught it) or drops. A point it leaves out stays, so
+provider (the router's) reads it with the points and the whole conversation as
+the memory's writer reads it (`<private>` text left out), up to 100,000
+characters (past that its opening 10,000 and its end; told that only the run's
+listed feedback is new, so earlier feedback isn't counted twice), and either keeps them
+(the usual case: task-only choices, project facts and single tool mistakes
+teach nothing here) or replies with the points it keeps, changes (a left-out
+entry point stays), adds (with an entry point and the kind of feedback that
+taught it) or drops. An added or changed point also takes `when`, the
+situation it applies in (left out when it holds for all work), and `evidence`,
+the user's words that taught it; a point keeps both unless given new ones, and
+the reflector weighs new feedback against a point's evidence, so feedback from
+another situation narrows its `when` or adds a point rather than reverses it.
+New evidence alone is ignored (it changes nothing the agent reads). A point it leaves out stays, so
 only an explicit drop removes one; at most 10 per entry point, a new one
 merged into the one it sharpens, and at most 3 edits (adds, changes, drops) a
 reflection, so one run's feedback can't rewrite them to fit that run (a full
@@ -1269,11 +1293,13 @@ point's guidance: `asking` in the `questions` section (only while `ask_user`
 is active), `planning` in `plan` (a task's `task`), `delivering` in
 `worktree` (the git guidance), `delegating` in `subagents`, and `always` in a
 `reflector` section of its own; a point whose section the conversation lacks
-is left out. Each new or changed point records the conversation it was
-learned in. Settings → Reflector lists them like lessons: where each is read
-(its entry point), and what taught it, in which conversation (a link that
-opens it) and how long ago; it edits one in place (then the user's own, with
-no conversation) and removes one.
+is left out. A point with a `when` reads "When <when>: <point>"; its evidence
+never enters the agent's prompt. Each new or changed point records the
+conversation it was learned in. Settings → Reflector lists them like lessons:
+where each is read (its entry point), when it applies and the words that
+taught it, what taught it, in which conversation (a link that opens it) and
+how long ago; it edits one in place (then wholly the user's own, for all work:
+no conversation, no `when`, no evidence) and removes one.
 
 Claude subscriptions run through the user's own Claude Code via the
 `pi-claude-bridge` extension (pi provider `claude-bridge`), because Anthropic

@@ -1,22 +1,21 @@
+import type { ComponentType } from "react";
 import { Button } from "@/components/ui/button";
-import { OBSERVATION_ICONS } from "@/components/memory/observationIcons";
 import { cn } from "@/lib/utils";
 
-/** One type filter: its icon, name and count; pressed while it is the one shown. */
-export function KindPill({
-  kind,
+/** One filter: its icon (if any), name and count; pressed while it is the one shown. */
+export function FilterPill({
+  icon: Icon,
   label,
   count,
   pressed,
   onPress,
 }: {
-  kind: string | null;
+  icon?: ComponentType<{ className?: string }>;
   label: string;
   count: number;
   pressed: boolean;
   onPress: () => void;
 }) {
-  const Icon = kind ? OBSERVATION_ICONS[kind] : undefined;
   return (
     <Button
       type="button"

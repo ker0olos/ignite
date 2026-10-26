@@ -8,18 +8,18 @@ export const ENTRY_POINTS: Record<
   EntryPoint,
   { label: string; where: string }
 > = {
-  always: { label: "Every reply", where: "In the system prompt" },
-  asking: { label: "Asking", where: "Beside ask_user's instructions" },
+  always: { label: "In general", where: "In the system prompt, for all work" },
+  asking: { label: "When asking", where: "Beside ask_user's instructions" },
   planning: {
-    label: "Planning",
+    label: "When planning",
     where: "Beside task_update's instructions",
   },
   delivering: {
-    label: "Delivering",
+    label: "When delivering",
     where: "Beside the git tool's instructions",
   },
   delegating: {
-    label: "Delegating",
+    label: "When delegating",
     where: "Beside the subagent tool's instructions",
   },
 };
@@ -42,6 +42,10 @@ export type Reflection = {
   taught: Taught;
   /** When it was learned or last changed (ms). */
   at: number;
+  /** The situation it applies in, read after "When" ("reporting several findings"); none when it always does. */
+  when?: string;
+  /** The user's own words that taught it, for the reflector and Settings; never in the agent's prompt. */
+  evidence?: string;
   /** The conversation it was learned or last changed in; none for the user's own edit. */
   from?: LearnedIn;
 };
@@ -53,6 +57,12 @@ export const MAX_PER_ENTRY_POINT = 10;
 
 /** The most characters one point holds. */
 export const MAX_REFLECTION_CHARS = 400;
+
+/** The most characters a point's `when` holds. */
+export const MAX_WHEN_CHARS = 200;
+
+/** The most characters of a point's `evidence` kept. */
+export const MAX_EVIDENCE_CHARS = 300;
 
 export type ReflectorRequest =
   /** Every point, for Settings. */

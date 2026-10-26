@@ -2,7 +2,7 @@ import type { RemoteStatus } from "../../../../shared/remote";
 import { PortInput } from "@/components/remote/PortInput";
 import { RemoteLink } from "@/components/remote/RemoteLink";
 import type { Item } from "@/components/settings/sections";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import { isRemote } from "@/lib/remote";
 import type { Settings } from "@/lib/settings";
 
@@ -55,7 +55,7 @@ export function remoteItems({
         "Serve this app to browsers on your network. Anyone who can reach this Mac can use the agent as you, with no password.",
       keywords: "phone mobile browser lan network wifi web",
       control: (
-        <Switch
+        <RailSwitch
           checked={remote.enabled}
           onCheckedChange={(enabled) => save({ enabled })}
         />

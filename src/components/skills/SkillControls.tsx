@@ -1,5 +1,5 @@
 import { RemoveButton } from "@/components/mcp/RemoveButton";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 
 /** A skill row's switch and remove button. */
 export function SkillControls({
@@ -20,7 +20,7 @@ export function SkillControls({
         onConfirm={onRemove}
         description="The agent can no longer use it. You can import it again anytime."
       />
-      <Switch
+      <RailSwitch
         className="ml-2"
         aria-label={`Use ${name}`}
         checked={enabled}

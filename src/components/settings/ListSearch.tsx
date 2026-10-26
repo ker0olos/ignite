@@ -4,15 +4,16 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { basename } from "@/lib/paths";
 
-/** The box that searches the open folder's memories. */
-export function MemorySearch({
-  folder,
+/** A search box above a list. */
+export function ListSearch({
+  label,
+  placeholder,
   query,
   onChange,
 }: {
-  folder: string;
+  label: string;
+  placeholder: string;
   query: string;
   onChange: (query: string) => void;
 }) {
@@ -23,8 +24,8 @@ export function MemorySearch({
       </InputGroupAddon>
       <InputGroupInput
         type="search"
-        aria-label="Search memories"
-        placeholder={`Search ${basename(folder)}'s memories`}
+        aria-label={label}
+        placeholder={placeholder}
         className="text-[13px]"
         value={query}
         onChange={(e) => onChange(e.target.value)}

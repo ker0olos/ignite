@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Lesson } from "../../shared/lessons";
+import { useListFilter } from "@/hooks/useListFilter";
 import type { HostClient } from "@/lib/piHost";
 
 /** Every saved lesson, fetched while the Settings dialog is open, and removing one. */
 export function useLessons(host: HostClient | null, open: boolean) {
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const listFilter = useListFilter();
 
   useEffect(() => {
     if (!host || !open) return;
@@ -36,5 +38,5 @@ export function useLessons(host: HostClient | null, open: boolean) {
     [host],
   );
 
-  return { lessons, error, remove };
+  return { lessons, error, remove, ...listFilter };
 }

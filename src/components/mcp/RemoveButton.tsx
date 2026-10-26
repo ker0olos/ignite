@@ -1,5 +1,4 @@
 import { Trash2 } from "lucide-react";
-import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { confirmNative } from "@/lib/lifecycle";
 
@@ -8,18 +7,14 @@ export function RemoveButton({
   name,
   onConfirm,
   description = "The agent can no longer use its tools. You can add it again anytime.",
-  variant = "ghost",
-  icon = <Trash2 />,
 }: {
   name: string;
   onConfirm: () => void;
   description?: string;
-  variant?: "ghost" | "outline";
-  icon?: ReactNode;
 }) {
   return (
     <Button
-      variant={variant}
+      variant="ghost"
       size="icon-sm"
       aria-label={`Remove ${name}`}
       title="Remove"
@@ -29,7 +24,7 @@ export function RemoveButton({
         )
       }
     >
-      {icon}
+      <Trash2 />
     </Button>
   );
 }

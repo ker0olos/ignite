@@ -1,6 +1,6 @@
 import { KindFilters } from "@/components/memory/KindFilters";
 import { MemoryList } from "@/components/memory/MemoryList";
-import { MemorySearch } from "@/components/memory/MemorySearch";
+import { ListSearch } from "@/components/settings/ListSearch";
 import type { useMemory } from "@/hooks/useMemory";
 import { totalOf } from "@/lib/memory";
 import { basename } from "@/lib/paths";
@@ -26,7 +26,12 @@ export function MemoryPreview({
   return (
     <div className="mt-4 space-y-3">
       {folder && (
-        <MemorySearch folder={folder} query={query} onChange={setQuery} />
+        <ListSearch
+          label="Search memories"
+          placeholder={`Search ${basename(folder)}'s memories`}
+          query={query}
+          onChange={setQuery}
+        />
       )}
       {folder && (count > 0 || filtered) && (
         <KindFilters counts={counts} kind={kind} onChange={setKind} />

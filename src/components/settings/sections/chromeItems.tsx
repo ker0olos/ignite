@@ -1,6 +1,6 @@
 import { CHROME_TOOLS } from "../../../../shared/chrome";
 import type { Item } from "@/components/settings/sections";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import type { Settings } from "@/lib/settings";
 
 /** Settings rows for Chrome: the tools as a whole, then each one. */
@@ -22,7 +22,7 @@ export function chromeItems({
         "The agent can use your Chrome, or a separate one it starts when yours doesn't allow debugging.",
       keywords: "chrome browser tabs web devtools",
       control: (
-        <Switch
+        <RailSwitch
           checked={chrome.enabled}
           onCheckedChange={(enabled) => save({ enabled })}
         />
@@ -34,7 +34,7 @@ export function chromeItems({
       description: tool.description,
       keywords: `chrome browser ${tool.name}`,
       control: (
-        <Switch
+        <RailSwitch
           aria-label={tool.label}
           disabled={!chrome.enabled}
           checked={chrome.enabled && !chrome.disabled_tools.includes(tool.name)}

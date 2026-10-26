@@ -1,8 +1,7 @@
 import type { RefObject } from "react";
 import { Search } from "lucide-react";
 import {
-  SECTION_NAMES,
-  SECTIONS,
+  navEntries,
   type Item,
   type Section,
 } from "@/components/settings/sections";
@@ -44,19 +43,22 @@ export function SettingsNav({
       </label>
       {/* A column on desktop; on a phone, a strip that scrolls sideways. */}
       <div className="contents max-sm:flex max-sm:gap-1 max-sm:overflow-x-auto">
-        {SECTION_NAMES.map((s) => {
-          const Icon = SECTIONS[s].icon;
-          const dim = q && !items.some((i) => i.section === s && matches(i));
+        {navEntries().map((e) => {
+          const Icon = e.icon;
+          const covers = e.sections.includes(section);
+          const dim =
+            q &&
+            !items.some((i) => e.sections.includes(i.section) && matches(i));
           return (
             <button
-              key={s}
+              key={e.label}
               onClick={() => {
                 onQueryChange("");
-                onSectionChange(s);
+                onSectionChange(covers ? section : e.sections[0]);
               }}
               className={cn(
                 "flex w-full shrink-0 items-start gap-2 rounded-md px-2 py-1 text-left text-[13px] max-sm:w-auto max-sm:items-center max-sm:py-1.5",
-                !q && s === section
+                !q && covers
                   ? "bg-accent text-accent-foreground"
                   : "hover:bg-accent/50",
                 dim && "opacity-40",
@@ -64,9 +66,9 @@ export function SettingsNav({
             >
               <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground max-sm:mt-0" />
               <span className="min-w-0">
-                <span className="block">{s}</span>
+                <span className="block">{e.label}</span>
                 <span className="block truncate text-[11px] text-muted-foreground max-sm:hidden">
-                  {SECTIONS[s].brief}
+                  {e.brief}
                 </span>
               </span>
             </button>

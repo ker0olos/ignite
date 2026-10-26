@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import type { Settings } from "@/lib/settings";
 import { isWindows } from "@/lib/window";
 
@@ -27,7 +27,7 @@ function fullAccessItem(
       "Auto runs every tool call without asking and outside the sandbox: risky commands, files outside the folder, commits and pushes.",
     keywords: "yolo approval auto sandbox permissions bypass trust",
     control: (
-      <Switch
+      <RailSwitch
         checked={settings.approval.full_access}
         onCheckedChange={(full_access) =>
           onChange({
@@ -52,7 +52,7 @@ function windowsSandboxItem(
       "Auto runs shell commands in a sandbox instead of asking for each: as a separate Windows user that writes only in folders commands run in, online only through the app. The first command asks for administrator rights once, to set it up.",
     keywords: "sandbox windows approval auto permissions srt",
     control: (
-      <Switch
+      <RailSwitch
         checked={settings.approval.windows_sandbox}
         onCheckedChange={(windows_sandbox) =>
           onChange({
@@ -77,7 +77,7 @@ function notificationsItem(
       "Tells you when a conversation finishes or waits for you, while the app isn't in front.",
     keywords: "notify alert done finished waiting banner",
     control: (
-      <Switch
+      <RailSwitch
         checked={settings.notifications.enabled}
         onCheckedChange={(enabled) =>
           onChange({
@@ -101,7 +101,7 @@ function notificationSoundItem(
     description: "Plays a short chime with each notification.",
     keywords: "notify alert sound chime bell audio",
     control: (
-      <Switch
+      <RailSwitch
         checked={settings.notifications.sound}
         disabled={!settings.notifications.enabled}
         onCheckedChange={(sound) =>
@@ -133,7 +133,7 @@ export function agentItems({
         "The agent asks you about open choices, with options to pick from. Off, it decides on its own.",
       keywords: "questions autonomous choices options",
       control: (
-        <Switch
+        <RailSwitch
           checked={settings.conversation.ask_questions}
           onCheckedChange={(ask_questions) =>
             onChange({
@@ -151,7 +151,7 @@ export function agentItems({
         "The agent can hand tasks to its own model or a cheaper one from the same provider, at its effort or lower, and talk with it.",
       keywords: "subagents delegate agents helpers",
       control: (
-        <Switch
+        <RailSwitch
           checked={settings.subagents.enabled}
           onCheckedChange={(enabled) =>
             onChange({

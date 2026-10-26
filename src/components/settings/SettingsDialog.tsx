@@ -18,13 +18,10 @@ import { editorItems } from "@/components/settings/sections/editorItems";
 import { filesItems } from "@/components/settings/sections/filesItems";
 import { hotkeysItems } from "@/components/settings/sections/hotkeysItems";
 import { mcpItems } from "@/components/settings/sections/mcpItems";
-import { memoryItems } from "@/components/settings/sections/memoryItems";
-import { lessonsItems } from "@/components/settings/sections/lessonsItems";
-import { proceduresItems } from "@/components/settings/sections/proceduresItems";
+import { learningSectionItems } from "@/components/settings/sections/learningSectionItems";
 import { providersItems } from "@/components/settings/sections/providersItems";
 import { remoteItems } from "@/components/settings/sections/remoteItems";
 import { skillsItems } from "@/components/settings/sections/skillsItems";
-import { reflectorItems } from "@/components/settings/sections/reflectorItems";
 import { SettingsNav } from "@/components/settings/SettingsNav";
 import { SettingsSections } from "@/components/settings/SettingsSections";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -37,6 +34,7 @@ import { useScrollToNewServer } from "@/hooks/useScrollToNewServer";
 import type { useSkills } from "@/hooks/useSkills";
 import type { useReflector } from "@/hooks/useReflector";
 import { useInstalledThemes } from "@/hooks/useInstalledThemes";
+import { learningTabs } from "@/lib/learning";
 import type { Settings } from "@/lib/settings";
 
 export type { Section } from "@/components/settings/sections";
@@ -95,16 +93,15 @@ export function SettingsDialog({
 
   useScrollToNewServer(mcp.servers);
 
+  const learning = { memory, lessons, procedures, reflector };
+  const options = { settings, onChange, onOpenConversation, folder, query };
   const items: Item[] = [
     ...providersItems({ providers, providersError, onManageProviders }),
     ...agentItems({ settings, onChange }),
     ...mcpItems({ mcp, onEdit: setEditing, onAdd: () => setEditing("new") }),
     ...skillsItems({ skills }),
     ...chromeItems({ settings, onChange }),
-    ...memoryItems({ memory, folderOpen: !!folder, settings, onChange }),
-    ...lessonsItems({ lessons }),
-    ...proceduresItems({ procedures, onOpenConversation }),
-    ...reflectorItems({ reflector, onOpenConversation }),
+    ...learningSectionItems(learning, options),
     ...remoteItems({ settings, onChange, status: remote }),
     ...macItems(settings, onChange),
     ...appearanceItems({
@@ -152,7 +149,12 @@ export function SettingsDialog({
           mcp={mcp}
           skills={skills}
           memory={memory}
+          lessons={lessons}
+          procedures={procedures}
+          reflector={reflector}
           folder={folder}
+          tabs={learningTabs(settings, learning, folder)}
+          onSectionChange={setSection}
         />
         <McpServerDialog
           open={editing !== null}

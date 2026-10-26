@@ -5,19 +5,24 @@ import { toMemory, type Memory } from "./memoryDb.ts";
 
 type Rows = Record<string, unknown>[];
 
-/** `folder`'s newest memories, newest first; `summaries` picks summaries or observations. */
+// A memory with concept `?` is left out; "" leaves none out.
+const lacks = (column: string) =>
+  `NOT EXISTS (SELECT 1 FROM json_each(${column}) WHERE value = ?)`;
+
+/** `folder`'s newest memories, newest first; `summaries` picks summaries or observations; `without` leaves out a concept's. */
 export function recent(
   db: DatabaseSync,
   folder: string,
   limit: number,
   summaries = false,
+  without = "",
 ): Memory[] {
   const rows = db
     .prepare(
-      `SELECT * FROM memories WHERE folder = ? AND (type = ?) = ?
+      `SELECT * FROM memories WHERE folder = ? AND (type = ?) = ? AND ${lacks("concepts")}
        ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
-    .all(folder, SUMMARY_TYPE, summaries ? 1 : 0, limit) as Rows;
+    .all(folder, SUMMARY_TYPE, summaries ? 1 : 0, without, limit) as Rows;
   return rows.map(toMemory);
 }
 
@@ -43,6 +48,8 @@ export type SearchFilter = {
   types?: string[];
   /** Only memories from then on, in ms since the epoch. */
   since?: number;
+  /** Leaves out memories with this concept. */
+  without?: string;
   limit: number;
 };
 
@@ -50,15 +57,16 @@ function matching(
   db: DatabaseSync,
   folder: string,
   match: string,
-  { types = [], since, limit }: SearchFilter,
+  { types = [], since, without = "", limit }: SearchFilter,
 ): Memory[] {
   const where = [
     "memories_fts MATCH ?",
     "m.folder = ?",
+    lacks("m.concepts"),
     ...(types.length ? [`m.type IN (${types.map(() => "?").join(", ")})`] : []),
     ...(since === undefined ? [] : ["m.created_at >= ?"]),
   ];
-  const params: SQLInputValue[] = [match, folder, ...types];
+  const params: SQLInputValue[] = [match, folder, without, ...types];
   if (since !== undefined) params.push(since);
   const rows = db
     .prepare(

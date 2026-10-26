@@ -1,6 +1,6 @@
 import { Brain } from "lucide-react";
 import type { Item } from "@/components/settings/sections";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import type { useMemory } from "@/hooks/useMemory";
 import { memoryDescription } from "@/lib/memory";
 import type { Settings } from "@/lib/settings";
@@ -24,9 +24,10 @@ export function memoryItems({
       title: "Memory",
       description: memory.error ?? memoryDescription(enabled, folderOpen),
       icon: <Brain className="size-4 shrink-0 text-muted-foreground" />,
+      alone: true,
       keywords: "memory remember recall context observations cmem claude-mem",
       control: (
-        <Switch
+        <RailSwitch
           checked={enabled}
           onCheckedChange={async (on) => {
             await onChange({ ...settings, memory: { enabled: on } });

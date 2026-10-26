@@ -12,6 +12,7 @@ import { PROCEDURE } from "../shared/memory.ts";
 import { addMemories, memoryDb } from "./memoryDb.ts";
 import { recent } from "./memorySearch.ts";
 import { write } from "./memoryWriter.ts";
+import { procedureRule } from "./procedures.ts";
 import { memory } from "./testMemory.ts";
 
 vi.mock("./memoryWriter.ts", async (original) => ({
@@ -110,7 +111,19 @@ it("lets a run with a failed command teach procedures, naming the folder's", asy
   } as unknown as AgentMessage;
   ran(a, user("run the tests", 4), failed, reply(6));
   await rememberRun(a, db);
-  expect(vi.mocked(write).mock.calls[1][5]).toEqual(["Running the tests"]);
+  expect(vi.mocked(write).mock.calls[1][5]).toBe(
+    procedureRule(["Running the tests"]),
+  );
+  // Switched off, the run's memories are still written, without procedures.
+  await mkdir(join(dir, `.${APP_NAME}`));
+  await writeFile(
+    join(dir, `.${APP_NAME}`, "settings.toml"),
+    "[procedures]\nenabled = false\n",
+  );
+  ran(a, user("again", 7), { ...failed, timestamp: 8 }, reply(9));
+  await rememberRun(a, db);
+  expect(write).toHaveBeenCalledTimes(3);
+  expect(vi.mocked(write).mock.calls[2][5]).toBeUndefined();
 });
 
 it("writes nothing for a run the agent never answered, one it didn't see start, or with memory off", async () => {

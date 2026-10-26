@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Procedure } from "../../shared/procedures";
+import { useListFilter } from "@/hooks/useListFilter";
 import type { HostClient } from "@/lib/piHost";
 
 /** Every saved procedure, fetched while the Settings dialog is open, and removing one. */
 export function useProcedures(host: HostClient | null, open: boolean) {
   const [procedures, setProcedures] = useState<Procedure[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const listFilter = useListFilter();
 
   useEffect(() => {
     if (!host || !open) return;
@@ -38,5 +40,5 @@ export function useProcedures(host: HostClient | null, open: boolean) {
     [host],
   );
 
-  return { procedures, error, remove };
+  return { procedures, error, remove, ...listFilter };
 }

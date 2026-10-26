@@ -3,7 +3,7 @@ import type { McpServer } from "../../../shared/hostProtocol";
 import { AsyncButton } from "@/components/mcp/AsyncButton";
 import { RemoveButton } from "@/components/mcp/RemoveButton";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import { statusLabel } from "@/lib/mcpServers";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +55,7 @@ export function McpServerControls({
         <Pencil />
       </Button>
       <RemoveButton name={server.name} onConfirm={onRemove} />
-      <Switch
+      <RailSwitch
         className="ml-2"
         aria-label={`Use ${server.name}`}
         checked={server.enabled}

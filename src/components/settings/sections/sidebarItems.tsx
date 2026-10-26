@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import {
   MAX_SIDEBAR_CONVERSATIONS,
   MIN_SIDEBAR_CONVERSATIONS,
@@ -75,7 +75,7 @@ export function sidebarItems({
         "Collapse each folder after a maximum number of conversations.",
       keywords: "sidebar chats folders collapse maximum limit",
       control: (
-        <Switch
+        <RailSwitch
           checked={sidebar.max_conversations_enabled}
           onCheckedChange={(max_conversations_enabled) =>
             change({ max_conversations_enabled })

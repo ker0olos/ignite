@@ -2,6 +2,8 @@ import { LessonTags } from "@/components/lessons/LessonTags";
 import { RemoveButton } from "@/components/mcp/RemoveButton";
 import type { Item } from "@/components/settings/sections";
 import type { useLessons } from "@/hooks/useLessons";
+import { noMatchItem } from "@/components/settings/sections/noMatchItem";
+import { filterLessons } from "@/lib/learningFilters";
 import { lessonScope } from "@/lib/lessons";
 import { lessonTool } from "../../../../shared/lessons";
 
@@ -29,8 +31,16 @@ export function lessonsItems({
       },
     ];
   }
+  const shown = filterLessons(
+    lessons.lessons ?? [],
+    lessons.query,
+    lessons.filter,
+  );
+  if (lessons.lessons?.length && shown.length === 0) {
+    return [noMatchItem("Lessons", "No lessons match.")];
+  }
   // Saved in the order they were added, so newest last.
-  return (lessons.lessons ?? []).toReversed().map((l) => ({
+  return shown.toReversed().map((l) => ({
     section: "Lessons",
     title: l.text,
     hint: <LessonTags lesson={l} hits={l.hits} />,

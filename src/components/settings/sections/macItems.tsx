@@ -1,5 +1,5 @@
 import type { Item } from "@/components/settings/sections";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import type { Settings } from "@/lib/settings";
 
 /** Settings rows for macOS: Liquid Glass, and keeping the Mac and its screen awake. */
@@ -14,7 +14,7 @@ export function macItems(
       description: "The sidebar shows what's behind the window through glass.",
       keywords: "glass translucent transparent vibrancy blur sidebar tahoe",
       control: (
-        <Switch
+        <RailSwitch
           checked={settings.mac.liquid_glass}
           onCheckedChange={(liquid_glass) =>
             onChange({ ...settings, mac: { ...settings.mac, liquid_glass } })
@@ -29,7 +29,7 @@ export function macItems(
         "Your Mac doesn't sleep while the agent works. It can once the agent finishes or waits for you.",
       keywords: "sleep caffeinate awake power battery",
       control: (
-        <Switch
+        <RailSwitch
           checked={settings.power.keep_awake}
           onCheckedChange={(keep_awake) =>
             onChange({
@@ -47,7 +47,7 @@ export function macItems(
         "The display stays on too while the agent works, so you can watch it.",
       keywords: "sleep caffeinate awake power battery display screen",
       control: (
-        <Switch
+        <RailSwitch
           checked={settings.power.keep_screen_awake}
           disabled={!settings.power.keep_awake}
           onCheckedChange={(keep_screen_awake) =>

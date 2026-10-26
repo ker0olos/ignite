@@ -21,6 +21,10 @@ const hook = (over: object) => ({
   error: null,
   remove: vi.fn(),
   edit: vi.fn(),
+  query: "",
+  setQuery: vi.fn(),
+  filter: null,
+  setFilter: vi.fn(),
   ...over,
 });
 
@@ -89,9 +93,9 @@ describe("reflectorItems", () => {
       hook({ reflections: [point({ at: Date.now() - 2 * 3_600_000, from })] }),
       open,
     );
-    expect(item.keywords).toContain("Asking");
+    expect(item.keywords).toContain("When asking");
     expect(screen.getByText("Keep reports short")).toBeTruthy();
-    expect(screen.getByText("Asking")).toBeTruthy();
+    expect(screen.getByText("When asking")).toBeTruthy();
     expect(screen.getByText("Beside ask_user's instructions")).toBeTruthy();
     const when = screen.getByText("2 hours ago");
     expect(when.getAttribute("title")).toContain("2026");
@@ -100,6 +104,19 @@ describe("reflectorItems", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Sentry triage" }));
     expect(open).toHaveBeenCalledWith("/f", "c1");
+  });
+
+  it("shows when the point applies and the words that taught it", () => {
+    const item = row(
+      hook({
+        reflections: [
+          point({ when: "reporting a review", evidence: "too long" }),
+        ],
+      }),
+    );
+    expect(screen.getByText("When reporting a review")).toBeTruthy();
+    expect(screen.getByText("“too long”")).toBeTruthy();
+    expect(item.keywords).toContain("reporting a review");
   });
 
   it("names an edit without a conversation link", () => {

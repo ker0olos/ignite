@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -18,6 +18,7 @@ type Tool = {
 };
 
 let file: string;
+let settings: string;
 let handlers: Record<string, Handler>;
 let tools: Record<string, Tool>;
 let asks: ApprovalAsk[];
@@ -25,13 +26,8 @@ let approve: boolean;
 let onAsk: () => void;
 const ctx = { cwd: "/repo" };
 
-beforeEach(() => {
-  file = join(mkdtempSync(join(tmpdir(), "lessons-")), "lessons.json");
-  handlers = {};
-  tools = {};
-  asks = [];
-  approve = true;
-  onAsk = () => {};
+// The real one would read the user's settings.toml.
+const load = () =>
   lessons(
     {
       registerTool: (tool: Tool) => (tools[tool.name] = tool),
@@ -45,7 +41,19 @@ beforeEach(() => {
       },
     } as unknown as ExtensionAPI,
     file,
+    settings,
   );
+
+beforeEach(async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lessons-"));
+  file = join(dir, "lessons.json");
+  settings = join(dir, "settings.toml");
+  handlers = {};
+  tools = {};
+  asks = [];
+  approve = true;
+  onAsk = () => {};
+  await load();
 });
 
 const call = (toolName: string, input: object) =>
@@ -54,13 +62,13 @@ const run = (name: string, params: object) =>
   tools[name].execute("call", params, undefined, undefined, ctx);
 const textOf = (result: { content: { text: string }[] }) =>
   result.content[0].text;
-const start = () => {
+const start = async () => {
   const sections: Record<string, string> = {};
-  handlers.before_agent_start({ systemPromptOptions: { sections } }, ctx);
+  await handlers.before_agent_start({ systemPromptOptions: { sections } }, ctx);
   return sections;
 };
 
-it("adds the guidance and every lesson without a match, read once per conversation", () => {
+it("adds the guidance and every lesson without a match, read once per conversation", async () => {
   addLesson(file, { text: "Be brief", level: "system_prompt" });
   addLesson(file, { text: "Elsewhere", level: "system_prompt", folder: "/x" });
   addLesson(file, { text: "Git only", level: "tool_call", tool: "git" });
@@ -70,20 +78,20 @@ it("adds the guidance and every lesson without a match, read once per conversati
     tool: "git",
     match: "push -f",
   });
-  const first = start();
+  const first = await start();
   addLesson(file, { text: "Later", level: "system_prompt" });
   expect(first.lessons).toContain(LESSON_GUIDANCE);
   expect(first.lessons).toMatch(
     /Lessons from past mistakes:\n- \[\w+\] Be brief\n- \[\w+\] \(git\) Git only$/,
   );
-  expect(start()).toEqual(first);
+  expect(await start()).toEqual(first);
 });
 
-it("adds only the guidance when there are no system_prompt lessons", () => {
-  expect(start()).toEqual({ lessons: LESSON_GUIDANCE });
+it("adds only the guidance when there are no system_prompt lessons", async () => {
+  expect(await start()).toEqual({ lessons: LESSON_GUIDANCE });
 });
 
-it("blocks a matching call every time and never holds other calls", () => {
+it("blocks a matching call every time and never holds other calls", async () => {
   addLesson(file, {
     text: "No --no-verify",
     level: "tool_call",
@@ -92,13 +100,13 @@ it("blocks a matching call every time and never holds other calls", () => {
   });
   addLesson(file, { text: "Check first", level: "tool_call", tool: "git" });
   const skip = { args: ["commit", "--no-verify"] };
-  expect(call("git", skip)).toMatchObject({
+  expect(await call("git", skip)).toMatchObject({
     block: true,
     reason: expect.stringContaining("Blocked by a lesson"),
   });
-  expect(call("git", skip)).toMatchObject({ block: true });
-  expect(call("git", { args: ["status"] })).toBe(undefined);
-  expect(call("bash", { command: "ls" })).toBe(undefined);
+  expect(await call("git", skip)).toMatchObject({ block: true });
+  expect(await call("git", { args: ["status"] })).toBe(undefined);
+  expect(await call("bash", { command: "ls" })).toBe(undefined);
   expect(readLessons(file).map((l) => l.hits)).toEqual([2, 0]);
 });
 
@@ -165,4 +173,32 @@ it("lesson_remove asks first, and only for lessons that apply here", async () =>
     "Removed",
   );
   expect(readLessons(file).map((l) => l.text)).toEqual(["B"]);
+});
+
+it("does nothing switched off: no tools, no prompt, no blocking", async () => {
+  addLesson(file, {
+    text: "No --no-verify",
+    level: "tool_call",
+    tool: "git",
+    match: "--no-verify",
+  });
+  // Turned off while a conversation runs: from its next run nothing is blocked, saved or removed.
+  writeFileSync(settings, "[lessons]\nenabled = false\n");
+  expect(await start()).toEqual({});
+  expect(await call("git", { args: ["commit", "--no-verify"] })).toBe(
+    undefined,
+  );
+  const saved = await run("lesson_add", { text: "B", level: "system_prompt" });
+  expect(textOf(saved)).toMatch(/^Lessons are off/);
+  const [kept] = readLessons(file);
+  const removed = await run("lesson_remove", { id: kept.id });
+  expect(textOf(removed)).toMatch(/^Lessons are off/);
+  expect(readLessons(file).map((l) => l.text)).toEqual(["No --no-verify"]);
+  expect(asks).toEqual([]);
+  // Loaded while off, it registers nothing.
+  handlers = {};
+  tools = {};
+  await load();
+  expect(handlers).toEqual({});
+  expect(tools).toEqual({});
 });
