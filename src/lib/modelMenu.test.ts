@@ -20,7 +20,7 @@ const opus45Dated = m(
   "claude-opus-4-5-20251101",
   "Claude Opus 4.5",
 );
-const sol = m("openai-codex", "gpt-6-sol", "GPT-6 Sol");
+const sol = m("openai-codex", "gpt-6.1-sol", "GPT-6.1 Sol");
 const spark = m("openai-codex", "gpt-5.3-codex-spark", "GPT-5.3 Codex Spark");
 
 describe("modelMenu", () => {
@@ -47,7 +47,7 @@ describe("modelMenu", () => {
         models: [
           {
             ...sol,
-            label: "GPT-6 Sol",
+            label: "GPT-6.1 Sol",
             description: "Strong reasoning for complex coding",
           },
         ],
