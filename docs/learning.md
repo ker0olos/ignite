@@ -3,15 +3,15 @@
 Three systems carry what one conversation learned into later ones. Each has
 one job, and each leaves the others' jobs alone.
 
-|                   | Memory                                                                              | Lessons                                                                        | Reflector                                                                   |
-| ----------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| Keeps             | What the work was: observations (bugfix, feature, decision…) and each run's summary | The agent's mistakes, so none repeats                                          | How this user wants the agent to work: report, ask, plan, deliver, delegate |
-| Written by        | The cheapest model of the conversation's provider, after every run                  | The agent itself, with `lesson_add`, the turn it's corrected                   | The cheapest model, after a run with the user's feedback                    |
-| Stored in         | `~/.ignite/memory.db` (SQLite, FTS5), per folder                                    | `~/.ignite/lessons.json`, every folder or one                                  | `~/.ignite/reflector.json`, every folder                                    |
-| Read by the agent | An index in the system prompt; `memory_search`, `memory_get`, `memory_timeline`     | Listed in the system prompt; a `tool_call` lesson with `match` blocks the call | Each point beside its entry point's guidance in the system prompt           |
-| Limits            | Index: 50 observations, 10 summaries, 10,000 characters                             | 30 per scope                                                                   | 10 per entry point, 3 edits per reflection                                  |
-| Subagents         | None                                                                                | The same checks                                                                | None                                                                        |
-| Code              | `hostMemory.ts`, `memoryWriter.ts`, `memoryContext.ts`, `memoryExtension.ts`        | `lessonExtension.ts`, `lessons.ts`, `lessonRegex.ts`                           | `hostReflect.ts`, `reflector.ts`, `reflectorExtension.ts`                   |
+|                   | Memory                                                                                                                                                      | Lessons                                                                        | Reflector                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Keeps             | What the work was: observations (bugfix, feature, decision…) and each run's summary; procedures, how a run got past a failed command                        | The agent's mistakes, so none repeats                                          | How this user wants the agent to work: report, ask, plan, deliver, delegate |
+| Written by        | The cheapest model of the conversation's provider, after every run                                                                                          | The agent itself, with `lesson_add`, the turn it's corrected                   | The cheapest model, after a run with the user's feedback                    |
+| Stored in         | `~/.ignite/memory.db` (SQLite, FTS5), per folder                                                                                                            | `~/.ignite/lessons.json`, every folder or one                                  | `~/.ignite/reflector.json`, every folder                                    |
+| Read by the agent | An index in the system prompt; `memory_search`, `memory_get`, `memory_timeline`; up to 3 procedures the first message needs, as a hidden message in its run | Listed in the system prompt; a `tool_call` lesson with `match` blocks the call | Each point beside its entry point's guidance in the system prompt           |
+| Limits            | Index: 50 observations, 10 summaries, 10,000 characters                                                                                                     | 30 per scope                                                                   | 10 per entry point, 3 edits per reflection                                  |
+| Subagents         | None                                                                                                                                                        | The same checks                                                                | None                                                                        |
+| Code              | `hostMemory.ts`, `memoryWriter.ts`, `memoryContext.ts`, `memoryExtension.ts`, `procedures.ts`                                                               | `lessonExtension.ts`, `lessons.ts`, `lessonRegex.ts`                           | `hostReflect.ts`, `reflector.ts`, `reflectorExtension.ts`                   |
 
 ## Through one conversation
 
@@ -31,6 +31,7 @@ flowchart LR
 
   subgraph start["Conversation starts"]
     SP["System prompt, read once (cache):<br/>memory index<br/>lessons without match<br/>reflector points"]
+    FIRST["First message's run:<br/>up to 3 procedures it needs"]
   end
 
   subgraph run["During the run"]
@@ -67,6 +68,8 @@ flowchart LR
   LJ1 --> SP
   RJ1 --> SP
   SP --> CALL
+  MDB1 -- "cheapest model picks<br/>from their titles" --> FIRST
+  FIRST --> CALL
   LJ1 -- "every call" --> GATE
   MDB1 -- "on demand" --> TOOLS
   BLOCK -- "hit counted" --> LJ2
@@ -75,7 +78,7 @@ flowchart LR
   MSGS -- "last 15k chars" --> REF
   MSGS --> REM
   REF -- "cheapest model:<br/>UNCHANGED or ≤3 edits" --> RJ2
-  REM -- "cheapest model:<br/>observations + summary" --> MDB2
+  REM -- "cheapest model:<br/>observations + summary,<br/>procedures if a command failed" --> MDB2
 ```
 
 The system prompt is read once per conversation, so what a run writes reaches
@@ -115,6 +118,13 @@ flowchart LR
 - **What happened** (what was built, fixed or decided) goes to memory after
   every run, feedback or not. Neither lessons nor reflector points hold project
   facts.
+- **How to get past a failed command** (a setup step, a command's right flags)
+  is a procedure, recorded with memory only when a command in the run exited
+  non-zero (never a block, a denial or a model's own judgement) and no lesson
+  was added, since a mistake the user corrected is a lesson's. The writer sees
+  the folder's procedures, so it doesn't record one twice. While the router
+  reads a new conversation's first message, the cheapest model picks the ones
+  it needs, usually none; they're offered, never enforced.
 - Lesson calls are kept out of memory, and declined lesson changes out of the
   reflector's feedback, so one system's bookkeeping never teaches another.
 

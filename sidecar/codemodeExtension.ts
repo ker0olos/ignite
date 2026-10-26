@@ -17,7 +17,7 @@ import { ASK_TOOL } from "../shared/questions.ts";
 import { wrappedTools } from "./toolReason.ts";
 
 // Kept on the session file with the script's result, so a chatty script can't bloat it.
-const MAX_TEXT = 4_000;
+export const MAX_TEXT = 4_000;
 const MAX_DETAILS = 50_000;
 const MAX_RECORD = 1_000_000;
 

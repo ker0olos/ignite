@@ -6,6 +6,7 @@ import { reportTo } from "./hostFollow.ts";
 import { holdNext, holdQueue } from "./hostQueue.ts";
 import { routeMessage } from "./hostRoute.ts";
 import type { Agent, HostContext, Session } from "./hostTypes.ts";
+import { offer, procedureNote } from "./procedures.ts";
 import { rememberImages } from "./queuedImages.ts";
 
 /** A message written before a cut-off run resumed goes first; one written after waits until that run has started. */
@@ -52,7 +53,10 @@ export async function hand(
   }
   // A message sent mid-run steers the run; others may be routed (hostRoute.ts).
   if (!streaming) {
+    // Picked while the router reads, offered once it lets the message through.
+    const note = procedureNote(agent, s, text).catch(() => "");
     if (!(await routeMessage(ctx, agent, s, text, images))) return false;
+    await offer(s, await note);
     await checkpointFirst(agent);
   }
   const release = streaming ? await holdQueue(agent) : () => {};
