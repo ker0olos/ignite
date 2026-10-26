@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import type { Session } from "./hostTypes.ts";
+import { procedureRule } from "./procedures.ts";
 import {
   CHUNK_CHARS,
   parseWritten,
@@ -165,6 +166,18 @@ describe("parseWritten", () => {
     ]);
   });
 
+  it("keeps the procedure concept only when the run may teach procedures", () => {
+    const reply = JSON.stringify({
+      observations: [
+        { type: "discovery", title: "Running tests", concepts: ["procedure"] },
+      ],
+    });
+    expect(parseWritten(reply)[0].concepts).toEqual([]);
+    expect(parseWritten(reply, undefined, true)[0].concepts).toEqual([
+      "procedure",
+    ]);
+  });
+
   it("takes nothing from a reply that isn't the JSON asked for", () => {
     expect(parseWritten("Nothing to record.")).toEqual([]);
     expect(parseWritten("[1, 2]")).toEqual([]);
@@ -195,6 +208,16 @@ describe("write", () => {
     expect(used).toBe(model);
     expect(context.messages[0].content).toContain("- Earlier");
     expect(options).toMatchObject({ cacheRetention: "none" });
+    expect(context.systemPrompt).not.toContain(procedureRule([]));
+  });
+
+  it("asks for procedures when told the run may teach them, naming the known ones", async () => {
+    const s = session(answer({ observations: [] }));
+    await write(s, run, [], (p) => p, [], ["Running the tests"]);
+    const [, context] = vi.mocked(s.modelRuntime.completeSimple).mock.calls[0];
+    expect(context.systemPrompt).toContain(
+      procedureRule(["Running the tests"]),
+    );
   });
 
   it("writes a long run a chunk at a time, keeping the last summary", async () => {

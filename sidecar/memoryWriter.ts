@@ -6,9 +6,10 @@
  */
 import { serializeConversation } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage, AssistantMessage } from "../shared/agentTypes.ts";
-import { CONCEPTS, SUMMARY_TYPE } from "../shared/memory.ts";
+import { CONCEPTS, PROCEDURE, SUMMARY_TYPE } from "../shared/memory.ts";
 import type { Session } from "./hostTypes.ts";
 import { summaryOf, trimmed, typeOf, type NewMemory } from "./memoryDb.ts";
+import { procedureRule } from "./procedures.ts";
 import { cheapest } from "./router.ts";
 
 /** A memory as the writer finds it; the host adds where and when. */
@@ -148,6 +149,7 @@ const strings = (v: unknown) =>
 function observation(
   raw: Record<string, unknown>,
   path: (p: string) => string,
+  procedures: boolean,
 ): Written | null {
   const title = trimmed(raw.title);
   if (!title) return null;
@@ -157,7 +159,9 @@ function observation(
     subtitle: trimmed(raw.subtitle),
     facts: strings(raw.facts),
     narrative: trimmed(raw.narrative),
-    concepts: strings(raw.concepts).filter((c) => KNOWN_CONCEPTS.has(c)),
+    concepts: strings(raw.concepts).filter(
+      (c) => KNOWN_CONCEPTS.has(c) || (procedures && c === PROCEDURE),
+    ),
     filesRead: strings(raw.files_read).map(path),
     filesModified: strings(raw.files_modified).map(path),
   };
@@ -168,10 +172,11 @@ const record = (v: unknown) =>
     ? (v as Record<string, unknown>)
     : null;
 
-/** The writer's reply as memories, malformed ones dropped; `path` turns a path into one from the folder's root. */
+/** The writer's reply as memories, malformed ones dropped; `path` turns a path into one from the folder's root; `procedures` keeps the PROCEDURE concept. */
 export function parseWritten(
   reply: string,
   path: (p: string) => string = (p) => p,
+  procedures = false,
 ): Written[] {
   let raw: Record<string, unknown> | null;
   try {
@@ -186,7 +191,7 @@ export function parseWritten(
     Array.isArray(raw.observations) ? raw.observations : []
   ).flatMap((o) => {
     const r = record(o);
-    return (r && observation(r, path)) ?? [];
+    return (r && observation(r, path, procedures)) ?? [];
   });
   const fields = record(raw.summary);
   const summary = fields && summaryOf(fields);
@@ -203,13 +208,14 @@ export function parseWritten(
 
 const TIMEOUT_MS = 120_000;
 
-/** What the run in `messages` is worth remembering, by the cheapest model of `s`'s provider; none when it can't run. A long run takes a call per chunk, keeping the last one's summary. */
+/** What the run in `messages` is worth remembering, by the cheapest model of `s`'s provider; none when it can't run. A long run takes a call per chunk, keeping the last one's summary; `procedures` (the folder's known ones) also asks for procedures.ts's. */
 export async function write(
   s: Pick<Session, "model" | "modelRuntime">,
   messages: AgentMessage[],
   recorded: string[],
   path: (p: string) => string,
   skip: string[],
+  procedures?: string[],
 ): Promise<Written[]> {
   const found = await cheapest(s).catch(() => null);
   if (!found) return [];
@@ -224,7 +230,9 @@ export async function write(
       .completeSimple(
         found.model,
         {
-          systemPrompt: WRITER_PROMPT,
+          systemPrompt: procedures
+            ? WRITER_PROMPT + procedureRule(procedures)
+            : WRITER_PROMPT,
           messages: [
             {
               role: "user",
@@ -241,7 +249,7 @@ export async function write(
     const reply = answer.content
       .flatMap((c) => (c.type === "text" ? [c.text] : []))
       .join("");
-    const memories = parseWritten(reply, path);
+    const memories = parseWritten(reply, path, !!procedures);
     titles.push(...memories.map((m) => m.title));
     written.push(...memories);
   }

@@ -24,6 +24,9 @@ export const CONCEPTS = [
   "trade-off",
 ] as const;
 
+/** The concept of an observation that records how a run got past an error, offered to the folder's next conversations on a matching task. */
+export const PROCEDURE = "procedure";
+
 /** A run's summary, kept beside its observations. */
 export const SUMMARY_TYPE = "summary";
 

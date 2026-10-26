@@ -405,6 +405,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   memoryContext.ts       What a new conversation recalls: an index of the folder's latest memories
   memoryExtension.ts     The recalled index in the system prompt; memory_search, memory_get, memory_timeline
   memoryWriter.ts        After a run, the cheapest model writes down its observations and summary
+  procedures.ts          How a run got past a failed command, recorded with its memories; the cheapest model picks a first message's
   hostMemory.ts          Each conversation's run, written to the memory once it settles
   memoryImport.ts        Imports cmem's memories from its database (no worker), only what isn't in yet
   lessons.ts             Lessons from the agent's mistakes (~/.ignite/lessons.json): saving, the cap, which a tool call runs into
@@ -1179,6 +1180,18 @@ reads one in full with `memory_get`, finds older ones with `memory_search`
 the work around one with `memory_timeline`; the index goes in as the `memory`
 prompt section (`systemPromptOptions.sections`), since claude-bridge passes
 Claude Code only pi's sections, never text an extension adds to the prompt.
+Procedures (`sidecar/procedures.ts`) are how a run got past a failed command:
+when a bash command in the run (a script's included) exited non-zero, not
+merely blocked, denied or redirected, and no lesson was added, the writer is
+also asked for them, as `discovery` observations with the `procedure`
+concept, titled by when they apply, their facts the steps, and told the
+folder's 40 newest so it doesn't record one again. While the router reads a
+conversation's first message (`hand` in `sidecar/hostSend.ts`), the cheapest
+priced model of its provider picks from those titles the ones the message as
+typed needs (at most 3, usually none; a folder with none asks nothing), sent
+once routing lets it through as a hidden `nextTurn` message in its run, not
+the system prompt, so the cache holds. A rewound first message is picked for
+again.
 Subagents get none of it. The Memory settings section turns it on or off
 and lists the folder's latest memories, searched (as `memory_search` does)
 and filtered by type (with each type's count), each opening to its facts and

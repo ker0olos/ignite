@@ -149,6 +149,23 @@ export function counts(db: DatabaseSync, folder: string) {
   return Object.fromEntries(rows.map((r) => [r.type, r.n]));
 }
 
+/** `folder`'s newest memories with concept `concept`, newest first. */
+export function withConcept(
+  db: DatabaseSync,
+  folder: string,
+  concept: string,
+  limit: number,
+): Memory[] {
+  const rows = db
+    .prepare(
+      `SELECT * FROM memories WHERE folder = ?
+       AND EXISTS (SELECT 1 FROM json_each(concepts) WHERE value = ?)
+       ORDER BY created_at DESC, id DESC LIMIT ?`,
+    )
+    .all(folder, concept, limit) as Rows;
+  return rows.map(toMemory);
+}
+
 /** `folder`'s newest observations of type `kind`, newest first. */
 export function latestOf(
   db: DatabaseSync,

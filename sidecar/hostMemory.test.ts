@@ -8,9 +8,11 @@ import type { AgentMessage, SessionEvent } from "../shared/agentTypes.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { followRun, fromRoot, rememberRun } from "./hostMemory.ts";
 import type { Agent } from "./hostTypes.ts";
-import { memoryDb } from "./memoryDb.ts";
+import { PROCEDURE } from "../shared/memory.ts";
+import { addMemories, memoryDb } from "./memoryDb.ts";
 import { recent } from "./memorySearch.ts";
 import { write } from "./memoryWriter.ts";
+import { memory } from "./testMemory.ts";
 
 vi.mock("./memoryWriter.ts", async (original) => ({
   ...(await original<typeof import("./memoryWriter.ts")>()),
@@ -89,6 +91,26 @@ it("writes down the run that just settled, in the conversation's folder", async 
     }),
   ]);
   expect(a.runAfter).toBeUndefined();
+});
+
+it("lets a run with a failed command teach procedures, naming the folder's", async () => {
+  addMemories(db, [
+    memory({ title: "Running the tests", concepts: [PROCEDURE] }),
+  ]);
+  const a = agent();
+  ran(a, user("look", 2), reply(3));
+  await rememberRun(a, db);
+  expect(vi.mocked(write).mock.calls[0][5]).toBeUndefined();
+  const failed = {
+    role: "toolResult",
+    toolName: "bash",
+    isError: true,
+    content: [{ type: "text", text: "Command exited with code 1" }],
+    timestamp: 5,
+  } as unknown as AgentMessage;
+  ran(a, user("run the tests", 4), failed, reply(6));
+  await rememberRun(a, db);
+  expect(vi.mocked(write).mock.calls[1][5]).toEqual(["Running the tests"]);
 });
 
 it("writes nothing for a run the agent never answered, one it didn't see start, or with memory off", async () => {

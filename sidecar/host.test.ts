@@ -34,6 +34,8 @@ import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
 import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
 import { memoryStatus } from "./memory.ts";
 import { rememberRun } from "./hostMemory.ts";
+import { procedureNote } from "./procedures.ts";
+import { PROCEDURE } from "../shared/memory.ts";
 import { conversationGitStatus } from "./gitStatus.ts";
 import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
@@ -55,6 +57,11 @@ vi.mock("./router.ts", async (original) => ({
 vi.mock("./hostMemory.ts", () => ({
   followRun: vi.fn(),
   rememberRun: vi.fn(async () => {}),
+}));
+// The real one reads ~/.ignite/memory.db and calls the provider.
+vi.mock("./procedures.ts", async (original) => ({
+  ...(await original<typeof import("./procedures.ts")>()),
+  procedureNote: vi.fn(async () => ""),
 }));
 // The real one writes to pi's folder in the user's home.
 vi.mock("./waitingCalls.ts", () => ({
@@ -1288,6 +1295,26 @@ describe("sessions", () => {
     expect(await waitFor(sent, "agents")).toMatchObject({
       agents: [{ title: "Fix the login bug" }],
     });
+  });
+
+  it("adds the procedures picked for a message to its run, before pi takes it", async () => {
+    vi.mocked(procedureNote).mockResolvedValueOnce("Procedures…");
+    const session = fakeSession();
+    const order: string[] = [];
+    session.sendCustomMessage.mockImplementation(async () => {
+      order.push("note");
+    });
+    session.prompt.mockImplementation(async () => {
+      order.push("prompt");
+    });
+    const { request } = setup(fakeRuntime().runtime, async () => session);
+    await request({ id: 1, type: "new_session", cwd: "/a" });
+    await request({ id: 2, type: "prompt", text: "run the tests" });
+    await vi.waitFor(() => expect(order).toEqual(["note", "prompt"]));
+    expect(session.sendCustomMessage).toHaveBeenCalledWith(
+      { customType: PROCEDURE, content: "Procedures…", display: false },
+      { deliverAs: "nextTurn" },
+    );
   });
 
   it("starts a new conversation under the app's id, only an unused UUID", async () => {
