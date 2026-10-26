@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { StopForkWaitButton } from "./StopForkWaitButton";
 
-it("stops waiting once, and offers it again when nothing was held", async () => {
+it("stops waiting once, and offers it again while it's still shown", async () => {
   let finish: (stopped: boolean) => void = () => {};
   const stop = vi.fn(() => new Promise<boolean>((r) => (finish = r)));
   render(<StopForkWaitButton stop={stop} />);

@@ -39,7 +39,7 @@ export const heldBy = (ctx: HostContext, id: string) =>
 
 /** Whether conversation `id` waits for a fork: one is open, or a closed one's report is on its way. */
 export const waitsOnFork = (ctx: HostContext, id: string) =>
-  !!ctx.agents.get(id)?.forkReports || heldBy(ctx, id).length > 0;
+  !!ctx.agents.get(id)?.forkReports?.size || heldBy(ctx, id).length > 0;
 
 /** Throws when conversation `session` (else the shown one) waits for a fork, which takes no messages. */
 export function refuseWhileForked(ctx: HostContext, session?: string) {
@@ -56,5 +56,7 @@ export function trackRun(agent: Agent, event: SessionEvent): boolean {
   if (event.type !== "agent_start" && event.type !== "agent_settled")
     return false;
   agent.running = event.type === "agent_start";
+  // The run takes the notes a wake was owed for.
+  if (agent.running) agent.wakeOwed = false;
   return true;
 }

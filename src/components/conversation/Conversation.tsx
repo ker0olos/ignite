@@ -50,7 +50,7 @@ export function Conversation({
   waiting: string[];
   /** A fork of it is open: the working line says so while it waits. */
   waitingOnFork?: boolean;
-  /** Stops it waiting for its forks; offered while it waits for nothing else. */
+  /** Stops it waiting for its forks. */
   stopForkWait?: () => Promise<boolean>;
   showThinking: boolean;
   stickyUserMessages: boolean;
@@ -109,7 +109,7 @@ export function Conversation({
               since={working.since}
               thought={working.thought}
               quiet={working.quiet}
-              stopForkWait={transcript.running ? undefined : stopForkWait}
+              stopForkWait={stopForkWait}
             />
           )}
         </div>

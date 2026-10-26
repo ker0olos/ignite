@@ -15,6 +15,7 @@ import {
 import { heldBy, pushProjects, waitsOnFork } from "./hostProjects.ts";
 import { close, launch, open, prompt, start } from "./hostSession.ts";
 import type { Agent, HostContext } from "./hostTypes.ts";
+import { release } from "./hostWait.ts";
 
 const forkName = (task?: string, title?: string) =>
   task
@@ -65,15 +66,20 @@ export async function fork(
 }
 
 /**
- * Stops conversation `id` waiting for its open forks: they stay its forks but
- * send no report when closed, and it takes messages again. False when none held it.
+ * Stops conversation `id` waiting for its forks: open ones stay its forks but
+ * send no report when closed, closed ones' reports come as notes, and it
+ * carries on. False when nothing held it.
  */
 export function stopWaiting(ctx: HostContext, id: string): boolean {
+  const reports = ctx.agents.get(id)?.forkReports;
+  const pending = reports?.size ?? 0;
+  reports?.clear();
   const forks = heldBy(ctx, id);
   for (const fork of forks) {
-    fork.forkDetached = true;
     // Saved in its file, so it stays detached after a restart.
-    void fork.opening.then((s) => detachFork(s.sessionManager)).catch(() => {});
+    if (fork.session) detachFork(fork.session.sessionManager);
+    else void fork.opening.then((s) => detachFork(s.sessionManager));
+    fork.forkDetached = true;
     noteFor(
       fork.id,
       `The user stopped conversation ${id} waiting for you: it carries on separately, and nothing is sent to it when you're closed.`,
@@ -83,8 +89,10 @@ export function stopWaiting(ctx: HostContext, id: string): boolean {
       `The user stopped you waiting for your fork "${fork.title}" (${fork.id}): it works separately and sends you no report.`,
     );
   }
-  if (forks.length) pushProjects(ctx);
-  return forks.length > 0;
+  if (!forks.length && !pending) return false;
+  pushProjects(ctx);
+  release(ctx, id);
+  return true;
 }
 
 // The app listed the fork as it started; the original shows again.
@@ -110,6 +118,7 @@ export async function closeConversation(
   const messages = fork.session && unreported(fork.session)?.messages;
   if (messages) void report(ctx, fork, messages, hold(ctx, folder, fork));
   await close(ctx, folder, id);
+  if (!messages) release(ctx, fork.forkOf);
 }
 
 // The original waits for the report. A closed one opens in the background
@@ -120,7 +129,7 @@ function hold(ctx: HostContext, folder: string, fork: Agent) {
   if (!held && !ctx.agents.has(id))
     void launch(ctx, folder, id).catch(() => {});
   const parent = ctx.agents.get(id) ?? null;
-  if (parent) parent.forkReports = (parent.forkReports ?? 0) + 1;
+  if (parent) (parent.forkReports ??= new Set()).add(fork);
   return parent;
 }
 
@@ -138,23 +147,32 @@ async function report(
   const draft = reportText(fork, lastText(messages));
   if (draft) noteFor(to, draft);
   let summary: string;
+  // False once the user stopped it waiting: then the report is only a note.
+  let awaited: boolean;
   try {
     summary = await summarize(
       await parent?.opening.catch(() => null),
       messages,
     );
   } finally {
-    if (parent) parent.forkReports! -= 1;
+    awaited = !!parent?.forkReports?.delete(fork);
     pushProjects(ctx);
   }
   if (draft) dropNote(to, draft);
   const text = reportText(fork, summary);
-  if (!text) return;
-  // Another fork still open keeps it waiting; then it reads this next run.
-  const carriesOn =
-    parent?.session &&
-    ctx.agents.get(parent.id) === parent &&
-    !waitsOnFork(ctx, parent.id);
-  if (carriesOn) await prompt(ctx, text, undefined, parent.id);
-  else noteFor(to, text);
+  if (text && carriesOn(ctx, parent, awaited))
+    return prompt(ctx, text, undefined, parent.id);
+  if (text) noteFor(to, text);
+  release(ctx, to);
 }
+
+// Another fork still open keeps it waiting; then it reads the report next run.
+const carriesOn = (
+  ctx: HostContext,
+  parent: Agent | null,
+  awaited: boolean,
+): parent is Agent =>
+  awaited &&
+  !!parent?.session &&
+  ctx.agents.get(parent.id) === parent &&
+  !waitsOnFork(ctx, parent.id);

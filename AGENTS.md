@@ -866,7 +866,9 @@ with, and its working line says "Waiting for fork"). Stop waiting under that
 line (`stop_fork_wait`) frees the original: its open forks stay listed under
 it but are detached (`forkDetached`, an `ignite-fork-detached` entry in the
 fork's file, so a restart or rewind keeps it), send no report when closed,
-and both sides get a note saying so. Closing a fork it still waits for has the
+and both sides get a note saying so; a closed fork's report still being
+written comes as a note instead. It carries on with what it waited for
+meanwhile (a `bash_wait` exit), else its Next messages. Closing a fork it still waits for has the
 cheapest priced model of the original's provider (the router's) summarize
 what it did since its last report (`sidecar/forks.ts`), else its last reply
 is used; the report is sent to the original as a message, so it carries on.

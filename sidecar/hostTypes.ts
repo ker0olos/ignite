@@ -231,8 +231,10 @@ export type Agent = {
   forkOf?: string;
   /** A fork its original no longer waits for: it sends no report. */
   forkDetached?: boolean;
-  /** Its closed forks whose reports are still being written. */
-  forkReports?: number;
+  /** Its closed forks whose reports are still being written; cleared when the user stops it waiting. */
+  forkReports?: Set<Agent>;
+  /** A bash_wait exit reached it as a note while a fork held it, so it's woken once released. */
+  wakeOwed?: boolean;
   /** Unsubscribe from the session's events. */
   unsubscribe: () => void;
   /** Adapter status per server name, from the session's latest snapshot. */
