@@ -109,7 +109,7 @@ describe("the away timer", () => {
     const next = ask("next");
     vi.advanceTimersByTime(0);
     expect(next).toHaveBeenCalledWith(false, undefined, undefined, AWAY);
-    // Touching the window brings them back, but doesn't restart a running timer.
+    // Touching the window brings them back; a hidden conversation's running timer goes on.
     const waiting = ask("waiting");
     answered(ctx, { type: "user_active" });
     vi.advanceTimersByTime(0);
@@ -117,6 +117,47 @@ describe("the away timer", () => {
     const later = ask("later");
     vi.advanceTimersByTime(2 * MIN - 1);
     expect(later).not.toHaveBeenCalled();
+  });
+
+  it("starts the shown conversation's timer afresh while the user is there", () => {
+    const { ctx, ask } = setup();
+    (ctx as { shown: string | null }).shown = "s1";
+    const answer = ask("t1");
+    vi.advanceTimersByTime(2 * MIN - 1);
+    answered(ctx, { type: "user_active" });
+    vi.advanceTimersByTime(2 * MIN - 1);
+    // Typing an answer counts too.
+    answered(ctx, { type: "question_draft", toolCallId: "t1", answers: [] });
+    vi.advanceTimersByTime(2 * MIN - 1);
+    expect(answer).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(answer).toHaveBeenCalledOnce();
+  });
+
+  it("drops a call its run stopped, counting no strike", () => {
+    const { agent, ctx } = setup();
+    for (let i = 0; i < AWAY_STRIKES; i++) {
+      const run = new AbortController();
+      const answer = vi.fn();
+      askApproval(ctx, agent, {
+        request: { toolCallId: `t${i}` },
+        answer,
+        away: APPROVAL_AWAY,
+        signal: run.signal,
+      });
+      run.abort();
+      expect(agent.approvals.size).toBe(0);
+      vi.advanceTimersByTime(2 * MIN);
+      expect(answer).not.toHaveBeenCalled();
+    }
+    const next = vi.fn();
+    askApproval(ctx, agent, {
+      request: { toolCallId: "next" },
+      answer: next,
+      away: APPROVAL_AWAY,
+    });
+    vi.advanceTimersByTime(MIN);
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("counts from zero again once the user answers one", () => {

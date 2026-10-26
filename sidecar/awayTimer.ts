@@ -1,13 +1,4 @@
-/**
- * Calls waiting on the user that don't wait forever, so a run the user walked
- * away from carries on. A conversation's first waiting call (the one whose
- * prompt or question shows) starts its timer the moment it's first; still
- * unanswered when it runs out, it's answered as the user being away. After
- * AWAY_STRIKES in a row, later ones are answered at once, until the user is
- * back: they answer one, send a message, or touch the window (a key, a
- * click, focus moving). Being back never restarts a timer already running.
- */
-import type { QuestionAnswer } from "../shared/questions.ts";
+// The first waiting call's timer: unanswered when it runs out, it's answered as the user being away.
 import type { ApprovalAsk, Away } from "./approvalAsk.ts";
 import type { Agent } from "./hostTypes.ts";
 
@@ -25,17 +16,23 @@ type Clock = {
   /** The call being timed. */
   id?: string;
   timer?: ReturnType<typeof setTimeout>;
+  expire?: () => void;
   strikes: number;
 };
 
 const clocks = new WeakMap<Agent, Clock>();
-// What the user has answered so far in a waiting call's questions, by call id.
-const drafts = new Map<string, QuestionAnswer[]>();
 
 function clockOf(agent: Agent) {
   let clock = clocks.get(agent);
   if (!clock) clocks.set(agent, (clock = { strikes: 0 }));
   return clock;
+}
+
+function arm(clock: Clock, ms: number) {
+  clearTimeout(clock.timer);
+  clock.timer = setTimeout(() => clock.expire?.(), ms);
+  // Never what keeps a quitting sidecar alive.
+  clock.timer.unref?.();
 }
 
 /** Times the conversation's first waiting call, unless it already is; `expire` answers it once its time is up. */
@@ -50,29 +47,19 @@ export function timeFirst(
   clock.id = undefined;
   if (!id || !ask?.away) return;
   clock.id = id;
-  const ms = clock.strikes >= AWAY_STRIKES ? 0 : ask.away.afterMs;
-  clock.timer = setTimeout(() => {
+  clock.expire = () => {
     clock.id = undefined;
+    if (agent.approvals.get(id) !== ask) return;
     clock.strikes++;
     expire(id, ask);
-  }, ms);
-  // Never what keeps a quitting sidecar alive.
-  clock.timer.unref?.();
+  };
+  arm(clock, clock.strikes >= AWAY_STRIKES ? 0 : ask.away.afterMs);
 }
 
-/** The user is back: later calls wait their full time again, not answered at once. */
-export function userBack(agent: Agent) {
-  clockOf(agent).strikes = 0;
-}
-
-/** Keeps the user's unsent answers to a waiting call's questions. */
-export function keepDraft(toolCallId: string, answers: QuestionAnswer[]) {
-  drafts.set(toolCallId, answers);
-}
-
-/** A call's unsent answers, forgotten. */
-export function takeDraft(toolCallId: string) {
-  const draft = drafts.get(toolCallId);
-  drafts.delete(toolCallId);
-  return draft;
+/** The user is back: later calls wait their full time again; `looking` at the conversation, its timed call starts afresh too. */
+export function userBack(agent: Agent, looking = false) {
+  const clock = clockOf(agent);
+  clock.strikes = 0;
+  const away = looking && clock.id && agent.approvals.get(clock.id)?.away;
+  if (away) arm(clock, away.afterMs);
 }

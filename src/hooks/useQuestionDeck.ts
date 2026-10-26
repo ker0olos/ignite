@@ -18,10 +18,14 @@ import {
   saveDeck,
 } from "@/lib/questionDrafts";
 import { waitingCalls } from "@/lib/toolRows";
-import type { Transcript } from "@/lib/transcript";
+import type { ToolRun, Transcript } from "@/lib/transcript";
 
 const NONE: string[] = [];
+const NO_TOOLS: Record<string, ToolRun> = {};
 const FRESH: Deck = { step: 0, drafts: [] };
+const DRAFT_MS = 500;
+
+const ended = (run: ToolRun | undefined) => !!run && run.status !== "running";
 
 /** The shown conversation's waiting calls in the order they began to wait, shared by its rows and the composer. */
 export function useWaitingCalls(transcript: Transcript | null | undefined) {
@@ -33,11 +37,12 @@ export function useWaitingCalls(transcript: Transcript | null | undefined) {
 /** The questions shown in the composer. */
 export type QuestionDeck = NonNullable<ReturnType<typeof useQuestionDeck>>;
 
-/** An ask_user call's questions one at a time, each with its draft, kept per call while the user switches away; null without one. `onDraft` hears each change to the answers so far. */
+/** An ask_user call's questions one at a time, each with its draft, kept per call while the user switches away; null without one. `onDraft` hears the answers so far once typing pauses; `tools` says which calls ended, whose drafts are forgotten. */
 export function useQuestionDeck(
   call: ToolCall | undefined,
   onApprove: ToolProps["onApprove"],
   onDraft?: (id: string, answers: QuestionAnswer[]) => void,
+  tools: Record<string, ToolRun> = NO_TOOLS,
 ) {
   const [decks, setDecks] = useState<Record<string, Deck>>({});
   // A reload or closed window writes what's still waiting to be saved.
@@ -50,6 +55,21 @@ export function useQuestionDeck(
   }, []);
   const id = call?.id;
   const loaded = useMemo(() => (id ? loadDeck(id) : undefined), [id]);
+  const changed = id ? decks[id] : undefined;
+  const args = call?.arguments;
+  useEffect(() => {
+    if (!id || !changed || !args || !onDraft) return;
+    const timer = setTimeout(
+      () => onDraft(id, unsentAnswers(readQuestions(args), changed.drafts)),
+      DRAFT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [id, changed, args, onDraft]);
+  // A call stopped, or answered for a user who was away, is never answered here.
+  useEffect(() => {
+    for (const done of Object.keys(decks))
+      if (ended(tools[done])) saveDeck(done, null);
+  }, [decks, tools]);
   if (!call || !id) return null;
   const saved = () => decks[id] ?? loaded ?? FRESH;
   const { step, drafts } = saved();
@@ -61,8 +81,8 @@ export function useQuestionDeck(
     setDecks((all) => {
       const deck = fn(all[id] ?? saved());
       saveDeck(id, deck);
-      onDraft?.(id, unsentAnswers(questions, deck.drafts));
-      return { ...all, [id]: deck };
+      const live = Object.entries(all).filter(([d]) => !ended(tools[d]));
+      return { ...Object.fromEntries(live), [id]: deck };
     });
   const change = (fn: (d: Draft) => Draft) =>
     update((d) => {

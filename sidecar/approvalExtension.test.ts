@@ -709,7 +709,7 @@ describe("the sandbox in Auto", () => {
     expect(asks).toEqual([]);
   });
 
-  it("asks for shell commands on Windows", async () => {
+  it("asks for shell commands on Windows, waiting for a user who's away", async () => {
     const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
     Object.defineProperty(process, "platform", { value: "win32" });
     try {
@@ -717,6 +717,8 @@ describe("the sandbox in Auto", () => {
       void call("bash", { command: "npm test" });
       await vi.waitFor(() => expect(asks).toHaveLength(1));
       expect(asks[0].request.reason).toBe(WINDOWS_SHELL);
+      // Every command asks there, so denying them would stop all work.
+      expect(asks[0].away).toBeUndefined();
     } finally {
       Object.defineProperty(process, "platform", platform);
     }

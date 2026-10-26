@@ -627,7 +627,9 @@ Two places hold persisted data:
   `settings.json`, where pi keeps the last chosen model and effort as the
   default for new sessions (and `cacheWarming: "idle"`, set at start unless
   already set, so conversations on the fallback keys' Anthropic models stay
-  cached between runs; claude-bridge declares no cache lifetime, so it never warms), and `sessions/`, one JSONL file per
+  cached between runs; claude-bridge declares no cache lifetime, so it never warms.
+  pi warms only when it expects a refresh to save $0.05 or more, and for at most
+  30 minutes after a run; `"off"` there turns it off), and `sessions/`, one JSONL file per
   conversation. A folder can have several open at once, each keyed by pi's
   session id and listed under its folder in the sidebar (the list is kept
   in state.json, and one starts again when clicked). Showing a folder shows
@@ -666,8 +668,7 @@ shows Approve / Deny, answered with `approval_answer`. bash takes a `reason` and
 (`sidecar/toolReason.ts`, dropped before the tool runs), shown above what the
 call would run (its command, or an MCP call's arguments). A denied call returns
 `{ block: true, reason }` to the model; stopping the run or closing the
-folder denies what's waiting. A hidden folder's question waits until it's
-shown again. When several calls wait, only the first shows its prompt (with
+folder denies what's waiting. When several calls wait, only the first shows its prompt (with
 how many more wait behind it); the rest show their place in line and open
 in turn, so nothing waits off screen. Some calls don't wait forever
 (`sidecar/awayTimer.ts`): the first in line starts its timer the moment it's
@@ -680,8 +681,13 @@ sandbox) after 2 minutes, denied with a reason telling the agent to carry on
 without it. Manual's prompts, git and gh reviews, `task_add` and lesson changes
 wait forever, and so do the calls behind them. After 3 timed out in a row, later
 ones are answered at once until the user is back: they answer one, send a
-message, or touch the window (a key, a click, focus moving; `user_active`,
-`lib/userActivity.ts`), which never restarts a timer already running. The `ask_user` tool (`sidecar/askExtension.ts`) uses the same
+message, or use the window (a key, a click, scrolling; `user_active`,
+`lib/userActivity.ts`; not focus or visibility, which change with nobody
+there). Using it, or typing a question's answer, also starts the shown
+conversation's timer afresh, so a call the user is reading or answering never
+times out under them; a hidden one's runs on. Windows' unsandboxed shell
+commands (every one asks) wait like Manual's. A call whose run stopped leaves
+the line at once, counting no strike. The `ask_user` tool (`sidecar/askExtension.ts`) uses the same
 channel: its call waits as an approval and, once first in line, its questions
 take over the composer (`useQuestionDeck`, `ComposerQuestion`): options above
 the text box, whose text and images are a note on the picks, or the user's own

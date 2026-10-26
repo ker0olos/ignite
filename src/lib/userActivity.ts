@@ -1,12 +1,7 @@
-// Any of these on the window means the user is there.
-const WINDOW_EVENTS = ["keydown", "pointerdown", "focus", "blur"] as const;
+// Only what the user does; focus and visibility also move with no one there.
+const WINDOW_EVENTS = ["keydown", "pointerdown", "wheel"] as const;
 
-/**
- * Calls `onActive` when the user interacts with the window (a key, a click,
- * focus moving in or out, the page shown or hidden), at most once per
- * `gapMs`, so the sidecar knows they're back (sidecar/awayTimer.ts). Returns
- * a function that stops watching.
- */
+/** Calls `onActive` when the user uses the window, at most once per `gapMs`; returns a function that stops watching. */
 export function watchActivity(onActive: () => void, gapMs = 5000) {
   let last = -Infinity;
   const seen = () => {
@@ -16,9 +11,6 @@ export function watchActivity(onActive: () => void, gapMs = 5000) {
     onActive();
   };
   WINDOW_EVENTS.forEach((e) => window.addEventListener(e, seen, true));
-  document.addEventListener("visibilitychange", seen);
-  return () => {
+  return () =>
     WINDOW_EVENTS.forEach((e) => window.removeEventListener(e, seen, true));
-    document.removeEventListener("visibilitychange", seen);
-  };
 }

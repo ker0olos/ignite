@@ -1,3 +1,5 @@
+import { useCallback } from "react";
+import type { QuestionAnswer } from "../../../shared/questions";
 import { Composer } from "@/components/agent/Composer";
 import { ConversationSkeleton } from "@/components/agent/ConversationSkeleton";
 import { EmptyConversation } from "@/components/agent/EmptyConversation";
@@ -60,6 +62,14 @@ export function AgentPanel({
   const pane = session.session ?? STARTING_PANE;
   const covered = panes.some((o) => o.session === pane);
   const waiting = useWaitingCalls(transcript);
+  // Sent with the questions if the user goes away before answering (sidecar/awayTimer.ts).
+  const sendDraft = useCallback(
+    (toolCallId: string, answers: QuestionAnswer[]) =>
+      void host
+        ?.send({ type: "question_draft", toolCallId, answers })
+        .catch(() => {}),
+    [host],
+  );
   // Answering, the conversation's diff comments go with the answer, as they would with a message.
   const asking = useQuestionDeck(
     transcript ? askingCall(transcript.items, waiting) : undefined,
@@ -70,11 +80,8 @@ export function AgentPanel({
         answers && withAnswerComments(answers, takeComments(session.session)),
         always,
       ),
-    // Sent with the questions if the user goes away before answering (sidecar/awayTimer.ts).
-    (toolCallId, answers) =>
-      void host
-        ?.send({ type: "question_draft", toolCallId, answers })
-        .catch(() => {}),
+    sendDraft,
+    transcript?.tools,
   );
 
   return (

@@ -1,6 +1,6 @@
 import type { QuestionAnswer } from "../shared/questions.ts";
 import type { ApprovalAsk } from "./approvalAsk.ts";
-import { keepDraft, takeDraft, timeFirst, userBack } from "./awayTimer.ts";
+import { timeFirst, userBack } from "./awayTimer.ts";
 import { tellsApp, type Agent, type HostContext } from "./hostTypes.ts";
 import { pushProjects } from "./hostProjects.ts";
 import { noteDenied } from "./hostReflect.ts";
@@ -18,20 +18,28 @@ export function askApproval(ctx: HostContext, agent: Agent, ask: ApprovalAsk) {
       request: ask.request,
     });
   }
+  ask.signal?.addEventListener("abort", () => drop(ctx, agent, id, ask), {
+    once: true,
+  });
   pushProjects(ctx);
   timeAway(ctx, agent);
+}
+
+// The call no longer waits, its answer given or not.
+function drop(ctx: HostContext, agent: Agent, id: string, ask: ApprovalAsk) {
+  if (agent.approvals.get(id) !== ask) return false;
+  agent.approvals.delete(id);
+  unmarkWaiting(agent.id, id);
+  pushProjects(ctx);
+  timeAway(ctx, agent);
+  return true;
 }
 
 // The first waiting call's time starts; once it's up, the call is answered as the user being away.
 const timeAway = (ctx: HostContext, agent: Agent) =>
   timeFirst(agent, (id, ask) => {
-    if (agent.approvals.get(id) !== ask) return;
-    agent.approvals.delete(id);
-    unmarkWaiting(agent.id, id);
-    const draft = takeDraft(id);
-    ask.answer(false, draft, undefined, ask.away?.reason(draft));
-    pushProjects(ctx);
-    timeAway(ctx, agent);
+    if (drop(ctx, agent, id, ask))
+      ask.answer(false, ask.draft, undefined, ask.away?.reason(ask.draft));
   });
 
 /** Keeps what the user has answered so far in a waiting call's questions, sent with it if they're away. */
@@ -41,7 +49,10 @@ export function keepAnswers(
   answers: QuestionAnswer[],
 ) {
   for (const agent of ctx.agents.values()) {
-    if (agent.approvals.has(toolCallId)) keepDraft(toolCallId, answers);
+    const ask = agent.approvals.get(toolCallId);
+    if (!ask) continue;
+    ask.draft = answers;
+    userBack(agent, true);
   }
 }
 
@@ -58,7 +69,6 @@ export function answerApproval(
     if (!ask) continue;
     agent.approvals.delete(toolCallId);
     unmarkWaiting(agent.id, toolCallId);
-    takeDraft(toolCallId);
     userBack(agent);
     if (!approved) {
       ask.declined?.();
@@ -90,7 +100,6 @@ export function denyAll(ctx: HostContext, agent: Agent, wrote = false) {
     const instead = wrote && own(agent, id);
     // Declining to run a sandbox-blocked command outside it isn't feedback on the agent.
     if (instead && ask.wait !== "ran") noteDenied(agent, id, true);
-    takeDraft(id);
     ask.answer(
       false,
       undefined,
