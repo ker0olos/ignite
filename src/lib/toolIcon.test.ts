@@ -78,7 +78,6 @@ describe("serverName", () => {
 
 describe("tileClass", () => {
   it("fills a tile by its icon", () => {
-    expect(tileClass({ kind: "done" })).toContain("bg-success");
     expect(tileClass(toolIcon(call("bash")))).toBe("bg-muted");
     expect(tileClass(toolIcon(call("gh")))).toBe("bg-primary");
   });

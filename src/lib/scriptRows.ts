@@ -1,5 +1,6 @@
+import type { ToolResult } from "../../shared/agentTypes";
 import { scriptDetails } from "../../shared/codemode";
-import type { ToolBadge } from "./toolLabels";
+import { resultText, type ToolBadge } from "./toolLabels";
 import { plural } from "./toolRows";
 import type { ToolRun } from "./transcript";
 
@@ -62,11 +63,33 @@ function tokens(chars: number) {
   return `${Math.round(n / 1000)}k`;
 }
 
-/** What the agent was sent of what the script's calls returned, or null when they returned nothing. */
+// pi's first block, for the model; the script's row already shows its status and time.
+const PI_HEADER = /^Script (?:completed|failed)\n/;
+
+/** What the script printed (or its error), without pi's "Script completed / Wall time / Output:" block. */
+export function scriptOutput(result: ToolResult | undefined) {
+  const [first, ...rest] = result?.content ?? [];
+  const headed = first?.type === "text" && PI_HEADER.test(first.text);
+  const content = headed ? rest : (result?.content ?? []);
+  return resultText({ ...result, content }).trimEnd();
+}
+
+/** The script's last step: Done once it finished, Failed when it failed with something to say, else none. */
+export function scriptEnd(status: ScriptStatus, output: string) {
+  if (status === "done") return "done";
+  return status === "failed" && output ? "failed" : null;
+}
+
+/** The collapsed output's label: "Output · 12 lines". */
+export const outputLabel = (text: string) =>
+  `Output · ${plural(text.split("\n").length, "line", "lines")}`;
+
+/** What the agent was sent of what the script's calls returned, or null unless the script cut it down. */
 export function tokenFooter(output: string, run: ToolRun | undefined) {
   const seen = scriptDetails(run?.result?.details)?.seen ?? 0;
-  if (!seen) return null;
-  return `Sent the agent ${tokens(output.length)} of ${tokens(seen)} tokens`;
+  const [sentText, seenText] = [tokens(output.length), tokens(seen)];
+  if (output.length >= seen || sentText === seenText) return null;
+  return `Sent the agent ${sentText} of ${seenText} tokens`;
 }
 
 const SCRIPT_BADGES: Record<ScriptStatus, ToolBadge> = {

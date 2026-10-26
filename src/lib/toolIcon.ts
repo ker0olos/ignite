@@ -58,8 +58,7 @@ export type ToolIcon =
       color?: string;
       plain?: boolean;
     }
-  | { kind: "brand"; path: string; hex: string; tone: TileTone }
-  | { kind: "done" };
+  | { kind: "brand"; path: string; hex: string; tone: TileTone };
 
 const luminance = (hex: string) => {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -75,7 +74,6 @@ export function tileTone(hex: string): TileTone {
 
 /** A tile's fill for its icon (a brand tile's own colour is set inline). */
 export function tileClass(icon: ToolIcon) {
-  if (icon.kind === "done") return "border-success bg-success text-background";
   if (icon.kind === "lucide") return "bg-muted";
   return { brand: "", inverse: "bg-primary", card: "bg-card" }[icon.tone];
 }
