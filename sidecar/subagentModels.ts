@@ -39,7 +39,7 @@ export function allowedEfforts(own: string): Effort[] {
 }
 
 /** The cheapest allowed model; unpriced ones count as the main model. */
-function cheapest(ctx: ExtensionContext): Model | undefined {
+export function cheapest(ctx: ExtensionContext): Model | undefined {
   const all = ctx.modelRegistry.getAll();
   const cost = (m: Model) => price(m, all) ?? Infinity;
   return allowedModels(ctx).reduce<Model | undefined>(

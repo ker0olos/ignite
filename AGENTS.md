@@ -448,7 +448,11 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   cdpResult.ts           chrome_cdp's results with long base64 data (screenshots, PDFs) saved to files, not inlined
   taskTabs.ts            Which Chrome tabs a task may use: only its own, named by id
   webSearchExtension.ts  web_search: Claude Code's WebSearch (no WebFetch: it would fetch unsandboxed), run by Haiku
-                         in the SDK's Claude Code on the user's login, 8 turns or 2 minutes; only when signed in
+                         in the SDK's Claude Code on the user's login, 8 turns or 2 minutes; on for a run when signed in,
+                         or when the run's provider searches on its own API (apiWebSearch.ts)
+  apiWebSearch.ts        That search on the conversation's provider: Anthropic's server-side web search on an API or
+                         fallback key (only while Claude Code is signed out or out of usage; never pi's own Claude
+                         sign-in), Codex's on a ChatGPT login, run by the provider's cheapest priced model
   adbExtension.ts        adb and adb_screenshot: Android devices, run outside the sandbox
   imageExtension.ts      show_image: shows the user an image file from any path in its tool row
                          and, in a task's conversation, on the task's card; one the agent generated
