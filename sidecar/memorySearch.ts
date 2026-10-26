@@ -1,6 +1,6 @@
 /** Reading the memory: a folder's latest, a full-text search, by id and around one. */
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
-import { SUMMARY_TYPE } from "../shared/memory.ts";
+import { PROCEDURE, SUMMARY_TYPE } from "../shared/memory.ts";
 import { toMemory, type Memory } from "./memoryDb.ts";
 
 type Rows = Record<string, unknown>[];
@@ -149,21 +149,31 @@ export function counts(db: DatabaseSync, folder: string) {
   return Object.fromEntries(rows.map((r) => [r.type, r.n]));
 }
 
-/** `folder`'s newest memories with concept `concept`, newest first. */
+/** `folder`'s (every folder's, for null) newest memories with concept `concept`, newest first. */
 export function withConcept(
   db: DatabaseSync,
-  folder: string,
+  folder: string | null,
   concept: string,
   limit: number,
 ): Memory[] {
   const rows = db
     .prepare(
-      `SELECT * FROM memories WHERE folder = ?
+      `SELECT * FROM memories WHERE (? IS NULL OR folder = ?)
        AND EXISTS (SELECT 1 FROM json_each(concepts) WHERE value = ?)
        ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
-    .all(folder, concept, limit) as Rows;
+    .all(folder, folder, concept, limit) as Rows;
   return rows.map(toMemory);
+}
+
+/** Whether memory `id` is a procedure (sidecar/procedures.ts). */
+export function isProcedure(db: DatabaseSync, id: number): boolean {
+  return !!db
+    .prepare(
+      `SELECT 1 FROM memories WHERE id = ?
+       AND EXISTS (SELECT 1 FROM json_each(concepts) WHERE value = ?)`,
+    )
+    .get(id, PROCEDURE);
 }
 
 /** `folder`'s newest observations of type `kind`, newest first. */

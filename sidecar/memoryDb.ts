@@ -141,6 +141,23 @@ export function summaryOf(fields: Record<string, unknown>) {
   return { title, narrative: narrative || null };
 }
 
+/** Removes memory `id`, from the full-text index too (it has no delete trigger). */
+export function removeMemory(db: DatabaseSync, id: number) {
+  db.exec("BEGIN");
+  try {
+    // An external-content index forgets a row only when given its indexed values.
+    db.prepare(
+      `INSERT INTO memories_fts(memories_fts, rowid, title, subtitle, narrative, facts, concepts)
+       SELECT 'delete', id, title, subtitle, narrative, facts, concepts FROM memories WHERE id = ?`,
+    ).run(id);
+    db.prepare("DELETE FROM memories WHERE id = ?").run(id);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 const INSERT = `INSERT INTO memories
   (folder, conversation, platform, type, title, subtitle, facts, narrative,
    concepts, files_read, files_modified, created_at, origin)

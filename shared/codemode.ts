@@ -3,6 +3,9 @@ import type { ToolResult } from "./agentTypes.ts";
 /** pi's tool that runs a script calling the other tools. */
 export const CODEMODE_TOOL = "codemode";
 
+/** The most of a call's result text a script's record keeps; longer text is cut, with "…". */
+export const MAX_CALL_TEXT = 4_000;
+
 /** One call a script made, with its result, as the script's result keeps it. */
 export type ScriptCall = {
   id: string;

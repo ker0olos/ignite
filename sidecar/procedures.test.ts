@@ -5,15 +5,16 @@ import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentMessage } from "../shared/agentTypes.ts";
+import { withFiles } from "../shared/attachedFiles.ts";
 import { CODEMODE_TOOL } from "../shared/codemode.ts";
 import { LESSON_ADD_TOOL } from "../shared/lessons.ts";
 import { PROCEDURE } from "../shared/memory.ts";
-import type { Session } from "./hostTypes.ts";
+import type { Agent, Session } from "./hostTypes.ts";
 import { addMemories, memoryDb } from "./memoryDb.ts";
 import {
   learnsProcedures,
-  offer,
   pickedFrom,
+  pickFor,
   procedureNote,
   procedureRule,
 } from "./procedures.ts";
@@ -71,6 +72,9 @@ describe("learnsProcedures", () => {
     expect(learnsProcedures([script("error", "Use the grep tool")])).toBe(
       false,
     );
+    // The sandbox's block exits non-zero too, with its report.
+    const blocked = `curl: (7) failed\n<sandbox_violations>\ncurl(12) deny(1) network-outbound example.com:443\n</sandbox_violations>\nCommand exited with code 7`;
+    expect(learnsProcedures([bash(blocked)])).toBe(false);
   });
 
   it("leaves a run that added a lesson to the lesson", () => {
@@ -88,49 +92,60 @@ describe("procedureRule", () => {
 });
 
 describe("pickedFrom", () => {
-  it("keeps the listed procedures the reply names, at most 3", () => {
-    const listed = [1, 2, 3, 4].map((id) => ({ id }) as never);
-    expect(pickedFrom("NONE", listed)).toEqual([]);
+  const listed = [1, 2, 3, 4, 40].map((id) => ({ id }) as never);
+
+  it("keeps the listed procedures a reply of ids names, at most 3", () => {
     expect(pickedFrom("2, 9", listed)).toEqual([{ id: 2 }]);
+    expect(pickedFrom(" [3], [40].", listed)).toEqual([{ id: 3 }, { id: 40 }]);
     expect(pickedFrom("1,2,3,4", listed)).toHaveLength(3);
+  });
+
+  it("takes no numbers from prose", () => {
+    expect(pickedFrom("NONE", listed)).toEqual([]);
+    expect(pickedFrom("NONE (0 of 40 apply)", listed)).toEqual([]);
+    expect(pickedFrom("None; 3 are close but no", listed)).toEqual([]);
+    expect(pickedFrom("I'd pick 3", listed)).toEqual([]);
   });
 });
 
+let dir: string;
+let db: DatabaseSync;
+beforeEach(async () => {
+  dir = await mkdtemp(join(tmpdir(), "procedures-"));
+  vi.stubEnv("HOME", dir);
+  db = memoryDb(join(dir, "memory.db"));
+});
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  db.close();
+  await rm(dir, { recursive: true, force: true });
+});
+
+const model = {
+  provider: "x",
+  id: "cheap",
+  name: "Cheap",
+  cost: { output: 1 },
+};
+const session = (reply: string) => ({
+  model,
+  modelRuntime: {
+    getModels: () => [model],
+    getAvailable: async () => [model],
+    completeSimple: vi.fn(async () => ({
+      content: [{ type: "text", text: reply }],
+      stopReason: "stop",
+    })),
+  } as unknown as Session["modelRuntime"],
+});
+const firstId = (db: DatabaseSync) =>
+  (db.prepare("SELECT id FROM memories ORDER BY id").get() as { id: number })
+    .id;
+const live = () => new AbortController().signal;
+const user = { role: "user", content: "hi", timestamp: 1 } as AgentMessage;
+
 describe("procedureNote", () => {
-  let dir: string;
-  let db: DatabaseSync;
-  beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "procedures-"));
-    vi.stubEnv("HOME", dir);
-    db = memoryDb(join(dir, "memory.db"));
-  });
-  afterEach(async () => {
-    vi.unstubAllEnvs();
-    db.close();
-    await rm(dir, { recursive: true, force: true });
-  });
-
-  const model = {
-    provider: "x",
-    id: "cheap",
-    name: "Cheap",
-    cost: { output: 1 },
-  };
-  const session = (reply: string, messages: AgentMessage[] = []) => ({
-    model,
-    messages,
-    modelRuntime: {
-      getModels: () => [model],
-      getAvailable: async () => [model],
-      completeSimple: vi.fn(async () => ({
-        content: [{ type: "text", text: reply }],
-        stopReason: "stop",
-      })),
-    } as unknown as Session["modelRuntime"],
-  });
-  const agent = { cwd: "/work/app" };
-
-  it("offers the procedures the cheapest model picks for the first message", async () => {
+  it("offers the procedures the cheapest model picks for the message as typed", async () => {
     addMemories(db, [
       memory({
         title: "Running the sidecar tests",
@@ -139,46 +154,104 @@ describe("procedureNote", () => {
       }),
       memory({ title: "Not a procedure" }),
     ]);
-    const [first] = db.prepare("SELECT id FROM memories").all() as {
-      id: number;
-    }[];
-    const s = session(`${first.id}`);
-    const note = await procedureNote(agent, s, "fix the tests", db);
+    const s = session(`${firstId(db)}`);
+    const typed = withFiles("fix the tests", [
+      { path: "/a.txt", text: "file text" },
+    ]);
+    const note = await procedureNote(s, "/work/app", typed, live(), db);
     expect(note).toMatch(/^Procedures earlier conversations/);
     expect(note).toContain(
       "] Running the sidecar tests\n- Run pnpm install first",
     );
-    const [, context] = vi.mocked(s.modelRuntime.completeSimple).mock.calls[0];
+    const [, context, options] = vi.mocked(s.modelRuntime.completeSimple).mock
+      .calls[0];
     const asked = context.messages[0].content as string;
     expect(asked).toContain("The task:\nfix the tests");
+    expect(asked).not.toContain("file text");
     expect(asked).toContain("] Running the sidecar tests");
     expect(asked).not.toContain("Not a procedure");
+    expect(options).toMatchObject({ cacheRetention: "none" });
   });
 
-  it("offers nothing past the first message, without procedures, or when none fits", async () => {
+  it("offers nothing without procedures (asking no model), when none fits, or once aborted", async () => {
     const none = session("NONE");
-    expect(await procedureNote(agent, none, "fix", db)).toBe("");
-    // No procedures: the model isn't asked.
+    expect(await procedureNote(none, "/work/app", "fix", live(), db)).toBe("");
     expect(none.modelRuntime.completeSimple).not.toHaveBeenCalled();
     addMemories(db, [memory({ title: "Running", concepts: [PROCEDURE] })]);
-    expect(await procedureNote(agent, none, "fix", db)).toBe("");
-    const later = session("1", [
-      { role: "user", content: "hi", timestamp: 1 } as AgentMessage,
-    ]);
-    expect(await procedureNote(agent, later, "fix", db)).toBe("");
-    expect(later.modelRuntime.completeSimple).not.toHaveBeenCalled();
+    expect(await procedureNote(none, "/work/app", "fix", live(), db)).toBe("");
+    const stopped = new AbortController();
+    const picks = session(`${firstId(db)}`);
+    const note = procedureNote(picks, "/work/app", "fix", stopped.signal, db);
+    stopped.abort();
+    expect(await note).toBe("");
   });
 });
 
-describe("offer", () => {
-  it("adds the note to the next run, hidden; nothing without one", async () => {
-    const sendCustomMessage = vi.fn(async () => {});
-    await offer({ sendCustomMessage }, "");
-    expect(sendCustomMessage).not.toHaveBeenCalled();
-    await offer({ sendCustomMessage }, "note");
-    expect(sendCustomMessage).toHaveBeenCalledWith(
-      { customType: PROCEDURE, content: "note", display: false },
-      { deliverAs: "nextTurn" },
+describe("pickFor", () => {
+  beforeEach(() => {
+    addMemories(db, [memory({ title: "Running", concepts: [PROCEDURE] })]);
+  });
+  const setup = (
+    over: { messages?: AgentMessage[]; routing?: object } = {},
+  ) => {
+    const agent = { cwd: "/work/app", ...over } as unknown as Agent;
+    const s = {
+      ...session(`${firstId(db)}`),
+      messages: over.messages ?? [],
+      isStreaming: true,
+      sendCustomMessage: vi.fn(async () => {}),
+    };
+    return { agent, s, pick: () => pickFor(agent, s, "run the tests", db) };
+  };
+
+  it("steers the note into the run the message started", async () => {
+    const { agent, s, pick } = setup();
+    const picking = pick()!;
+    expect(agent.picking).toBeDefined();
+    await picking.ran("started");
+    expect(s.sendCustomMessage).toHaveBeenCalledWith(
+      {
+        customType: PROCEDURE,
+        content: expect.stringContaining("] Running"),
+        display: false,
+      },
+      { deliverAs: "steer" },
     );
+    expect(agent.picking).toBeUndefined();
+  });
+
+  it("picks nothing past the first message or while one is routed", () => {
+    expect(setup({ messages: [user] }).pick()).toBeUndefined();
+    expect(setup({ routing: {} }).pick()).toBeUndefined();
+  });
+
+  it.each(["handled", "queued"])(
+    "drops the note when pi %s the message instead of starting a run",
+    async (how) => {
+      const { s, pick } = setup();
+      await pick()!.ran(how);
+      expect(s.sendCustomMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  it("drops the note after Stop, cancel, the run's end, or a later message", async () => {
+    const stopped = setup();
+    const a = stopped.pick()!;
+    stopped.agent.picking!.abort();
+    await a.ran("started");
+    const cancelled = setup();
+    const b = cancelled.pick()!;
+    b.cancel();
+    await b.ran("started");
+    const ended = setup();
+    const c = ended.pick()!;
+    ended.s.isStreaming = false;
+    await c.ran("started");
+    const next = setup();
+    const d = next.pick()!;
+    next.s.messages.push(user, user);
+    await d.ran("started");
+    for (const { s } of [stopped, cancelled, ended, next])
+      expect(s.sendCustomMessage).not.toHaveBeenCalled();
   });
 });

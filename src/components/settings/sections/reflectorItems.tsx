@@ -1,11 +1,17 @@
 import { X } from "lucide-react";
-import { ReflectionSource } from "@/components/reflector/ReflectionSource";
 import { ReflectionTags } from "@/components/reflector/ReflectionTags";
 import { ReflectionText } from "@/components/reflector/ReflectionText";
 import { RemoveButton } from "@/components/mcp/RemoveButton";
+import { LearnedSource } from "@/components/settings/LearnedSource";
 import type { Item } from "@/components/settings/sections";
 import type { useReflector } from "@/hooks/useReflector";
-import { ENTRY_POINTS } from "../../../../shared/reflector";
+import { reflectionOrigin } from "@/lib/reflector";
+import { ENTRY_POINTS, type Reflection } from "../../../../shared/reflector";
+
+const origin = (r: Reflection) => {
+  const { taught, ...rest } = reflectionOrigin(r);
+  return { how: taught, ...rest };
+};
 
 /** Settings rows for the points the reflector learned about how the user wants the agent to work. */
 export function reflectorItems({
@@ -52,8 +58,9 @@ export function reflectorItems({
       keywords: `reflector working style feedback preferences how to work ${ENTRY_POINTS[r.entry].label}`,
       control: (
         <span className="flex items-start gap-5">
-          <ReflectionSource
-            reflection={r}
+          <LearnedSource
+            from={r.from}
+            {...origin(r)}
             onOpenConversation={onOpenConversation}
           />
           <RemoveButton

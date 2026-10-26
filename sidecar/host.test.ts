@@ -34,8 +34,7 @@ import type { ClaudeCode, ClaudeCodeStatus } from "./claudeCode.ts";
 import { toConfig, type McpEntry, type McpStore } from "./mcpConfig.ts";
 import { memoryStatus } from "./memory.ts";
 import { rememberRun } from "./hostMemory.ts";
-import { procedureNote } from "./procedures.ts";
-import { PROCEDURE } from "../shared/memory.ts";
+import { pickFor } from "./procedures.ts";
 import { conversationGitStatus } from "./gitStatus.ts";
 import type { TrustStore } from "./trust.ts";
 import type { SkillStore } from "./skillStore.ts";
@@ -61,7 +60,7 @@ vi.mock("./hostMemory.ts", () => ({
 // The real one reads ~/.ignite/memory.db and calls the provider.
 vi.mock("./procedures.ts", async (original) => ({
   ...(await original<typeof import("./procedures.ts")>()),
-  procedureNote: vi.fn(async () => ""),
+  pickFor: vi.fn(() => undefined),
 }));
 // The real one writes to pi's folder in the user's home.
 vi.mock("./waitingCalls.ts", () => ({
@@ -1297,24 +1296,28 @@ describe("sessions", () => {
     });
   });
 
-  it("adds the procedures picked for a message to its run, before pi takes it", async () => {
-    vi.mocked(procedureNote).mockResolvedValueOnce("Procedures…");
+  it("sends the first message at once, telling its procedure pick how pi took it", async () => {
+    const pick = { cancel: vi.fn(), ran: vi.fn(async () => {}) };
+    vi.mocked(pickFor).mockReturnValueOnce(pick);
     const session = fakeSession();
-    const order: string[] = [];
-    session.sendCustomMessage.mockImplementation(async () => {
-      order.push("note");
-    });
-    session.prompt.mockImplementation(async () => {
-      order.push("prompt");
-    });
     const { request } = setup(fakeRuntime().runtime, async () => session);
     await request({ id: 1, type: "new_session", cwd: "/a" });
     await request({ id: 2, type: "prompt", text: "run the tests" });
-    await vi.waitFor(() => expect(order).toEqual(["note", "prompt"]));
-    expect(session.sendCustomMessage).toHaveBeenCalledWith(
-      { customType: PROCEDURE, content: "Procedures…", display: false },
-      { deliverAs: "nextTurn" },
-    );
+    await vi.waitFor(() => expect(pick.ran).toHaveBeenCalledOnce());
+    expect(vi.mocked(pickFor).mock.lastCall?.[2]).toBe("run the tests");
+    expect(session.prompt).toHaveBeenCalledOnce();
+    expect(pick.cancel).not.toHaveBeenCalled();
+  });
+
+  it("cancels the pick when the message fails to start", async () => {
+    const pick = { cancel: vi.fn(), ran: vi.fn(async () => {}) };
+    vi.mocked(pickFor).mockReturnValueOnce(pick);
+    const session = fakeSession();
+    session.prompt.mockRejectedValueOnce(new Error("no model"));
+    const { request } = setup(fakeRuntime().runtime, async () => session);
+    await request({ id: 1, type: "new_session", cwd: "/a" });
+    await request({ id: 2, type: "prompt", text: "run the tests" });
+    await vi.waitFor(() => expect(pick.cancel).toHaveBeenCalledOnce());
   });
 
   it("starts a new conversation under the app's id, only an unused UUID", async () => {

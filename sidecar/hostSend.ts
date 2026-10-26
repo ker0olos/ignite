@@ -6,7 +6,7 @@ import { reportTo } from "./hostFollow.ts";
 import { holdNext, holdQueue } from "./hostQueue.ts";
 import { routeMessage } from "./hostRoute.ts";
 import type { Agent, HostContext, Session } from "./hostTypes.ts";
-import { offer, procedureNote } from "./procedures.ts";
+import { pickFor } from "./procedures.ts";
 import { rememberImages } from "./queuedImages.ts";
 
 /** A message written before a cut-off run resumed goes first; one written after waits until that run has started. */
@@ -52,13 +52,10 @@ export async function hand(
     return true;
   }
   // A message sent mid-run steers the run; others may be routed (hostRoute.ts).
-  if (!streaming) {
-    // Picked while the router reads, offered once it lets the message through.
-    const note = procedureNote(agent, s, text).catch(() => "");
-    if (!(await routeMessage(ctx, agent, s, text, images))) return false;
-    await offer(s, await note);
-    await checkpointFirst(agent);
-  }
+  const pick = streaming
+    ? undefined
+    : await prepare(ctx, agent, s, text, images);
+  if (pick === false) return false;
   const release = streaming ? await holdQueue(agent) : () => {};
   const settled = () => {
     release();
@@ -76,16 +73,35 @@ export async function hand(
       // pi has just queued it last, as it expanded it (a skill's text, say), while the queue's edits are held.
       if (result === "queued")
         rememberImages(agent, lastQueued(s, behavior), images);
+      void pick?.ran(result ?? "");
       settled();
     },
   };
   const failed = onError ?? reportTo(ctx, agent);
   s.prompt(text, options).then(settled, (error: unknown) => {
     agent.snapshot = undefined;
+    pick?.cancel();
     settled();
     failed(error);
   });
   return true;
+}
+
+// Routes the message (false when Stop dropped it) and picks its procedures meanwhile, if it's the first.
+async function prepare(
+  ctx: HostContext,
+  agent: Agent,
+  s: Session,
+  text: string,
+  images?: ImageContent[],
+) {
+  const pick = pickFor(agent, s, text);
+  if (!(await routeMessage(ctx, agent, s, text, images))) {
+    pick?.cancel();
+    return false;
+  }
+  await checkpointFirst(agent);
+  return pick;
 }
 
 // A follow-up lands in pi's own queue only when its run started while the message was routed.

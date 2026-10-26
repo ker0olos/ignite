@@ -10,6 +10,7 @@ import {
   Keyboard,
   Laptop,
   Lightbulb,
+  ListChecks,
   MessageSquare,
   Palette,
   Plug,
@@ -56,6 +57,12 @@ export const SECTIONS = {
     brief: "What the agent learned from you",
     blurb:
       "What the agent learned from your corrections, read in every conversation they apply to.",
+  },
+  Procedures: {
+    icon: ListChecks,
+    brief: "Fixes for failed commands",
+    blurb:
+      "How past conversations got past commands that failed, in each folder. A new conversation is offered the ones its first message needs.",
   },
   Reflector: {
     icon: Lightbulb,

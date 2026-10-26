@@ -50,6 +50,7 @@ export function AppSettingsDialog({
         skills={dialog.skills}
         memory={dialog.memory}
         lessons={dialog.lessons}
+        procedures={dialog.procedures}
         reflector={dialog.reflector}
         about={dialog.about}
         folder={folder}

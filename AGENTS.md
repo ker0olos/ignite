@@ -41,6 +41,7 @@ src/                     React frontend (almost all logic lives here)
     settings/            Settings dialog shell, its rows, and one items file per section
     memory/              The Memory settings' extras: search, type filters with counts, the folder's memories (each opens to its facts and files)
     lessons/             A lesson's tags (its folder, what brings it up), in Settings
+    procedures/          A procedure's folder and steps, in Settings
     mcp/                 MCP server rows, add/edit dialog, preset and import UI, brand marks
     skills/              Skill and plugin rows, import UI from other apps
     providers/           Connect-a-provider screen: cards, sign-in/API-key forms, logos, the Claude card's fallback keys
@@ -129,6 +130,7 @@ src/                     React frontend (almost all logic lives here)
     useSettingsDialog.ts Settings open state, its first section, and what it fetches while open
     useInstalledThemes.ts The code and icon themes to pick from, scanned again on every open
     useLessons.ts        Every saved lesson, while Settings is open; removing one
+    useProcedures.ts     Every folder's procedures, while Settings is open; removing one
     useReflector.ts      The reflector's points, while Settings is open; editing or removing one
     useFallbackKeys.ts   The fallback Anthropic API keys on the connect screen: add, remove, reorder
     useOpenedOnce.ts     Mounts a lazy dialog (Settings, command center) on first open; loads its code soon after startup
@@ -199,6 +201,7 @@ src/                     React frontend (almost all logic lives here)
     skills.ts            Skills settings text: counts
     memory.ts            Memory settings text: the switch's line, the type filters, relative times
     lessons.ts           A lesson's folder as its tag names it
+    procedures.ts        A procedure's origin as Settings shows it: the conversation, when
     fallbackKeys.ts      Whether a provider card offers fallback keys (Claude, on a subscription)
     about.ts             About text: version line, update button states, the macOS About panel
     approvalPolicy.ts    Which tool calls wait for approval (Manual / Auto, paths outside the folder)
@@ -412,6 +415,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   lessonExtension.ts     lesson_add / lesson_remove; system_prompt lessons in the prompt, tool_call ones block their call
   lessonRegex.ts         Regex lessons: refusing too broad or slow ones on save (recheck), running one on a call
   hostLessons.ts         Settings' saved lessons: list and remove
+  hostProcedures.ts      Settings' procedures, every folder's: list and remove
   reflector.ts           After a run with the user's feedback, the cheapest model rewrites the reflector's points
   hostReflect.ts         The user's feedback on a run (replies, answers' notes, denials, rewinds), reflected on once it settles;
                          Settings' points: list, edit, remove
@@ -487,6 +491,7 @@ shared/mcpServers.ts     MCP servers as they cross the wire (re-exported by host
 shared/modelChoice.ts    Requests reading and choosing a conversation's model and effort, Router included
 shared/terminal.ts       The user's terminals: requests, output events, terminal_read's name
 shared/memory.ts         Memory kinds (cmem's), the Memory settings' status as it crosses the wire
+shared/procedures.ts     Procedures as Settings lists them, and their requests
 shared/fuzzy.ts          Fuzzy match score for the command center (used by both)
 shared/commandSearch.ts  Ranks conversations and files for the command center (sidecar and demo)
 shared/adb.ts            The adb tool's arguments: its command, host paths, calls that never exit
@@ -1182,16 +1187,22 @@ prompt section (`systemPromptOptions.sections`), since claude-bridge passes
 Claude Code only pi's sections, never text an extension adds to the prompt.
 Procedures (`sidecar/procedures.ts`) are how a run got past a failed command:
 when a bash command in the run (a script's included) exited non-zero, not
-merely blocked, denied or redirected, and no lesson was added, the writer is
-also asked for them, as `discovery` observations with the `procedure`
-concept, titled by when they apply, their facts the steps, and told the
-folder's 40 newest so it doesn't record one again. While the router reads a
-conversation's first message (`hand` in `sidecar/hostSend.ts`), the cheapest
+merely blocked, denied or redirected (the sandbox's blocks, which carry its
+report, included), and no lesson was added, the writer is also asked for them,
+as `discovery` observations with the `procedure` concept, titled by when they
+apply, their facts the steps, and told the folder's 40 newest so it doesn't
+record one again. A conversation's first message is never held up for them:
+while it's routed and sent (`hand` in `sidecar/hostSend.ts`), the cheapest
 priced model of its provider picks from those titles the ones the message as
-typed needs (at most 3, usually none; a folder with none asks nothing), sent
-once routing lets it through as a hidden `nextTurn` message in its run, not
-the system prompt, so the cache holds. A rewound first message is picked for
-again.
+typed needs (a reply of ids alone, at most 3, usually NONE; a folder with none
+asks nothing). Once pi has started the message's run and the pick is done,
+they join that run as a hidden steering message, not the system prompt, so the
+cache holds; Stop, closing, a message pi handled as a command or queued, the
+run's end and a later message drop them. A rewound first message is picked for
+again. Settings → Procedures lists every folder's (`sidecar/hostProcedures.ts`):
+when each applies, its steps, its folder, the conversation it was learned in
+(as the sidebar names it; none once that conversation is gone) and when;
+removing one also takes it out of the memory's search.
 Subagents get none of it. The Memory settings section turns it on or off
 and lists the folder's latest memories, searched (as `memory_search` does)
 and filtered by type (with each type's count), each opening to its facts and

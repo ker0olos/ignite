@@ -52,6 +52,7 @@ export async function stop(ctx: HostContext, session?: string) {
   }
   const routing = agent?.routing;
   routing?.controller.abort();
+  agent?.picking?.abort();
   const queued = agent ? await quietly(ctx, agent, () => take(s, agent)) : [];
   await s.abort();
   // The message being routed was never sent, so it comes back with the queue.
