@@ -12,7 +12,12 @@ import { MEMORY_TOOLS } from "./memoryExtension.ts";
 import { recordedBy, withConcept } from "./memorySearch.ts";
 import { write } from "./memoryWriter.ts";
 import { learningOn } from "./learningSettings.ts";
-import { learnsProcedures, LISTED, procedureRule } from "./procedures.ts";
+import {
+  learnsProcedures,
+  LISTED,
+  procedureRule,
+  procedureTitle,
+} from "./procedures.ts";
 
 // Recalling memories and keeping the plan or lessons say nothing new about the work.
 const SKIP = [...MEMORY_TOOLS, TASK_TOOL, LESSON_ADD_TOOL, LESSON_REMOVE_TOOL];
@@ -49,7 +54,9 @@ export async function rememberRun(agent: Agent, db?: DatabaseSync) {
   const rule =
     learnsProcedures(run) && (await learningOn("procedures"))
       ? procedureRule(
-          withConcept(store, agent.cwd, PROCEDURE, LISTED).map((m) => m.title),
+          withConcept(store, agent.cwd, PROCEDURE, LISTED).map((m) =>
+            procedureTitle(m.title),
+          ),
         )
       : undefined;
   const written = await write(s, run, recorded, path, SKIP, rule);

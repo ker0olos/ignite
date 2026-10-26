@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Item, Section } from "@/components/settings/sections";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 
 /** A learning section's first row, like Memory's: what it does, and its switch. */
 export function learningSwitchItem({
@@ -24,8 +24,9 @@ export function learningSwitchItem({
     description,
     icon,
     keywords,
+    alone: true,
     control: (
-      <Switch
+      <RailSwitch
         checked={checked}
         onCheckedChange={(on) => void onCheckedChange(on)}
       />

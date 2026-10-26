@@ -18,6 +18,7 @@ import {
   pickFor,
   procedureNote,
   procedureRule,
+  procedureTitle,
 } from "./procedures.ts";
 import { memory } from "./testMemory.ts";
 
@@ -266,5 +267,17 @@ describe("pickFor", () => {
     await d.ran("started");
     for (const { s } of [stopped, cancelled, ended, next])
       expect(s.sendCustomMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("procedureTitle", () => {
+  it("drops a Procedure: the writer put before the title", () => {
+    expect(procedureTitle("Procedure: starting the SPA")).toBe(
+      "starting the SPA",
+    );
+    expect(procedureTitle("procedure:Running tests")).toBe("Running tests");
+    expect(procedureTitle("Running the procedure: tests")).toBe(
+      "Running the procedure: tests",
+    );
   });
 });

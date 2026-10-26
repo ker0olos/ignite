@@ -1,5 +1,5 @@
 import type { Item } from "@/components/settings/sections";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import type { Settings } from "@/lib/settings";
 
 /** Settings rows for the conversation view. */
@@ -53,6 +53,6 @@ function switchItem({
     title,
     description,
     keywords,
-    control: <Switch checked={checked} onCheckedChange={onCheckedChange} />,
+    control: <RailSwitch checked={checked} onCheckedChange={onCheckedChange} />,
   };
 }

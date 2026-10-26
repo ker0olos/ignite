@@ -9,6 +9,10 @@ const lessons = (over: object) => ({
   lessons: null,
   error: null,
   remove: vi.fn(),
+  query: "",
+  setQuery: vi.fn(),
+  filter: null,
+  setFilter: vi.fn(),
   ...over,
 });
 

@@ -1,7 +1,7 @@
 import type { Item } from "@/components/settings/sections";
 import { IconThemePicker } from "@/components/settings/IconThemePicker";
 import { ThemePicker } from "@/components/settings/ThemePicker";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import type { CodeTheme } from "@/lib/codeThemes";
 import { CUSTOM_THEMES_DIR, listThemes } from "@/lib/codeThemeDiscovery";
 import { importTheme } from "@/lib/codeThemeLoad";
@@ -62,7 +62,7 @@ export function appearanceItems({
         "Show each repository the conversation changed with uncommitted files, unpushed commits or an open pull request.",
       keywords: "git branch pull request pr uncommitted unpushed repository",
       control: (
-        <Switch
+        <RailSwitch
           checked={settings.composer.git_status}
           onCheckedChange={(git_status) =>
             onChange({ ...settings, composer: { git_status } })

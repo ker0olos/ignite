@@ -38,7 +38,7 @@ src/                     React frontend (almost all logic lives here)
                          generated images as a media card (MediaCard: model, prompt, size, mark up), generated videos likewise (VideoCard), generated audio as an AudioCard (waveform player); WorkingLine is the run's spinner, step and time,
                          and (with `show_thinking`) the newest sentence of the model's reasoning; under it, once a request has
                          gone 10s unanswered, why (QuietRequestNote)
-    settings/            Settings dialog shell, its rows, and one items file per section
+    settings/            Settings dialog shell, its rows, and one items file per section; the Learning section's tabs
     memory/              The Memory settings' extras: search, type filters with counts, the folder's memories (each opens to its facts and files)
     lessons/             A lesson's tags (its folder, what brings it up), in Settings
     procedures/          A procedure's folder and steps, in Settings
@@ -132,6 +132,7 @@ src/                     React frontend (almost all logic lives here)
     useLessons.ts        Every saved lesson, while Settings is open; removing one
     useProcedures.ts     Every folder's procedures, while Settings is open; removing one
     useReflector.ts      The reflector's points, while Settings is open; editing or removing one
+    useListFilter.ts     A Learning tab's own search and filter chip (lib/learningFilters.ts filters by them)
     useFallbackKeys.ts   The fallback Anthropic API keys on the connect screen: add, remove, reorder
     useOpenedOnce.ts     Mounts a lazy dialog (Settings, command center) on first open; loads its code soon after startup
     useTextSize.ts       ⌘/Ctrl +, - and 0 resize message text
@@ -590,8 +591,11 @@ Two places hold persisted data:
   gives the agent the memory tools. Recording and recall check it before each
   run; the tools follow a reload.
 - **Learning settings** (`[lessons]`, `[reflector]`, `[procedures]`, each
-  `enabled`, on by default; the switch first in its Settings section,
-  `sidecar/learningSettings.ts`): off, nothing new is learned and what's saved
+  `enabled`, on by default; the switch first in its tab,
+  `sidecar/learningSettings.ts`). Settings shows Memory, Lessons, Procedures
+  and Reflector as one nav entry, Learning, its four tabs each with a count and
+  "off" when switched off (`LearningTabs`, `lib/learning.ts`); search still
+  finds them under their own names. Off, nothing new is learned and what's saved
   isn't used, but stays listed. Lessons: no `lesson_add`/`lesson_remove`
   (switching reloads the conversations, like memory; until then, and in
   subagents, they refuse), no prompt section, no blocked calls. Reflector: no

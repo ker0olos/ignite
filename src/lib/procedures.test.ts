@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { procedureOrigin } from "./procedures";
+import { codeParts, procedureOrigin } from "./procedures";
 
 const at = new Date(2026, 9, 22, 12).getTime();
 const base = { id: 1, title: "x", steps: [], folder: "/f", at };
@@ -23,5 +23,19 @@ describe("procedureOrigin", () => {
 
   it("has no conversation when none is known", () => {
     expect(procedureOrigin(base, at).conversation).toBeNull();
+  });
+});
+
+describe("codeParts", () => {
+  it("splits backtick spans out as code", () => {
+    expect(codeParts("Run `pnpm test` now")).toEqual([
+      { text: "Run ", code: false },
+      { text: "pnpm test", code: true },
+      { text: " now", code: false },
+    ]);
+  });
+
+  it("leaves an unclosed backtick literal", () => {
+    expect(codeParts("a `b")).toEqual([{ text: "a `b", code: false }]);
   });
 });

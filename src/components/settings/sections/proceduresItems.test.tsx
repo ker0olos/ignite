@@ -20,6 +20,10 @@ const hook = (over: object) => ({
   procedures: null,
   error: null,
   remove: vi.fn(),
+  query: "",
+  setQuery: vi.fn(),
+  filter: null,
+  setFilter: vi.fn(),
   ...over,
 });
 
@@ -53,7 +57,7 @@ describe("proceduresItems", () => {
     ]);
   });
 
-  it("shows the folder, the numbered steps and where it was learned", () => {
+  it("shows the folder, the first two steps and where it was learned", () => {
     const open = vi.fn();
     const [item] = items(hook({ procedures: [proc()] }), open);
     expect(item.title).toBe("Running the sidecar's tests");
@@ -66,14 +70,48 @@ describe("proceduresItems", () => {
     );
     expect(screen.getByText("tempo")).toBeTruthy();
     expect(screen.getAllByRole("listitem").map((l) => l.textContent)).toEqual([
-      "Install packages",
-      "Run vitest",
+      "1Install packages",
+      "2Run vitest",
     ]);
     const when = screen.getByText("2 hours ago");
     expect(when.getAttribute("title")).toContain("2026");
     expect(when.parentElement?.textContent).toBe("Learned · 2 hours ago");
     fireEvent.click(screen.getByRole("button", { name: "Sentry triage" }));
     expect(open).toHaveBeenCalledWith("/p/tempo", "c1");
+  });
+
+  it("folds steps past two, renders backticks as code, and expands", () => {
+    const steps = ["a `x` b", "two", "three", "four", "five"];
+    const [item] = items(hook({ procedures: [proc({ steps })] }));
+    const { container } = render(<>{item.hint}</>);
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(container.querySelector("code")?.textContent).toBe("x");
+    fireEvent.click(screen.getByRole("button", { name: "Show 3 more steps" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("shows a third step rather than a link in its place", () => {
+    const [item] = items(
+      hook({ procedures: [proc({ steps: ["a", "b", "c"] })] }),
+    );
+    render(<>{item.hint}</>);
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: /more step/ })).toBeNull();
+  });
+
+  it("shows every step while Settings is searched, as the match may be in one", () => {
+    const [item] = proceduresItems({
+      procedures: hook({
+        procedures: [proc({ steps: ["a", "b", "c", "d", "e"] })],
+      }) as never,
+      onOpenConversation: vi.fn(),
+      searching: true,
+    });
+    render(<>{item.hint}</>);
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    expect(screen.queryByRole("button", { name: /more steps/ })).toBeNull();
   });
 
   it("shows only the folder when there are no steps, and no link without a conversation", () => {

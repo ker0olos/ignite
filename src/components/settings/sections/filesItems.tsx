@@ -1,5 +1,5 @@
 import type { Item } from "@/components/settings/sections";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import type { Settings } from "@/lib/settings";
 
 /** Settings rows for the file tree, under Appearance; the rest need the tree shown. */
@@ -20,7 +20,7 @@ export function filesItems({
         "Show the folder's files under its conversations in the sidebar.",
       keywords: "file tree explorer sidebar files hide",
       control: (
-        <Switch
+        <RailSwitch
           checked={settings.files.show_tree}
           onCheckedChange={(show_tree) => setFiles({ show_tree })}
         />
@@ -32,7 +32,7 @@ export function filesItems({
       description: "Drag the divider between conversations and files.",
       keywords: "height divider conversations files file explorer sidebar",
       control: (
-        <Switch
+        <RailSwitch
           checked={settings.sidebar.resizable_split}
           disabled={!settings.files.show_tree}
           onCheckedChange={(resizable_split) =>
@@ -50,7 +50,7 @@ export function filesItems({
       description: "Leave out files matched by .gitignore.",
       keywords: "gitignore file tree hidden",
       control: (
-        <Switch
+        <RailSwitch
           checked={settings.files.hide_gitignored}
           disabled={!settings.files.show_tree}
           onCheckedChange={(hide_gitignored) => setFiles({ hide_gitignored })}

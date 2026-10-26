@@ -4,6 +4,7 @@ import type { Procedure } from "../shared/procedures.ts";
 import type { HostContext } from "./hostTypes.ts";
 import { memoryDb, removeMemory, type Memory } from "./memoryDb.ts";
 import { isProcedure, withConcept } from "./memorySearch.ts";
+import { procedureTitle } from "./procedures.ts";
 
 // ponytail: Settings lists the newest 500; paging if a user ever keeps more.
 const LISTED = 500;
@@ -28,7 +29,7 @@ const toProcedure = (m: Memory, named: Map<string, string>): Procedure => {
     : undefined;
   return {
     id: m.id,
-    title: m.title,
+    title: procedureTitle(m.title),
     steps: m.facts,
     folder: m.folder,
     at: m.createdAt,

@@ -1,4 +1,5 @@
-import { KindPill } from "@/components/memory/KindPill";
+import { OBSERVATION_ICONS } from "@/components/memory/observationIcons";
+import { FilterChips } from "@/components/settings/FilterChips";
 import { kindFilters } from "@/lib/memory";
 
 /** The type filters above the memories: All, then each type the folder has. */
@@ -12,15 +13,14 @@ export function KindFilters({
   onChange: (kind: string | null) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {kindFilters(counts).map((f) => (
-        <KindPill
-          key={f.kind ?? "all"}
-          {...f}
-          pressed={f.kind === kind}
-          onPress={() => onChange(f.kind)}
-        />
-      ))}
-    </div>
+    <FilterChips
+      chips={kindFilters(counts).map(({ kind: id, ...f }) => ({
+        ...f,
+        id,
+        icon: id ? OBSERVATION_ICONS[id] : undefined,
+      }))}
+      filter={kind}
+      onChange={onChange}
+    />
   );
 }

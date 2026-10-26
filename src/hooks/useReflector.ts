@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Reflection } from "../../shared/reflector";
+import { useListFilter } from "@/hooks/useListFilter";
 import type { HostClient } from "@/lib/piHost";
 
 /** The reflector's points, fetched while the Settings dialog is open, and removing or editing one. */
 export function useReflector(host: HostClient | null, open: boolean) {
   const [reflections, setReflections] = useState<Reflection[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const listFilter = useListFilter();
 
   useEffect(() => {
     if (!host || !open) return;
@@ -47,5 +49,11 @@ export function useReflector(host: HostClient | null, open: boolean) {
     [change],
   );
 
-  return { reflections, error, remove, edit };
+  return {
+    reflections,
+    error,
+    remove,
+    edit,
+    ...listFilter,
+  };
 }

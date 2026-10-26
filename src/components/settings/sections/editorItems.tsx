@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Kbd } from "@/components/agent/Kbd";
-import { Switch } from "@/components/ui/switch";
+import { RailSwitch } from "@/components/settings/RailSwitch";
 import {
   DEFAULT_SETTINGS,
   MAX_TEXT_SIZE,
@@ -61,7 +61,7 @@ export function editorItems({
       description: "Wrap long lines to the viewer's width.",
       keywords: "line",
       control: (
-        <Switch
+        <RailSwitch
           checked={settings.editor.word_wrap}
           onCheckedChange={(word_wrap) =>
             onChange({ ...settings, editor: { ...settings.editor, word_wrap } })

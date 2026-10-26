@@ -34,8 +34,12 @@ export function procedureRule(known: string[]): string {
     ? `\nProcedures this folder already has; record none of them again, even in other words:\n${known.map((t) => `- ${t}`).join("\n")}`
     : "";
   return `
-Commands in this run failed. Where this part of it shows one failing and the run then getting past it with something a later conversation would otherwise have to find again (a setup step, a command's right flags or order, what a confusing error really meant), also record that as a procedure: type discovery, concepts including "${PROCEDURE}", the title naming when it applies ("Running the sidecar's tests"), the facts as the steps in order, and the narrative naming the error it avoids. Skip failures the run never got past, typos, and calls blocked or denied rather than failed.${listed}`;
+Commands in this run failed. Where this part of it shows one failing and the run then getting past it with something a later conversation would otherwise have to find again (a setup step, a command's right flags or order, what a confusing error really meant), also record that as a procedure: type discovery, concepts including "${PROCEDURE}", the title naming when it applies, with no "Procedure:" before it ("Running the sidecar's tests"), the facts as the steps to take, in order, each one imperative line with commands in backticks (what was only seen along the way, like a log line or a 404, goes in the narrative, not the steps), and the narrative naming the error it avoids. Skip failures the run never got past, typos, and calls blocked or denied rather than failed.${listed}`;
 }
+
+/** A procedure's title without the "Procedure:" the writer sometimes puts before it. */
+export const procedureTitle = (title: string) =>
+  title.replace(/^procedure\s*:\s*/i, "");
 
 // pi ends a failed command's output with this.
 const EXITED = /Command exited with code [1-9]\d*/;
@@ -100,7 +104,7 @@ async function pick(
   if (!found) return [];
   const content = [
     `The task:\n${typedMessage(text).slice(0, TASK_CHARS)}`,
-    `The procedures:\n${listed.map((m) => `[${m.id}] ${m.title}`).join("\n")}`,
+    `The procedures:\n${listed.map((m) => `[${m.id}] ${procedureTitle(m.title)}`).join("\n")}`,
   ].join("\n\n");
   const answer = await s.modelRuntime
     .completeSimple(
@@ -139,7 +143,10 @@ export async function procedureNote(
   return [
     NOTE,
     ...picked.map((m) =>
-      [`[${m.id}] ${m.title}`, ...m.facts.map((f) => `- ${f}`)].join("\n"),
+      [
+        `[${m.id}] ${procedureTitle(m.title)}`,
+        ...m.facts.map((f) => `- ${f}`),
+      ].join("\n"),
     ),
   ].join("\n\n");
 }

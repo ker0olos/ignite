@@ -8,18 +8,18 @@ export const ENTRY_POINTS: Record<
   EntryPoint,
   { label: string; where: string }
 > = {
-  always: { label: "Every reply", where: "In the system prompt" },
-  asking: { label: "Asking", where: "Beside ask_user's instructions" },
+  always: { label: "In general", where: "In the system prompt, for all work" },
+  asking: { label: "When asking", where: "Beside ask_user's instructions" },
   planning: {
-    label: "Planning",
+    label: "When planning",
     where: "Beside task_update's instructions",
   },
   delivering: {
-    label: "Delivering",
+    label: "When delivering",
     where: "Beside the git tool's instructions",
   },
   delegating: {
-    label: "Delegating",
+    label: "When delegating",
     where: "Beside the subagent tool's instructions",
   },
 };
