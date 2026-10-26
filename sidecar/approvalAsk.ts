@@ -23,6 +23,10 @@ export type ApprovalAsk = {
   wait?: Wait;
   /** Unanswered this long once first in line, it's answered as the user being away (awayTimer.ts). */
   away?: Away;
+  /** What the user has answered so far in its questions, not sent: given to `away` if they leave. */
+  draft?: QuestionAnswer[];
+  /** Aborted once the call no longer waits (its run stopped). */
+  signal?: AbortSignal;
 };
 
 /** What a call does when nobody answers it: after `afterMs`, it's denied with `reason`, given the user's unsent answers to its questions. */
@@ -62,5 +66,6 @@ export const askUser = (
       declined: () => (declined = true),
       wait,
       away,
+      signal,
     } satisfies ApprovalAsk);
   });

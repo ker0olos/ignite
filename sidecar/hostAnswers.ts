@@ -1,7 +1,7 @@
 import type { HostRequest } from "../shared/hostProtocol.ts";
 import { userBack } from "./awayTimer.ts";
 import { answerApproval, keepAnswers } from "./hostApproval.ts";
-import type { HostContext } from "./hostTypes.ts";
+import { shown, type HostContext } from "./hostTypes.ts";
 
 type Answer = Exclude<HostRequest, { id: number }>;
 
@@ -21,7 +21,8 @@ export function answered(
   } else if (request.type === "question_draft") {
     keepAnswers(ctx, request.toolCallId, request.answers);
   } else if (request.type === "user_active") {
-    ctx.agents.forEach(userBack);
+    const looking = shown(ctx);
+    ctx.agents.forEach((agent) => userBack(agent, agent === looking));
   }
   return true;
 }

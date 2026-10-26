@@ -27,6 +27,7 @@ import {
   approvalFor,
   filePaths,
   resolvePath,
+  WINDOWS_SHELL,
   type ApprovalGate,
 } from "../src/lib/approvalPolicy.ts";
 import {
@@ -153,9 +154,9 @@ async function ruleFor(
 const allowLabel = (rule: AllowRule) =>
   rule.kind === "commands" ? rule.target : shortHome(rule.target, homedir());
 
-/** In Auto an approval nobody answers is denied in time; Manual's wait for the user. */
-const awayIn = (mode: ApprovalGate) =>
-  mode === "auto" ? APPROVAL_AWAY : undefined;
+/** In Auto an approval nobody answers is denied in time; Manual's, and Windows' unsandboxed shell commands (every one asks), wait for the user. */
+const awayIn = (mode: ApprovalGate, reason?: string) =>
+  mode === "auto" && reason !== WINDOWS_SHELL ? APPROVAL_AWAY : undefined;
 
 /** Whether `command` runs a program the user always lets run outside the sandbox. */
 async function runsOutside(command: string): Promise<boolean> {
@@ -249,7 +250,7 @@ export default function approval(pi: ExtensionAPI) {
         request,
         ctx.signal,
         "before",
-        awayIn(mode),
+        awayIn(mode, wait.reason),
       );
       if (!approved) return { block: true, reason: reason ?? DENIED };
       // An approved command runs as is, outside the sandbox.

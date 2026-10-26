@@ -180,6 +180,7 @@ export default function ask(pi: ExtensionAPI) {
           answer: (approved, answers, _always, reason) =>
             resolve({ approved, answers, reason }),
           away: { afterMs: QUESTION_AWAY_MS, reason: awayReply },
+          signal,
         } satisfies ApprovalAsk);
       });
       const text = reply.reason ?? replyText(reply.approved, reply.answers);
