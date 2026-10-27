@@ -4,6 +4,7 @@ import {
   type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { lineParts, spanningLines } from "./grepLines.ts";
 
 /** Matches gathered for a file list; pi's 50KB output cap may end it sooner. */
 const FILES_LIMIT = 1000;
@@ -32,7 +33,7 @@ export function fileCounts(output: string, partial: boolean): string {
   return `${counts.size} files:\n${files.join("\n")}${note}`;
 }
 
-/** Replaces pi's grep with one that also takes `filesOnly`. */
+/** Replaces pi's grep with one that also takes `filesOnly`, and patterns that span lines (`\n`). */
 export function registerGrep(pi: ExtensionAPI) {
   const builtin = createGrepToolDefinition(process.cwd());
   pi.registerTool({
@@ -42,6 +43,18 @@ export function registerGrep(pi: ExtensionAPI) {
       filesOnly: FILES_ONLY,
     }),
     async execute(id, { filesOnly, ...input }, signal, onUpdate, ctx) {
+      const parts = lineParts(input.pattern, !!input.literal);
+      if (parts) {
+        const search = (pattern: string) =>
+          builtin.execute(
+            id,
+            { ...input, pattern, context: 0, limit: FILES_LIMIT },
+            signal,
+            onUpdate,
+            ctx,
+          );
+        return spanningLines(parts, input, search, ctx.cwd);
+      }
       if (!filesOnly) return builtin.execute(id, input, signal, onUpdate, ctx);
       const done = await builtin.execute(
         id,
