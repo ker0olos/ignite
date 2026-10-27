@@ -726,7 +726,9 @@ says "Asking you · 1 of 2", and once answered lists the answers (from the
 result's `details`). `approval_answer` carries the answers (declining leaves
 the choice to the agent). The approval gate never asks about `ask_user` itself.
 When a run ends on its own, the cheapest priced model of its provider reads
-its end (`sidecar/stopJudge.ts`): if the agent stopped partway through work it
+its end with the user's messages in that run (up to 3, each from its start), so
+work one sent mid-run asked for and the agent never started counts
+(`sidecar/stopJudge.ts`): if the agent stopped partway through work it
 can carry on with alone, or offered a step that finishes it (verifying it, the rest
 of the same problem, a push and pull request, which wait for review anyway), a hidden
 message sends it on; if it left the user a real decision or offered new work beyond the
