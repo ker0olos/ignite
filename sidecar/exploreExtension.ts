@@ -27,13 +27,24 @@ export default function explore(pi: ExtensionAPI) {
   pi.on("before_agent_start", (event) => {
     event.systemPromptOptions.sections.explore = EXPLORE_GUIDANCE;
   });
+  // Runs rather than blocks (a block costs a turn and the search follows anyway); its result carries the tip.
+  const searches = new Set<string>();
   pi.on("tool_call", async (event, ctx) => {
     if (event.toolName !== "bash") return;
     const { command } = event.input as { command?: unknown };
     if (typeof command !== "string") return;
     const pipelines = (await bashParser)?.(command);
     if (pipelines && onlySearches(pipelines, ctx.cwd)) {
-      return { block: true, reason: USE_READ_TOOLS };
+      searches.add(event.toolCallId);
     }
+  });
+  pi.on("tool_result", (event) => {
+    if (!searches.delete(event.toolCallId)) return;
+    return {
+      content: [
+        ...event.content,
+        { type: "text", text: `\n${USE_READ_TOOLS}` },
+      ],
+    };
   });
 }

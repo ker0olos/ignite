@@ -40,3 +40,27 @@ it("passes no matches through, and says when the list is cut short", () => {
   expect(fileCounts("No matches found", false)).toBe("No matches found");
   expect(fileCounts("a.ts:1: x", true)).toContain("narrow the pattern");
 });
+
+it("finds a pattern that spans lines, which ripgrep alone refuses", async () => {
+  const run = load();
+  writeFileSync(
+    join(cwd, "c.ts"),
+    "function go(\n  x: number,\n) {}\nfunction go(y) {}\n",
+  );
+  expect(
+    text(await run({ pattern: "function go\\(\\n\\s*x", glob: "c.ts" })),
+  ).toBe("c.ts:1: function go(\nc.ts-2:   x: number,");
+  expect(
+    text(await run({ pattern: "go(\n  x", literal: true, glob: "c.ts" })),
+  ).toBe("c.ts:1: function go(\nc.ts-2:   x: number,");
+  expect(
+    text(await run({ pattern: "function go\\(\\nnever", glob: "c.ts" })),
+  ).toBe("No matches found");
+});
+
+it("searches a single file across lines too", async () => {
+  const run = load();
+  expect(text(await run({ pattern: "hay\\nneedle", path: "b.ts" }))).toBe(
+    "b.ts:1: hay\nb.ts-2: needle",
+  );
+});

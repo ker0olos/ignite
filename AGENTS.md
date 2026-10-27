@@ -341,9 +341,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   terminalExtension.ts   terminal_read, and the terminals' new output added to each run;
                          tells the agent what the composer's `@` mentions name
   exploreExtension.ts    Tells the agent how to search the code before answering (parallel calls, follow the flow)
-  bashSearch.ts          Bash commands that only search or read the folder's files, sent to grep and read instead
+  bashSearch.ts          Bash commands that only search or read the folder's files: they run, pointed at grep and read
   editContext.ts         pi's edit, whose result shows the changed lines as they now read, numbered
   grepFiles.ts           pi's grep with `filesOnly`: matching files and their counts, not the lines
+  grepLines.ts           grep patterns spanning lines (`a\n\s*b`): the first line's part searched, the next lines checked
   readTools.ts           pi's read with numbered lines, 400 unless told otherwise, one definition by name (`symbol`)
                          and more files or ranges in the same call (`also`); `outline`
   readSections.ts        read's arguments as models write them (`"[310, 330]"` ranges), its line numbers
@@ -723,8 +724,10 @@ result's `details`). `approval_answer` carries the answers (declining leaves
 the choice to the agent). The approval gate never asks about `ask_user` itself.
 When a run ends on its own, the cheapest priced model of its provider reads
 its end (`sidecar/stopJudge.ts`): if the agent stopped partway through work it
-can carry on with alone, a hidden message sends it on; if it left the user a
-question or offer, it's told to ask it with `ask_user` (`sidecar/stopNudge.ts`;
+can carry on with alone, or offered a step that finishes it (verifying it, the rest
+of the same problem, a push and pull request, which wait for review anyway), a hidden
+message sends it on; if it left the user a real decision or offered new work beyond the
+request, it's told to ask it with `ask_user` (`sidecar/stopNudge.ts`;
 at most 3 per user message, none while a `bash_wait` waits or where `ask_user`
 is off). **Manual** asks for every tool call (built-in,
 MCP, everything); approved commands run as is. **Auto** asks for bash
@@ -856,10 +859,10 @@ pointing the agent at a new branch from the default one
 (`sidecar/gitMerged.ts`); when gh can't tell within 10 seconds, it goes ahead. The sandbox already refuses writes to `.git/config` and
 `.git/hooks`; hooks can still live in the working tree (husky), so calls that
 ran without asking run with hooks off. Bash commands that commit, push, pull,
-fetch, clone or run gh are blocked with a pointer to the tools. Likewise, bash commands that only
+fetch, clone or run gh are blocked with a pointer to the tools. Bash commands that only
 search or read the folder's files (grep, rg, cat, sed, head, tail; no writes,
-no paths outside it) are blocked with a pointer to the grep and read tools
-(`sidecar/bashSearch.ts`), and an edit's result shows its changed lines,
+no paths outside it) run, their result ending with a pointer to the grep and read tools
+(`sidecar/bashSearch.ts`; a block cost a turn, and agents searched in bash again anyway), and an edit's result shows its changed lines,
 numbered, so the agent doesn't search the file again before the next one.
 
 The user's own terminals (`sidecar/terminal.ts`) run their login shell in

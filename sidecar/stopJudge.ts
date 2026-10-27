@@ -17,8 +17,8 @@ const END_CHARS = 8_000;
 const END_MESSAGES = 6;
 
 const JUDGE_PROMPT = `You read a user's latest request to a coding agent and the end of the agent's work on it, at the moment the agent stopped and handed control back to the user. Judge what should happen next. Reply with exactly one word, nothing else:
-- continue: the agent stopped partway through work the user asked for and could carry on by itself. Its reply says what it will do next ("Next I'm going through…", "Now I'll…"), lists steps it still means to do, or asks leave to start or go on with work the user already asked for ("Say go and I'll start", "Shall I continue?").
-- ask: the reply ends with a real question, offer or decision for the user that isn't leave to do already-requested work ("Want me to push and open a PR?", "Which approach do you prefer?", "Let me know if you want the other two fixed").
+- continue: the agent stopped partway through work the user asked for and could carry on by itself. Its reply says what it will do next ("Next I'm going through…", "Now I'll…"), lists steps it still means to do, asks leave to start or go on with work the user already asked for ("Say go and I'll start", "Shall I continue?"), or offers a step that finishes it: testing or verifying it, fixing the rest of the same problem, or delivering it ("Want me to push and open a PR?": pushes and pull requests wait for the user's review anyway; "Let me know if you want the other two fixed").
+- ask: the reply ends with a real decision only the user can make ("Which approach do you prefer?") or offers new work beyond what was asked ("I could also add dark mode").
 - done: anything else: the work is finished and reported, the user only asked a question and it's answered, the agent waits on something only the user can do (attach a device, sign in, provide a file), or it waits for work that reports back on its own (a fork, a background command).
 When unsure, reply done.`;
 
