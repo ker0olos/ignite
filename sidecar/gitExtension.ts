@@ -5,7 +5,7 @@
  * says, Manual for every call. A commit or push waits with its changes for
  * review. The same commands in bash are sent to these tools.
  */
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { GH_TOOL, GIT_TOOL, type GitReview } from "../shared/git.ts";
@@ -144,7 +144,7 @@ async function waitsOn(
 ) {
   const mode = await approvalMode();
   if (mode === "full") return null;
-  const place = { cwd, home: homedir() };
+  const place = { cwd, home: homedir(), temp: [tmpdir()] };
   const auto =
     tool === GIT_TOOL ? gitApproval(args, place) : ghGate(args, place);
   const manual = mode === "manual";
