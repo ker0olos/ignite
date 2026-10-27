@@ -15,7 +15,8 @@ export const EXPLORE_GUIDANCE = `Exploring the code:
 - Follow the flow end to end: callers, definitions, where the data comes from. Don't stop at the first hit.
 - For a wide sweep across many files, start a subagent with explore: true (when you have one) and ask for its conclusion with file:line references, not file contents.
 - Stop searching once you can answer with specific file:line references, and cite them.
-- An edit's result shows the changed lines as they now read; edit nearby from them instead of searching the file again.`;
+- An edit's result shows the changed lines as they now read; edit nearby from them instead of searching the file again.
+- grep names the definition holding each hit and its lines ("[in route, lines 85-98]"), and when a few hits sit in one or two short definitions shows their code: read that definition by those lines or by symbol, not the whole file.`;
 
 const bashParser = loadBashParser().catch(() => undefined);
 

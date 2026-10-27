@@ -169,6 +169,33 @@ export async function outlineFolder(folder: string): Promise<string> {
   return shown.join("\n") + note;
 }
 
+/** A definition by name and 1-based line range. */
+export type Definition = { name: string; start: number; end: number };
+
+/** The innermost definition holding each of `lines` (1-based); a line outside every definition has none. */
+export async function definitionsAt(
+  path: string,
+  lines: number[],
+): Promise<Map<number, Definition>> {
+  const { tree, defs } = await parsed(path);
+  const at = new Map<number, Definition>();
+  for (const line of lines) {
+    // In file order, so the last that holds the line is the innermost.
+    const inner = defs.findLast(
+      ({ node }) =>
+        node.startPosition.row < line && node.endPosition.row >= line - 1,
+    );
+    if (inner)
+      at.set(line, {
+        name: inner.name ?? "anonymous",
+        start: inner.node.startPosition.row + 1,
+        end: inner.node.endPosition.row + 1,
+      });
+  }
+  tree.delete();
+  return at;
+}
+
 /** The 1-based line ranges of the definitions named `symbol` ("open", or "Box.open" for one inside Box). */
 export async function symbolLines(
   path: string,
