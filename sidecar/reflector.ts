@@ -34,21 +34,27 @@ function conversationText(messages: AgentMessage[]) {
 
 const listed = (p: Reflection) =>
   [
-    `- [${p.id}] (${p.entry}) ${p.text}`,
+    `- [${p.id}] (${p.entry}${p.folder ? ", this folder" : ""}) ${p.text}`,
     ...(p.when ? [` · when: ${p.when}`] : []),
     ...(p.evidence ? [` · taught by: "${p.evidence}"`] : []),
   ].join("");
 
-/** The reflector's user message: the points, the feedback, the conversation. */
+/** The reflector's user message: the points, the feedback, the conversation, and what the user asked in the folder's other recent conversations. */
 export function reflectorInput(
   feedback: string[],
   messages: AgentMessage[],
   points: Reflection[],
+  elsewhere: string[][] = [],
 ): string {
+  const others = elsewhere.map(
+    (asks, i) =>
+      `Conversation ${i + 1}:\n${asks.map((a) => `- ${a}`).join("\n")}`,
+  );
   return [
     `The points:\n${points.map(listed).join("\n") || "(none)"}`,
     `The user's feedback:\n${feedback.map((f) => `- ${f}`).join("\n")}`,
     `The conversation:\n${conversationText(messages)}`,
+    `What the user asked in this folder's other recent conversations:\n${others.join("\n\n") || "(none)"}`,
   ].join("\n\n");
 }
 
@@ -60,6 +66,7 @@ type Raw = {
   drop?: unknown;
   when?: unknown;
   evidence?: unknown;
+  folder?: unknown;
 };
 
 const TOO_LONG = Symbol("too long");
@@ -108,13 +115,26 @@ function contentOf(raw: Raw, was?: Reflection) {
   return { text, entry, ...scope, evidence: evidence(raw, was) };
 }
 
+type Learned = Pick<Reflection, "at" | "from">;
+
+// The conversation's folder for a way of working only there, none for all folders; a changed point's own where left out.
+// Only a point new or learned in this folder joins it, so one folder can't take another's point away.
+function folderFor(raw: Raw, learned: Learned, was?: Reflection) {
+  const here = learned.from?.folder;
+  if (typeof raw.folder !== "boolean") return was?.folder;
+  if (!raw.folder) return undefined;
+  return !was || was.from?.folder === here ? here : was.folder;
+}
+
 // New evidence alone changes nothing the agent reads, so it's ignored and costs no edit.
 const same = (
   was: Reflection,
-  now: Pick<Reflection, "text" | "entry" | "when">,
-) => was.text === now.text && was.entry === now.entry && was.when === now.when;
-
-type Learned = Pick<Reflection, "at" | "from">;
+  now: Pick<Reflection, "text" | "entry" | "when" | "folder">,
+) =>
+  was.text === now.text &&
+  was.entry === now.entry &&
+  was.when === now.when &&
+  was.folder === now.folder;
 
 const plain = (s: string) =>
   s
@@ -142,11 +162,14 @@ function pointOf(
   grounded: Grounded,
 ) {
   const was = points.find((p) => p.id === raw.id);
-  const kept = [raw.text, raw.entry, raw.when].every((v) => v === undefined);
+  const kept = [raw.text, raw.entry, raw.when, raw.folder].every(
+    (v) => v === undefined,
+  );
   if (was && kept) return was;
-  const content = contentOf(raw, was);
-  if (!content || !theirs(raw, grounded, !was, content.evidence))
+  const written = contentOf(raw, was);
+  if (!written || !theirs(raw, grounded, !was, written.evidence))
     return undefined;
+  const content = { ...written, folder: folderFor(raw, learned, was) };
   if (!was) {
     const taught = known(TAUGHT_BY, raw.taught) ?? "reply";
     return { id: randomUUID().slice(0, 8), ...content, taught, ...learned };
@@ -206,12 +229,14 @@ function capped(all: Reflection[], points: Reflection[]) {
   const stayed = (p: Reflection) =>
     points.some((q) => q.id === p.id && q.entry === p.entry);
   const first = [...all.filter(stayed), ...all.filter((p) => !stayed(p))];
+  // One folder's points can already be past the cap (other folders' reflections add to the shared ones); those all stay.
   const fits = new Set(
     first
       .filter(
         (p, i) =>
+          stayed(p) ||
           first.slice(0, i).filter((q) => q.entry === p.entry).length <
-          MAX_PER_ENTRY_POINT,
+            MAX_PER_ENTRY_POINT,
       )
       .map((p) => p.id),
   );
@@ -252,11 +277,12 @@ export async function reflect(
   messages: AgentMessage[],
   points: Reflection[],
   from?: LearnedIn,
+  elsewhere: string[][] = [],
 ): Promise<Reflection[] | undefined> {
   const reply = await askCheapest(
     s,
     REFLECT_PROMPT,
-    reflectorInput(feedback, messages, points),
+    reflectorInput(feedback, messages, points, elsewhere),
     { label: "reflector", timeoutMs: TIMEOUT_MS },
   );
   if (reply === null) return undefined;

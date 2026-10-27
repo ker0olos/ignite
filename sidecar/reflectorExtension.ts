@@ -12,6 +12,7 @@ import {
 } from "../shared/reflector.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { learningOn } from "./learningSettings.ts";
+import { folderOf } from "./worktreeGit.ts";
 
 export const REFLECTOR_FILE = join(homedir(), `.${APP_NAME}`, "reflector.json");
 
@@ -24,8 +25,13 @@ const isPoint = (p: Partial<Reflection> | null): p is Reflection =>
   p.entry in ENTRY_POINTS &&
   typeof p.taught === "string" &&
   p.taught in TAUGHT_BY &&
-  ["undefined", "string"].includes(typeof p.when) &&
-  ["undefined", "string"].includes(typeof p.evidence);
+  [p.when, p.evidence, p.folder].every((v) =>
+    ["undefined", "string"].includes(typeof v),
+  );
+
+/** Whether point `p` applies in `folder`. */
+export const appliesIn = (folder: string) => (p: Reflection) =>
+  !p.folder || p.folder === folder;
 
 /** Every whole point; none when the file is missing or unreadable. */
 export function readReflections(file = REFLECTOR_FILE): Reflection[] {
@@ -81,9 +87,9 @@ export default function reflector(
 ) {
   // Read once per conversation: a system prompt that changes loses its prompt cache.
   let points: Reflection[] | undefined;
-  pi.on("before_agent_start", async (event) => {
+  pi.on("before_agent_start", async (event, ctx) => {
     if (!(await learningOn("reflector", settingsFile))) return;
-    points ??= readReflections(file);
+    points ??= readReflections(file).filter(appliesIn(folderOf(ctx.cwd)));
     const asking = pi.getActiveTools().includes(ASK_TOOL);
     placeReflections(event.systemPromptOptions.sections, points, asking);
   });

@@ -40,7 +40,8 @@ Never record bookkeeping: process ids, log paths, "still running" or progress no
 
 const PRIVATE = /<private>[\s\S]*?<\/private>/g;
 
-const scrubText = (text: string) => text.replace(PRIVATE, "[private]");
+/** `text` with what's marked private hidden. */
+export const scrubText = (text: string) => text.replace(PRIVATE, "[private]");
 
 // Tool arguments are small JSON: every string in them.
 const scrubbed = (v: unknown): unknown => {

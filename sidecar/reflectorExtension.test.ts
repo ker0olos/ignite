@@ -43,6 +43,7 @@ it("reads and writes the points, none when missing or not a list, and only whole
       { ...good, text: 3 },
       { ...good, when: 3 },
       { ...good, evidence: {} },
+      { ...good, folder: 3 },
       null,
     ]),
   );
@@ -98,7 +99,7 @@ describe("placeReflections", () => {
 });
 
 const loaded = (settings: string) => {
-  let handler: (event: unknown) => Promise<void> = async () => {};
+  let handler: (event: unknown, ctx: unknown) => Promise<void> = async () => {};
   const pi = {
     on: (_name: string, h: typeof handler) => (handler = h),
     getActiveTools: () => ["ask_user"],
@@ -106,7 +107,7 @@ const loaded = (settings: string) => {
   reflector(pi, file, settings);
   return async () => {
     const sections: Record<string, string> = {};
-    await handler({ systemPromptOptions: { sections } });
+    await handler({ systemPromptOptions: { sections } }, { cwd: "/work/app" });
     return sections;
   };
 };
@@ -117,6 +118,22 @@ it("places the points read once per conversation", async () => {
   expect((await start()).reflector).toContain("Be brief.");
   writeReflections([], file);
   expect((await start()).reflector).toContain("Be brief.");
+});
+
+it("places only the points of this folder or of every folder", async () => {
+  writeReflections(
+    [
+      { ...point("always", "Be brief."), folder: "/work/app" },
+      { ...point("always", "Use the emulator."), folder: "/work/other" },
+      point("always", "Plain words."),
+    ],
+    file,
+  );
+  const reflector = (await loaded(join(dirname(file), "settings.toml"))())
+    .reflector;
+  expect(reflector).toContain("Be brief.");
+  expect(reflector).toContain("Plain words.");
+  expect(reflector).not.toContain("emulator");
 });
 
 it("places nothing switched off", async () => {

@@ -14,19 +14,24 @@ import {
 import { MAX_REFLECTION_CHARS, type Reflection } from "../shared/reflector.ts";
 import { typedSkill } from "../shared/skills.ts";
 import { TASK_ADD_TOOL } from "../shared/tasks.ts";
-import type { Agent, HostContext } from "./hostTypes.ts";
+import type { Agent, HostContext, SessionStore } from "./hostTypes.ts";
 import { isForkReport } from "./forks.ts";
 import { learningOn } from "./learningSettings.ts";
 import { callText } from "./lessons.ts";
+import { scrubText } from "./memoryWriter.ts";
 import { reflect } from "./reflector.ts";
 import { WRAP_UP } from "./taskExtension.ts";
 import {
+  appliesIn,
   readReflections,
   REFLECTOR_FILE,
   writeReflections,
 } from "./reflectorExtension.ts";
 
 const CALL_CHARS = 500;
+const OTHER_CONVERSATIONS = 5;
+const ASKS = 12;
+const ASK_CHARS = 300;
 const FEEDBACK_CHARS = 2_000;
 const DROPPED_CHARS = 4_000;
 
@@ -105,6 +110,12 @@ function answersOf(messages: AgentMessage[], m: ToolResultMessage): string[] {
 // Messages the app sends as the user's: a task's wrap-up and a fork's report.
 const fromApp = (text: string) => text === WRAP_UP || isForkReport(text);
 
+// What the user typed in message `m`, private text hidden; "" for what the app sends as theirs.
+function typedIn(m: AgentMessage) {
+  const text = typedSkill(textOf(m as UserMessage).trim());
+  return fromApp(text) ? "" : scrubText(text);
+}
+
 /** What the user said in the run after `after` (by time): their messages, but the conversation's opening one and the app's, and what they wrote answering the agent's questions. */
 export function feedbackOf(messages: AgentMessage[], after: number): string[] {
   let opened = messages.some(
@@ -119,17 +130,57 @@ export function feedbackOf(messages: AgentMessage[], after: number): string[] {
       opened = true;
       return [];
     }
-    const text = typedSkill(textOf(m as UserMessage).trim());
-    if (!text || fromApp(text)) return [];
-    return [`The user wrote: ${text.slice(0, FEEDBACK_CHARS)}`];
+    const text = typedIn(m);
+    return text ? [`The user wrote: ${text.slice(0, FEEDBACK_CHARS)}`] : [];
   });
+}
+
+// A fork's copy of a message keeps its time, so the same time and text is the same message.
+const sent = (m: AgentMessage) => `${m.timestamp}:${typedIn(m)}`;
+
+// What the user typed in a conversation, its latest; not messages copied to or from `own` (a fork's, or its original's).
+function asksOf(messages: AgentMessage[], own: Set<string>) {
+  return messages
+    .flatMap((m) => {
+      if (m.role !== "user" || own.has(sent(m))) return [];
+      const text = typedIn(m);
+      return text ? [text.slice(0, ASK_CHARS)] : [];
+    })
+    .slice(-ASKS);
+}
+
+type Saved = Pick<SessionStore, "list" | "read">;
+
+/** What the user asked in `folder`'s latest conversations but `id` (whose messages are `mine`), newest first; none when they can't be read. */
+async function askedElsewhere(
+  sessions: Saved,
+  folder: string,
+  id: string,
+  mine: AgentMessage[],
+): Promise<string[][]> {
+  try {
+    // ponytail: list() reads every saved conversation of the folder; a cheaper newest-files listing if folders grow to hundreds.
+    const latest = (await sessions.list(folder))
+      .filter((c) => c.id !== id)
+      .slice(0, OTHER_CONVERSATIONS);
+    const read = await Promise.all(
+      latest.map((c) => sessions.read(folder, c.id)),
+    );
+    const own = new Set(mine.filter((m) => m.role === "user").map(sent));
+    return read.map((m) => asksOf(m, own)).filter((asks) => asks.length);
+  } catch {
+    return [];
+  }
 }
 
 // One at a time, so two conversations settling together don't each overwrite the other's change.
 let reflecting = Promise.resolve();
 
-/** Reflects on the user's feedback in `agent`'s run that just settled, rewriting the reflector's points. */
-export function reflectOn(agent: Agent, file = REFLECTOR_FILE) {
+/** Reflects on the user's feedback in `agent`'s run that just settled (with what they asked in its folder's other conversations, from `sessions`), rewriting the points that apply in its folder. */
+export function reflectOn(
+  agent: Agent,
+  { file = REFLECTOR_FILE, sessions }: { file?: string; sessions?: Saved } = {},
+) {
   const s = agent.session;
   const after = agent.runAfter;
   if (!s || after === undefined) return reflecting;
@@ -146,9 +197,21 @@ export function reflectOn(agent: Agent, file = REFLECTOR_FILE) {
         folder: agent.cwd,
         title: agent.title ?? "",
       };
-      const points = readReflections(file);
-      const next = await reflect(s, feedback, messages, points, from);
-      if (next) writeReflections(next, file);
+      const all = readReflections(file);
+      const here = appliesIn(agent.cwd);
+      const elsewhere = sessions
+        ? await askedElsewhere(sessions, agent.cwd, agent.id, messages)
+        : [];
+      const next = await reflect(
+        s,
+        feedback,
+        messages,
+        all.filter(here),
+        from,
+        elsewhere,
+      );
+      if (next)
+        writeReflections([...next, ...all.filter((p) => !here(p))], file);
     })
     .catch(() => {});
   return reflecting;
@@ -177,6 +240,7 @@ export const reflectorHandlers = {
                   // Wholly the user's own now, for all work: the feedback's situation and words no longer apply.
                   when: undefined,
                   evidence: undefined,
+                  folder: undefined,
                 }
               : p,
           )
