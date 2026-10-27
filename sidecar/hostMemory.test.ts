@@ -101,7 +101,9 @@ it("lets a run with a failed command teach procedures, naming the folder's", asy
   const a = agent();
   ran(a, user("look", 2), reply(3));
   await rememberRun(a, db);
-  expect(vi.mocked(write).mock.calls[0][5]).toBeUndefined();
+  const procedures = (call: number) =>
+    vi.mocked(write).mock.calls[call][5]?.procedures;
+  expect(procedures(0)).toBeUndefined();
   const failed = {
     role: "toolResult",
     toolName: "bash",
@@ -111,9 +113,7 @@ it("lets a run with a failed command teach procedures, naming the folder's", asy
   } as unknown as AgentMessage;
   ran(a, user("run the tests", 4), failed, reply(6));
   await rememberRun(a, db);
-  expect(vi.mocked(write).mock.calls[1][5]).toBe(
-    procedureRule(["Running the tests"]),
-  );
+  expect(procedures(1)).toBe(procedureRule(["Running the tests"]));
   // Switched off, the run's memories are still written, without procedures.
   await mkdir(join(dir, `.${APP_NAME}`));
   await writeFile(
@@ -123,7 +123,7 @@ it("lets a run with a failed command teach procedures, naming the folder's", asy
   ran(a, user("again", 7), { ...failed, timestamp: 8 }, reply(9));
   await rememberRun(a, db);
   expect(write).toHaveBeenCalledTimes(3);
-  expect(vi.mocked(write).mock.calls[2][5]).toBeUndefined();
+  expect(procedures(2)).toBeUndefined();
 });
 
 it("writes nothing for a run the agent never answered, one it didn't see start, or with memory off", async () => {

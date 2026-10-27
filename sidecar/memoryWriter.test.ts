@@ -213,7 +213,9 @@ describe("write", () => {
 
   it("asks for procedures with their rule when the run may teach them", async () => {
     const s = session(answer({ observations: [] }));
-    await write(s, run, [], (p) => p, [], procedureRule(["Running the tests"]));
+    await write(s, run, [], (p) => p, [], {
+      procedures: procedureRule(["Running the tests"]),
+    });
     const [, context] = vi.mocked(s.modelRuntime.completeSimple).mock.calls[0];
     expect(context.systemPrompt).toContain(
       procedureRule(["Running the tests"]),
@@ -262,12 +264,30 @@ describe("write", () => {
     expect(s.modelRuntime.completeSimple).toHaveBeenCalledOnce();
   });
 
-  it("writes nothing when the model fails or no model has a price", async () => {
+  it("writes nothing, saying why, when the model fails or no model has a price", async () => {
+    const failed = vi.fn();
     const failing = session();
     vi.mocked(failing.modelRuntime.completeSimple).mockRejectedValue(
       new Error("down"),
     );
-    expect(await write(failing, run, [], (p) => p, [])).toEqual([]);
+    expect(await write(failing, run, [], (p) => p, [], { failed })).toEqual([]);
+    expect(failed).toHaveBeenLastCalledWith("Error: down");
+    const refused = session();
+    vi.mocked(refused.modelRuntime.completeSimple).mockResolvedValue({
+      stopReason: "error",
+      errorMessage: "credit balance is too low",
+      content: [],
+    } as never);
+    expect(await write(refused, run, [], (p) => p, [], { failed })).toEqual([]);
+    expect(failed).toHaveBeenLastCalledWith("error: credit balance is too low");
+    // A timeout (aborted) or a reply cut off counts too: what came back can't be used.
+    const cut = session();
+    vi.mocked(cut.modelRuntime.completeSimple).mockResolvedValue({
+      stopReason: "length",
+      content: [{ type: "text", text: '{"observations": [' }],
+    } as never);
+    expect(await write(cut, run, [], (p) => p, [], { failed })).toEqual([]);
+    expect(failed).toHaveBeenLastCalledWith("length");
     const unpriced = { ...session(), model: { ...model, cost: undefined } };
     const s = {
       ...unpriced,
@@ -276,7 +296,12 @@ describe("write", () => {
         getModels: () => [unpriced.model],
       },
     };
-    expect(await write(s as never, run, [], (p) => p, [])).toEqual([]);
+    expect(await write(s as never, run, [], (p) => p, [], { failed })).toEqual(
+      [],
+    );
     expect(s.modelRuntime.completeSimple).not.toHaveBeenCalled();
+    expect(failed).toHaveBeenLastCalledWith(
+      expect.stringMatching(/^no priced model/),
+    );
   });
 });

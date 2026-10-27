@@ -10,6 +10,7 @@ import { CONCEPTS, PROCEDURE, SUMMARY_TYPE } from "../shared/memory.ts";
 import type { Session } from "./hostTypes.ts";
 import { summaryOf, trimmed, typeOf, type NewMemory } from "./memoryDb.ts";
 import { cheapest } from "./router.ts";
+import type { Model } from "./subagentModels.ts";
 
 /** A memory as the writer finds it; the host adds where and when. */
 export type Written = Omit<
@@ -209,16 +210,63 @@ export function parseWritten(
 
 const TIMEOUT_MS = 120_000;
 
-/** What the run in `messages` is worth remembering, by the cheapest model of `s`'s provider; none when it can't run. A long run takes a call per chunk, keeping the last one's summary; `procedures` (procedures.ts's rule) also asks for those. */
+type Writer = { s: Pick<Session, "modelRuntime">; model: Model };
+
+// The reply's text; null when the call failed, told to `failed`.
+async function ask(
+  { s, model }: Writer,
+  systemPrompt: string,
+  content: string,
+  failed: (why: string) => void,
+) {
+  const answer = await s.modelRuntime
+    .completeSimple(
+      model,
+      {
+        systemPrompt,
+        messages: [{ role: "user", content, timestamp: Date.now() }],
+      },
+      // "none" keeps claude-bridge from sending it through the conversation's own session.
+      { cacheRetention: "none", signal: AbortSignal.timeout(TIMEOUT_MS) },
+    )
+    .catch((error: unknown) => {
+      failed(String(error));
+      return null;
+    });
+  if (!answer) return null;
+  // An error, a timeout (aborted) or a reply cut off (length): what came back can't be used.
+  if (answer.stopReason !== "stop") {
+    failed(
+      `${answer.stopReason}${answer.errorMessage ? `: ${answer.errorMessage}` : ""}`,
+    );
+    return null;
+  }
+  return answer.content
+    .flatMap((c) => (c.type === "text" ? [c.text] : []))
+    .join("");
+}
+
+type WriteOptions = {
+  /** procedures.ts's rule: also asks for those. */
+  procedures?: string;
+  /** Told why each call that failed did. */
+  failed?: (why: string) => void;
+};
+
+/** What the run in `messages` is worth remembering, by the cheapest model of `s`'s provider; none when it can't run. A long run takes a call per chunk, keeping the last one's summary. */
 export async function write(
   s: Pick<Session, "model" | "modelRuntime">,
   messages: AgentMessage[],
   recorded: string[],
   path: (p: string) => string,
   skip: string[],
-  procedures?: string,
+  { procedures, failed = () => {} }: WriteOptions = {},
 ): Promise<Written[]> {
-  const found = await cheapest(s).catch(() => null);
+  const found = await cheapest(s).catch((error: unknown) => {
+    failed(`no model to write with: ${error}`);
+    return undefined;
+  });
+  if (found === null) failed(`no priced model of ${s.model?.provider}`);
   if (!found) return [];
   const written: Written[] = [];
   const titles = [...recorded];
@@ -226,28 +274,11 @@ export async function write(
     MAX_CHUNK_CHARS,
     Math.max(CHUNK_CHARS, (found.model.contextWindow ?? 0) * 2),
   );
+  const writer = { s, model: found.model };
+  const prompt = procedures ? WRITER_PROMPT + procedures : WRITER_PROMPT;
   for (const chunk of runText(messages, skip, size)) {
-    const answer = await s.modelRuntime
-      .completeSimple(
-        found.model,
-        {
-          systemPrompt: procedures ? WRITER_PROMPT + procedures : WRITER_PROMPT,
-          messages: [
-            {
-              role: "user",
-              content: writerInput(chunk, titles),
-              timestamp: Date.now(),
-            },
-          ],
-        },
-        // "none" keeps claude-bridge from sending it through the conversation's own session.
-        { cacheRetention: "none", signal: AbortSignal.timeout(TIMEOUT_MS) },
-      )
-      .catch(() => null);
-    if (!answer || answer.stopReason === "error") continue;
-    const reply = answer.content
-      .flatMap((c) => (c.type === "text" ? [c.text] : []))
-      .join("");
+    const reply = await ask(writer, prompt, writerInput(chunk, titles), failed);
+    if (reply === null) continue;
     const memories = parseWritten(reply, path, !!procedures);
     titles.push(...memories.map((m) => m.title));
     written.push(...memories);
