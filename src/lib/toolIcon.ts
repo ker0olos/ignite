@@ -44,6 +44,7 @@ import { ASK_TOOL } from "../../shared/questions";
 import { SUBAGENT_TOOL } from "../../shared/subagents";
 import { TASK_ADD_TOOL, TASK_TOOL } from "../../shared/tasks";
 import { PRESETS, type Mark } from "@/components/mcp/marks";
+import { brandFor, type Brand } from "./brandMarks";
 import { mcpCall } from "./mcpToolCall";
 import { LEGACY_MCP_SCRIPT } from "./toolLabels";
 
@@ -124,14 +125,25 @@ function markIcon(mark: Mark): ToolIcon {
   if (!("path" in mark.icon)) {
     return { kind: "lucide", icon: mark.icon, color: mark.color };
   }
-  const { hex, path } = mark.icon;
+  return brandIcon(mark.icon);
+}
+
+function brandIcon({ hex, path }: Brand): ToolIcon {
   return { kind: "brand", path, hex: `#${hex}`, tone: tileTone(hex) };
 }
 
 /** An MCP server's display name: its brand's, else its own. */
 export function serverName(server: string) {
   const mark = serverMark(server);
-  return mark && "path" in mark.icon ? mark.icon.title : server;
+  if (mark) return "path" in mark.icon ? mark.icon.title : server;
+  return brandFor(server)?.title ?? server;
+}
+
+function serverIcon(server: string | undefined): ToolIcon {
+  const mark = serverMark(server);
+  if (mark) return markIcon(mark);
+  const brand = server ? brandFor(server) : undefined;
+  return brand ? brandIcon(brand) : { kind: "lucide", icon: Plug };
 }
 
 /** The icon a tool call's tile shows. */
@@ -140,8 +152,7 @@ export function toolIcon(call: ToolCall): ToolIcon {
   if (mcp) {
     const server =
       mcp.kind === "call" || mcp.kind === "connect" ? mcp.server : undefined;
-    const mark = serverMark(server);
-    return mark ? markIcon(mark) : { kind: "lucide", icon: Plug };
+    return serverIcon(server);
   }
   if (call.name === GH_TOOL) return markIcon(PRESETS.github);
   const icon = builtInIcon(call.name);

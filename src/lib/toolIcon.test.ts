@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ToolCall } from "../../shared/agentTypes";
+import { loadBrands } from "./brandMarks";
 import { serverName, tileClass, tileTone, toolIcon } from "./toolIcon";
 
 const call = (name: string, args: Record<string, unknown> = {}): ToolCall => ({
@@ -73,6 +74,15 @@ describe("serverName", () => {
     expect(serverName("github")).toBe("GitHub");
     expect(serverName("context7")).toBe("context7");
     expect(serverName("acme")).toBe("acme");
+  });
+});
+
+describe("brands beyond the presets", () => {
+  it("draws any Simple Icons brand once they've loaded, and names the server after it", async () => {
+    const clickup = call("mcp", { server: "clickup-mcp", tool: "x" });
+    await loadBrands();
+    expect(toolIcon(clickup)).toMatchObject({ kind: "brand", hex: "#7B68EE" });
+    expect(serverName("clickup-mcp")).toBe("ClickUp");
   });
 });
 
