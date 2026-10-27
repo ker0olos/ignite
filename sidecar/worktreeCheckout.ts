@@ -1,5 +1,6 @@
 /** One agent worktree of one repository: creating it (fresh or from saved state), whose it is, saving and removing it. */
-import { readdir, rm, rmdir, mkdir, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { readdir, rm, rmdir, mkdir, rename, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { homedir, uptime } from "node:os";
 import { basename, dirname, join } from "node:path";
@@ -95,10 +96,10 @@ export async function create(
   named = true,
 ) {
   const saved = await verified(repo, stateRef(id));
-  // A locked worktree whose folder was deleted stays registered (prune skips
-  // locked ones), and git won't add another at its path.
-  if ((await gitOr(repo, ["worktree", "unlock", path])) !== null)
-    await gitOr(repo, ["worktree", "prune"]);
+  // A worktree whose folder is gone stays registered while locked, or when a crash
+  // came before its prune, and git won't add another at its path.
+  await gitOr(repo, ["worktree", "unlock", path]);
+  await gitOr(repo, ["worktree", "prune"]);
   await mkdir(dirname(path), { recursive: true });
   if (named) await writeFile(repoFile(path), repo);
   if (saved) await addAt(repo, path, saved);
@@ -146,7 +147,7 @@ export async function remove(
   leave(path);
   const repo = repoOf(path);
   if (!repo) {
-    await rm(path, { recursive: true, force: true });
+    await erase(path);
     await tidy(dirname(path));
     return true;
   }
@@ -157,13 +158,33 @@ export async function remove(
   if (await held?.()) return false;
   if (!keepCheckpoints) await dropCheckpoints(repo, id);
   await gitOr(repo, ["worktree", "unlock", path]);
-  // Windows can't delete a file another process holds open.
-  await git(repo, ["worktree", "remove", "--force", path]).catch(() =>
-    rm(path, { recursive: true, force: true, maxRetries: 3 }),
-  );
-  await gitOr(repo, ["worktree", "prune"]);
+  await erase(path, repo);
   await tidy(dirname(path));
   return true;
+}
+
+const ASIDE = ".removing-";
+
+/** Deletes `path` (a worktree of `repo`, unregistered too), and what earlier deletes left aside. */
+export async function erase(path: string, repo?: string) {
+  const dir = dirname(dirname(path));
+  // Moved out in one step first (beside its parent, so on the same disk): an open meanwhile,
+  // or after a restart cut the delete short, finds it whole or gone, never half-deleted.
+  const moved = await rename(path, join(dir, `${ASIDE}${randomUUID()}`)).then(
+    () => true,
+    () => false,
+  );
+  // Windows can't move or delete a file another process holds open.
+  if (!moved)
+    await (
+      repo
+        ? git(repo, ["worktree", "remove", "--force", path])
+        : Promise.reject(new Error("no repository"))
+    ).catch(() => rm(path, { recursive: true, force: true, maxRetries: 3 }));
+  if (repo) await gitOr(repo, ["worktree", "prune"]);
+  const names = await readdir(dir).catch(() => []);
+  for (const name of names.filter((n) => n.startsWith(ASIDE)))
+    await rm(join(dir, name), { recursive: true, force: true }).catch(() => {});
 }
 
 /** Gives conversation `to` a copy of `from`'s files in `repo`: as they were before message `entry` if checkpointed, else its worktree at `path` if open, else its saved state. */

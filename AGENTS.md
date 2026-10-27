@@ -1129,7 +1129,11 @@ its clone hadn't brought yet. Worktrees are locked with the sidecar's pid
 (a lock from before this boot counts as gone), so closing a conversation
 leaves one another live window uses; reopened while it's being removed, the
 removal stops at its next repository (checkpoints go only with the whole
-copy) and the open waits for it.
+copy) and the open waits for it. A worktree, and a folder's copy, is moved out
+in one step (beside its parent, so on the same disk) before it's deleted, so no
+open, in this sidecar or after a restart cut a delete short, ever takes a
+half-deleted one: it finds it whole, or gone and made again from the state just
+saved (`erase` in `worktreeCheckout.ts`; a later delete clears what one cut short left).
 A folder that isn't a repository but holds some (`~/Projects/app` with
 `server/` and `web/`) gets a copy per conversation at the same kind of path
 (`sidecar/worktreeGroup.ts`): each repository with a commit in it is its own

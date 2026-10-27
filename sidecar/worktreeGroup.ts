@@ -4,14 +4,7 @@
  * repository in it a worktree of the user's, its other files copied in.
  */
 import { constants, existsSync } from "node:fs";
-import {
-  copyFile,
-  mkdir,
-  readdir,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { copyFile, mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { dropCheckpoints } from "./checkpoints.ts";
 import {
@@ -20,6 +13,7 @@ import {
   leave,
   lock,
   owner,
+  erase,
   remove,
   tidy,
 } from "./worktreeCheckout.ts";
@@ -117,15 +111,14 @@ export async function removeGroup(
   for (const checkout of checkouts)
     if (!(await remove(checkout, id, held, true))) return false;
   for (const repo of repos) if (repo) await dropCheckpoints(repo, id);
-  await rm(path, { recursive: true, force: true });
+  await erase(path);
   await tidy(dirname(path));
   return true;
 }
 
 // A worktree that failed partway: gone, and unregistered, so the next open makes it again.
 async function discard(repo: string, checkout: string) {
-  await rm(checkout, { recursive: true, force: true });
-  await gitOr(repo, ["worktree", "prune"]);
+  await erase(checkout, repo);
 }
 
 // A quit or crashed app's worktrees are ours now, and get what their clone hadn't brought yet.
