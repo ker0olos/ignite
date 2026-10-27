@@ -33,6 +33,18 @@ export function fileCounts(output: string, partial: boolean): string {
   return `${counts.size} files:\n${files.join("\n")}${note}`;
 }
 
+// ripgrep matches a glob naming a folder (`lib/models.ts`) from its own working directory, which pi
+// never sets, and takes no absolute glob. ponytail: `**/` also matches the folder deeper down
+// (`packages/a/lib/models.ts`); anchoring it needs pi to run ripgrep from the searched path.
+/** `glob` as matched under the searched path wherever its folders sit; a leading `!` (exclude) kept. */
+export function searchGlob(glob: string): string {
+  const not = glob.startsWith("!") ? "!" : "";
+  const rest = glob.slice(not.length).replace(/^(?:\.\/|\/)+/, "");
+  const asIs =
+    !rest.includes("/") || rest.startsWith("**/") || rest.startsWith("../");
+  return `${not}${asIs ? "" : "**/"}${rest}`;
+}
+
 /** Replaces pi's grep with one that also takes `filesOnly`, and patterns that span lines (`\n`). */
 export function registerGrep(pi: ExtensionAPI) {
   const builtin = createGrepToolDefinition(process.cwd());
@@ -42,7 +54,11 @@ export function registerGrep(pi: ExtensionAPI) {
       ...builtin.parameters.properties,
       filesOnly: FILES_ONLY,
     }),
-    async execute(id, { filesOnly, ...input }, signal, onUpdate, ctx) {
+    async execute(id, { filesOnly, ...asked }, signal, onUpdate, ctx) {
+      const input = {
+        ...asked,
+        ...(asked.glob && { glob: searchGlob(asked.glob) }),
+      };
       const parts = lineParts(input.pattern, !!input.literal);
       if (parts) {
         const search = (pattern: string) =>
