@@ -74,12 +74,36 @@ it("can't judge without a priced model, or without a one-word answer", async () 
   expect(await judgeStop(failed.s)).toBe(null);
 });
 
-it("reads the user's latest request and the run's last messages", () => {
+it("reads the user's messages in the run that just ended, so work asked mid-run isn't lost, and the run's last messages", () => {
   const input = judgeInput(RUN);
+  expect(input).toContain("Old request");
   expect(input).toContain("Add dark mode");
   expect(input).toContain("Next I'll do the sidebar.");
-  expect(input).not.toContain("Old request");
   expect(input).not.toContain("hidden");
+  const reply = (t: string, stopReason: string) => ({
+    ...text("assistant", t),
+    stopReason,
+  });
+  const runs = judgeInput([
+    text("user", "Add dark mode"),
+    reply("Dark mode is in.", "stop"),
+    text("user", "First"),
+    reply("Working", "toolUse"),
+    text("user", "Second"),
+    text("user", "Third"),
+    text("user", "Fourth"),
+    reply("Done with the PRs.", "stop"),
+  ] as never[]);
+  // An earlier run's finished ask isn't read again; at most 3 of this run's.
+  expect(runs).not.toContain("Add dark mode");
+  expect(runs).not.toContain("First");
+  expect(runs).toContain("Second");
+  expect(runs).toContain("Fourth");
+  const pasted = judgeInput([
+    text("user", `Fix the crash below\n${"log line\n".repeat(1000)}`),
+    reply("Fixed.", "stop"),
+  ] as never[]);
+  expect(pasted).toContain("Fix the crash below");
   const long = [
     text("user", "Fix it"),
     ...Array.from({ length: 10 }, (_, i) => text("assistant", `step ${i}`)),
