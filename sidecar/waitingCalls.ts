@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { log } from "./hostLog.ts";
 
 /** When a call waits: before it runs (`tool_call`), asking inside the tool before it acts, or after a sandboxed run (to run outside). */
 export type Wait = "before" | "asking" | "ran";
@@ -40,7 +41,7 @@ function write(session: string, waiting: Waiting) {
     renameSync(temp, file(session));
   } catch (error) {
     // Only a reopened conversation's prompts depend on it.
-    process.stderr.write(`pi-host: waiting calls not saved: ${error}\n`);
+    log(`waiting calls not saved: ${error}`);
   }
 }
 

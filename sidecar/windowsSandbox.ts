@@ -24,6 +24,7 @@ import {
 import { allowedFile, loadAllowed, type Allowed } from "./sandboxAllow.ts";
 import { hostReachable, readsOnly } from "./sandboxNetwork.ts";
 import { gitAccess } from "./worktreeGit.ts";
+import { log } from "./hostLog.ts";
 
 /** PATH folders under the home folder: per-user installs (nvm, Scoop) the sandbox user can't open unless granted. */
 export function homeTools(path: string, home: string): string[] {
@@ -80,7 +81,7 @@ export function folderGrant(
 }
 
 const took = (step: string, started: number) =>
-  process.stderr.write(`pi-host: ${step} took ${Date.now() - started}ms\n`);
+  log(`${step} took ${Date.now() - started}ms`);
 
 const quote = (arg: string) => `'${arg.replace(/'/g, `'\\''`)}'`;
 

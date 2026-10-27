@@ -173,7 +173,7 @@ async function openSession(
   await session.bindExtensions({
     uiContext: headlessUI,
     onError: ({ extensionPath, event, error }) =>
-      process.stderr.write(`pi-host: ${extensionPath} (${event}): ${error}\n`),
+      log(`${extensionPath} (${event}): ${error}`),
   });
   const modelWarning = await reselectModel(wanted, session);
   if (modelWarning) log(modelWarning);
@@ -263,7 +263,7 @@ const lines = createLineSplitter((line) => {
   try {
     request = JSON.parse(line);
   } catch {
-    process.stderr.write(`pi-host: ignoring a line that isn't JSON\n`);
+    log("ignoring a line that isn't JSON");
     return;
   }
   if (remote.fromApp(request)) return;
