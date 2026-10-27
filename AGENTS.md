@@ -1039,8 +1039,8 @@ The `chrome_*` tools (`sidecar/chromeExtension.ts`) drive Chrome over the
 DevTools protocol from the sidecar. By default they start a headless Chrome
 on port 9333 with its own profile in `~/.ignite/chrome` (Chrome refuses
 debugging on the default profile), so testing never adds windows or a Dock
-icon; it ends with the sidecar that started it. Only when a page needs a login the agent can't complete there does it
-pass `user_chrome: true`, attaching to the user's own Chrome on port 9222
+icon; it ends with the sidecar that started it. The user can't see or type into it, so the agent never asks them to sign in there; when a page needs a login the agent can't complete there, it
+passes `user_chrome: true`, attaching to the user's own Chrome on port 9222
 (chrome://inspect's "Allow remote debugging" toggle, or
 `--remote-debugging-port`) with its real logins; if that port doesn't
 answer, the tool tells the agent to ask the user to turn the toggle on.
@@ -1306,6 +1306,15 @@ aside, or the point is ignored; a new point must have them, and a point never sa
 more than those words, or the opposite); a point keeps both unless given new ones, and
 the reflector weighs new feedback against a point's evidence, so feedback from
 another situation narrows its `when` or adds a point rather than reverses it.
+It also reads what the user asked in the folder's 5 latest other conversations
+(their typed messages, 12 each): a step asked for there and in this run is the
+user's flow (show the fix, then a pull request and the ticket's comment), kept
+as one point so it isn't asked for again. A point that holds only in this folder
+(its repositories, tools, a flow) is saved with its `folder`: it's read, and
+reflected on, only there (another folder's reflection never takes a point
+over), and a Settings edit makes it everyone's again. A fork's or its
+original's copied messages don't count as asked elsewhere, and `<private>`
+text is left out.
 New evidence alone is ignored (it changes nothing the agent reads). A point it leaves out stays, so
 only an explicit drop removes one; at most 10 per entry point, a new one
 merged into the one it sharpens, and at most 3 edits (adds, changes, drops) a

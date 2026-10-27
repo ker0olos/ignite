@@ -48,7 +48,7 @@ function messageStarted(ctx: HostContext, agent: Agent, message: AgentMessage) {
 function settle(ctx: HostContext, agent: Agent) {
   if (!agent.session?.pendingMessageCount) agent.queuedImages.clear();
   // Before rememberRun, which clears the run's start.
-  void reflectOn(agent);
+  void reflectOn(agent, { sessions: ctx.sessions });
   agent.remembering = rememberRun(agent).catch(() => {});
   const report = reportTo(ctx, agent);
   const reloaded = agent.reloadWhenSettled

@@ -46,6 +46,8 @@ export type Reflection = {
   when?: string;
   /** The user's own words that taught it, for the reflector and Settings; never in the agent's prompt. */
   evidence?: string;
+  /** The only folder it applies in (its own way of working); none for all folders. */
+  folder?: string;
   /** The conversation it was learned or last changed in; none for the user's own edit. */
   from?: LearnedIn;
 };

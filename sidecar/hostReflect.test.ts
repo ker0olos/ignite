@@ -53,6 +53,14 @@ const call = (id: string, name: string, args: object) =>
 const user = (content: string, timestamp: number) =>
   ({ role: "user", content, timestamp }) as AgentMessage;
 
+const saved = (id: string, modified: number) => ({
+  id,
+  title: id,
+  modified,
+  messageCount: 3,
+  text: "",
+});
+
 const agentWith = (messages: AgentMessage[] = [], runAfter?: number) =>
   ({
     id: "c1",
@@ -162,14 +170,14 @@ describe("reflectOn", () => {
   it("keeps corrections for the next run when this settle had none", async () => {
     const agent = agentWith([user("a", 1)]);
     agent.corrections = ["The user denied this call: git push"];
-    await reflectOn(agent, file);
+    await reflectOn(agent, { file });
     expect(agent.corrections).toEqual(["The user denied this call: git push"]);
   });
 
   it("does nothing without feedback, a session or a run", async () => {
-    await reflectOn(agentWith([user("first", 5)], 4), file);
-    await reflectOn({ ...agentWith(), session: null } as Agent, file);
-    await reflectOn(agentWith([user("a", 1), user("b", 5)]), file);
+    await reflectOn(agentWith([user("first", 5)], 4), { file });
+    await reflectOn({ ...agentWith(), session: null } as Agent, { file });
+    await reflectOn(agentWith([user("a", 1), user("b", 5)]), { file });
     expect(reflect).not.toHaveBeenCalled();
   });
 
@@ -183,7 +191,7 @@ describe("reflectOn", () => {
     const agent = agentWith([user("triage", 1), user("too long", 5)], 4);
     agent.title = "Sentry triage";
     agent.corrections = ["The user denied this call: git push"];
-    await reflectOn(agent, file);
+    await reflectOn(agent, { file });
     expect(vi.mocked(reflect).mock.calls[0].slice(1, 4)).toEqual([
       ["The user denied this call: git push", "The user wrote: too long"],
       agent.session!.messages,
@@ -202,7 +210,7 @@ describe("reflectOn", () => {
     vi.mocked(learningOn).mockResolvedValueOnce(false);
     const agent = agentWith([user("triage", 1), user("too long", 5)], 4);
     agent.corrections = ["The user denied this call: git push"];
-    await reflectOn(agent, file);
+    await reflectOn(agent, { file });
     expect(learningOn).toHaveBeenCalledWith("reflector");
     expect(reflect).not.toHaveBeenCalled();
     expect(agent.corrections).toEqual([]);
@@ -211,10 +219,47 @@ describe("reflectOn", () => {
   it("leaves the points when the reflector keeps them or fails", async () => {
     const agent = agentWith([user("triage", 1), user("too long", 5)], 4);
     vi.mocked(reflect).mockResolvedValue(undefined);
-    await reflectOn(agent, file);
+    await reflectOn(agent, { file });
     vi.mocked(reflect).mockRejectedValue(new Error("offline"));
-    await reflectOn(agent, file);
+    await reflectOn(agent, { file });
     expect(() => readFileSync(file)).toThrow();
+  });
+
+  it("shows the reflector only this folder's points and what was asked in its other conversations, keeping other folders' points", async () => {
+    const other = point({ id: "r9", folder: "/elsewhere" });
+    writeFileSync(file, JSON.stringify([point(), other]));
+    const next = [point({ text: "Show the fix, then open a PR." })];
+    vi.mocked(reflect).mockResolvedValue(next);
+    const sessions = {
+      list: async () => [saved("c1", 3), saved("c3", 2), saved("c2", 1)],
+      read: async (_folder: string, id: string) => [
+        user("triage", 1),
+        user(`work on ${id} with <private>sk-1</private>`, 2),
+        user(WRAP_UP, 3),
+        user("ok pr", 4),
+      ],
+    };
+    const agent = agentWith([user("triage", 1), user("ok pr", 5)], 4);
+    await reflectOn(agent, { file, sessions });
+    expect(vi.mocked(reflect).mock.calls[0][3]).toEqual([point()]);
+    expect(vi.mocked(reflect).mock.calls[0][5]).toEqual([
+      ["work on c3 with [private]", "ok pr"],
+      ["work on c2 with [private]", "ok pr"],
+    ]);
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual([...next, other]);
+  });
+
+  it("reflects without the other conversations when they can't be read", async () => {
+    vi.mocked(reflect).mockResolvedValue(undefined);
+    const sessions = {
+      list: async () => Promise.reject(new Error("gone")),
+      read: async () => [],
+    };
+    await reflectOn(agentWith([user("triage", 1), user("ok pr", 5)], 4), {
+      file,
+      sessions,
+    });
+    expect(vi.mocked(reflect).mock.calls[0][5]).toEqual([]);
   });
 });
 
@@ -227,7 +272,12 @@ describe("reflectorHandlers", () => {
     writeFileSync(
       file,
       JSON.stringify([
-        point({ from, when: "reporting", evidence: "shorter" }),
+        point({
+          from,
+          when: "reporting",
+          evidence: "shorter",
+          folder: "/work",
+        }),
         point({ id: "r2" }),
       ]),
     );
@@ -245,6 +295,7 @@ describe("reflectorHandlers", () => {
     // Wholly the user's own now, for all work.
     expect(edited[0].when).toBeUndefined();
     expect(edited[0].evidence).toBeUndefined();
+    expect(edited[0].folder).toBeUndefined();
     expect(edited[1]).toEqual(point({ id: "r2" }));
     const same = await reflectorHandlers.reflections_edit(ctx, {
       reflection: "r1",

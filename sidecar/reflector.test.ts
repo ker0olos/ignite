@@ -338,6 +338,56 @@ describe("parsePoints", () => {
     ).toBeUndefined();
   });
 
+  it("keeps a folder-only point to the folder it was learned in, until told it holds for every folder", () => {
+    const from = { conversation: "c1", folder: "/work/app", title: "t" };
+    const [added] = parsePoints(
+      reply([{ entry: "delivering", text: "Show it, then PR.", folder: true }]),
+      [],
+      { at: 5, from },
+    )!;
+    expect(added.folder).toBe("/work/app");
+    const [kept] = parsePoints(
+      reply([{ id: added.id, text: "Show it, then PR, then comment." }]),
+      [added],
+    )!;
+    expect(kept.folder).toBe("/work/app");
+    const [everywhere] = parsePoints(reply([{ id: added.id, folder: false }]), [
+      added,
+    ])!;
+    expect(everywhere.folder).toBeUndefined();
+    expect(everywhere.text).toBe(added.text);
+  });
+
+  it("never pulls a point learned in another folder into this one", () => {
+    const elsewhere = {
+      ...short,
+      from: { conversation: "c0", folder: "/work/other", title: "t" },
+    };
+    const from = { conversation: "c1", folder: "/work/app", title: "t" };
+    expect(
+      parsePoints(reply([{ id: "r1", folder: true }]), [elsewhere], {
+        at: 5,
+        from,
+      }),
+    ).toBeUndefined();
+  });
+
+  it("keeps every point already there past the cap, which other folders' reflections can fill", () => {
+    const full = Array.from({ length: 12 }, (_, i) => ({
+      ...short,
+      id: `a${i}`,
+    }));
+    const next = parsePoints(
+      reply([
+        { id: "a0", text: "Keep reports to 5 lines." },
+        { entry: "always", text: "New." },
+      ]),
+      full,
+    );
+    expect(next?.map((p) => p.id)).toEqual(full.map((p) => p.id));
+    expect(next?.[0].text).toBe("Keep reports to 5 lines.");
+  });
+
   it("can drop every point, but an empty reply keeps them", () => {
     expect(parsePoints(reply([{ id: "r1", drop: true }]), [short])).toEqual([]);
     expect(parsePoints(reply([]), [short])).toBeUndefined();
@@ -353,6 +403,20 @@ describe("reflectorInput", () => {
     expect(input).toContain("- The user wrote: shorter");
     expect(input).toContain("triage sentry");
     expect(reflectorInput([], [], [])).toContain("The points:\n(none)");
+  });
+
+  it("tags folder-only points, and lists what the user asked in the folder's other conversations", () => {
+    const input = reflectorInput(
+      [],
+      [],
+      [{ ...short, folder: "/work" }],
+      [["work on 4", "ok pr"]],
+    );
+    expect(input).toContain("- [r1] (always, this folder) Keep reports short.");
+    expect(input).toContain("Conversation 1:\n- work on 4\n- ok pr");
+    expect(reflectorInput([], [], [])).toContain(
+      "other recent conversations:\n(none)",
+    );
   });
 
   it("lists a point's when and evidence", () => {

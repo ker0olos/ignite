@@ -65,8 +65,8 @@ function registerLooking(pi: ExtensionAPI, scope: Scope) {
     promptSnippet:
       "chrome_tabs / chrome_screenshot / chrome_eval / chrome_navigate / chrome_cdp: drive Chrome",
     promptGuidelines: [
-      "The chrome_* tools drive a headless Chrome the app started, with its own profile. Use it for testing and browsing.",
-      "Only when a page needs a login you can't complete there yourself, pass user_chrome: true to use the user's own Chrome: their logins, sessions and data (Chrome may ask them to allow it). There, touch only the tab the task needs, close nothing, and ask before submitting forms, buying, sending or deleting anything.",
+      "The chrome_* tools drive a headless Chrome the app started, with its own profile. Use it for testing and browsing. The user can't see it or type into it, so never ask them to sign in there.",
+      "When a page needs a login you can't complete there yourself, pass user_chrome: true to use the user's own Chrome: their logins, sessions and data (Chrome may ask them to allow it). There, touch only the tab the task needs, close nothing, and ask before submitting forms, buying, sending or deleting anything.",
       "Look at a chrome_screenshot before saying a page looks right.",
       `Never show the user designs, mockups or options by rendering them in Chrome and screenshotting them: write them as pages with ${ARTIFACT_TOOL}. Chrome is for checking real pages of the project.`,
     ],
