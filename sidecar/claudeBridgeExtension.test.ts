@@ -27,8 +27,11 @@ vi.mock("pi-claude-bridge/src/index.ts", () => ({
 const query = vi.hoisted(() => vi.fn());
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query }));
 
-const { default: claudeBridge, guarded } =
-  await import("./claudeBridgeExtension.ts");
+const {
+  default: claudeBridge,
+  guarded,
+  retryUncaptured,
+} = await import("./claudeBridgeExtension.ts");
 
 describe("guarded", () => {
   it("runs Claude Code on user settings only, with no hooks and its own executable", () => {
@@ -54,7 +57,7 @@ describe("guarded", () => {
 describe("claudeBridge", () => {
   it("guards every query, and loads the bridge away from the worktree", () => {
     const at = process.cwd();
-    claudeBridge({} as never);
+    claudeBridge({ on: vi.fn() } as never);
     expect(bridge.cwdWhileLoading).toBe(getAgentDir());
     expect(process.cwd()).toBe(at);
     const wrapped = bridge.seam!.setQuery.mock.calls[0][0];
@@ -71,6 +74,63 @@ describe("claudeBridge", () => {
   it("refuses to load a bridge it can't guard", () => {
     bridge.seam = undefined;
     expect(() => claudeBridge({} as never)).toThrow(/guard/);
+  });
+});
+
+describe("retryUncaptured", () => {
+  const user = (id: string) => ({
+    id,
+    type: "message",
+    message: { role: "user" },
+  });
+  const failed = (errorMessage: string) => ({
+    id: "a",
+    type: "message",
+    message: { role: "assistant", errorMessage },
+  });
+  const settle = () => {
+    let handler: (event: object, ctx: object) => unknown = () => {};
+    retryUncaptured({
+      on: (_name: string, h: typeof handler) => (handler = h),
+    } as never);
+    return (branch: object[], outcome = "error", entries: object[] = []) =>
+      handler(
+        { outcome, entries },
+        { sessionManager: { getBranch: () => branch } },
+      );
+  };
+  const uncaptured = "prompt-capture: no capture for this 43203-char prompt";
+
+  it("runs a turn refused for want of its prompt once more, without the failed reply, keeping others' entries", () => {
+    const run = settle();
+    const branch = [user("u1"), failed(uncaptured)];
+    const earlier = { type: "custom", customType: "x", data: 1 };
+    expect(run(branch, "error", [earlier])).toEqual({
+      continue: true,
+      entries: [
+        earlier,
+        { type: "context_edit", targetId: "a", replacement: null },
+      ],
+    });
+    // Once per message that started the run: failing again, it settles.
+    expect(run(branch)).toBeUndefined();
+    expect(run([user("u2"), failed(uncaptured)])).toMatchObject({
+      continue: true,
+    });
+    const woken = { id: "w1", type: "custom_message" };
+    expect(run([user("u2"), woken, failed(uncaptured)])).toMatchObject({
+      continue: true,
+    });
+  });
+
+  it("leaves other errors, refusals another try won't fix, and finished runs alone", () => {
+    const run = settle();
+    expect(run([user("u1"), failed("Request timed out.")])).toBeUndefined();
+    expect(
+      run([user("u1"), failed("prompt-capture: refusing to send this prompt")]),
+    ).toBeUndefined();
+    expect(run([user("u1"), failed(uncaptured)], "done")).toBeUndefined();
+    expect(run([user("u1")])).toBeUndefined();
   });
 });
 

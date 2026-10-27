@@ -63,9 +63,10 @@ function load({ catalog = [] as Model[], setModelOk = true } = {}) {
       message: { role: "assistant", stopReason: "error", errorMessage },
     });
   const settle = (outcome = "error") =>
-    handlers.get("agent_before_settle")!({ outcome }, ctx()) as Promise<
-      { continue: boolean; entries: Entry[] } | undefined
-    >;
+    handlers.get("agent_before_settle")!(
+      { outcome, entries: [] },
+      ctx(),
+    ) as Promise<{ continue: boolean; entries: Entry[] } | undefined>;
   const run = (name: string, event: object = {}) =>
     handlers.get(name)!(event, ctx());
   return { used, appended, branch, fail, settle, run, pi, model: () => model };
