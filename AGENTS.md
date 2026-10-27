@@ -265,6 +265,7 @@ src/                     React frontend (almost all logic lives here)
 sidecar/                 pi host: a Node process the app starts (node sidecar/main.ts)
   main.ts                Entry: turns on mods/ overrides, then loads start.ts
   start.ts               stdio wiring; pi's files live in ~/.ignite/pi
+  hostLog.ts             The sidecar's log (stderr), and the requests that can end a run, logged with their UTC time
   extensionPaths.ts      The extensions conversations and subagents load, in order
   modsHooks.ts           Node resolve hooks that load mods/ files in place of the repo's
   host.ts                Request dispatch; createHost builds the handler
@@ -316,7 +317,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   forkExtension.ts       Adds the notes waiting for a conversation (its forks' reports) to its next run
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources,
                          or its .pi/ (the worktree's) isn't one the user trusted
-  claudeBridgeExtension.ts pi-claude-bridge, its Claude Code kept off the worktree's settings, hooks and config
+  claudeBridgeExtension.ts pi-claude-bridge, its Claude Code kept off the worktree's settings, hooks and config;
+                         a turn it refused for want of its prompt (prompt-capture: a session's first, racing tools registering) runs once more
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
   approvalAsk.ts         The channel calls wait on the user through (pi event bus to the host)
   askingLine.ts          git and gh calls ask in the order the agent made them, though each prepares its review in parallel
@@ -419,6 +421,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostLessons.ts         Settings' saved lessons: list and remove
   hostProcedures.ts      Settings' procedures, every folder's: list and remove
   reflector.ts           After a run with the user's feedback, the cheapest model rewrites the reflector's points
+  reflectorPrompt.ts     What that model is told; a point whose evidence isn't in the user's feedback is ignored
   hostReflect.ts         The user's feedback on a run (replies, answers' notes, denials, rewinds), reflected on once it settles;
                          Settings' points: list, edit, remove
   reflectorExtension.ts  The reflector's points (~/.ignite/reflector.json), each beside its entry point's guidance
@@ -1280,7 +1283,9 @@ teach nothing here) or replies with the points it keeps, changes (a left-out
 entry point stays), adds (with an entry point and the kind of feedback that
 taught it) or drops. An added or changed point also takes `when`, the
 situation it applies in (left out when it holds for all work), and `evidence`,
-the user's words that taught it; a point keeps both unless given new ones, and
+the user's words that taught it (found in the run's feedback, case and punctuation
+aside, or the point is ignored; a new point must have them, and a point never says
+more than those words, or the opposite); a point keeps both unless given new ones, and
 the reflector weighs new feedback against a point's evidence, so feedback from
 another situation narrows its `when` or adds a point rather than reverses it.
 New evidence alone is ignored (it changes nothing the agent reads). A point it leaves out stays, so
