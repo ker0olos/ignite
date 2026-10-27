@@ -1,10 +1,10 @@
 // @vitest-environment node
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { expect, it } from "vitest";
-import { fileCounts, registerGrep } from "./grepFiles.ts";
+import { fileCounts, registerGrep, searchGlob } from "./grepFiles.ts";
 
 const cwd = mkdtempSync(join(tmpdir(), "grep-ext-"));
 writeFileSync(join(cwd, "a.ts"), "needle\nneedle\nhay\n");
@@ -63,4 +63,38 @@ it("searches a single file across lines too", async () => {
   expect(text(await run({ pattern: "hay\\nneedle", path: "b.ts" }))).toBe(
     "b.ts:1: hay\nb.ts-2: needle",
   );
+});
+
+it("finds files by a glob naming their folder, which ripgrep alone matches against its own working directory", async () => {
+  const run = load();
+  mkdirSync(join(cwd, "lib"), { recursive: true });
+  writeFileSync(join(cwd, "lib", "models.ts"), "gallery: 'nano'\n");
+  expect(text(await run({ pattern: "gallery", glob: "lib/models.ts" }))).toBe(
+    "lib/models.ts:1: gallery: 'nano'",
+  );
+  expect(
+    text(await run({ pattern: "gallery", glob: "{lib/models.ts,x/y.ts}" })),
+  ).toBe("lib/models.ts:1: gallery: 'nano'");
+});
+
+it("leads a folder glob with **/ only when it needs it, keeping an exclusion's !", () => {
+  expect(searchGlob("lib/models.ts")).toBe("**/lib/models.ts");
+  expect(searchGlob("././lib/*.ts")).toBe("**/lib/*.ts");
+  expect(searchGlob("/src/index.ts")).toBe("**/src/index.ts");
+  expect(searchGlob("**/lib/*.ts")).toBe("**/lib/*.ts");
+  expect(searchGlob("../shared/*.ts")).toBe("../shared/*.ts");
+  expect(searchGlob("*.ts")).toBe("*.ts");
+  expect(searchGlob("!dist/bundle.js")).toBe("!**/dist/bundle.js");
+  expect(searchGlob("!*.min.js")).toBe("!*.min.js");
+});
+
+it("still excludes by a folder glob", async () => {
+  const run = load();
+  mkdirSync(join(cwd, "dist"), { recursive: true });
+  writeFileSync(join(cwd, "dist", "bundle.ts"), "needle\n");
+  const found = text(
+    await run({ pattern: "needle", glob: "!dist/bundle.ts", filesOnly: true }),
+  );
+  expect(found).toContain("a.ts");
+  expect(found).not.toContain("dist/bundle.ts");
 });

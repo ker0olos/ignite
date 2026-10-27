@@ -345,7 +345,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   exploreExtension.ts    Tells the agent how to search the code before answering (parallel calls, follow the flow)
   bashSearch.ts          Bash commands that only search or read the folder's files: they run, pointed at grep and read
   editContext.ts         pi's edit, whose result shows the changed lines as they now read, numbered
-  grepFiles.ts           pi's grep with `filesOnly`: matching files and their counts, not the lines
+  grepFiles.ts           pi's grep with `filesOnly`: matching files and their counts, not the lines; a glob naming a
+                         folder (`lib/x.ts`) led with `**/`, since ripgrep matches it from its own working directory
   grepLines.ts           grep patterns spanning lines (`a\n\s*b`): the first line's part searched, the next lines checked
   readTools.ts           pi's read with numbered lines, 400 unless told otherwise, one definition by name (`symbol`)
                          and more files or ranges in the same call (`also`); `outline`
