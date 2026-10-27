@@ -59,11 +59,12 @@ import {
 import { runOutside } from "./runOutside.ts";
 import { mayHaveBeenBlocked, stopSandboxed } from "./blockedRun.ts";
 import { unplannedWrite, writableUntilPlanned } from "./taskSteps.ts";
+import { log } from "./hostLog.ts";
 
 // Without these, commands are still checked: as raw text, and for paths
 // outside the folder instead of in the sandbox.
 const bashParser = loadBashParser().catch((error: unknown) => {
-  process.stderr.write(`pi-host: bash parser unavailable: ${error}\n`);
+  log(`bash parser unavailable: ${error}`);
   return undefined;
 });
 export const DENIED = "The user denied this tool call.";
@@ -209,9 +210,7 @@ export default function approval(pi: ExtensionAPI) {
     // The user approved this run either way; a failed save only loses "always".
     if (always && rule) {
       await allowAlways(rule).catch((error: unknown) => {
-        process.stderr.write(
-          `pi-host: sandbox allowlist not saved: ${error}\n`,
-        );
+        log(`sandbox allowlist not saved: ${error}`);
       });
     }
     stopSandboxed(event.details, ctx.sessionManager.getSessionId());

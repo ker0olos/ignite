@@ -1,6 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { log } from "./hostLog.ts";
 
 export type ClaudeCodeStatus = { installed: boolean; loggedIn: boolean };
 
@@ -32,9 +33,7 @@ export function createClaudeCode(
               const why = error.killed
                 ? `timed out after ${timeoutMs}ms`
                 : error.message;
-              process.stderr.write(
-                `pi-host: claude auth status ${why}: ${stderr.trim()}\n`,
-              );
+              log(`claude auth status ${why}: ${stderr.trim()}`);
             }
             try {
               resolve({

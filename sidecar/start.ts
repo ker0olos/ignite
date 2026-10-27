@@ -51,6 +51,7 @@ import { taskAnswerer, taskStoreIn } from "./hostTasks.ts";
 import { TASK_EVENT } from "./taskExtension.ts";
 import { answerStops } from "./stopJudge.ts";
 import { answerKeys } from "./fallbackExtension.ts";
+import { log, logIfEndsRuns } from "./hostLog.ts";
 import {
   claudeBridge,
   mcpExtension,
@@ -58,14 +59,10 @@ import {
   SUBAGENT_EXTENSIONS,
 } from "./extensionPaths.ts";
 
-// pi's files for this app live beside our settings, never in the pi CLI's
-// own ~/.pi/agent, so signing in or out here doesn't affect it.
-const log = (message: string) =>
-  process.stderr.write(
-    `pi-host: ${message} (${Math.round(process.uptime() * 1000)}ms)\n`,
-  );
 log(`loaded, Node ${process.version}`);
 
+// pi's files for this app live beside our settings, never in the pi CLI's
+// own ~/.pi/agent, so signing in or out here doesn't affect it.
 const agentDir = join(homedir(), `.${APP_NAME}`, "pi");
 process.env.PI_CODING_AGENT_DIR = agentDir;
 process.env.PI_TELEMETRY = "0";
@@ -176,7 +173,7 @@ async function openSession(
   await session.bindExtensions({
     uiContext: headlessUI,
     onError: ({ extensionPath, event, error }) =>
-      process.stderr.write(`pi-host: ${extensionPath} (${event}): ${error}\n`),
+      log(`${extensionPath} (${event}): ${error}`),
   });
   const modelWarning = await reselectModel(wanted, session);
   if (modelWarning) log(modelWarning);
@@ -266,11 +263,12 @@ const lines = createLineSplitter((line) => {
   try {
     request = JSON.parse(line);
   } catch {
-    process.stderr.write(`pi-host: ignoring a line that isn't JSON\n`);
+    log("ignoring a line that isn't JSON");
     return;
   }
   if (remote.fromApp(request)) return;
   if (request.type === "heartbeat") return heartbeat(request.visible);
+  logIfEndsRuns(request);
   // Slow requests are logged, so a stuck one shows up in the app's terminal.
   const started = Date.now();
   const stuck = setTimeout(
@@ -292,6 +290,7 @@ const lines = createLineSplitter((line) => {
 process.stdin.on("data", lines.push);
 // Finish answering what was already asked, end the conversations (their worktrees stay), then exit.
 process.stdin.on("end", async () => {
+  log(`ending every conversation at ${new Date().toISOString()}`);
   lines.end();
   await Promise.allSettled(inFlight);
   await host.shutdown();

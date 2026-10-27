@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { APP_NAME } from "../src/lib/app.ts";
+import { log } from "./hostLog.ts";
 
 const run = promisify(execFile);
 
@@ -41,8 +42,6 @@ async function sampleApp(appPid = process.ppid, dir = HANGS_DIR) {
   const done = runs.filter((r) => r.status === "fulfilled").length;
   log(`the page stopped answering; ${done} samples in ${dir}`);
 }
-
-const log = (message: string) => process.stderr.write(`pi-host: ${message}\n`);
 
 /**
  * Takes the page's heartbeats and, on macOS, samples the app's processes once

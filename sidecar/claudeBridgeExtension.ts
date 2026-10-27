@@ -33,6 +33,7 @@ export default function claudeBridge(pi: ExtensionAPI) {
   __test.setQuery((params) =>
     query({ ...params, options: guarded(params.options) }),
   );
+  retryUncaptured(pi);
   // It reads its config from process.cwd() as it loads: agentDir has no .pi/ of its own.
   const at = process.cwd();
   // Not there yet on a first launch, before pi writes into it.
@@ -43,4 +44,38 @@ export default function claudeBridge(pi: ExtensionAPI) {
   } finally {
     process.chdir(at);
   }
+}
+
+// A session's first prompt can race tools registering (the MCP adapter's), which rebuilds the prompt
+// the bridge recorded; the next turn records it again, so the run goes on once, without the failed reply.
+/** Runs a turn the bridge refused for want of its system prompt (prompt-capture) once more, per message that started the run. */
+export function retryUncaptured(pi: Pick<ExtensionAPI, "on">) {
+  let retriedFor: string | null = null;
+  pi.on("agent_before_settle", (event, ctx) => {
+    if (event.outcome !== "error") return;
+    const branch = ctx.sessionManager.getBranch();
+    const last = branch.at(-1);
+    if (last?.type !== "message" || last.message.role !== "assistant") return;
+    // Its other refusals (a prompt it won't send, pi#5581's) come back the same on another try.
+    if (
+      !last.message.errorMessage?.startsWith("prompt-capture: no capture for")
+    )
+      return;
+    // The user's message, or a hidden one (a wake, a nudge) that started the run.
+    const started =
+      branch.findLast(
+        (e) =>
+          e.type === "custom_message" ||
+          (e.type === "message" && e.message.role === "user"),
+      )?.id ?? "";
+    if (started === retriedFor) return;
+    retriedFor = started;
+    return {
+      continue: true,
+      entries: [
+        ...event.entries,
+        { type: "context_edit", targetId: last.id, replacement: null },
+      ],
+    };
+  });
 }

@@ -171,7 +171,9 @@ export default function fallback(pi: ExtensionAPI) {
     if (!(await switchKey(ctx, from))) return;
     return {
       continue: true,
+      // A boundary's result replaces the entries earlier handlers left: theirs go too.
       entries: [
+        ...event.entries,
         { type: "context_edit", targetId: failed.id, replacement: null },
         { type: "custom", customType: ENTRY, data: state },
       ],

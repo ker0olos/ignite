@@ -3,7 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import type { Reflection } from "../shared/reflector.ts";
 import type { Session } from "./hostTypes.ts";
-import { parsePoints, reflect, reflectorInput } from "./reflector.ts";
+import {
+  groundedIn,
+  parsePoints,
+  reflect,
+  reflectorInput,
+} from "./reflector.ts";
 
 const model = {
   provider: "x",
@@ -38,7 +43,15 @@ const short: Reflection = {
   at: 1,
 };
 
-const reply = (points: unknown[]) => JSON.stringify({ points });
+// New points carry the user's words, which they must; a test's own evidence stays.
+const reply = (points: unknown[], evidence = "said so") =>
+  JSON.stringify({
+    points: points.map((p) =>
+      !p || typeof p !== "object" || "id" in p || "evidence" in p
+        ? p
+        : { ...p, evidence },
+    ),
+  });
 
 describe("parsePoints", () => {
   it("keeps, changes and adds points, prose around the JSON ignored", () => {
@@ -83,6 +96,51 @@ describe("parsePoints", () => {
     );
     expect(next).toHaveLength(2);
     expect(next?.[1]).toMatchObject({ text: "Plan first.", taught: "reply" });
+  });
+
+  it("ignores a point whose words aren't the user's, and keeps the point it would change", () => {
+    const heard = groundedIn(["Whats taking this long??", "keep it short"]);
+    const next = parsePoints(
+      JSON.stringify({
+        points: [
+          {
+            entry: "always",
+            text: "Report progress on long jobs.",
+            evidence: "whats taking this long",
+          },
+          {
+            entry: "asking",
+            text: "Never ask.",
+            evidence: "user prefers this",
+          },
+          { id: "r1", text: "Never report.", evidence: "made up" },
+        ],
+      }),
+      [short],
+      undefined,
+      heard,
+    );
+    expect(next?.map((p) => p.text)).toEqual([
+      "Report progress on long jobs.",
+      short.text,
+    ]);
+    expect(heard("")).toBe(false);
+  });
+
+  it("ignores a new point without the user's words, never a changed one", () => {
+    const next = parsePoints(
+      reply(
+        [
+          { entry: "asking", text: "Never ask first." },
+          { id: "r1", text: "Keep reports to 3 lines." },
+        ],
+        "",
+      ),
+      [short],
+    );
+    expect(next).toEqual([
+      expect.objectContaining({ id: "r1", text: "Keep reports to 3 lines." }),
+    ]);
   });
 
   it("records the conversation a new or changed point was learned in, not a kept one", () => {
@@ -329,12 +387,17 @@ describe("reflectorInput", () => {
 });
 
 describe("reflect", () => {
-  it("returns the cheapest model's points", async () => {
+  it("returns the cheapest model's points, grounded in the feedback it was given", async () => {
     const s = runtime(async () =>
-      answer(reply([{ entry: "planning", text: "Plan first." }])),
+      answer(
+        reply([
+          { entry: "planning", text: "Plan first.", evidence: "plan it first" },
+          { entry: "asking", text: "Never ask." },
+        ]),
+      ),
     );
-    expect(await reflect(s, ["f"], messages, [])).toMatchObject([
-      { entry: "planning", text: "Plan first." },
+    expect(await reflect(s, ["Plan it first!"], messages, [])).toEqual([
+      expect.objectContaining({ entry: "planning", text: "Plan first." }),
     ]);
     const [, context, options] = vi.mocked(s.modelRuntime.completeSimple).mock
       .calls[0] as unknown as [

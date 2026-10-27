@@ -7,6 +7,7 @@ import { APP_NAME } from "../src/lib/app.ts";
 import type { ApprovalGate } from "../src/lib/approvalPolicy.ts";
 import { createSandbox } from "./sandbox.ts";
 import { createWindowsSandbox } from "./windowsSandbox.ts";
+import { log } from "./hostLog.ts";
 
 const windows = () => process.platform === "win32";
 
@@ -34,7 +35,7 @@ export async function approvalMode(
 const startSandbox = () =>
   (windows() ? createWindowsSandbox() : createSandbox()).catch(
     (error: unknown) => {
-      process.stderr.write(`pi-host: sandbox unavailable: ${error}\n`);
+      log(`sandbox unavailable: ${error}`);
       return undefined;
     },
   );

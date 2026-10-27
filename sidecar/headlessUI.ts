@@ -1,5 +1,6 @@
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { HostMessage } from "../shared/hostProtocol.ts";
+import { log } from "./hostLog.ts";
 
 // Extensions only report problems (a failed MCP sign-in) through a bound UI.
 // This one declines every prompt and passes errors on to the app.
@@ -11,7 +12,7 @@ export function createHeadlessUI(
     confirm: async () => false,
     input: async () => undefined,
     notify: (message: string, type?: "info" | "warning" | "error") => {
-      process.stderr.write(`pi-host: ${type ?? "info"}: ${message}\n`);
+      log(`${type ?? "info"}: ${message}`);
       if (type === "error") send({ type: "extension_error", message });
     },
     onTerminalInput: () => () => {},

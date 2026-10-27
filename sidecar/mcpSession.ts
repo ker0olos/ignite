@@ -14,6 +14,7 @@ import {
 import type { McpStatusSnapshot, Session } from "./hostTypes.ts";
 import { MCP_AUTH_URL_EVENT } from "./mcpConfig.ts";
 import { freshExtensions, runtimeFor } from "./sessionRuntime.ts";
+import { log } from "./hostLog.ts";
 
 // pi-mcp-adapter's status channel (MCP_STATUS_EVENT in its types.ts).
 export const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
@@ -58,8 +59,7 @@ export function mcpSessionOpener(deps: Deps) {
     // The error listener also makes a reload start the adapter again.
     await session.bindExtensions({
       uiContext,
-      onError: ({ event, error }) =>
-        process.stderr.write(`pi-host: MCP session (${event}): ${error}\n`),
+      onError: ({ event, error }) => log(`MCP session (${event}): ${error}`),
     });
     const reload = session.reload.bind(session);
     session.reload = () => {

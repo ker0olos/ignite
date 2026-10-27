@@ -6,6 +6,7 @@ import type {
 } from "../shared/hostProtocol.ts";
 import { apiKeyProblem } from "../shared/validation.ts";
 import type { HostContext } from "./hostTypes.ts";
+import { log } from "./hostLog.ts";
 
 /** Checks Claude Code's install and sign-in, remembering the sign-in. */
 async function claudeCodeStatus(ctx: HostContext) {
@@ -59,7 +60,7 @@ export async function statusWithin(
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timedOut = new Promise<ProviderStatus>((resolve) => {
     timer = setTimeout(() => {
-      process.stderr.write(`pi-host: ${id} status timed out after ${ms}ms\n`);
+      log(`${id} status timed out after ${ms}ms`);
       resolve({ id, connected: false });
     }, ms);
   });
@@ -67,9 +68,7 @@ export async function statusWithin(
     return await Promise.race([status(ctx, id), timedOut]);
   } finally {
     clearTimeout(timer);
-    process.stderr.write(
-      `pi-host: ${id} status took ${Date.now() - started}ms\n`,
-    );
+    log(`${id} status took ${Date.now() - started}ms`);
   }
 }
 
