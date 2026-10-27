@@ -7,9 +7,10 @@
 import { serializeConversation } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage, AssistantMessage } from "../shared/agentTypes.ts";
 import { CONCEPTS, PROCEDURE, SUMMARY_TYPE } from "../shared/memory.ts";
+import { askModel, cheapest } from "./cheapCall.ts";
+import { log } from "./hostLog.ts";
 import type { Session } from "./hostTypes.ts";
 import { summaryOf, trimmed, typeOf, type NewMemory } from "./memoryDb.ts";
-import { cheapest } from "./router.ts";
 
 /** A memory as the writer finds it; the host adds where and when. */
 export type Written = Omit<
@@ -209,16 +210,29 @@ export function parseWritten(
 
 const TIMEOUT_MS = 120_000;
 
-/** What the run in `messages` is worth remembering, by the cheapest model of `s`'s provider; none when it can't run. A long run takes a call per chunk, keeping the last one's summary; `procedures` (procedures.ts's rule) also asks for those. */
+type WriteOptions = {
+  /** procedures.ts's rule: also asks for those. */
+  procedures?: string;
+  /** Names the run in the log when a call fails ("memory for <id>"). */
+  label?: string;
+};
+
+/** What the run in `messages` is worth remembering, by the cheapest model of `s`'s provider; none when it can't run. A long run takes a call per chunk, keeping the last one's summary. */
 export async function write(
   s: Pick<Session, "model" | "modelRuntime">,
   messages: AgentMessage[],
   recorded: string[],
   path: (p: string) => string,
   skip: string[],
-  procedures?: string,
+  { procedures, label = "memory" }: WriteOptions = {},
 ): Promise<Written[]> {
-  const found = await cheapest(s).catch(() => null);
+  const found = await cheapest(s).catch((error: unknown) => {
+    log(`${label} failed: ${error}`);
+    return undefined;
+  });
+  // Logged here, not by askCheapest: a run with nothing written is what the bench looks for.
+  if (found === null)
+    log(`${label} failed: no priced model of ${s.model?.provider}`);
   if (!found) return [];
   const written: Written[] = [];
   const titles = [...recorded];
@@ -226,28 +240,16 @@ export async function write(
     MAX_CHUNK_CHARS,
     Math.max(CHUNK_CHARS, (found.model.contextWindow ?? 0) * 2),
   );
+  const prompt = procedures ? WRITER_PROMPT + procedures : WRITER_PROMPT;
   for (const chunk of runText(messages, skip, size)) {
-    const answer = await s.modelRuntime
-      .completeSimple(
-        found.model,
-        {
-          systemPrompt: procedures ? WRITER_PROMPT + procedures : WRITER_PROMPT,
-          messages: [
-            {
-              role: "user",
-              content: writerInput(chunk, titles),
-              timestamp: Date.now(),
-            },
-          ],
-        },
-        // "none" keeps claude-bridge from sending it through the conversation's own session.
-        { cacheRetention: "none", signal: AbortSignal.timeout(TIMEOUT_MS) },
-      )
-      .catch(() => null);
-    if (!answer || answer.stopReason === "error") continue;
-    const reply = answer.content
-      .flatMap((c) => (c.type === "text" ? [c.text] : []))
-      .join("");
+    const reply = await askModel(
+      s,
+      found.model,
+      prompt,
+      writerInput(chunk, titles),
+      { label, timeoutMs: TIMEOUT_MS },
+    );
+    if (reply === null) continue;
     const memories = parseWritten(reply, path, !!procedures);
     titles.push(...memories.map((m) => m.title));
     written.push(...memories);

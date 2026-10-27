@@ -22,6 +22,7 @@ export async function judgeQueued(
   const word = await oneWord(s, JUDGE_PROMPT, input, ["steer", "later"], {
     signal,
     images,
+    label: "queue judge",
   });
   return word && (word === "steer" ? "steer" : "followUp");
 }

@@ -213,7 +213,9 @@ describe("write", () => {
 
   it("asks for procedures with their rule when the run may teach them", async () => {
     const s = session(answer({ observations: [] }));
-    await write(s, run, [], (p) => p, [], procedureRule(["Running the tests"]));
+    await write(s, run, [], (p) => p, [], {
+      procedures: procedureRule(["Running the tests"]),
+    });
     const [, context] = vi.mocked(s.modelRuntime.completeSimple).mock.calls[0];
     expect(context.systemPrompt).toContain(
       procedureRule(["Running the tests"]),
@@ -262,12 +264,18 @@ describe("write", () => {
     expect(s.modelRuntime.completeSimple).toHaveBeenCalledOnce();
   });
 
-  it("writes nothing when the model fails or no model has a price", async () => {
+  it("writes nothing, logging why under its label, when the model fails or no model has a price", async () => {
+    const stderr = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    const last = () => String(stderr.mock.calls.at(-1)?.[0]);
+    const label = "memory for c1";
     const failing = session();
     vi.mocked(failing.modelRuntime.completeSimple).mockRejectedValue(
       new Error("down"),
     );
-    expect(await write(failing, run, [], (p) => p, [])).toEqual([]);
+    expect(await write(failing, run, [], (p) => p, [], { label })).toEqual([]);
+    expect(last()).toMatch(/^pi-host: memory for c1 failed: Error: down /);
     const unpriced = { ...session(), model: { ...model, cost: undefined } };
     const s = {
       ...unpriced,
@@ -276,7 +284,11 @@ describe("write", () => {
         getModels: () => [unpriced.model],
       },
     };
-    expect(await write(s as never, run, [], (p) => p, [])).toEqual([]);
+    expect(await write(s as never, run, [], (p) => p, [], { label })).toEqual(
+      [],
+    );
     expect(s.modelRuntime.completeSimple).not.toHaveBeenCalled();
+    expect(last()).toMatch(/memory for c1 failed: no priced model/);
+    stderr.mockRestore();
   });
 });

@@ -18,7 +18,7 @@ import {
 import type { Session } from "./hostTypes.ts";
 import { runText } from "./memoryWriter.ts";
 import { MAX_EDITS, REFLECT_PROMPT, UNCHANGED } from "./reflectorPrompt.ts";
-import { cheapest } from "./router.ts";
+import { askCheapest } from "./cheapCall.ts";
 
 const TIMEOUT_MS = 60_000;
 // ponytail: a long conversation is read as its start and its end; excerpts around each feedback if the middle ever matters.
@@ -253,23 +253,15 @@ export async function reflect(
   points: Reflection[],
   from?: LearnedIn,
 ): Promise<Reflection[] | undefined> {
-  const found = await cheapest(s).catch(() => null);
-  if (!found) return undefined;
-  const content = reflectorInput(feedback, messages, points);
-  const answer = await s.modelRuntime
-    .completeSimple(
-      found.model,
-      {
-        systemPrompt: REFLECT_PROMPT,
-        messages: [{ role: "user", content, timestamp: Date.now() }],
-      },
-      // "none" keeps claude-bridge from sending it through the conversation's own session.
-      { cacheRetention: "none", signal: AbortSignal.timeout(TIMEOUT_MS) },
-    )
-    .catch(() => null);
-  if (!answer || answer.stopReason === "error") return undefined;
+  const reply = await askCheapest(
+    s,
+    REFLECT_PROMPT,
+    reflectorInput(feedback, messages, points),
+    { label: "reflector", timeoutMs: TIMEOUT_MS },
+  );
+  if (reply === null) return undefined;
   return parsePoints(
-    answer.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join(""),
+    reply,
     points,
     { at: Date.now(), from },
     groundedIn(feedback),

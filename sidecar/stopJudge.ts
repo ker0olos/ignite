@@ -5,36 +5,52 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage, ImageContent } from "../shared/agentTypes.ts";
 import type { Session } from "./hostTypes.ts";
-import { cheapest } from "./router.ts";
+import { askModel, cheapest } from "./cheapCall.ts";
 import { STOP_EVENT, type StopAsk } from "./stopNudge.ts";
 
 export type Verdict = "done" | "continue" | "ask";
 
 const TIMEOUT_MS = 20_000;
 const REQUEST_CHARS = 4_000;
+// Messages sent mid-run can ask something in passing while an earlier one's work waits ("before you start X, do Y").
+const REQUESTS = 3;
 const END_CHARS = 8_000;
 // The agent's last reply and the work just before it.
 const END_MESSAGES = 6;
 
-const JUDGE_PROMPT = `You read a user's latest request to a coding agent and the end of the agent's work on it, at the moment the agent stopped and handed control back to the user. Judge what should happen next. Reply with exactly one word, nothing else:
-- continue: the agent stopped partway through work the user asked for and could carry on by itself. Its reply says what it will do next ("Next I'm going through…", "Now I'll…"), lists steps it still means to do, asks leave to start or go on with work the user already asked for ("Say go and I'll start", "Shall I continue?"), or offers a step that finishes it: testing or verifying it, fixing the rest of the same problem, or delivering it ("Want me to push and open a PR?": pushes and pull requests wait for the user's review anyway; "Let me know if you want the other two fixed").
+const JUDGE_PROMPT = `You read the user's messages to a coding agent during its last run (oldest first) and the end of the agent's work, at the moment the agent stopped and handed control back to the user. Judge what should happen next. Reply with exactly one word, nothing else:
+- continue: the agent stopped partway through work the user asked for and could carry on by itself. Work an earlier message asked for that the agent hasn't done or started counts ("before you start X, do Y" leaves X to do once Y is done), unless a later message dropped it. Its reply says what it will do next ("Next I'm going through…", "Now I'll…"), lists steps it still means to do, asks leave to start or go on with work the user already asked for ("Say go and I'll start", "Shall I continue?"), or offers a step that finishes it: testing or verifying it, fixing the rest of the same problem, or delivering it ("Want me to push and open a PR?": pushes and pull requests wait for the user's review anyway; "Let me know if you want the other two fixed").
 - ask: the reply ends with a real decision only the user can make ("Which approach do you prefer?") or offers new work beyond what was asked ("I could also add dark mode").
 - done: anything else: the work is finished and reported, the user only asked a question and it's answered, the agent waits on something only the user can do (attach a device, sign in, provide a file), or it waits for work that reports back on its own (a fork, a background command).
 When unsure, reply done.`;
 
 type Llm = Parameters<typeof serializeConversation>[0];
 
-/** The user's latest request and the end of the run, as the judge reads them. */
+// The run that just ended starts after the reply that ended the one before it.
+const runStart = (llm: Llm) =>
+  llm
+    .slice(0, -1)
+    .findLastIndex(
+      (m) =>
+        m.role === "assistant" &&
+        (m as { stopReason?: string }).stopReason !== "toolUse",
+    ) + 1;
+
+/** The user's messages in the run that just ended (or their latest), and its end, as the judge reads them. */
 export function judgeInput(messages: readonly AgentMessage[]): string {
   const llm = messages.filter((m) =>
     ["user", "assistant", "toolResult"].includes(m.role),
   ) as Llm;
-  const asked = llm.findLastIndex((m) => m.role === "user");
-  const end = llm.slice(Math.max(asked + 1, llm.length - END_MESSAGES));
-  const request =
-    asked < 0
-      ? ""
-      : serializeConversation([llm[asked]]).slice(0, REQUEST_CHARS);
+  const users = llm.flatMap((m, i) => (m.role === "user" ? [i] : []));
+  const inRun = users.filter((i) => i >= runStart(llm));
+  const asked = inRun.length ? inRun : users.slice(-1);
+  const last = users.at(-1) ?? -1;
+  const end = llm.slice(Math.max(last + 1, llm.length - END_MESSAGES));
+  // Each from its start, where the ask is, before what's pasted after it.
+  const request = asked
+    .slice(-REQUESTS)
+    .map((i) => serializeConversation([llm[i]!]).slice(0, REQUEST_CHARS))
+    .join("\n\n");
   return `${request}\n\n${serializeConversation(end).slice(-END_CHARS)}`.trim();
 }
 
@@ -52,7 +68,10 @@ export function judgeStop(
   signal?: AbortSignal,
 ): Promise<Verdict | null> {
   const words = ["continue", "ask", "done"] as const;
-  return oneWord(s, JUDGE_PROMPT, judgeInput(s.messages), words, { signal });
+  return oneWord(s, JUDGE_PROMPT, judgeInput(s.messages), words, {
+    signal,
+    label: "stop judge",
+  });
 }
 
 /** The cheapest model of `s`'s provider answering `text` (and `images`, if it reads them) with one of `words`; null when it can't. */
@@ -61,37 +80,22 @@ export async function oneWord<W extends string>(
   systemPrompt: string,
   text: string,
   words: readonly W[],
-  { signal, images = [] }: { signal?: AbortSignal; images?: ImageContent[] },
+  {
+    signal,
+    images = [],
+    label,
+  }: { signal?: AbortSignal; images?: ImageContent[]; label: string },
 ): Promise<W | null> {
   const found = await cheapest(s).catch(() => null);
   if (!found) return null;
   const seen = found.model.input.includes("image") ? images : [];
-  const timeout = AbortSignal.timeout(TIMEOUT_MS);
-  const answer = await s.modelRuntime
-    .completeSimple(
-      found.model,
-      {
-        systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: seen.length ? [{ type: "text", text }, ...seen] : text,
-            timestamp: Date.now(),
-          },
-        ],
-      },
-      // "none" keeps claude-bridge from sending it through the conversation's own session.
-      {
-        cacheRetention: "none",
-        signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
-      },
-    )
-    .catch(() => null);
-  if (!answer || answer.stopReason !== "stop") return null;
-  const reply = answer.content
-    .flatMap((c) => (c.type === "text" ? [c.text] : []))
-    .join("")
-    .replace(/^\W+|\W+$/g, "")
-    .toLowerCase();
-  return words.find((w) => w === reply) ?? null;
+  const reply = await askModel(
+    s,
+    found.model,
+    systemPrompt,
+    seen.length ? [{ type: "text", text }, ...seen] : text,
+    { label, timeoutMs: TIMEOUT_MS, signal },
+  );
+  const word = reply?.replace(/^\W+|\W+$/g, "").toLowerCase();
+  return words.find((w) => w === word) ?? null;
 }

@@ -59,7 +59,10 @@ export async function rememberRun(agent: Agent, db?: DatabaseSync) {
           ),
         )
       : undefined;
-  const written = await write(s, run, recorded, path, SKIP, rule);
+  const written = await write(s, run, recorded, path, SKIP, {
+    procedures: rule,
+    label: `memory for ${agent.id}`,
+  });
   const createdAt = Date.now();
   addMemories(
     store,

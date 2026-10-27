@@ -19,7 +19,7 @@ import { learningOn } from "./learningSettings.ts";
 import { memoryEnabled } from "./memory.ts";
 import { memoryDb, type Memory } from "./memoryDb.ts";
 import { withConcept } from "./memorySearch.ts";
-import { cheapest } from "./router.ts";
+import { askCheapest } from "./cheapCall.ts";
 import { blockedSummary } from "./sandbox.ts";
 
 const OFFERED = 3;
@@ -100,31 +100,16 @@ async function pick(
   listed: Memory[],
   signal: AbortSignal,
 ): Promise<Memory[]> {
-  const found = await cheapest(s).catch(() => null);
-  if (!found) return [];
   const content = [
     `The task:\n${typedMessage(text).slice(0, TASK_CHARS)}`,
     `The procedures:\n${listed.map((m) => `[${m.id}] ${procedureTitle(m.title)}`).join("\n")}`,
   ].join("\n\n");
-  const answer = await s.modelRuntime
-    .completeSimple(
-      found.model,
-      {
-        systemPrompt: PICK_PROMPT,
-        messages: [{ role: "user", content, timestamp: Date.now() }],
-      },
-      // "none" keeps claude-bridge from sending it through the conversation's own session.
-      {
-        cacheRetention: "none",
-        signal: AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]),
-      },
-    )
-    .catch(() => null);
-  if (!answer || answer.stopReason === "error") return [];
-  const reply = answer.content
-    .flatMap((c) => (c.type === "text" ? [c.text] : []))
-    .join("");
-  return pickedFrom(reply, listed);
+  const reply = await askCheapest(s, PICK_PROMPT, content, {
+    label: "procedure pick",
+    timeoutMs: TIMEOUT_MS,
+    signal,
+  });
+  return reply === null ? [] : pickedFrom(reply, listed);
 }
 
 /** The note on `folder`'s procedures `text` needs, picked by the cheapest model of `s`'s provider; empty when none fit, it can't tell, or `signal` aborts. */
