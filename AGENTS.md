@@ -75,6 +75,7 @@ src/                     React frontend (almost all logic lives here)
     useSessionCache.ts   Every open conversation shown so far, kept current by its events; the one each folder shows
     useOlderRows.ts      A conversation draws its newest rows, older ones as the user scrolls up
     useWidePane.ts       Whether the conversation's pane is wide enough for tool tiles beside the text's edge
+    useBrands.ts         Renders tool rows again once the Simple Icons brands have loaded
     useComposerActions.ts Send, stop, model and effort; the first message starts a new conversation
     useComposerBegin.ts  That first message: the conversation opens, takes the choices made before it, then gets it
     useCompact.ts        `/compact`: compacts the shown conversation
@@ -194,6 +195,7 @@ src/                     React frontend (almost all logic lives here)
     sameTool.ts          Consecutive calls of one tool (or one MCP server), or reads and searches, as one row; tools with cards of their own stay alone
     toolIcon.ts          A tool call's tile: an MCP server's brand mark (simple-icons, on its colour; near-black and light brands
                          flipped), else a Lucide glyph
+    brandMarks.ts        Any Simple Icons brand an MCP server's whole name (filler words aside) names, loaded on first use
     toolLabels.ts        A tool call's title (an MCP tool's name humanized), argument, the agent's reason, and its tile's badge
     scriptRows.ts        A script's status line and what it sent the agent
     runError.ts          A run's error as shown: a Claude limit in Claude Code's words, without the bridge's prefix

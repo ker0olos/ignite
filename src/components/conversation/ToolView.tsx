@@ -3,6 +3,7 @@ import { ToolCallBody } from "@/components/conversation/ToolCallBody";
 import { ToolCallHead } from "@/components/conversation/ToolCallHead";
 import { ToolRowFrame } from "@/components/conversation/ToolRowFrame";
 import { ToolTile } from "@/components/conversation/ToolTile";
+import { useBrands } from "@/hooks/useBrands";
 import { useStreamedCall } from "@/hooks/useStreamedCall";
 import { toolIcon } from "@/lib/toolIcon";
 import { callReason, toolBadge } from "@/lib/toolLabels";
@@ -11,6 +12,7 @@ import { callReason, toolBadge } from "@/lib/toolLabels";
 export function ToolView(props: ToolProps) {
   const { call, run } = props;
   const shown = useStreamedCall(call);
+  useBrands();
   const cancelled = !!run?.cancelled;
   const why = run?.approval ? "" : callReason(call);
   return (

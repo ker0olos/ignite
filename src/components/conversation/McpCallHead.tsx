@@ -1,4 +1,5 @@
 import { ToolHead } from "@/components/conversation/ToolHead";
+import { useBrands } from "@/hooks/useBrands";
 import type { McpCall } from "@/lib/mcpToolCall";
 import { serverName } from "@/lib/toolIcon";
 import { mcpArg, mcpTitle } from "@/lib/toolLabels";
@@ -15,6 +16,7 @@ export function McpCallHead({
   grouped: boolean;
   muted?: boolean;
 }) {
+  useBrands();
   return (
     <ToolHead
       title={mcp.tool ? mcpTitle(mcp.tool) : "MCP call"}

@@ -2,6 +2,7 @@ import type { ToolCall } from "../../../shared/agentTypes";
 import type { ToolProps } from "@/components/conversation/shared";
 import { ToolCallStep } from "@/components/conversation/ToolCallStep";
 import { ToolTile } from "@/components/conversation/ToolTile";
+import { useBrands } from "@/hooks/useBrands";
 import { mcpCall } from "@/lib/mcpToolCall";
 import { exploreCall } from "@/lib/sameTool";
 import { EXPLORE_ICON, serverName, toolIcon } from "@/lib/toolIcon";
@@ -21,6 +22,7 @@ export function ToolCallGroup({
   tools = {},
   ...rest
 }: Omit<ToolProps, "call" | "run"> & { calls: ToolCall[] }) {
+  useBrands();
   const runs = calls.map((c) => tools[c.id]);
   const explored = exploreCall(calls[0]);
   return (
