@@ -5,7 +5,6 @@ import { LESSON_ADD_TOOL, LESSON_REMOVE_TOOL } from "../shared/lessons.ts";
 import { PROCEDURE } from "../shared/memory.ts";
 import { TASK_TOOL } from "../shared/tasks.ts";
 import { APP_NAME } from "../src/lib/app.ts";
-import { log } from "./hostLog.ts";
 import type { Agent } from "./hostTypes.ts";
 import { memoryEnabled } from "./memory.ts";
 import { addMemories, memoryDb } from "./memoryDb.ts";
@@ -62,8 +61,7 @@ export async function rememberRun(agent: Agent, db?: DatabaseSync) {
       : undefined;
   const written = await write(s, run, recorded, path, SKIP, {
     procedures: rule,
-    failed: (why) =>
-      log(`memory call failed for ${agent.id}: ${why.slice(0, 200)}`),
+    label: `memory for ${agent.id}`,
   });
   const createdAt = Date.now();
   addMemories(

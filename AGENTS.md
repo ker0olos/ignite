@@ -439,6 +439,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   taskSteps.ts           What waits for the plan (edits, writes, new subagents but explore ones),
                          whether it's planned (isPlanned), where bash may write until then
   router.ts              The router: a cheap model picks a new conversation's model and effort
+  cheapCall.ts           Every background model call (router, memory, reflector, judges, procedures, fork reports):
+                         the provider's cheapest priced model, uncached, each failure logged under its label
   hostRoute.ts           Runs the router before a conversation's first message, or its next once Router is picked
   subagentExtension.ts   subagent tool: hands tasks to its model or a cheaper one from the same provider and talks with it
   subagentQueue.ts       Runs at most `max` subagents at once; the rest wait their turn

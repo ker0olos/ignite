@@ -10,14 +10,12 @@ import { parse as parseToml } from "smol-toml";
 import { APP_NAME } from "../src/lib/app.ts";
 import { currentModels } from "../shared/featuredModels.ts";
 import { EFFORTS } from "../shared/subagents.ts";
+import { askModel, cheapest } from "./cheapCall.ts";
 import type { Session } from "./hostTypes.ts";
 import { price, type Effort, type Model } from "./subagentModels.ts";
 
 /** The router's pick, checked against the provider's models and pi's efforts. */
 export type Route = { model?: Model; effort?: Effort };
-
-const same = (a: { provider: string; id: string }, b: typeof a) =>
-  a.provider === b.provider && a.id === b.id;
 
 // A Claude subscription routes through a fresh Claude Code process.
 const TIMEOUT_MS = 15_000;
@@ -81,22 +79,6 @@ export function parseRoute(text: string, models: Model[]): Route | null {
   };
 }
 
-/** The cheapest priced model of `s`'s provider, with the provider's models and pi's catalog; null when none lists a price. */
-export async function cheapest(s: Pick<Session, "model" | "modelRuntime">) {
-  const { model: current, modelRuntime: runtime } = s;
-  if (!current) return null;
-  const all = runtime.getModels() as Model[];
-  const models = (await runtime.getAvailable())
-    .filter((m) => m.provider === current.provider)
-    .flatMap((m) => all.find((a) => same(a, m)) ?? []);
-  const own = models.find((m) => same(m, current));
-  if (!own) return null;
-  const cost = (m: Model) => price(m, all) ?? Infinity;
-  const model = models.reduce((a, b) => (cost(b) < cost(a) ? b : a), own);
-  // Unpriced, it would run on the conversation's own model, maybe the dearest.
-  return cost(model) === Infinity ? null : { model, models, all };
-}
-
 /** Asks the cheapest model of `s`'s provider to pick for `text` (in a conversation that `began` so); null when it can't tell, or no model lists a price to call the cheapest. */
 export async function route(
   s: Pick<Session, "model" | "modelRuntime">,
@@ -108,36 +90,16 @@ export async function route(
   if (!found) return null;
   const { model: router, all } = found;
   const models = currentModels(found.models);
-  const answer = await s.modelRuntime.completeSimple(
+  const reply = await askModel(
+    s,
     router,
-    {
-      systemPrompt: ROUTER_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: routerInput(
-            text,
-            models.map((m) => ({ id: m.id, price: price(m, all) })),
-            began,
-          ),
-          timestamp: Date.now(),
-        },
-      ],
-    },
-    // "none" keeps claude-bridge from sending it through the conversation's own session.
-    {
-      cacheRetention: "none",
-      signal: AbortSignal.any([
-        AbortSignal.timeout(TIMEOUT_MS),
-        ...(signal ? [signal] : []),
-      ]),
-    },
+    ROUTER_PROMPT,
+    routerInput(
+      text,
+      models.map((m) => ({ id: m.id, price: price(m, all) })),
+      began,
+    ),
+    { label: "router", timeoutMs: TIMEOUT_MS, signal },
   );
-  if (answer.stopReason === "error" || answer.stopReason === "aborted") {
-    return null;
-  }
-  const reply = answer.content
-    .flatMap((c) => (c.type === "text" ? [c.text] : []))
-    .join("");
-  return parseRoute(reply, models);
+  return reply === null ? null : parseRoute(reply, models);
 }

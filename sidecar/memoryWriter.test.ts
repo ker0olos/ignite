@@ -264,30 +264,18 @@ describe("write", () => {
     expect(s.modelRuntime.completeSimple).toHaveBeenCalledOnce();
   });
 
-  it("writes nothing, saying why, when the model fails or no model has a price", async () => {
-    const failed = vi.fn();
+  it("writes nothing, logging why under its label, when the model fails or no model has a price", async () => {
+    const stderr = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    const last = () => String(stderr.mock.calls.at(-1)?.[0]);
+    const label = "memory for c1";
     const failing = session();
     vi.mocked(failing.modelRuntime.completeSimple).mockRejectedValue(
       new Error("down"),
     );
-    expect(await write(failing, run, [], (p) => p, [], { failed })).toEqual([]);
-    expect(failed).toHaveBeenLastCalledWith("Error: down");
-    const refused = session();
-    vi.mocked(refused.modelRuntime.completeSimple).mockResolvedValue({
-      stopReason: "error",
-      errorMessage: "credit balance is too low",
-      content: [],
-    } as never);
-    expect(await write(refused, run, [], (p) => p, [], { failed })).toEqual([]);
-    expect(failed).toHaveBeenLastCalledWith("error: credit balance is too low");
-    // A timeout (aborted) or a reply cut off counts too: what came back can't be used.
-    const cut = session();
-    vi.mocked(cut.modelRuntime.completeSimple).mockResolvedValue({
-      stopReason: "length",
-      content: [{ type: "text", text: '{"observations": [' }],
-    } as never);
-    expect(await write(cut, run, [], (p) => p, [], { failed })).toEqual([]);
-    expect(failed).toHaveBeenLastCalledWith("length");
+    expect(await write(failing, run, [], (p) => p, [], { label })).toEqual([]);
+    expect(last()).toMatch(/^pi-host: memory for c1 failed: Error: down /);
     const unpriced = { ...session(), model: { ...model, cost: undefined } };
     const s = {
       ...unpriced,
@@ -296,12 +284,11 @@ describe("write", () => {
         getModels: () => [unpriced.model],
       },
     };
-    expect(await write(s as never, run, [], (p) => p, [], { failed })).toEqual(
+    expect(await write(s as never, run, [], (p) => p, [], { label })).toEqual(
       [],
     );
     expect(s.modelRuntime.completeSimple).not.toHaveBeenCalled();
-    expect(failed).toHaveBeenLastCalledWith(
-      expect.stringMatching(/^no priced model/),
-    );
+    expect(last()).toMatch(/memory for c1 failed: no priced model/);
+    stderr.mockRestore();
   });
 });

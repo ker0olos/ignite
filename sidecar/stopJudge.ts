@@ -5,7 +5,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage, ImageContent } from "../shared/agentTypes.ts";
 import type { Session } from "./hostTypes.ts";
-import { cheapest } from "./router.ts";
+import { askModel, cheapest } from "./cheapCall.ts";
 import { STOP_EVENT, type StopAsk } from "./stopNudge.ts";
 
 export type Verdict = "done" | "continue" | "ask";
@@ -68,7 +68,10 @@ export function judgeStop(
   signal?: AbortSignal,
 ): Promise<Verdict | null> {
   const words = ["continue", "ask", "done"] as const;
-  return oneWord(s, JUDGE_PROMPT, judgeInput(s.messages), words, { signal });
+  return oneWord(s, JUDGE_PROMPT, judgeInput(s.messages), words, {
+    signal,
+    label: "stop judge",
+  });
 }
 
 /** The cheapest model of `s`'s provider answering `text` (and `images`, if it reads them) with one of `words`; null when it can't. */
@@ -77,37 +80,22 @@ export async function oneWord<W extends string>(
   systemPrompt: string,
   text: string,
   words: readonly W[],
-  { signal, images = [] }: { signal?: AbortSignal; images?: ImageContent[] },
+  {
+    signal,
+    images = [],
+    label,
+  }: { signal?: AbortSignal; images?: ImageContent[]; label: string },
 ): Promise<W | null> {
   const found = await cheapest(s).catch(() => null);
   if (!found) return null;
   const seen = found.model.input.includes("image") ? images : [];
-  const timeout = AbortSignal.timeout(TIMEOUT_MS);
-  const answer = await s.modelRuntime
-    .completeSimple(
-      found.model,
-      {
-        systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: seen.length ? [{ type: "text", text }, ...seen] : text,
-            timestamp: Date.now(),
-          },
-        ],
-      },
-      // "none" keeps claude-bridge from sending it through the conversation's own session.
-      {
-        cacheRetention: "none",
-        signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
-      },
-    )
-    .catch(() => null);
-  if (!answer || answer.stopReason !== "stop") return null;
-  const reply = answer.content
-    .flatMap((c) => (c.type === "text" ? [c.text] : []))
-    .join("")
-    .replace(/^\W+|\W+$/g, "")
-    .toLowerCase();
-  return words.find((w) => w === reply) ?? null;
+  const reply = await askModel(
+    s,
+    found.model,
+    systemPrompt,
+    seen.length ? [{ type: "text", text }, ...seen] : text,
+    { label, timeoutMs: TIMEOUT_MS, signal },
+  );
+  const word = reply?.replace(/^\W+|\W+$/g, "").toLowerCase();
+  return words.find((w) => w === word) ?? null;
 }

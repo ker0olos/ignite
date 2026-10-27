@@ -18,7 +18,7 @@ import {
 import { join } from "node:path";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import type { Session } from "./hostTypes.ts";
-import { cheapest } from "./router.ts";
+import { askCheapest } from "./cheapCall.ts";
 
 // In the fork: what it was forked from. Its work up to a REPORTED entry was sent.
 const FORKED = "ignite-fork";
@@ -202,33 +202,17 @@ export async function summarize(
   s: Pick<Session, "model" | "modelRuntime"> | null | undefined,
   messages: AgentMessage[],
 ): Promise<string> {
-  const found = s && (await cheapest(s).catch(() => null));
-  if (!s || !found) return lastText(messages);
+  if (!s) return lastText(messages);
   const llm = messages.filter((m) =>
     ["user", "assistant", "toolResult"].includes(m.role),
   ) as Parameters<typeof serializeConversation>[0];
-  const answer = await s.modelRuntime
-    .completeSimple(
-      found.model,
-      {
-        systemPrompt: REPORT_PROMPT,
-        messages: [
-          {
-            role: "user",
-            content: serializeConversation(llm).slice(-REPORT_CHARS),
-            timestamp: Date.now(),
-          },
-        ],
-      },
-      // "none" keeps claude-bridge from sending it through the fork's own session.
-      { cacheRetention: "none", signal: AbortSignal.timeout(TIMEOUT_MS) },
-    )
-    .catch(() => null);
-  if (!answer) return lastText(messages);
-  const text = answer.content
-    .flatMap((c) => (c.type === "text" ? [c.text] : []))
-    .join("");
-  return answer.stopReason === "error" || !text ? lastText(messages) : text;
+  const text = await askCheapest(
+    s,
+    REPORT_PROMPT,
+    serializeConversation(llm).slice(-REPORT_CHARS),
+    { label: "fork report", timeoutMs: TIMEOUT_MS },
+  );
+  return text || lastText(messages);
 }
 
 /** The message a closed fork's report reaches its original as. */
