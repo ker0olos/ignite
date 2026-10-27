@@ -4,6 +4,7 @@ import {
   type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { inContext, NO_MATCHES, retries } from "./grepContext.ts";
 import { lineParts, spanningLines } from "./grepLines.ts";
 
 /** Matches gathered for a file list; pi's 50KB output cap may end it sooner. */
@@ -71,22 +72,40 @@ export function registerGrep(pi: ExtensionAPI) {
           );
         return spanningLines(parts, input, search, ctx.cwd);
       }
-      if (!filesOnly) return builtin.execute(id, input, signal, onUpdate, ctx);
-      const done = await builtin.execute(
-        id,
-        { ...input, context: 0, limit: FILES_LIMIT },
-        signal,
-        onUpdate,
-        ctx,
-      );
-      const text = (done.content[0] as { text: string }).text;
-      const details = done.details as
-        { matchLimitReached?: number; truncation?: unknown } | undefined;
-      const partial = !!(details?.matchLimitReached || details?.truncation);
+      const search = (i: typeof input, files = filesOnly) =>
+        builtin.execute(
+          id,
+          files ? { ...i, context: 0, limit: FILES_LIMIT } : i,
+          signal,
+          onUpdate,
+          ctx,
+        );
+      // An empty search tries what it likely meant, saving the call that would look again.
+      let done = await search(input);
+      let [note, files] = ["", filesOnly];
+      const empty = textOf(done) === NO_MATCHES;
+      for (const retry of empty ? retries(input, asked.glob) : []) {
+        const asFiles = filesOnly || !!retry.files;
+        const again = await search(retry.input, asFiles);
+        if (textOf(again) === NO_MATCHES) continue;
+        [done, note, files] = [again, `${retry.note}\n`, asFiles];
+        break;
+      }
+      const shown = files
+        ? fileCounts(textOf(done), partial(done.details))
+        : await inContext(textOf(done), ctx.cwd, input.path);
       return {
         ...done,
-        content: [{ type: "text" as const, text: fileCounts(text, partial) }],
+        content: [{ type: "text" as const, text: note + shown }],
       };
     },
   });
 }
+
+const textOf = (done: { content: unknown[] }) =>
+  (done.content[0] as { text: string }).text;
+
+const partial = (details: unknown) => {
+  const d = details as { matchLimitReached?: number; truncation?: unknown };
+  return !!(d?.matchLimitReached || d?.truncation);
+};

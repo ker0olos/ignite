@@ -98,3 +98,19 @@ it("still excludes by a folder glob", async () => {
   expect(found).toContain("a.ts");
   expect(found).not.toContain("dist/bundle.ts");
 });
+
+it("says what an empty search found ignoring case, or outside its glob", async () => {
+  const run = load();
+  expect(text(await run({ pattern: "NEEDLE", glob: "b.ts" }))).toBe(
+    "No matches found. Ignoring case, it appears in:\n1 files:\nb.ts (1)",
+  );
+  expect(text(await run({ pattern: "hay", glob: "*.md" }))).toMatch(
+    /^No matches found in files matching \*\.md\. In other files:\n/,
+  );
+  expect(text(await run({ pattern: "hay", glob: "!*.ts" }))).toBe(
+    "No matches found",
+  );
+  expect(text(await run({ pattern: "nowhere-at-all" }))).toBe(
+    "No matches found",
+  );
+});
