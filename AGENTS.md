@@ -833,10 +833,11 @@ The `git` and `gh` tools (`sidecar/gitExtension.ts`) run git and the GitHub
 CLI outside the sandbox with the user's credentials, from an argument list
 (no shell). They ask for themselves, so the approval extension skips them:
 Manual asks for every call; Auto (`lib/gitPolicy.ts`) runs reads and local
-work (status, diff, log, fetch, pull, clone, switch, add…) and asks for
+work (status, diff, log, fetch, pull, clone, switch, add, apply…) and asks for
 anything else, for options that run a program or change git's config
 (`-c`, `--upload-pack`, `rebase -x`, `git config` writes…), and for paths
-outside the folder. A commit, push or `gh pr create` waits with a review: its changed files
+outside the folder (but for the patch `apply` reads, which may be in the
+temp folder: anything git wrote there could be a symlink out). A commit, push or `gh pr create` waits with a review: its changed files
 (status, +/− counts) and message or commits, each file opening its diff in a
 tab (`git_diff`). A diff tab's lines take comments (the gutter's "+", shift-click
 or drag for a range), each saved straight into the composer's message of the

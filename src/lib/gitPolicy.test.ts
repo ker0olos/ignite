@@ -78,6 +78,24 @@ describe("gitApproval", () => {
       reason: "Outside the folder: /tmp/x",
     });
   });
+
+  it("applies a patch from temp, but writes nothing there", () => {
+    const withTemp = (line: string) =>
+      gitApproval(line.split(" "), { ...place, temp: ["/tmp"] });
+    expect(withTemp("-C server apply --3way /tmp/pad/x.patch")).toBeNull();
+    expect(withTemp("apply --unsafe-paths x.patch")).toEqual({
+      reason: "Changes how git runs",
+    });
+    expect(withTemp("-C /tmp/repo apply x.patch")).toEqual({
+      reason: "Outside the folder: /tmp/repo",
+    });
+    expect(withTemp("clone url /tmp/x")).toEqual({
+      reason: "Outside the folder: /tmp/x",
+    });
+    expect(withTemp("diff --output=/tmp/x")).toEqual({
+      reason: "Outside the folder: /tmp/x",
+    });
+  });
 });
 
 describe("ghApproval", () => {

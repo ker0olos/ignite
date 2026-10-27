@@ -4,6 +4,7 @@
  * commits, pushes and changes on GitHub ask.
  */
 import {
+  isInside,
   outsidePaths,
   outsideReason,
   resolvePath,
@@ -11,10 +12,17 @@ import {
 } from "./approvalPolicy.ts";
 import { dangerousCommand } from "./dangerousCommands.ts";
 
-/** Why `args` would reach outside the folder, or null. */
-function outside(args: string[], place: Place): string | null {
-  const [path] = outsidePaths("", place, [[{ words: args, redirects: [] }]]);
-  return path ? outsideReason(resolvePath(path, place), place) : null;
+/** Why `args` would reach outside the folder (or `temp`'s folders), or null. */
+function outside(
+  args: string[],
+  place: Place,
+  temp: string[] = [],
+): string | null {
+  const folders = temp.map((t) => resolvePath(t, place));
+  const [path] = outsidePaths("", place, [[{ words: args, redirects: [] }]])
+    .map((p) => resolvePath(p, place))
+    .filter((p) => !folders.some((t) => isInside(p, t)));
+  return path ? outsideReason(path, place) : null;
 }
 
 // git's global options that take the next word as their value.
@@ -66,6 +74,7 @@ const GIT_FREE = new Set([
   "checkout",
   "switch",
   "restore",
+  "apply",
   "add",
   "rm",
   "mv",
@@ -86,7 +95,7 @@ const GIT_FREE = new Set([
 // Options that run a program or set config: global ones, then the subcommand's.
 const GLOBAL_RUNS = /^(?:-c|--config-env|--exec-path)(?:=|$)/;
 const RUNS_PROGRAM =
-  /^(?:--upload-pack|--receive-pack|--template|--config|--exec|--open-files-in-pager)(?:=|$)|^-[^-]*[xO]/;
+  /^(?:--upload-pack|--receive-pack|--template|--config|--exec|--open-files-in-pager|--unsafe-paths)(?:=|$)|^-[^-]*[xO]/;
 
 // `git config` and `git remote` only read in these forms.
 const CONFIG_READS = /^(?:--get|--get-all|--get-regexp|--list|-l)$/;
@@ -122,9 +131,13 @@ export function gitApproval(
     [{ words, redirects: [] }],
   ]);
   if (danger) return { reason: danger };
-  const away = outside(args, place);
+  const { globals, command, rest } = splitGit(args);
+  // apply only reads its patch, so that may be in temp (the scratchpad).
+  // Anything git would write there could be a symlink out.
+  const away =
+    outside(globals, place) ??
+    outside(rest, place, command === "apply" ? place.temp : []);
   if (away) return { reason: away };
-  const { command } = splitGit(args);
   if (command === "commit") return { reason: "Commit", review: "commit" };
   if (command === "push") return { reason: "Push", review: "push" };
   const reason = otherReason(args);
