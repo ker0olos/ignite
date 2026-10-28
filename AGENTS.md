@@ -1156,7 +1156,9 @@ A folder that isn't a repository but holds some (`~/Projects/app` with
 worktree, saved and brought back like one, and the folder's other files are
 copied in afresh (the agent's changes to them aren't kept): its loose files
 (links to files too) before the session opens, as pi reads the folder's CLAUDE.md then, and its
-loose folders with the clones. Other folders
+loose folders with the clones. A link pointing inside the folder (`.agent ->
+motr-agent-rules`) is made again in the copy, pointing at the copy's own (on
+every open, so older copies get it too). Other folders
 outside git (or with no commit yet) are shared instead. The composer's
 repository popover tags which, beside the branch (or "No branch yet"): the
 conversation's own worktree, or (a warning) the user's own checkout.

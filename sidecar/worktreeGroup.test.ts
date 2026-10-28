@@ -109,6 +109,19 @@ describe("a folder of repositories", () => {
     ).toHaveLength(2);
   });
 
+  it("links what the folder links inside it to the copy's own, also in a copy made before", async () => {
+    symlinkSync("web", join(folder, ".agent"));
+    symlinkSync(join(base, "elsewhere"), join(folder, "outside"));
+    const workspaces = createWorkspaces(root);
+    const ws = await workspaces.open(folder, "a");
+    await whenReady(ws.dir);
+    expect(realpathSync(join(ws.dir, ".agent"))).toBe(join(ws.dir, "web"));
+    expect(existsSync(join(ws.dir, "outside"))).toBe(false);
+    rmSync(join(ws.dir, ".agent"));
+    await workspaces.open(folder, "a");
+    expect(read(ws.dir, ".agent", "app.ts")).toBe("web\n");
+  });
+
   it("maps its files back to the user's folder, and lets git in each worktree write its own files", async () => {
     const ws = await createWorkspaces(root).open(folder, "a");
     expect(folderOf(ws.dir, root)).toBe(folder);

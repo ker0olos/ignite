@@ -4,8 +4,16 @@
  * repository in it a worktree of the user's, its other files copied in.
  */
 import { constants, existsSync } from "node:fs";
-import { copyFile, mkdir, readdir, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import {
+  copyFile,
+  mkdir,
+  readdir,
+  readlink,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, normalize } from "node:path";
 import { dropCheckpoints } from "./checkpoints.ts";
 import {
   create,
@@ -62,10 +70,28 @@ export async function groupOwner(path: string) {
   return owners.includes("mine") ? "mine" : "gone";
 }
 
-// The folder's entries that aren't repositories, with whether each is a file (stat follows links).
+type Link = { name: string; target: string };
+
+// The folder's links that point inside it (`.agent -> motr-agent-rules`).
+async function innerLinks(folder: string, names: string[]): Promise<Link[]> {
+  const targets = await Promise.all(
+    names.map((n) => readlink(join(folder, n)).catch(() => null)),
+  );
+  return names.flatMap((name, i) => {
+    const target = targets[i];
+    const inside =
+      !!target && !isAbsolute(target) && !normalize(target).startsWith("..");
+    return inside ? [{ name, target }] : [];
+  });
+}
+
+// The folder's entries that aren't repositories, with whether each is a file (stat follows links), and its links inside it.
 async function looseEntries(folder: string) {
-  const names = (await readdir(folder).catch(() => [])).filter(
-    (n) => !existsSync(join(folder, n, ".git")),
+  const all = await readdir(folder).catch(() => []);
+  const links = await innerLinks(folder, all);
+  const names = all.filter(
+    (n) =>
+      !existsSync(join(folder, n, ".git")) && !links.some((l) => l.name === n),
   );
   const isFile = await Promise.all(
     names.map((n) =>
@@ -78,6 +104,7 @@ async function looseEntries(folder: string) {
   return {
     files: names.filter((_, i) => isFile[i]),
     folders: names.filter((_, i) => !isFile[i]),
+    links,
   };
 }
 
@@ -85,8 +112,7 @@ async function looseEntries(folder: string) {
 // A repository with no commit yet stays out: copying its .git would have the agent commit to a copy.
 // Files come in at once, as pi reads the folder's instructions (CLAUDE.md) when
 // the session opens; the folders it returns are cloned after.
-async function copyLooseFiles(folder: string, path: string) {
-  const { files } = await looseEntries(folder);
+async function copyLooseFiles(folder: string, files: string[], path: string) {
   await Promise.all(
     files.map((n) =>
       copyFile(
@@ -95,6 +121,13 @@ async function copyLooseFiles(folder: string, path: string) {
         constants.COPYFILE_FICLONE,
       ).catch(() => {}),
     ),
+  );
+}
+
+// Made again in the copy, so they point at its own copies; on every open, for copies made before they were.
+async function makeLinks(links: Link[], path: string) {
+  await Promise.all(
+    links.map((l) => symlink(l.target, join(path, l.name)).catch(() => {})),
   );
 }
 
@@ -160,10 +193,11 @@ export async function openGroup(
     repos.filter((r) => !missing.includes(r)),
     path,
   );
-  if (fresh) await copyLooseFiles(folder, path);
+  const { files, folders, links } = await looseEntries(folder);
+  if (fresh) await copyLooseFiles(folder, files, path);
+  await makeLinks(links, path);
   const cloning = [...missing, ...taken];
   if (!fresh && !cloning.length) return { dir: path };
-  const { folders } = await looseEntries(folder);
   // One at a time: in parallel they starve Claude Code's start of the disk.
   setReady(path, async () => {
     for (const repo of cloning)
