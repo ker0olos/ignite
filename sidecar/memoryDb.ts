@@ -28,6 +28,10 @@ export type Memory = {
   filesRead: string[];
   filesModified: string[];
   createdAt: number;
+  /** When consolidation retired it (memoryConsolidate.ts): merged into `supersededBy`, or stale. */
+  retiredAt?: number;
+  supersededBy?: number;
+  retiredReason?: string;
 };
 
 /** A memory to add; `origin` names an imported one, so it's imported once. */
@@ -59,7 +63,37 @@ CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
 CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN
   INSERT INTO memories_fts(rowid, title, subtitle, narrative, facts, concepts)
   VALUES (new.id, new.title, new.subtitle, new.narrative, new.facts, new.concepts);
-END;`;
+END;
+CREATE TABLE IF NOT EXISTS consolidations (
+  folder TEXT NOT NULL,
+  key TEXT NOT NULL,
+  last_id INTEGER NOT NULL,
+  at INTEGER NOT NULL,
+  PRIMARY KEY (folder, key)
+);`;
+
+// Added after the table shipped; a database from before gets them on open.
+const RETIRED_COLUMNS = {
+  retired_at: "INTEGER",
+  superseded_by: "INTEGER",
+  retired_reason: "TEXT",
+};
+
+function addColumns(db: DatabaseSync) {
+  const columns = db.prepare("PRAGMA table_info(memories)").all() as {
+    name: string;
+  }[];
+  const have = new Set(columns.map((c) => c.name));
+  for (const [name, type] of Object.entries(RETIRED_COLUMNS)) {
+    if (have.has(name)) continue;
+    try {
+      db.exec(`ALTER TABLE memories ADD COLUMN ${name} ${type}`);
+    } catch (error) {
+      // Another sidecar opening the same database added it first.
+      if (!/duplicate column/i.test(String(error))) throw error;
+    }
+  }
+}
 
 // On globalThis: pi loads extensions afresh per session and on every reload,
 // and each copy of this module would otherwise open (and leak) its own connection.
@@ -76,6 +110,7 @@ export function memoryDb(file = MEMORY_DB): DatabaseSync {
   // Sessions read while the host writes.
   db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;");
   db.exec(SCHEMA);
+  addColumns(db);
   open.set(file, db);
   return db;
 }
@@ -109,6 +144,13 @@ export const toMemory = (r: Row): Memory => ({
   filesRead: list(r.files_read),
   filesModified: list(r.files_modified),
   createdAt: Number(r.created_at),
+  ...(r.retired_at != null && {
+    retiredAt: Number(r.retired_at),
+    ...(r.superseded_by != null && { supersededBy: Number(r.superseded_by) }),
+    ...(typeof r.retired_reason === "string" && {
+      retiredReason: r.retired_reason,
+    }),
+  }),
 });
 
 const SECTIONS = [
@@ -164,31 +206,34 @@ const INSERT = `INSERT INTO memories
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(origin) DO NOTHING`;
 
+/** Adds memory `m` outside any transaction of its own; its id, or null for one already imported. */
+export function addMemory(db: DatabaseSync, m: NewMemory): number | null {
+  const { changes, lastInsertRowid } = db
+    .prepare(INSERT)
+    .run(
+      m.folder,
+      m.conversation,
+      m.platform,
+      m.type,
+      m.title,
+      m.subtitle,
+      JSON.stringify(m.facts),
+      m.narrative,
+      JSON.stringify(m.concepts),
+      JSON.stringify(m.filesRead),
+      JSON.stringify(m.filesModified),
+      m.createdAt,
+      m.origin ?? null,
+    );
+  return changes ? Number(lastInsertRowid) : null;
+}
+
 /** Adds `memories` in one transaction, skipping already imported ones; returns how many were added. */
 export function addMemories(db: DatabaseSync, memories: NewMemory[]): number {
-  const insert = db.prepare(INSERT);
   let added = 0;
   db.exec("BEGIN");
   try {
-    for (const m of memories) {
-      added += Number(
-        insert.run(
-          m.folder,
-          m.conversation,
-          m.platform,
-          m.type,
-          m.title,
-          m.subtitle,
-          JSON.stringify(m.facts),
-          m.narrative,
-          JSON.stringify(m.concepts),
-          JSON.stringify(m.filesRead),
-          JSON.stringify(m.filesModified),
-          m.createdAt,
-          m.origin ?? null,
-        ).changes,
-      );
-    }
+    for (const m of memories) if (addMemory(db, m) !== null) added++;
     db.exec("COMMIT");
   } catch (error) {
     db.exec("ROLLBACK");

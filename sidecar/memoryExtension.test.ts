@@ -215,3 +215,22 @@ it("reads a memory in full", () => {
     /\nBare$/,
   );
 });
+
+it("marks a retired memory, naming what replaces it", () => {
+  const retired = (over: object) =>
+    fullText({
+      ...memoryOf({ title: "Old" }),
+      id: 4,
+      retiredAt: Date.parse("2026-10-05T10:00:00Z"),
+      ...over,
+    });
+  expect(
+    retired({ supersededBy: 9, retiredReason: "merged into memory 9" }),
+  ).toMatch(
+    /\nRetired Oct 5, 2026.*: merged into memory 9 \(memory 9 replaces it\)$/,
+  );
+  expect(retired({ retiredReason: "its file was deleted" })).toMatch(
+    /: its file was deleted$/,
+  );
+  expect(retired({})).toMatch(/: no longer holds$/);
+});

@@ -170,10 +170,22 @@ function observation(
   };
 }
 
-const record = (v: unknown) =>
+/** `v` as an object, or null when it's anything else. */
+export const record = (v: unknown) =>
   v && typeof v === "object" && !Array.isArray(v)
     ? (v as Record<string, unknown>)
     : null;
+
+/** The JSON object a model's reply holds, prose around it ignored; null when it holds none. */
+export function replyObject(reply: string): Record<string, unknown> | null {
+  try {
+    return record(
+      JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1)),
+    );
+  } catch {
+    return null;
+  }
+}
 
 /** The writer's reply as memories, malformed ones dropped; `path` turns a path into one from the folder's root; `procedures` keeps the PROCEDURE concept. */
 export function parseWritten(
@@ -181,14 +193,7 @@ export function parseWritten(
   path: (p: string) => string = (p) => p,
   procedures = false,
 ): Written[] {
-  let raw: Record<string, unknown> | null;
-  try {
-    raw = record(
-      JSON.parse(reply.slice(reply.indexOf("{"), reply.lastIndexOf("}") + 1)),
-    );
-  } catch {
-    return [];
-  }
+  const raw = replyObject(reply);
   if (!raw) return [];
   const found = (
     Array.isArray(raw.observations) ? raw.observations : []

@@ -1,6 +1,6 @@
 /** Reading the memory: a folder's latest, a full-text search, by id and around one. */
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
-import { PROCEDURE, SUMMARY_TYPE } from "../shared/memory.ts";
+import { CONSOLIDATED, PROCEDURE, SUMMARY_TYPE } from "../shared/memory.ts";
 import { toMemory, type Memory } from "./memoryDb.ts";
 
 type Rows = Record<string, unknown>[];
@@ -9,20 +9,49 @@ type Rows = Record<string, unknown>[];
 const lacks = (column: string) =>
   `NOT EXISTS (SELECT 1 FROM json_each(${column}) WHERE value = ?)`;
 
-/** `folder`'s newest memories, newest first; `summaries` picks summaries or observations; `without` leaves out a concept's. */
+/** The SQL for a memory consolidation hasn't retired: retired ones stay for memory_get, out of every list. */
+export const ACTIVE = "retired_at IS NULL";
+
+/** `folder`'s newest memories, newest first; `summaries` picks summaries or observations; `without` leaves out a concept's, `raw` the long-term ones. */
 export function recent(
   db: DatabaseSync,
   folder: string,
   limit: number,
   summaries = false,
   without = "",
+  raw = false,
 ): Memory[] {
   const rows = db
     .prepare(
-      `SELECT * FROM memories WHERE folder = ? AND (type = ?) = ? AND ${lacks("concepts")}
+      `SELECT * FROM memories WHERE folder = ? AND (type = ?) = ? AND ${ACTIVE}
+       AND ${lacks("concepts")} AND ${lacks("concepts")}
        ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
-    .all(folder, SUMMARY_TYPE, summaries ? 1 : 0, without, limit) as Rows;
+    .all(
+      folder,
+      SUMMARY_TYPE,
+      summaries ? 1 : 0,
+      without,
+      raw ? CONSOLIDATED : "",
+      limit,
+    ) as Rows;
+  return rows.map(toMemory);
+}
+
+/** `folder`'s long-term memories, newest first, `without` a concept's. */
+export function longTerm(
+  db: DatabaseSync,
+  folder: string,
+  limit: number,
+  without = "",
+): Memory[] {
+  const rows = db
+    .prepare(
+      `SELECT * FROM memories WHERE folder = ? AND ${ACTIVE}
+       AND EXISTS (SELECT 1 FROM json_each(concepts) WHERE value = ?) AND ${lacks("concepts")}
+       ORDER BY created_at DESC, id DESC LIMIT ?`,
+    )
+    .all(folder, CONSOLIDATED, without, limit) as Rows;
   return rows.map(toMemory);
 }
 
@@ -30,7 +59,7 @@ export function recent(
 export function count(db: DatabaseSync, folder: string): number {
   const row = db
     .prepare(
-      "SELECT count(*) AS n FROM memories WHERE folder = ? AND type <> ?",
+      `SELECT count(*) AS n FROM memories WHERE folder = ? AND type <> ? AND ${ACTIVE}`,
     )
     .get(folder, SUMMARY_TYPE) as { n: number };
   return row.n;
@@ -62,6 +91,7 @@ function matching(
   const where = [
     "memories_fts MATCH ?",
     "m.folder = ?",
+    "m.retired_at IS NULL",
     lacks("m.concepts"),
     ...(types.length ? [`m.type IN (${types.map(() => "?").join(", ")})`] : []),
     ...(since === undefined ? [] : ["m.created_at >= ?"]),
@@ -121,7 +151,7 @@ export function around(
     (
       db
         .prepare(
-          `SELECT * FROM memories WHERE folder = ? AND (created_at, id) ${op} (?, ?)
+          `SELECT * FROM memories WHERE folder = ? AND ${ACTIVE} AND (created_at, id) ${op} (?, ?)
            ORDER BY created_at ${order}, id ${order} LIMIT ?`,
         )
         .all(anchor.folder, anchor.createdAt, anchor.id, n) as Rows
@@ -151,7 +181,7 @@ export function recordedBy(
 export function counts(db: DatabaseSync, folder: string) {
   const rows = db
     .prepare(
-      "SELECT type, count(*) AS n FROM memories WHERE folder = ? AND type <> ? GROUP BY type",
+      `SELECT type, count(*) AS n FROM memories WHERE folder = ? AND type <> ? AND ${ACTIVE} GROUP BY type`,
     )
     .all(folder, SUMMARY_TYPE) as { type: string; n: number }[];
   return Object.fromEntries(rows.map((r) => [r.type, r.n]));
@@ -166,7 +196,7 @@ export function withConcept(
 ): Memory[] {
   const rows = db
     .prepare(
-      `SELECT * FROM memories WHERE (? IS NULL OR folder = ?)
+      `SELECT * FROM memories WHERE (? IS NULL OR folder = ?) AND ${ACTIVE}
        AND EXISTS (SELECT 1 FROM json_each(concepts) WHERE value = ?)
        ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
@@ -193,7 +223,7 @@ export function latestOf(
 ): Memory[] {
   const rows = db
     .prepare(
-      `SELECT * FROM memories WHERE folder = ? AND type = ?
+      `SELECT * FROM memories WHERE folder = ? AND type = ? AND ${ACTIVE}
        ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
     .all(folder, kind, limit) as Rows;

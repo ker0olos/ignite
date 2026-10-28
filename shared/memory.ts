@@ -27,6 +27,9 @@ export const CONCEPTS = [
 /** The concept of an observation that records how a run got past an error, offered to the folder's next conversations on a matching task. */
 export const PROCEDURE = "procedure";
 
+/** The concept of a long-term memory: consolidation's merge of many earlier ones (sidecar/memoryConsolidate.ts). */
+export const CONSOLIDATED = "consolidated";
+
 /** A run's summary, kept beside its observations. */
 export const SUMMARY_TYPE = "summary";
 
