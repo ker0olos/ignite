@@ -8,6 +8,7 @@ import type { Verdict } from "./stopJudge.ts";
 import {
   ASK_NUDGE,
   CONTINUE_NUDGE,
+  LESSON_NUDGE,
   STOP_EVENT,
   nudgeStops,
   type StopAsk,
@@ -30,6 +31,7 @@ function load(
   let end: Handler | undefined;
   const sent: string[] = [];
   const judged: (AbortSignal | undefined)[] = [];
+  const lessons: boolean[] = [];
   const userWrote = nudgeStops({
     on: (_name: string, h: Handler) => (end = h),
     getActiveTools: () => active,
@@ -43,6 +45,7 @@ function load(
   events.on(STOP_EVENT, (data) => {
     const ask = data as StopAsk;
     judged.push(ask.signal);
+    lessons.push(ask.lessons);
     during();
     ask.reply(Promise.resolve(verdict));
   });
@@ -54,6 +57,7 @@ function load(
   return {
     sent,
     judged,
+    lessons,
     stop,
     meanwhile: (act: "stop" | "write") =>
       (during = () => (act === "stop" ? stop.abort() : (pending = true))),
@@ -116,4 +120,21 @@ it("judges only replies that ended on their own, with ask_user, not waiting on a
   const waiting = load("continue", undefined, "waiting");
   await waiting.end([reply("Next…")]);
   expect(waiting.judged).toEqual([]);
+});
+
+it("lets the judge say lesson only while lessons are on and the run saved none", async () => {
+  const on = ["read", "ask_user", "lesson_add"];
+  const corrected = load("lesson", on);
+  await corrected.end([reply("Sorry, I'll use your Chrome.")]);
+  expect(corrected.lessons).toEqual([true]);
+  expect(corrected.sent).toEqual([LESSON_NUDGE]);
+  const saved = load("continue", on);
+  await saved.end([
+    { role: "assistant", content: [{ type: "toolCall", name: "lesson_add" }] },
+    reply("Saved."),
+  ]);
+  expect(saved.lessons).toEqual([false]);
+  const off = load("continue");
+  await off.end([reply("Sorry.")]);
+  expect(off.lessons).toEqual([false]);
 });

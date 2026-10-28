@@ -64,6 +64,14 @@ it("asks the cheapest model for its one-word verdict", async () => {
   expect(options.signal.aborted).toBe(true);
   expect(await judgeStop(session(says("ask")).s)).toBe("ask");
   expect(await judgeStop(session(says("done")).s)).toBe("done");
+  expect(await judgeStop(session(says("lesson")).s)).toBe(null);
+  const lessons = session(says("lesson"));
+  expect(await judgeStop(lessons.s, undefined, true)).toBe("lesson");
+  const prompt = (c: typeof completeSimple) =>
+    (c.mock.calls[0] as unknown as [unknown, { systemPrompt: string }])[1]
+      .systemPrompt;
+  expect(prompt(lessons.completeSimple)).toContain("- lesson:");
+  expect(prompt(completeSimple)).not.toContain("- lesson:");
 });
 
 it("can't judge without a priced model, or without a one-word answer", async () => {
