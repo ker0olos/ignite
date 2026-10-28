@@ -101,7 +101,11 @@ function open(url: string, own: boolean): Promise<Cdp> {
     let next = 1;
     // The user may take a while to answer Chrome's Allow prompt.
     const timer = setTimeout(() => {
-      reject(new Error("Chrome didn't allow the connection within a minute"));
+      reject(
+        new Error(
+          "Chrome didn't allow the connection within a minute. Its Allow prompt shows only while a chrome_* call waits on it, so it's gone now: call again when the user is there to click Allow, never ask them to allow it without calling.",
+        ),
+      );
       ws.close();
     }, 60_000);
     const cdp: Cdp = {
