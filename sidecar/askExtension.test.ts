@@ -15,6 +15,7 @@ import ask, {
   COPYABLE,
   LEFT_TO_AGENT,
   QUESTION_AWAY_MS,
+  REPLIES,
   askEnabled,
   awayReply,
   replyText,
@@ -197,7 +198,11 @@ describe("awayReply", () => {
 describe("before_agent_start", () => {
   it("offers the tool and asks the agent to include the user", async () => {
     const { start, active } = load();
-    expect(await start()).toEqual({ questions: ASKING, copyable: COPYABLE });
+    expect(await start()).toEqual({
+      questions: ASKING,
+      copyable: COPYABLE,
+      replies: REPLIES,
+    });
     expect(active()).toEqual(["read", "bash", "ask_user"]);
     await start();
     expect(active()).toEqual(["read", "bash", "ask_user"]);
@@ -209,6 +214,7 @@ describe("before_agent_start", () => {
     expect(await start()).toEqual({
       questions: AUTONOMOUS,
       copyable: COPYABLE,
+      replies: REPLIES,
     });
     expect(active()).toEqual(["read"]);
   });

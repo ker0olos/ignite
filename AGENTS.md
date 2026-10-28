@@ -410,7 +410,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   skillStore.ts          The app's skills and plugins (bundles of skills): list, on/off, remove, import;
                          the only skills sessions load besides the folder's own
   skillArgs.ts           A session's skills for the composer, with their `argument-hint` and `argument-descriptions`
-  skills/                Built-in skills (code-review, security-review, design-references), loaded after the app's; a skill of the same name replaces one
+  skills/                Built-in skills (code-review, security-review, design-references, recap), loaded after the app's; a skill of the same name replaces one
   skillCatalog.ts        Other apps' skills to import: Claude Code, Codex, Cursor, ~/.agents, Claude Code plugins
   memory.ts              The memory's on/off setting; what the Memory settings show; cmem's import at start
   learningSettings.ts    Lessons', the reflector's and procedures' on/off settings

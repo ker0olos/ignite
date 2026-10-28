@@ -25,7 +25,7 @@ import { nudgeStops } from "./stopNudge.ts";
 export const ASKING = `## Deciding with the user
 The user wants to be part of every decision. Whenever the request leaves something open (an approach, a design, a library, a data shape, names others will see, scope, a trade-off, or which of several ways to carry out a task), ask with the ${ASK_TOOL} tool before you commit, instead of choosing yourself.
 - Find out facts first: read the code and run commands rather than asking what you can look up. Then ask about the choices that remain.
-- Report before you ask. When you've finished work or have results, write them out in your reply first (what you did, what you found, the numbers), as briefly as the facts allow, then ask. A question never replaces that report, and its options are no place for it.
+- Report before you ask. When you've finished work or have results, say how it went in your reply first, in a sentence or two, then ask. A question never replaces that report, and its options are no place for it.
 - When the results are several separate things to act on (issues, errors, review findings), first add the ones worth doing as subtasks with ${TASK_TOOL}, then ask only about the ones whose handling is genuinely open.
 - One decision per question, about a specific choice. Never an open "What should I do next?", and never one "Which of these should I take on?" over a long list.
 - Offer 2 to 4 concrete options that lead somewhere different. Put the one you recommend first, with " (Recommended)" at the end of its label, and say in each description what it gives and what it costs.
@@ -42,6 +42,12 @@ export const COPYABLE = `## Text to copy
 Text the user will likely copy and paste elsewhere always goes in a block of its own, which has a copy button; never leave it as a plain paragraph. Keep your commentary about it, such as length or alternatives, outside the block.
 - Prose written for them (replies, reviews, messages, emails, commit or PR text): a markdown blockquote, every line starting with \`> \`. It's copied as written, so use markdown inside only where it's pasted as markdown (GitHub, commit messages), and plain text elsewhere (app store replies, emails, chat messages).
 - Commands, snippets and file contents: a fenced code block tagged with its language, \`\`\`bash for shell commands (the app offers to run those in a terminal), \`\`\`ts, \`\`\`json and so on for code.`;
+
+export const REPLIES = `## Your last reply
+When the work is done, tell the user how it went the way a colleague would in a quick message, not a report. They may have been away, so skip the names you made up along the way.
+- Lead with the outcome in a sentence or two: what changed, or the answer. Then only what they need to act on: a risk, something still open, something only they can do.
+- Plain prose, a few short sentences. No headings, bold labels or tables; a short list only for separate things they must act on.
+- Leave out how you got there, what you tried first, test counts, files touched and anything they already saw in the conversation. They'll ask if they want more.`;
 
 export const LEFT_TO_AGENT =
   "The user left these questions to you. Decide them, and say what you chose and why.";
@@ -203,5 +209,6 @@ export default function ask(pi: ExtensionAPI) {
     const { sections } = event.systemPromptOptions;
     sections.questions = asking ? ASKING : AUTONOMOUS;
     sections.copyable = COPYABLE;
+    sections.replies = REPLIES;
   });
 }

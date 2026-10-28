@@ -224,6 +224,7 @@ describe("sessionSkills", () => {
       "a",
       "code-review",
       "design-references",
+      "recap",
       "security-review",
     ]);
     expect(skills[1].filePath).toBe(
@@ -247,6 +248,7 @@ describe("sessionSkills", () => {
     expect(builtIn.skills.map((s) => s.name)).toEqual([
       "code-review",
       "design-references",
+      "recap",
       "security-review",
     ]);
     await skill(join(agentDir, "skills", "code-review"), "code-review");
@@ -254,6 +256,7 @@ describe("sessionSkills", () => {
     expect(skills.map((s) => s.filePath)).toEqual([
       join(agentDir, "skills", "code-review", "SKILL.md"),
       expect.stringMatching(/design-references\/SKILL\.md$/),
+      expect.stringMatching(/recap\/SKILL\.md$/),
       expect.stringMatching(/security-review\/SKILL\.md$/),
     ]);
   });
