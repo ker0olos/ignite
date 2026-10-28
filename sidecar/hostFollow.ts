@@ -3,6 +3,7 @@ import { titleOf } from "../shared/conversations.ts";
 import { followSubagents } from "./hostChildren.ts";
 import { followUserMessage } from "./hostCheckpoint.ts";
 import { followRun, rememberRun } from "./hostMemory.ts";
+import { consolidate } from "./memoryConsolidate.ts";
 import { pushProjects, trackRun } from "./hostProjects.ts";
 import { sendNext } from "./hostQueue.ts";
 import { reflectOn } from "./hostReflect.ts";
@@ -50,6 +51,8 @@ function settle(ctx: HostContext, agent: Agent) {
   // Before rememberRun, which clears the run's start.
   void reflectOn(agent, { sessions: ctx.sessions });
   agent.remembering = rememberRun(agent).catch(() => {});
+  // After the run's own memories, which may be what makes a group ready.
+  void agent.remembering.then(() => consolidate(agent));
   const report = reportTo(ctx, agent);
   const reloaded = agent.reloadWhenSettled
     ? reload(agent, ctx.trust).catch(report)

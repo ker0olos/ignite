@@ -3,6 +3,8 @@ import type {
   BeforeAgentStartEvent,
   ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
+import { CODEMODE_TOOL } from "../shared/codemode.ts";
+import { LESSON_ADD_TOOL } from "../shared/lessons.ts";
 import { ASK_TOOL } from "../shared/questions.ts";
 import { backgroundOf } from "./backgroundBash.ts";
 import type { Verdict } from "./stopJudge.ts";
@@ -11,12 +13,16 @@ export const ASK_NUDGE = `Your reply ended with a question or an offer for the u
 
 export const CONTINUE_NUDGE = `You stopped partway through what the user asked, with nothing to wait on from them. Carry on with the next step now, without asking leave. Don't repeat your reply.`;
 
+export const LESSON_NUDGE = `The user corrected a mistake of yours in this run. Save it now with ${LESSON_ADD_TOOL}: the mistake and what to do instead. Then, if your reply left the user a decision, ask it with ${ASK_TOOL}; otherwise carry on with what's left of the work, if anything. Don't repeat your reply.`;
+
 /** pi event bus channel carrying a StopAsk to the host. */
 export const STOP_EVENT = "app/stop-judge";
 
 /** The conversation's run that just ended, for the host to judge; `reply` takes its verdict, `signal` is the user's Stop. */
 export type StopAsk = {
   signal?: AbortSignal;
+  /** Whether the judge may say "lesson": lessons are on and the run saved none. */
+  lessons: boolean;
   reply(verdict: Promise<Verdict | null>): void;
 };
 
@@ -31,11 +37,39 @@ function endedOnItsOwn(messages: readonly unknown[], session: string) {
   return !backgroundOf(session).some((b) => b.wake);
 }
 
-const judged = (pi: ExtensionAPI, signal: AbortSignal | undefined) =>
+type Block = { type?: string; name?: string; arguments?: { code?: unknown } };
+
+// A script's calls show only in its code.
+const savesLesson = (c: Block) =>
+  c.name === LESSON_ADD_TOOL ||
+  (c.name === CODEMODE_TOOL &&
+    String(c.arguments?.code).includes(LESSON_ADD_TOOL));
+
+const callsLesson = (run: readonly unknown[]) =>
+  run.some((m) => {
+    const { content } = m as { content?: unknown };
+    return (
+      Array.isArray(content) &&
+      (content as Block[]).some((c) => c.type === "toolCall" && savesLesson(c))
+    );
+  });
+
+const NUDGES: Partial<Record<Verdict, string>> = {
+  ask: ASK_NUDGE,
+  continue: CONTINUE_NUDGE,
+  lesson: LESSON_NUDGE,
+};
+
+const judged = (
+  pi: ExtensionAPI,
+  signal: AbortSignal | undefined,
+  lessons: boolean,
+) =>
   new Promise<Verdict | null>((resolve) => {
     let heard = false;
     pi.events.emit(STOP_EVENT, {
       signal,
+      lessons,
       reply: (verdict) => {
         heard = true;
         verdict.then(resolve, () => resolve(null));
@@ -51,17 +85,17 @@ export function nudgeStops(pi: ExtensionAPI) {
     if (nudges >= MAX_NUDGES || !pi.getActiveTools().includes(ASK_TOOL)) return;
     const session = ctx.sessionManager.getSessionId();
     if (!endedOnItsOwn(event.messages, session)) return;
-    const verdict = await judged(pi, ctx.signal);
-    if (!verdict || verdict === "done") return;
+    const lessons =
+      pi.getActiveTools().includes(LESSON_ADD_TOOL) &&
+      !callsLesson(event.messages);
+    const verdict = await judged(pi, ctx.signal, lessons);
+    const content = verdict && NUDGES[verdict];
+    if (!content) return;
     // The user stopped it, or wrote something, while it was judged.
     if (ctx.signal?.aborted || ctx.hasPendingMessages()) return;
     nudges++;
     pi.sendMessage(
-      {
-        customType: "stop-nudge",
-        content: verdict === "ask" ? ASK_NUDGE : CONTINUE_NUDGE,
-        display: false,
-      },
+      { customType: "stop-nudge", content, display: false },
       { triggerTurn: true, deliverAs: "followUp" },
     );
   });

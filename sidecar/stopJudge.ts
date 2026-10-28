@@ -8,7 +8,7 @@ import type { Session } from "./hostTypes.ts";
 import { askModel, cheapest } from "./cheapCall.ts";
 import { STOP_EVENT, type StopAsk } from "./stopNudge.ts";
 
-export type Verdict = "done" | "continue" | "ask";
+export type Verdict = "done" | "continue" | "ask" | "lesson";
 
 const TIMEOUT_MS = 20_000;
 const REQUEST_CHARS = 4_000;
@@ -18,11 +18,16 @@ const END_CHARS = 8_000;
 // The agent's last reply and the work just before it.
 const END_MESSAGES = 6;
 
-const JUDGE_PROMPT = `You read the user's messages to a coding agent during its last run (oldest first) and the end of the agent's work, at the moment the agent stopped and handed control back to the user. Judge what should happen next. Reply with exactly one word, nothing else:
-- continue: the agent stopped partway through work the user asked for and could carry on by itself. Work an earlier message asked for that the agent hasn't done or started counts ("before you start X, do Y" leaves X to do once Y is done), unless a later message dropped it. Its reply says what it will do next ("Next I'm going through…", "Now I'll…"), lists steps it still means to do, asks leave to start or go on with work the user already asked for ("Say go and I'll start", "Shall I continue?"), or offers a step that finishes it: testing or verifying it, fixing the rest of the same problem, or delivering it ("Want me to push and open a PR?": pushes and pull requests wait for the user's review anyway; "Let me know if you want the other two fixed").
+// Offered only when its nudge can go out: a "lesson" dropped later would lose the continue or ask the run needed.
+const LESSON_RULE = `- lesson: a user message in the run corrects a mistake the agent made and could make again (a wrong command, tool, fact or step, or work that didn't work: "you need to use my real browser", "that's the wrong file"). Not a wish about how the agent works or reports (shorter replies, ask less), and not the user changing what they want. This comes before every other word.\n`;
+
+const JUDGE_RULES = `- continue: the agent stopped partway through work the user asked for and could carry on by itself. Work an earlier message asked for that the agent hasn't done or started counts ("before you start X, do Y" leaves X to do once Y is done), unless a later message dropped it. Its reply says what it will do next ("Next I'm going through…", "Now I'll…"), lists steps it still means to do, asks leave to start or go on with work the user already asked for ("Say go and I'll start", "Shall I continue?"), or offers a step that finishes it: testing or verifying it, fixing the rest of the same problem, or delivering it ("Want me to push and open a PR?": pushes and pull requests wait for the user's review anyway; "Let me know if you want the other two fixed").
 - ask: the reply ends with a real decision only the user can make ("Which approach do you prefer?") or offers new work beyond what was asked ("I could also add dark mode").
-- done: anything else: the work is finished and reported, the user only asked a question and it's answered, the agent waits on something only the user can do (attach a device, sign in, provide a file), or it waits for work that reports back on its own (a fork, a background command).
+- done: anything else: the work is finished and reported, the user only asked a question and it's answered, the agent waits on something only the user can do (attach a device, sign in, approve, check something themselves, provide a file), or it waits for work that reports back on its own (a fork, a background command). Waiting on the user is done even when the reply lists the steps it will take after that.
 When unsure, reply done.`;
+
+const judgePrompt = (lessons: boolean) =>
+  `You read the user's messages to a coding agent during its last run (oldest first) and the end of the agent's work, at the moment the agent stopped and handed control back to the user. Judge what should happen next. Reply with exactly one word, nothing else:\n${lessons ? LESSON_RULE : ""}${JUDGE_RULES}`;
 
 type Llm = Parameters<typeof serializeConversation>[0];
 
@@ -58,7 +63,7 @@ export function judgeInput(messages: readonly AgentMessage[]): string {
 export function answerStops(bus: EventBus, s: Session) {
   bus.on(STOP_EVENT, (data) => {
     const ask = data as StopAsk;
-    ask.reply(judgeStop(s, ask.signal));
+    ask.reply(judgeStop(s, ask.signal, ask.lessons));
   });
 }
 
@@ -66,9 +71,11 @@ export function answerStops(bus: EventBus, s: Session) {
 export function judgeStop(
   s: Pick<Session, "model" | "modelRuntime" | "messages">,
   signal?: AbortSignal,
+  lessons = false,
 ): Promise<Verdict | null> {
-  const words = ["continue", "ask", "done"] as const;
-  return oneWord(s, JUDGE_PROMPT, judgeInput(s.messages), words, {
+  const words: Verdict[] = ["continue", "ask", "done"];
+  if (lessons) words.push("lesson");
+  return oneWord(s, judgePrompt(lessons), judgeInput(s.messages), words, {
     signal,
     label: "stop judge",
   });

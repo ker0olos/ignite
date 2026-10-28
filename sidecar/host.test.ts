@@ -57,6 +57,9 @@ vi.mock("./hostMemory.ts", () => ({
   followRun: vi.fn(),
   rememberRun: vi.fn(async () => {}),
 }));
+vi.mock("./memoryConsolidate.ts", () => ({
+  consolidate: vi.fn(async () => {}),
+}));
 // The real one reads ~/.ignite/memory.db and calls the provider.
 vi.mock("./procedures.ts", async (original) => ({
   ...(await original<typeof import("./procedures.ts")>()),

@@ -9,9 +9,9 @@ one job, and each leaves the others' jobs alone.
 | Written by        | The cheapest model of the conversation's provider, after every run                                                                                               | The agent itself, with `lesson_add`, the turn it's corrected                   | The cheapest model, after a run with the user's feedback                                                                                         |
 | Stored in         | `~/.ignite/memory.db` (SQLite, FTS5), per folder                                                                                                                 | `~/.ignite/lessons.json`, every folder or one                                  | `~/.ignite/reflector.json`, every folder                                                                                                         |
 | Read by the agent | An index in the system prompt; `memory_search`, `memory_get`, `memory_timeline`; up to 3 procedures the first message needs, as a hidden message joining its run | Listed in the system prompt; a `tool_call` lesson with `match` blocks the call | Each point beside its entry point's guidance in the system prompt, as "When …: point" when it has a `when`; never its evidence                   |
-| Limits            | Index: 50 observations, 10 summaries, 10,000 characters                                                                                                          | 30 per scope                                                                   | 10 per entry point, 3 edits per reflection                                                                                                       |
+| Limits            | Index: 40 long-term memories (5,000 characters), then 50 observations, 10 summaries, 10,000 characters in all                                                    | 30 per scope                                                                   | 10 per entry point, 3 edits per reflection                                                                                                       |
 | Subagents         | None                                                                                                                                                             | The same checks                                                                | None                                                                                                                                             |
-| Code              | `hostMemory.ts`, `memoryWriter.ts`, `memoryContext.ts`, `memoryExtension.ts`, `procedures.ts`                                                                    | `lessonExtension.ts`, `lessons.ts`, `lessonRegex.ts`                           | `hostReflect.ts`, `reflector.ts`, `reflectorExtension.ts`                                                                                        |
+| Code              | `hostMemory.ts`, `memoryWriter.ts`, `memoryConsolidate.ts`, `memoryContext.ts`, `memoryExtension.ts`, `procedures.ts`                                            | `lessonExtension.ts`, `lessons.ts`, `lessonRegex.ts`                           | `hostReflect.ts`, `reflector.ts`, `reflectorExtension.ts`                                                                                        |
 
 ## Through one conversation
 
@@ -55,6 +55,8 @@ flowchart LR
     direction TB
     REF["reflectOn<br/>only with feedback"]
     REM["rememberRun<br/>unless memory is off"]
+    CONS["consolidate<br/>up to 2 groups"]
+    REM --> CONS
   end
 
   subgraph written["Written to ~/.ignite"]
@@ -79,6 +81,7 @@ flowchart LR
   MSGS --> REM
   REF -- "cheapest model:<br/>UNCHANGED or ≤3 edits" --> RJ2
   REM -- "cheapest model:<br/>observations + summary,<br/>procedures if a command failed" --> MDB2
+  CONS -- "cheapest model:<br/>long-term memories,<br/>merged and stale retired" --> MDB2
 ```
 
 The system prompt is read once per conversation, so what a run writes reaches
@@ -126,6 +129,10 @@ flowchart LR
   twice. While a new conversation's first message is sent, never held up, the
   cheapest model picks the ones it needs, usually none; they join its run once
   it has started, offered, never enforced.
+- **A pile of memories** about one file (or the procedures) is consolidated
+  after a run once enough are new: merged into long-term memories, judged
+  against the file now and its commits, the merged and the provably false ones
+  retired, never deleted. Long-term memories lead the recalled index.
 - Lesson calls are kept out of memory, and declined lesson changes out of the
   reflector's feedback, so one system's bookkeeping never teaches another.
 

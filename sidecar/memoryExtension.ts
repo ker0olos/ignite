@@ -40,6 +40,10 @@ const when = (ms: number) =>
     timeStyle: "short",
   });
 
+const retiredLine = (m: Memory) =>
+  `Retired ${when(m.retiredAt ?? 0)}: ${m.retiredReason ?? "no longer holds"}` +
+  (m.supersededBy ? ` (memory ${m.supersededBy} replaces it)` : "");
+
 /** One memory in full, as memory_get returns it. */
 export function fullText(m: Memory): string {
   const files = (label: string, paths: string[]) =>
@@ -52,6 +56,7 @@ export function fullText(m: Memory): string {
     ...(m.narrative ? [m.narrative] : []),
     ...files("Files read", m.filesRead),
     ...files("Files modified", m.filesModified),
+    ...(m.retiredAt ? [retiredLine(m)] : []),
   ].join("\n");
 }
 

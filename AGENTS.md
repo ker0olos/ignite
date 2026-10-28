@@ -419,6 +419,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   memoryContext.ts       What a new conversation recalls: an index of the folder's latest memories
   memoryExtension.ts     The recalled index in the system prompt; memory_search, memory_get, memory_timeline
   memoryWriter.ts        After a run, the cheapest model writes down its observations and summary
+  memoryConsolidate.ts   After a run, the memory's sleep: a file's (or the procedures') pile merged into long-term
+                         memories against the file now and its commits; memoryGroups.ts picks the groups and writes
+                         the outcome, memoryConsolidatePrompt.ts is what the model reads and its reply read back
   procedures.ts          How a run got past a failed command, recorded with its memories; the cheapest model picks a first message's
   hostMemory.ts          Each conversation's run, written to the memory once it settles
   memoryImport.ts        Imports cmem's memories from its database (no worker), only what isn't in yet
@@ -456,6 +459,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          processes into ~/.ignite/hangs
   chrome.ts              Chrome over CDP: a headless one the app starts, or the user's own (port 9222) when asked
   chromeExtension.ts     chrome_* tools: tabs, screenshot, eval, navigate, raw CDP calls
+  chromeHints.ts         A sign-in page reached in the app's headless Chrome: its result says to use the user's Chrome
   chromePage.ts          A tab's CDP calls: run JS, wait for load, screenshot
   cdpResult.ts           chrome_cdp's results with long base64 data (screenshots, PDFs) saved to files, not inlined
   taskTabs.ts            Which Chrome tabs a task may use: only its own, named by id
@@ -739,8 +743,12 @@ work one sent mid-run asked for and the agent never started counts
 (`sidecar/stopJudge.ts`): if the agent stopped partway through work it
 can carry on with alone, or offered a step that finishes it (verifying it, the rest
 of the same problem, a push and pull request, which wait for review anyway), a hidden
-message sends it on; if it left the user a real decision or offered new work beyond the
-request, it's told to ask it with `ask_user` (`sidecar/stopNudge.ts`;
+message sends it on (not while it waits on something only the user can do, like
+signing in, even when it lists the steps for after); if it left the user a real decision or offered new work beyond the
+request, it's told to ask it with `ask_user`; and if a user message in the run
+corrected a mistake it could make again and no `lesson_add` followed (the judge is
+offered this only while lessons are on and the run saved none), it's told to
+save the lesson, then carry on (`sidecar/stopNudge.ts`;
 at most 3 per user message, none while a `bash_wait` waits or where `ask_user`
 is off). **Manual** asks for every tool call (built-in,
 MCP, everything); approved commands run as is. **Auto** asks for bash
@@ -1039,7 +1047,7 @@ The `chrome_*` tools (`sidecar/chromeExtension.ts`) drive Chrome over the
 DevTools protocol from the sidecar. By default they start a headless Chrome
 on port 9333 with its own profile in `~/.ignite/chrome` (Chrome refuses
 debugging on the default profile), so testing never adds windows or a Dock
-icon; it ends with the sidecar that started it. The user can't see or type into it, so the agent never asks them to sign in there; when a page needs a login the agent can't complete there, it
+icon; it ends with the sidecar that started it. The user can't see or type into it, so the agent never asks them to sign in there (a headless screenshot or load of a sign-in page, by a title starting "Sign in" or "Log in" or a `/login` or `/sign-in` path segment, says so in its result, outside a task: `sidecar/chromeHints.ts`); when a page needs a login the agent can't complete there, it
 passes `user_chrome: true`, attaching to the user's own Chrome on port 9222
 (chrome://inspect's "Allow remote debugging" toggle, or
 `--remote-debugging-port`) with its real logins; if that port doesn't
@@ -1246,6 +1254,43 @@ again. Settings → Procedures lists every folder's (`sidecar/hostProcedures.ts`
 when each applies, its steps, its folder, the conversation it was learned in
 (as the sidebar names it; none once that conversation is gone) and when;
 removing one also takes it out of the memory's search.
+Consolidation (`sidecar/memoryConsolidate.ts`) is the memory's sleep: the
+writer only appends, so a file's memories pile up as duplicates and facts
+later work made false, and the index's 50 newest cover hours. After each run's
+memories are written, up to 2 groups of the folder are consolidated by the
+same cheapest model (`sidecar/memoryGroups.ts`): its procedures once 6 are new
+since their last pass (not while Procedures is off), then the files with 8 or more new raw memories in the
+last 30 days (the paths of Claude Code's imported memories, absolute or in a
+worktree of this folder's, read from the folder's root, with "/" on every
+platform; never one outside it), most first. A
+group is its 40 oldest new memories, with the file's 3 newest long-term ones;
+the model also reads the file as it is now in the user's checkout (its outline,
+else its first 6,000 characters when git tracks it; never one a link takes
+outside the folder) and its commits since on every branch but the app's
+checkpoints (`git log --exclude=refs/ignite/* --all`, run from the file's own
+folder, so a folder of repositories reads each one's), told that work still on a branch may not be in the checkout
+yet. A file not in the checkout that git never deleted (a branch's new file) is
+left until it is. It replies with long-term
+entries (at most 8, each citing the memories it merges, typed and with
+concepts as the writer's, plus `consolidated`, dated by its newest source; a procedure group's stay
+procedures) and the members it can show wholly false or only bookkeeping, each
+with its reason (at most 10); the rest stay as they were, and so does a member
+the model read cut short (each is cut at 3,000 characters), so nothing past the
+cut drops out of search. An entry one of whose sources was removed meanwhile (a
+procedure removed in Settings) is dropped, and a group another sidecar's pass
+already took is written by neither. A file git shows was
+deleted retires its own memories from before then with no model call. Nothing
+is deleted: merged and stale memories are retired (`retired_at`,
+`superseded_by`, `retired_reason`), out of the index, search, the timeline,
+the procedures' lists and Settings, while `memory_get` still reads one, saying
+what replaced it. Each pass records the newest id it took (`consolidations`),
+so the next starts after it (by id, not time: cmem's memories are imported
+later with the time they were recorded); a call that fails or a reply that
+isn't JSON isn't tried again for that group until it grows (until the sidecar
+restarts). Only one consolidation runs in a sidecar at a time, and a settle
+with nothing ready asks no model. The recalled
+index leads with the folder's 40 newest long-term memories (within 5,000
+characters), then the 50 newest raw observations and 10 summaries as before.
 Subagents get none of it. The Memory settings section turns it on or off
 and lists the folder's latest memories, searched (as `memory_search` does)
 and filtered by type (with each type's count), each opening to its facts and

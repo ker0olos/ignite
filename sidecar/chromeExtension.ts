@@ -11,6 +11,7 @@ import { ARTIFACT_TOOL, IMAGE_TOOL } from "../shared/agentTypes.ts";
 import { APP_NAME } from "../src/lib/app.ts";
 import { chrome, pages, withTab, type Tab } from "./chrome.ts";
 import { savedBlobs } from "./cdpResult.ts";
+import { pageOf, signInHint } from "./chromeHints.ts";
 import { capture, evaluate, settle } from "./chromePage.ts";
 import { chromeToolsOn } from "./chromeSettings.ts";
 import {
@@ -103,20 +104,22 @@ function registerLooking(pi: ExtensionAPI, scope: Scope) {
     }),
     async execute(id, { tab, full, user_chrome }) {
       const at = await scope.at(tab, user_chrome);
-      const { data, title } = await withTab(
+      const { data, page } = await withTab(
         at.tab,
         async (cdp, sessionId, t) => ({
           data: await capture(cdp, sessionId, full),
-          title: `${t.title}  ${t.url}`,
+          page: { title: t.title, url: t.url },
         }),
         at.user,
         at.skip,
       );
       const file = join(tmpdir(), `${APP_NAME}-screenshot-${id}.jpg`);
       await writeFile(file, Buffer.from(data, "base64"));
+      const hint = signInHint(page, at.user, await scope.task());
+      const title = `${page.title}  ${page.url}`;
       return {
         content: [
-          { type: "text", text: `${title}\nSaved to ${file}` },
+          { type: "text", text: `${title}\nSaved to ${file}${hint}` },
           { type: "image", data, mimeType: "image/jpeg" },
         ],
         details: undefined,
@@ -181,7 +184,8 @@ function registerActing(pi: ExtensionAPI, scope: Scope) {
           targetId,
           async (c, sessionId) => {
             await settle(c, sessionId);
-            return text(`Opened ${url} in tab ${targetId}`);
+            const hint = signInHint(await pageOf(c, sessionId), user, task);
+            return text(`Opened ${url} in tab ${targetId}${hint}`);
           },
           user,
         );
@@ -197,7 +201,9 @@ function registerActing(pi: ExtensionAPI, scope: Scope) {
           );
           if (errorText) throw new Error(errorText);
           await settle(cdp, sessionId);
-          return text(`Loaded ${url} in tab ${t.targetId}`);
+          const page = await pageOf(cdp, sessionId);
+          const hint = signInHint(page, at.user, await scope.task());
+          return text(`Loaded ${url} in tab ${t.targetId}${hint}`);
         },
         at.user,
         at.skip,
