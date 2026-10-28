@@ -3,7 +3,7 @@ import { SUBAGENT_TOOL, readSubagent } from "../../../shared/subagents";
 import { LESSON_ADD_TOOL, readLessonAdded } from "../../../shared/lessons";
 import { readPlan } from "../../../shared/tasks";
 import { LessonCard } from "@/components/conversation/LessonCard";
-import { OutputPreview } from "@/components/conversation/OutputPreview";
+import { ToolError } from "@/components/conversation/ToolError";
 import { PlanCard } from "@/components/conversation/PlanCard";
 import { QuestionAnswers } from "@/components/conversation/QuestionAnswers";
 import type { ToolProps } from "@/components/conversation/shared";
@@ -46,9 +46,7 @@ export function ToolRunOutcome({
       />
     );
   }
-  if (run.status === "error") {
-    return <OutputPreview text={text || "Failed."} error />;
-  }
+  if (run.status === "error") return <ToolError text={text} />;
   const plan = readPlan(run.result);
   if (plan) return <PlanCard subtasks={plan} />;
   const lesson =

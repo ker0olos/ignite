@@ -1,4 +1,5 @@
 // The first waiting call's timer: unanswered when it runs out, it's answered as the user being away.
+import { AWAY_DENIED } from "../shared/hostProtocol.ts";
 import type { ApprovalAsk, Away } from "./approvalAsk.ts";
 import type { Agent } from "./hostTypes.ts";
 
@@ -8,8 +9,7 @@ export const AWAY_STRIKES = 3;
 /** In Auto, an approval nobody answers is denied after 2 minutes. */
 export const APPROVAL_AWAY: Away = {
   afterMs: 2 * 60_000,
-  reason: () =>
-    "The user is away and didn't answer, so this call was denied. Don't try it again now: carry on with what you can do without it, and say in your final reply what still needs their approval.",
+  reason: () => AWAY_DENIED,
 };
 
 type Clock = {

@@ -109,6 +109,10 @@ export type ApprovalRequest = {
   allow?: string;
 };
 
+/** What the agent is told of an approval denied because nobody answered it in time; its row says so. */
+export const AWAY_DENIED =
+  "The user is away and didn't answer, so this call was denied. Don't try it again now: carry on with what you can do without it, and say in your final reply what still needs their approval.";
+
 /** What opening a folder's session returns: its settings and its history. */
 export type OpenedSession = SessionState & {
   /** The conversation's id; a folder can have several. */

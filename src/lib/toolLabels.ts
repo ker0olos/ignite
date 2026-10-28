@@ -13,6 +13,7 @@ import {
 import { ADB_TOOL } from "../../shared/adb";
 import { CODEMODE_TOOL } from "../../shared/codemode";
 import { GH_TOOL, GIT_TOOL } from "../../shared/git";
+import { AWAY_DENIED } from "../../shared/hostProtocol";
 import { LESSON_ADD_TOOL, LESSON_REMOVE_TOOL } from "../../shared/lessons";
 import { ASK_TOOL } from "../../shared/questions";
 import { SUBAGENT_TOOL } from "../../shared/subagents";
@@ -174,11 +175,19 @@ export const GLYPH_BADGE_CLASSES: Record<ToolBadge, string> = {
   ok: "",
 };
 
+/** Whether a call was denied because nobody answered it in time (a blocked command's report may lead). */
+const deniedAway = (run: ToolRun | undefined) =>
+  run?.status === "error" && resultText(run.result).endsWith(AWAY_DENIED);
+
+/** Whether a call failed: an error, but not one the user's absence caused. */
+export const failed = (run: ToolRun | undefined) =>
+  run?.status === "error" && !deniedAway(run);
+
 /** The badge on a call's tile; none once it's done. */
 export function toolBadge(run: ToolRun | undefined): ToolBadge | null {
   if (run?.approval) return "waiting";
   if (!run || run.status === "running") return "running";
-  return run.status === "error" ? "error" : null;
+  return failed(run) ? "error" : null;
 }
 
 const COMMANDS = new Set(["bash", GIT_TOOL, GH_TOOL]);

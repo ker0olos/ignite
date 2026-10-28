@@ -10,6 +10,7 @@ import {
   toolBadge,
   toolTitle,
 } from "./toolLabels";
+import { AWAY_DENIED } from "../../shared/hostProtocol";
 
 const call = (args: Record<string, unknown>): ToolCall => ({
   type: "toolCall",
@@ -90,5 +91,15 @@ describe("toolBadge", () => {
     expect(toolBadge({ status: "running", approval: {} })).toBe("waiting");
     expect(toolBadge({ status: "error" })).toBe("error");
     expect(toolBadge({ status: "done" })).toBeNull();
+  });
+
+  it("doesn't mark a call denied while the user was away as failed", () => {
+    const text = (t: string) => ({
+      status: "error" as const,
+      result: { content: [{ type: "text" as const, text: t }] },
+    });
+    expect(toolBadge(text(AWAY_DENIED))).toBeNull();
+    expect(toolBadge(text(`Blocked: x\n\n${AWAY_DENIED}`))).toBeNull();
+    expect(toolBadge(text("ECONNRESET"))).toBe("error");
   });
 });

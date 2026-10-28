@@ -3,7 +3,7 @@ import { McpCallHead } from "@/components/conversation/McpCallHead";
 import { McpCallLabel } from "@/components/conversation/McpCallLabel";
 import { ToolHead } from "@/components/conversation/ToolHead";
 import { mcpCall } from "@/lib/mcpToolCall";
-import { toolArg, toolTitle } from "@/lib/toolLabels";
+import { failed, toolArg, toolTitle } from "@/lib/toolLabels";
 import type { ToolRun } from "@/lib/transcript";
 
 /** A tool call's title line; under a shared tile (`grouped`) without what the tile's title already says. */
@@ -26,7 +26,7 @@ export function ToolCallHead({
     );
   }
   if (mcp) {
-    const label = <McpCallLabel call={mcp} failed={run?.status === "error"} />;
+    const label = <McpCallLabel call={mcp} failed={failed(run)} />;
     return <ToolHead title={label} arg="" folder={folder} muted={muted} />;
   }
   return (
