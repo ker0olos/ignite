@@ -1,4 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { InlineCode } from "@/components/conversation/InlineCode";
@@ -10,7 +11,7 @@ import { useOpenFileLink } from "@/hooks/useOpenTab";
 import { useSmoothText } from "@/hooks/useSmoothText";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { looksLikeFilePath } from "@/lib/fileLinks";
-import { quoteSource } from "@/lib/quote";
+import { MarkdownSource } from "@/lib/quote";
 
 /** Assistant markdown text, with fenced code blocks syntax-highlighted. */
 export function AssistantText({
@@ -26,7 +27,30 @@ export function AssistantText({
 }) {
   const shown = useSmoothText(text);
   const openFileLink = useOpenFileLink(folder);
-  const components: Components = {
+  // The same components every render: new ones would remount the message, and with it lose the user's selection.
+  const components = useMemo(
+    () => markdownComponents(folder, openFileLink, editor, codeThemes),
+    [folder, openFileLink, editor, codeThemes],
+  );
+
+  return (
+    <div className="text-[length:var(--message-text,14px)]">
+      <MarkdownSource.Provider value={shown}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+          {shown}
+        </ReactMarkdown>
+      </MarkdownSource.Provider>
+    </div>
+  );
+}
+
+function markdownComponents(
+  folder: string,
+  openFileLink: (text: string) => void,
+  editor: Editor,
+  codeThemes: CodeThemes,
+): Components {
+  return {
     a: ({ href = "", children }) => {
       const file = looksLikeFilePath(href);
       return (
@@ -64,11 +88,8 @@ export function AssistantText({
     ),
     blockquote: ({ node, children }) => (
       <QuoteBlock
-        source={quoteSource(
-          shown,
-          node?.position?.start.offset,
-          node?.position?.end.offset,
-        )}
+        start={node?.position?.start.offset}
+        end={node?.position?.end.offset}
       >
         {children}
       </QuoteBlock>
@@ -109,12 +130,4 @@ export function AssistantText({
       </InlineCode>
     ),
   };
-
-  return (
-    <div className="text-[length:var(--message-text,14px)]">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {shown}
-      </ReactMarkdown>
-    </div>
-  );
 }

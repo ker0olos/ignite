@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useCallback, useContext } from "react";
 import { filePathTarget } from "@/lib/fileLinks";
 
 /** Opens a tab by id; defaults to a no-op outside the workspace. */
@@ -12,5 +12,8 @@ export function useOpenTab() {
 /** Opens a file reference, inside `folder` or not, in a tab. */
 export function useOpenFileLink(folder: string) {
   const openTab = useOpenTab();
-  return (text: string) => openTab(filePathTarget(folder, text));
+  return useCallback(
+    (text: string) => openTab(filePathTarget(folder, text)),
+    [openTab, folder],
+  );
 }

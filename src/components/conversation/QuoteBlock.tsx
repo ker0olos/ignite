@@ -1,17 +1,21 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { CopyButton } from "@/components/conversation/CopyButton";
+import { MarkdownSource, quoteSource } from "@/lib/quote";
 
 const InQuote = createContext(false);
 
 /** An assistant blockquote: a draft for the user to paste elsewhere, copied as written. Nested ones get no button of their own. */
 export function QuoteBlock({
-  source,
+  start,
+  end,
   children,
 }: {
-  source: string;
+  start?: number;
+  end?: number;
   children: ReactNode;
 }) {
   const nested = useContext(InQuote);
+  const source = quoteSource(useContext(MarkdownSource), start, end);
   const quote = (
     <blockquote className="border-l-2 py-0.5 pr-9 pl-3 text-muted-foreground">
       {children}

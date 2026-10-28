@@ -75,6 +75,21 @@ describe("AssistantText file links", () => {
     );
   });
 
+  it("opens a URL written as inline code", () => {
+    render(
+      <AssistantText
+        text="Open `http://127.0.0.1:5192/dashboard/gigs` again."
+        folder="/repo"
+        editor={DEFAULT_SETTINGS.editor}
+        codeThemes={DEFAULT_CODE_THEMES}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /dashboard\/gigs/ }));
+    expect(opener.openUrl).toHaveBeenCalledWith(
+      "http://127.0.0.1:5192/dashboard/gigs",
+    );
+  });
+
   it("opens a link from the keyboard, ignoring other keys", () => {
     render(
       <AssistantText
@@ -126,6 +141,25 @@ describe("AssistantText file links", () => {
     await screen.findByText("motr.json");
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByRole("button")).toBe(null);
+  });
+});
+
+describe("AssistantText re-rendered", () => {
+  it("keeps its elements, so a selection in it stays", () => {
+    const text = () => (
+      <AssistantText
+        text="Open `http://127.0.0.1:5192/home` in **Chrome**."
+        folder="/repo"
+        editor={DEFAULT_SETTINGS.editor}
+        codeThemes={DEFAULT_CODE_THEMES}
+      />
+    );
+    const { rerender } = render(text());
+    const bold = screen.getByText("Chrome");
+    const paragraph = bold.closest("p")!;
+    rerender(text());
+    expect(bold.isConnected).toBe(true);
+    expect(paragraph.isConnected).toBe(true);
   });
 });
 
