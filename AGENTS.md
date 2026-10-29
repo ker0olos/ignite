@@ -262,6 +262,7 @@ src/                     React frontend (almost all logic lives here)
                          WindowControls (minimize, maximize, close) in the top-right corner instead
     liveReload.ts        Reloads the page when the launcher starts serving Vite (a mod changed)
     paths.ts             basename / dirname / ~ shortening
+    scratchpad.ts        A path inside a conversation's scratchpad, as relative to it (apart from paths.ts, which the sidecar loads)
     utils.ts             `cn` class-name helper (shadcn)
     remote.ts            In a browser (remote access): stands in for Tauri over a WebSocket to the sidecar
     remoteFirst.ts       Installs that stand-in before any other module loads (first import in main.tsx)

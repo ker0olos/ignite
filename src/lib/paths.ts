@@ -1,5 +1,3 @@
-import { APP_NAME } from "./app";
-
 // Windows paths may use either separator.
 const lastSep = (path: string) =>
   Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
@@ -29,16 +27,6 @@ export const sortedByName = (paths: string[]) =>
 export function isUnder(path: string, root: string) {
   const sep = root.includes("\\") ? "\\" : "/";
   return path === root || path.startsWith(root + sep);
-}
-
-const SCRATCHPAD = new RegExp(
-  `[\\\\/]${APP_NAME}-scratchpad[\\\\/][^\\\\/]+(?:[\\\\/](.*))?$`,
-);
-
-/** A path inside a conversation's scratchpad as relative to it ("." for the scratchpad itself), else undefined. */
-export function inScratchpad(path: string) {
-  const match = SCRATCHPAD.exec(path);
-  return match ? match[1] || "." : undefined;
 }
 
 /** `path` relative to `root` when inside it (or it), else as given. */

@@ -1,7 +1,7 @@
 import { useFileExists } from "@/hooks/useFileExists";
 import { useOpenFileLink } from "@/hooks/useOpenTab";
 import { filePathTarget } from "@/lib/fileLinks";
-import { inScratchpad } from "@/lib/paths";
+import { inScratchpad } from "@/lib/scratchpad";
 
 /** A path in a tool call's argument; a link when it's a file. */
 export function ArgPath({ text, folder }: { text: string; folder: string }) {

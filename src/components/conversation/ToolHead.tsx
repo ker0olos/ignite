@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { ArgPath } from "@/components/conversation/ArgPath";
 import { splitPaths } from "@/lib/fileLinks";
-import { inScratchpad } from "@/lib/paths";
+import { inScratchpad } from "@/lib/scratchpad";
 import { cn } from "@/lib/utils";
 
 /** A tool call's title line: its title, an MCP server's name, and its argument, shown in full when clicked. */
