@@ -1,5 +1,9 @@
 /** Conversation titles as Claude Code makes them: the cheapest model's once the first run settles; `/rename` sets one or titles it afresh. */
-import type { AgentMessage } from "../shared/agentTypes.ts";
+import type {
+  AgentMessage,
+  AssistantMessage,
+  UserMessage,
+} from "../shared/agentTypes.ts";
 import { TITLE_LENGTH, firstTitle, titleOf } from "../shared/conversations.ts";
 import { typedMessage } from "../shared/sentComments.ts";
 import { askCheapest } from "./cheapCall.ts";
@@ -28,7 +32,7 @@ Return JSON with a single "title" field. Capitalize the first letter of the titl
 
 function textOf(m: AgentMessage) {
   if (m.role !== "user" && m.role !== "assistant") return "";
-  const { content } = m;
+  const { content } = m as UserMessage | AssistantMessage;
   const text = (
     typeof content === "string"
       ? content

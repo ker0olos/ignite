@@ -116,6 +116,27 @@ it("merges a file's memories on the cheapest model, weighed against the file and
   ]);
 });
 
+it("merges memories with no file by their topic, with no file or git to read", async () => {
+  const { consolidate, db } = await setup([]);
+  const { addMemories } = await import("./memoryDb.ts");
+  addMemories(
+    db,
+    [
+      "rules main is held by a worktree, so checkout fails",
+      "rules main is locked to another worktree",
+      "rules main is checked out in another worktree",
+    ].map((title) => memory({ folder: dir, title, createdAt: Date.now() })),
+  );
+  mocks.askModel.mockResolvedValue(merged([1, 2, 3], "Rules main is held"));
+  await consolidate(agent(), db);
+  const [, , prompt, input, options] = mocks.askModel.mock.calls[0];
+  expect(prompt).toContain("name no file");
+  expect(input).not.toContain("The file as it is now");
+  expect(options.label).toBe("consolidation of #topics");
+  expect(mocks.git).not.toHaveBeenCalled();
+  expect(retired(db)).toHaveLength(3);
+});
+
 it("tells the model what it couldn't read: no commits, git failing", async () => {
   mocks.git.mockResolvedValue({ output: "  ", code: 0 });
   const { consolidate, db, fresh } = await setup(["a.txt"]);

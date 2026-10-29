@@ -32,7 +32,7 @@ function setup(
     messages,
     setSessionName: vi.fn(),
     sessionManager: {
-      getEntries: () => entries,
+      getEntries: () => entries as never,
       appendCustomEntry: (customType: string) => entries.push({ customType }),
     },
   };

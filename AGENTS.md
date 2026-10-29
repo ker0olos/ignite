@@ -262,6 +262,7 @@ src/                     React frontend (almost all logic lives here)
                          WindowControls (minimize, maximize, close) in the top-right corner instead
     liveReload.ts        Reloads the page when the launcher starts serving Vite (a mod changed)
     paths.ts             basename / dirname / ~ shortening
+    scratchpad.ts        A path inside a conversation's scratchpad, as relative to it (apart from paths.ts, which the sidecar loads)
     utils.ts             `cn` class-name helper (shadcn)
     remote.ts            In a browser (remote access): stands in for Tauri over a WebSocket to the sidecar
     remoteFirst.ts       Installs that stand-in before any other module loads (first import in main.tsx)
@@ -424,9 +425,10 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   memoryContext.ts       What a new conversation recalls: an index of the folder's latest memories
   memoryExtension.ts     The recalled index in the system prompt; memory_search, memory_get, memory_timeline
   memoryWriter.ts        After a run, the cheapest model writes down its observations and summary
-  memoryConsolidate.ts   After a run, the memory's sleep: a file's (or the procedures') pile merged into long-term
+  memoryConsolidate.ts   After a run, the memory's sleep: a file's (or the procedures', or a topic's) pile merged into long-term
                          memories against the file now and its commits; memoryGroups.ts picks the groups and writes
-                         the outcome, memoryConsolidatePrompt.ts is what the model reads and its reply read back
+                         the outcome (memoryTopics.ts the topics of memories with no file, memoryPasses.ts each
+                         group's last pass), memoryConsolidatePrompt.ts is what the model reads and its reply read back
   procedures.ts          How a run got past a failed command, recorded with its memories; the cheapest model picks a first message's
   hostMemory.ts          Each conversation's run, written to the memory once it settles
   memoryImport.ts        Imports cmem's memories from its database (no worker), only what isn't in yet
@@ -437,6 +439,7 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostProcedures.ts      Settings' procedures, every folder's: list and remove
   reflector.ts           After a run with the user's feedback, the cheapest model rewrites the reflector's points
   reflectorPrompt.ts     What that model is told; a point whose evidence isn't in the user's feedback is ignored
+  reflectorCheck.ts      Each point it adds or changes read again against its evidence; kept only when faithful to it
   hostReflect.ts         The user's feedback on a run (replies, answers' notes, denials, rewinds), reflected on once it settles;
                          Settings' points: list, edit, remove
   reflectorExtension.ts  The reflector's points (~/.ignite/reflector.json), each beside its entry point's guidance
@@ -725,7 +728,9 @@ in turn, so nothing waits off screen. Some calls don't wait forever
 first (shown or not, focused or not), and still unanswered when it runs out it's
 answered as the user being away: an `ask_user` question after 5 minutes (the
 agent decides alone, told what the user had picked or noted without sending it,
-which the composer sends as `question_draft`), and in Auto an approval (a
+which the composer sends as `question_draft`, and to keep to what stays on the
+computer and can be undone, leaving what others would see, like tickets,
+comments, pushes and production data, until they're back), and in Auto an approval (a
 denylisted command, a path outside the folder, an MCP call, running outside the
 sandbox) after 5 minutes, denied with a reason telling the agent to carry on
 without it (`AWAY_DENIED`; its row says "Denied while you were away"). Manual's prompts, git and gh reviews, `task_add` and lesson changes
@@ -752,7 +757,8 @@ work one sent mid-run asked for and the agent never started counts
 can carry on with alone, or offered a step that finishes it (verifying it, the rest
 of the same problem, a push and pull request, which wait for review anyway), a hidden
 message sends it on (not while it waits on something only the user can do, like
-signing in, even when it lists the steps for after); if it left the user a real decision or offered new work beyond the
+signing in, even when it lists the steps for after, nor on a scheduled run it can't
+bring forward); if it left the user a real decision or offered new work beyond the
 request, it's told to ask it with `ask_user`; and if a user message in the run
 corrected a mistake it could make again and no `lesson_add` followed (the judge is
 offered this only while lessons are on and the run saved none), it's told to
@@ -1249,12 +1255,12 @@ the work around one with `memory_timeline`; the index goes in as the `memory`
 prompt section (`systemPromptOptions.sections`), since claude-bridge passes
 Claude Code only pi's sections, never text an extension adds to the prompt.
 Procedures (`sidecar/procedures.ts`) are how a run got past a failed command:
-when a bash command in the run (a script's included) exited non-zero, not
-merely blocked, denied or redirected (the sandbox's blocks, which carry its
-report, included), and no lesson was added, the writer is also asked for them,
+when a bash, git or gh call in the run (a script's included) exited non-zero, not
+merely blocked, denied, refused or redirected (the sandbox's blocks, which carry its
+report, included), the writer is also asked for them,
 as `discovery` observations with the `procedure` concept, titled by when they
 apply, their facts the steps, and told the folder's 40 newest so it doesn't
-record one again. A conversation's first message is never held up for them:
+record one again, and the lessons the run saved, whose failures are theirs. A conversation's first message is never held up for them:
 while it's routed and sent (`hand` in `sidecar/hostSend.ts`), the cheapest
 priced model of its provider picks from those titles the ones the message as
 typed needs (a reply of ids alone, at most 3, usually NONE; a folder with none
@@ -1274,8 +1280,17 @@ same cheapest model (`sidecar/memoryGroups.ts`): its procedures once 6 are new
 since their last pass (not while Procedures is off), then the files with 8 or more new raw memories in the
 last 30 days (the paths of Claude Code's imported memories, absolute or in a
 worktree of this folder's, read from the folder's root, with "/" on every
-platform; never one outside it), most first. A
-group is its 40 oldest new memories, with the file's 3 newest long-term ones;
+platform; never one outside it), most first, taking turns with topics
+(`sidecar/memoryTopics.ts`): a memory that changed no file (a git trap, a
+tool's quirk), new since the last looked at, with the older ones whose titles
+share at least half its words (their first 5 letters, by the FTS index), once
+there are 3, at most 12, the new one always among them, and the topic's 3
+long-term ones; oldest first, at most 100 a settle, and the model reads no file
+for it. One `#topics` record holds their progress: a group's pass records its
+memory, and the ones before the first group that formed none are recorded as
+they're looked at, so a group pulled but not passed comes again, and one that
+failed waits until the sidecar restarts (or a later group's pass goes past it). A
+file's group is its 40 oldest new memories, with the file's 3 newest long-term ones;
 the model also reads the file as it is now in the user's checkout (its outline,
 else its first 6,000 characters when git tracks it; never one a link takes
 outside the folder) and its commits since on every branch but the app's
@@ -1379,7 +1394,11 @@ only an explicit drop removes one; at most 10 per entry point, a new one
 merged into the one it sharpens, and at most 3 edits (adds, changes, drops) a
 reflection, so one run's feedback can't rewrite them to fit that run (a full
 entry point takes a new point only in place of a drop, never evicting one
-unasked). A hand-edited file's broken points are
+unasked). Each point a reflection adds or changes is then read again by the
+same model with its evidence and the message it's from (`sidecar/reflectorCheck.ts`):
+one that goes past the words, against them, or is about the task, not how to
+work, is left out (a changed one stays as it was); a check that can't run keeps
+it. A hand-edited file's broken points are
 skipped when read. They're written at once, one
 reflection (or Settings edit) at a time, with no prompt to the user.
 `sidecar/reflectorExtension.ts` (loaded after the extensions it adds to) reads

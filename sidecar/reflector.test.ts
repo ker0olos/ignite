@@ -3,18 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 import type { AgentMessage } from "../shared/agentTypes.ts";
 import type { Reflection } from "../shared/reflector.ts";
 import type { Session } from "./hostTypes.ts";
-import {
-  groundedIn,
-  parsePoints,
-  reflect,
-  reflectorInput,
-} from "./reflector.ts";
+import { parsePoints, reflect, reflectorInput } from "./reflector.ts";
+import { groundedIn } from "./reflectorCheck.ts";
 
 const model = {
   provider: "x",
   id: "cheap",
   name: "Cheap",
   cost: { output: 1 },
+  input: ["text"],
 };
 
 const runtime = (complete: () => Promise<unknown>) => ({
@@ -472,6 +469,66 @@ describe("reflect", () => {
     expect(options.cacheRetention).toBe("none");
     // It reads the whole conversation, so earlier feedback isn't new.
     expect(context.systemPrompt).toContain("Only the feedback listed is new");
+  });
+
+  it("keeps only the points a second read finds faithful to the user's words", async () => {
+    const verdicts: Record<string, string> = {
+      "Plan first.": "faithful",
+      "Always use the user's Chrome.": "wider",
+      "Keep reports to one line.": "against",
+    };
+    const s = runtime(async (...args: unknown[]) => {
+      const { systemPrompt, messages: asked } = args[1] as {
+        systemPrompt: string;
+        messages: { content: string | { text: string }[] }[];
+      };
+      if (!systemPrompt.includes("taught by the user's own words"))
+        return answer(
+          reply([
+            { entry: "planning", text: "Plan first.", evidence: "plan it" },
+            {
+              entry: "always",
+              text: "Always use the user's Chrome.",
+              evidence: "see the fix",
+            },
+            { id: "r1", text: "Keep reports to one line.", evidence: "short" },
+          ]),
+        );
+      const content = asked[0]!.content;
+      const text = typeof content === "string" ? content : content[0]!.text;
+      const point = Object.keys(verdicts).find((p) => text.includes(p))!;
+      return answer(verdicts[point]!);
+    });
+    const feedback = ["plan it", "i need to see the fix", "too short"];
+    expect(await reflect(s, feedback, messages, [short])).toEqual([
+      expect.objectContaining({ text: "Plan first." }),
+      short,
+    ]);
+  });
+
+  it("checks only words from this run: a point keeping older evidence isn't", async () => {
+    const earlier = { ...short, evidence: "keep it short" };
+    const s = runtime(async (...args: unknown[]) =>
+      (args[1] as { systemPrompt: string }).systemPrompt.includes(
+        "taught by the user's own words",
+      )
+        ? answer("wider")
+        : answer(reply([{ id: "r1", when: "reporting" }])),
+    );
+    expect(await reflect(s, ["ok, pr it"], messages, [earlier])).toEqual([
+      expect.objectContaining({ id: "r1", when: "reporting" }),
+    ]);
+  });
+
+  it("returns nothing when the check turns every edit back", async () => {
+    const s = runtime(async (...args: unknown[]) =>
+      (args[1] as { systemPrompt: string }).systemPrompt.includes(
+        "taught by the user's own words",
+      )
+        ? answer("task")
+        : answer(reply([{ id: "r1", text: "Short.", evidence: "short" }])),
+    );
+    expect(await reflect(s, ["short"], messages, [short])).toBeUndefined();
   });
 
   it("returns nothing when the call errors or fails", async () => {

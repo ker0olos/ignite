@@ -167,7 +167,7 @@ describe("ask_user", () => {
     expect(away?.afterMs).toBe(QUESTION_AWAY_MS);
     asks[0].answer(false, undefined, undefined, away!.reason());
     const done = await result;
-    expect(text(done)).toMatch(/^The user is away/);
+    expect(text(done)).toMatch(/^Nobody answered these questions/);
     expect(done.details).toBeUndefined();
   });
 });
@@ -179,7 +179,8 @@ describe("awayReply", () => {
       { question: "Why?", choices: [], note: "speed" },
       { question: "When?", choices: [] },
     ]);
-    expect(reply).toMatch(/^The user is away/);
+    expect(reply).toMatch(/^Nobody answered these questions/);
+    expect(reply).toContain("Leave anything others would see");
     expect(reply).toContain("Q: Where?\nA: SQLite");
     expect(reply).toContain(
       "Q: Why?\nA: (left to you; decide it)\nNote: speed",
