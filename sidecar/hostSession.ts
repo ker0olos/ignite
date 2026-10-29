@@ -19,10 +19,10 @@ import { rememberSignIns, pushMcpServers } from "./hostMcp.ts";
 import { askApproval, denyAll } from "./hostApproval.ts";
 import { claudeLoggedIn } from "./hostAuth.ts";
 import { subagentsIn } from "./hostChildren.ts";
-import { firstTitle } from "../shared/conversations.ts";
 import { pushProjects, refuseWhileForked, reopened } from "./hostProjects.ts";
 import { prepareResume } from "./hostResume.ts";
 import { follow, reportTo } from "./hostFollow.ts";
+import { nameOnOpen } from "./hostTitle.ts";
 import { forkOf, isDetached } from "./forks.ts";
 import { withEntryIds } from "./hostCheckpoint.ts";
 import { hand, takeTurn } from "./hostSend.ts";
@@ -183,7 +183,7 @@ export function start(
     .then((s) => {
       agent.session = s;
       agent.running = s.isStreaming;
-      agent.title = s.sessionManager.getSessionName() ?? firstTitle(s.messages);
+      nameOnOpen(agent, s);
       agent.subagents = subagentsIn(s.messages);
       agent.forkOf = forkOf(s.sessionManager);
       agent.forkDetached ||= !!agent.forkOf && isDetached(s.sessionManager);

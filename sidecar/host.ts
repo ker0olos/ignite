@@ -20,6 +20,7 @@ import { modelHandlers } from "./hostModels.ts";
 import { worktreeHandlers } from "./hostTerminal.ts";
 import { closeConversation, fork, stopWaiting } from "./hostFork.ts";
 import { rewind } from "./hostRewind.ts";
+import { rename } from "./hostTitle.ts";
 import { lessonHandlers } from "./hostLessons.ts";
 import { reflectorHandlers } from "./hostReflect.ts";
 import { procedureHandlers } from "./hostProcedures.ts";
@@ -103,6 +104,7 @@ const handlers: { [K in IdRequest["type"]]: Handler<K> } = {
   rewind: (ctx, r) => rewind(ctx, r.session, r.entryId, r.text, r.images),
   abort: (ctx, r) => stop(ctx, r.session),
   compact: (ctx, r) => compact(ctx, r.session, r.instructions),
+  rename: (ctx, r) => rename(ctx, r.session, r.title),
   unqueue: (ctx, r) => unqueue(ctx, r),
   mcp_list: (ctx) => mcpServers(ctx),
   mcp_save: (ctx, r) =>

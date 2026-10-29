@@ -8,8 +8,7 @@ import type {
 import type { ImageContent } from "../../shared/agentTypes";
 import type { QueueKind, QueuedMessage, Unqueue } from "../../shared/queue";
 import type { HostClient } from "@/lib/piHost";
-import { useCompact } from "@/hooks/useCompact";
-import { useFork } from "@/hooks/useFork";
+import { useAppCommands } from "@/hooks/useAppCommands";
 import {
   promptRequest,
   useComposerBegin,
@@ -18,7 +17,6 @@ import {
 } from "@/hooks/useComposerBegin";
 import type { useStartingMessage } from "@/hooks/useStartingMessage";
 import { saveDefaultModel } from "@/lib/composerSettings";
-import { appCommand } from "@/lib/mentions";
 import type { Queued } from "@/lib/queue";
 
 /**
@@ -60,16 +58,13 @@ export function useComposerActions({
     setState,
   });
 
-  const compact = useCompact(opened, none, session, setError);
-  const fork = useFork(opened, folder, none ? null : session, start, setError);
+  const slash = useAppCommands(opened, folder, none, session, start, setError);
 
   const send = useCallback(
     async (text: string, images: ImageContent[] = [], queue?: QueueKind) => {
       if (!opened || (!text.trim() && !images.length)) return;
-      const instructions = appCommand("compact", text);
-      if (instructions !== null) return compact(instructions);
-      const task = appCommand("fork", text);
-      if (task !== null) return fork(task, images);
+      const command = slash.run(text, images);
+      if (command) return command;
       setError(null);
       try {
         await (none
@@ -79,7 +74,7 @@ export function useComposerActions({
         setError((e as Error).message);
       }
     },
-    [opened, none, session, begin, setError, compact, fork],
+    [opened, none, session, begin, setError, slash],
   );
 
   const change = useCallback(
@@ -142,8 +137,8 @@ export function useComposerActions({
   return {
     pending,
     send,
-    compact,
-    fork,
+    compact: slash.compact,
+    fork: slash.fork,
     stop,
     unqueue,
     setModel: (model: ModelInfo) =>

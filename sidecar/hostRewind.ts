@@ -10,6 +10,7 @@ import { inWorktree, rewindable } from "./hostCheckpoint.ts";
 import { pushProjects, refuseWhileForked } from "./hostProjects.ts";
 import { noteRewound } from "./hostReflect.ts";
 import { settleResume } from "./hostSend.ts";
+import { userNamed } from "./hostTitle.ts";
 import { prompt } from "./hostSession.ts";
 import {
   current,
@@ -57,10 +58,11 @@ async function goBack(s: Session, agent: Agent, entryId: string) {
   return files;
 }
 
-// Its title is its first message's, unless it's a fork (named after its original); its model stays.
+// Its title is its first message's until the model titles it again, unless it's a fork (named after its original) or the user named it; its model stays.
 function retitle(ctx: HostContext, agent: Agent, s: Session, text: string) {
   agent.routed = true;
-  if (agent.forkOf) return;
+  if (agent.forkOf || userNamed(s.sessionManager)) return;
+  agent.untitled = true;
   agent.title = titleOf({ role: "user", content: text, timestamp: 0 });
   // Saved, as the conversation list reads the file's first message, the old branch's.
   s.setSessionName(agent.title);

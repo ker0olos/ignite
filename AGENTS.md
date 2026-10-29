@@ -81,6 +81,8 @@ src/                     React frontend (almost all logic lives here)
     useComposerBegin.ts  That first message: the conversation opens, takes the choices made before it, then gets it
     useCompact.ts        `/compact`: compacts the shown conversation
     useFork.ts           `/fork`: forks the shown conversation, shows the fork, sends it the text after `/fork`
+    useRename.ts         `/rename`: names the shown conversation, or has the model title it
+    useAppCommands.ts    Sends `/compact`, `/fork` and `/rename` to their hooks
     useRewind.ts         Edits a user message of the shown conversation: rewinds to before it, sends the new text
     useMessageEdit.ts    One user message being edited in place: its text, ↵ sends, Esc cancels
     useForkWait.ts       Whether the shown conversation waits for a fork, so its composer takes no messages
@@ -311,6 +313,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   queuedImages.ts        Queued messages' images (pi's queue lists only text), forgotten once delivered
   hostTrust.ts           Saves a folder's trust and reloads its session (setTrust)
   hostRewind.ts          Edits a user message (`rewind`): its checkpoint restored, pi's leaf moved before it, the new text sent
+  hostTitle.ts           Conversation titles as Claude Code makes them: the cheapest model's, once the first run
+                         settles (until then its first message's line); `/rename` sets one or titles it afresh
   hostCheckpoint.ts      User messages' entry ids for the app, and their worktree checkpoints, saved as each starts
   checkpoints.ts         Checkpoints under refs/ignite/checkpoints/<id>/<entry>: take, keep, restore, drop
   hostFork.ts            Forks a conversation (new_session's `fork`): its file, its worktree's files, a note to the original;
@@ -915,7 +919,10 @@ The composer completes `/` at the start of a message with the app's
 `/compact` (pi's `compact()`: older messages become a summary, shown as a
 divider that opens to it; text after it steers the summary; while it runs, a
 bar fills as the summary streams) and the session's
-skills (sent as pi's `/skill:name`, shown again as `/name`), `/fork` (below), and `@`
+skills (sent as pi's `/skill:name`, shown again as `/name`), `/fork` (below),
+`/rename` (names the conversation; with no name the cheapest model titles it
+from its first message and last words, as it does on its own once the first
+run settles, with Claude Code's session-title prompt: `sidecar/hostTitle.ts`), and `@`
 anywhere with the message's images (`@image1`) and dropped files (`@file1`), the folder's terminals
 (`@t1`) and files (`@src/app.ts`). Mentions stay plain text; the system
 prompt says what they name. Each `/` row shows its arguments as chips (a
@@ -966,7 +973,8 @@ the new text, Esc cancels. The app names each user message by pi's entry id
 app's transcript there. Only an idle conversation rewinds (not running,
 routing, compacting, waiting on approval or a fork, nothing queued), only to
 messages after its latest compaction, and never a subagent's. Editing the
-first message retitles it (a fork keeps its name). Before each user message
+first message retitles it (a fork, or one the user named with `/rename`, keeps
+its name) and has the model title it again. Before each user message
 runs, its worktree's tracked and untracked files are snapshot (moving no
 branch) and kept under `refs/ignite/checkpoints/<session id>/<entry id>`
 (`sidecar/checkpoints.ts`); a failed snapshot never fails the message.

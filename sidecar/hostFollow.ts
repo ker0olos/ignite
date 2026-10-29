@@ -7,6 +7,7 @@ import { consolidate } from "./memoryConsolidate.ts";
 import { pushProjects, trackRun } from "./hostProjects.ts";
 import { sendNext } from "./hostQueue.ts";
 import { reflectOn } from "./hostReflect.ts";
+import { autoTitle } from "./hostTitle.ts";
 import { pushQueue } from "./nextQueue.ts";
 import { reload, tellsApp, type Agent, type HostContext } from "./hostTypes.ts";
 import { delivered } from "./queuedImages.ts";
@@ -50,6 +51,7 @@ function settle(ctx: HostContext, agent: Agent) {
   if (!agent.session?.pendingMessageCount) agent.queuedImages.clear();
   // Before rememberRun, which clears the run's start.
   void reflectOn(agent, { sessions: ctx.sessions });
+  void autoTitle(ctx, agent);
   agent.remembering = rememberRun(agent).catch(() => {});
   // After the run's own memories, which may be what makes a group ready.
   void agent.remembering.then(() => consolidate(agent));

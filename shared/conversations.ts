@@ -64,7 +64,8 @@ export type CommandSearchResult = {
   files: FileHit[];
 };
 
-const TITLE_LENGTH = 80;
+/** The longest a conversation's title runs. */
+export const TITLE_LENGTH = 80;
 
 const isUser = (m: AgentMessage): m is UserMessage => m.role === "user";
 

@@ -61,6 +61,7 @@ describe("mentionOptions", () => {
     expect(options.map((o) => o.args?.map((a) => a.name))).toEqual([
       ["instructions"],
       ["first message"],
+      ["name"],
       ["what"],
     ]);
   });
@@ -73,6 +74,7 @@ describe("mentionOptions", () => {
     expect(options.map((o) => [o.kind, o.insert])).toEqual([
       ["command", "/compact"],
       ["command", "/fork"],
+      ["command", "/rename"],
       ["skill", "/code-review"],
       ["skill", "/release-notes"],
     ]);

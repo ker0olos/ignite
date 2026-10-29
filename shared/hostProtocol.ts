@@ -207,6 +207,8 @@ export type HostRequest =
   | { id: number; type: "abort"; session?: string }
   /** Summarizes the conversation's older messages (`/compact`), optionally as `instructions` say; resolves once done. */
   | { id: number; type: "compact"; session?: string; instructions?: string }
+  /** Names the conversation `title` (`/rename`), or without one has the model title it. */
+  | { id: number; type: "rename"; session?: string; title?: string }
   /** Resolves to the message, or null when it was already delivered. */
   | ({ id: number; type: "unqueue" } & Unqueue)
   | { id: number; type: "mcp_list" }
@@ -307,6 +309,7 @@ export type HostResponses = SkillResponses &
     prompt: undefined;
     abort: QueuedMessage[];
     compact: undefined;
+    rename: undefined;
     unqueue: QueuedMessage | null;
     mcp_list: McpServer[];
     mcp_save: McpServer[];

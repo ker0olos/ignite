@@ -49,15 +49,17 @@ export function useComposerSend({
     if (!sendable) return;
     record(text);
     setText("");
-    // `/compact` sends no images, files or comments; they wait for the next message.
-    const compact = appCommand("compact", text) !== null;
-    if (!compact) {
+    // `/compact` and `/rename` send no images, files or comments; they wait for the next message.
+    const command =
+      appCommand("compact", text) !== null ||
+      appCommand("rename", text) !== null;
+    if (!command) {
       setImages([]);
       setFiles([]);
     }
     const message = skillPrompt(text, skills);
     void session.send(
-      compact ? message : comments.take(withFiles(message, files)),
+      command ? message : comments.take(withFiles(message, files)),
       images,
       "followUp",
     );
