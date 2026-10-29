@@ -29,7 +29,7 @@ export function BackgroundView({
       <div className="flex h-8 shrink-0 items-center justify-end gap-2 px-3 text-xs text-muted-foreground">
         <span>{backgroundState(shown, pid)}</span>
         {shown?.running && (
-          <Button size="xs" variant="outline" onClick={() => void stop()}>
+          <Button size="xs" variant="destructive" onClick={() => void stop()}>
             Stop
           </Button>
         )}
