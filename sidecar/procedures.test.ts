@@ -14,6 +14,7 @@ import type { Agent, Session } from "./hostTypes.ts";
 import { addMemories, memoryDb } from "./memoryDb.ts";
 import {
   learnsProcedures,
+  lessonsAdded,
   pickedFrom,
   pickFor,
   procedureNote,
@@ -24,13 +25,14 @@ import { memory } from "./testMemory.ts";
 
 const EXITED = "FAIL src/a.test.ts\n\nCommand exited with code 1";
 
-const bash = (text: string, isError = true) =>
+const tool = (toolName: string, text: string, isError = true) =>
   ({
     role: "toolResult",
-    toolName: "bash",
+    toolName,
     isError,
     content: [{ type: "text", text }],
   }) as unknown as AgentMessage;
+const bash = (text: string, isError = true) => tool("bash", text, isError);
 const script = (status: string, text: string, name = "bash") =>
   ({
     role: "toolResult",
@@ -79,8 +81,50 @@ describe("learnsProcedures", () => {
     expect(learnsProcedures([bash(blocked)])).toBe(false);
   });
 
-  it("leaves a run that added a lesson to the lesson", () => {
-    expect(learnsProcedures([bash(EXITED), lesson])).toBe(false);
+  it("counts a git or gh call that failed with an error, not a refusal or a no", () => {
+    const fatal =
+      "fatal: 'main' is already used by worktree at '/x'\n\nExited with code 128";
+    expect(learnsProcedures([tool("git", fatal)])).toBe(true);
+    expect(
+      learnsProcedures([tool("gh", "error: no remote\n\nExited with code 1")]),
+    ).toBe(true);
+    // `git diff --quiet` with changes, `gh pr view` with no pull request.
+    expect(learnsProcedures([tool("git", "\n\nExited with code 1")])).toBe(
+      false,
+    );
+    expect(
+      learnsProcedures([
+        tool("gh", "no pull requests found for branch x\n\nExited with code 1"),
+      ]),
+    ).toBe(false);
+    expect(learnsProcedures([script("error", fatal, "git")])).toBe(true);
+    expect(learnsProcedures([tool("git", "The user declined.")])).toBe(false);
+    expect(learnsProcedures([tool("git", fatal, false)])).toBe(false);
+    expect(learnsProcedures([tool("read", fatal)])).toBe(false);
+  });
+
+  it("still learns from a run that added a lesson", () => {
+    expect(learnsProcedures([bash(EXITED), lesson])).toBe(true);
+  });
+});
+
+describe("lessonsAdded", () => {
+  it("lists the text of each lesson the run saved", () => {
+    const saved = {
+      role: "assistant",
+      content: [
+        { type: "text", text: "Saving it." },
+        {
+          type: "toolCall",
+          id: "l",
+          name: LESSON_ADD_TOOL,
+          arguments: { text: "Use the git tool" },
+        },
+      ],
+    } as unknown as AgentMessage;
+    expect(lessonsAdded([bash(EXITED), saved, lesson])).toEqual([
+      "Use the git tool",
+    ]);
   });
 });
 
@@ -89,6 +133,13 @@ describe("procedureRule", () => {
     expect(procedureRule([])).not.toContain("already has");
     expect(procedureRule(["Running the tests"])).toContain(
       "already has; record none of them again, even in other words:\n- Running the tests",
+    );
+  });
+
+  it("leaves the failures the run's lessons cover to them", () => {
+    expect(procedureRule([])).not.toContain("saved these lessons");
+    expect(procedureRule([], ["Use the git tool"])).toContain(
+      "record no procedure for a failure one of them covers:\n- Use the git tool",
     );
   });
 });

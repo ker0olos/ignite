@@ -12,6 +12,10 @@ const lacks = (column: string) =>
 /** The SQL for a memory consolidation hasn't retired: retired ones stay for memory_get, out of every list. */
 export const ACTIVE = "retired_at IS NULL";
 
+/** The SQL for a memory with `concept`, one of the app's own (never user text). */
+export const hasConcept = (concept: string, column = "concepts") =>
+  `EXISTS (SELECT 1 FROM json_each(${column}) WHERE value = '${concept}')`;
+
 /** `folder`'s newest memories, newest first; `summaries` picks summaries or observations; `without` leaves out a concept's, `raw` the long-term ones. */
 export function recent(
   db: DatabaseSync,

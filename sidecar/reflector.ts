@@ -17,6 +17,7 @@ import {
 } from "../shared/reflector.ts";
 import type { Session } from "./hostTypes.ts";
 import { runText } from "./memoryWriter.ts";
+import { checked, groundedIn } from "./reflectorCheck.ts";
 import { MAX_EDITS, REFLECT_PROMPT, UNCHANGED } from "./reflectorPrompt.ts";
 import { askCheapest } from "./cheapCall.ts";
 
@@ -135,18 +136,6 @@ const same = (
   was.entry === now.entry &&
   was.when === now.when &&
   was.folder === now.folder;
-
-const plain = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-
-/** Whether `evidence` is the user's own words: found in their feedback, case and punctuation aside. */
-export const groundedIn =
-  (feedback: string[]) =>
-  (evidence: string): boolean =>
-    !!plain(evidence) && plain(feedback.join(" ")).includes(plain(evidence));
 
 type Grounded = (evidence: string) => boolean;
 
@@ -286,10 +275,15 @@ export async function reflect(
     { label: "reflector", timeoutMs: TIMEOUT_MS },
   );
   if (reply === null) return undefined;
-  return parsePoints(
+  const next = parsePoints(
     reply,
     points,
     { at: Date.now(), from },
     groundedIn(feedback),
   );
+  if (!next) return undefined;
+  const kept = await checked(s, next, points, feedback);
+  const same =
+    kept.length === points.length && kept.every((p, i) => p === points[i]);
+  return same ? undefined : kept;
 }

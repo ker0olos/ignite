@@ -19,7 +19,7 @@ import {
   applyOutcome,
   fileKey,
   groups,
-  PROCEDURES_KEY,
+  isFileKey,
   triedKey,
   type Group,
   type Tried,
@@ -102,7 +102,7 @@ async function deletedAt(folder: string, key: string): Promise<number | null> {
 
 /** What a pass over `group` starts from: its raw memories of only its file from before git deleted it, stale with no model call; null when the file isn't in the checkout yet (work still on a branch). */
 async function startOf(folder: string, group: Group) {
-  if (group.key === PROCEDURES_KEY || (await exists(join(folder, group.key))))
+  if (!isFileKey(group.key) || (await exists(join(folder, group.key))))
     return [];
   const gone = await deletedAt(folder, group.key);
   if (gone === null) return null;
@@ -113,9 +113,9 @@ async function startOf(folder: string, group: Group) {
     .map((m) => ({ id: m.id, reason: `its file ${group.key} was deleted` }));
 }
 
-/** What the model weighs `group` against: the file now and its commits since; nothing for the procedures. */
+/** What the model weighs `group` against: the file now and its commits since; nothing for the procedures or a topic. */
 async function evidence(folder: string, group: Group): Promise<string> {
-  if (group.key === PROCEDURES_KEY) return "";
+  if (!isFileKey(group.key)) return "";
   const oldest = Math.min(...group.raw.map((m) => m.createdAt));
   const commits = await commitsSince(folder, group.key, oldest);
   return [
@@ -195,9 +195,11 @@ async function passes(
   let next = ready.next();
   // Most settles have nothing ready: no model lookup for them.
   const found = next.done ? null : await cheapest(s);
-  for (let done = 0; found && !next.done && done < PASSES; done++) {
+  for (let done = 1; found && !next.done; done++) {
     if (!(await pass(s, found.model, db, folder, next.value)))
       tried.set(triedKey(folder, next.value), next.value.newest);
+    // Not one past the last pass: a topic group pulled is looked at again only next time.
+    if (done === PASSES) break;
     next = ready.next();
   }
 }

@@ -58,7 +58,7 @@ export const QUESTION_AWAY_MS = 5 * 60_000;
 /** What the model reads when the user is away: decide alone, with whatever they had answered but not sent. */
 export function awayReply(draft: QuestionAnswer[] = []): string {
   const away =
-    "The user is away: nobody answered these questions in 5 minutes. Decide them yourself and carry on, and say what you chose and why in your final reply. Ask again later only if it still matters.";
+    "Nobody answered these questions in 5 minutes: the user may be away or busy in another conversation. Decide them yourself and carry on with what stays on this computer and can be undone. Leave anything others would see (creating or changing tickets, comments, messages, pushes, pull requests, production data) until they're back. In your final reply, say what you chose and why, and list what waits for them. Ask again later only if it still matters.";
   const said = draft.filter((a) => a.choices.length || a.note);
   if (!said.length) return away;
   return `${away}\n\nWhat they had answered before leaving, without sending it:\n\n${replyText(true, said)}`;

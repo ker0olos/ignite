@@ -14,6 +14,7 @@ import { write } from "./memoryWriter.ts";
 import { learningOn } from "./learningSettings.ts";
 import {
   learnsProcedures,
+  lessonsAdded,
   LISTED,
   procedureRule,
   procedureTitle,
@@ -57,6 +58,7 @@ export async function rememberRun(agent: Agent, db?: DatabaseSync) {
           withConcept(store, agent.cwd, PROCEDURE, LISTED).map((m) =>
             procedureTitle(m.title),
           ),
+          lessonsAdded(run),
         )
       : undefined;
   const written = await write(s, run, recorded, path, SKIP, {

@@ -1,16 +1,17 @@
-/** Which of a folder's memories consolidation takes next (a file's, or the procedures'), and writing what came of them. */
+/** Which of a folder's memories consolidation takes next (a file's, the procedures', or a topic's), and writing what came of them. */
 import { basename, isAbsolute, posix } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { CONSOLIDATED, PROCEDURE, SUMMARY_TYPE } from "../shared/memory.ts";
 import { APP_NAME } from "../src/lib/app.ts";
+import { addMemory, list, type Memory, type NewMemory } from "./memoryDb.ts";
 import {
-  addMemory,
-  list,
-  toMemory,
-  type Memory,
-  type NewMemory,
-} from "./memoryDb.ts";
-import { ACTIVE } from "./memorySearch.ts";
+  lastPass,
+  lastPasses,
+  memoriesOf,
+  recordPass,
+} from "./memoryPasses.ts";
+import { ACTIVE, hasConcept as has } from "./memorySearch.ts";
+import { topicGroups, TOPICS_KEY } from "./memoryTopics.ts";
 import { worktreeBase } from "./worktreeGit.ts";
 
 /** A group's key for the folder's procedures; any other key is a file's path. */
@@ -53,31 +54,7 @@ export function fileKey(folder: string, path: string): string | null {
   return isAbsolute(path) ? null : inside(path);
 }
 
-const has = (concept: string) =>
-  `EXISTS (SELECT 1 FROM json_each(concepts) WHERE value = '${concept}')`;
 const RAW = `${ACTIVE} AND type <> '${SUMMARY_TYPE}' AND NOT ${has(CONSOLIDATED)}`;
-
-const rows = (db: DatabaseSync, sql: string, ...params: (string | number)[]) =>
-  (db.prepare(sql).all(...params) as Record<string, unknown>[]).map(toMemory);
-
-// By id, not time: cmem's memories are imported later with the time they were recorded.
-const lastId = (db: DatabaseSync, folder: string, key: string) =>
-  (
-    db
-      .prepare(
-        "SELECT last_id FROM consolidations WHERE folder = ? AND key = ?",
-      )
-      .get(folder, key) as { last_id: number } | undefined
-  )?.last_id ?? 0;
-
-const lastIds = (db: DatabaseSync, folder: string) =>
-  new Map(
-    (
-      db
-        .prepare("SELECT key, last_id FROM consolidations WHERE folder = ?")
-        .all(folder) as { key: string; last_id: number }[]
-    ).map((r) => [r.key, r.last_id]),
-  );
 
 const keysOf = (folder: string, files: string[]) =>
   new Set(files.flatMap((p) => fileKey(folder, p) ?? []));
@@ -89,7 +66,7 @@ function pendingFiles(db: DatabaseSync, folder: string, now: number) {
       `SELECT id, files_modified FROM memories WHERE folder = ? AND ${RAW} AND NOT ${has(PROCEDURE)} AND created_at >= ?`,
     )
     .all(folder, now - WINDOW_MS) as { id: number; files_modified: string }[];
-  const since = lastIds(db, folder);
+  const since = lastPasses(db, folder);
   const counts = new Map<string, number>();
   for (const m of recent)
     for (const key of keysOf(folder, list(m.files_modified)))
@@ -122,15 +99,15 @@ const naming = (key: string) => {
 function fileGroup(db: DatabaseSync, folder: string, key: string): Group {
   const { sql, params } = naming(key);
   const names = (m: Memory) => keysOf(folder, m.filesModified).has(key);
-  const raw = rows(
+  const raw = memoriesOf(
     db,
     `SELECT * FROM memories WHERE folder = ? AND ${RAW} AND NOT ${has(PROCEDURE)} AND ${sql}
      AND id > ? ORDER BY id`,
     folder,
     ...params,
-    lastId(db, folder, key),
+    lastPass(db, folder, key),
   ).filter(names);
-  const longTerm = rows(
+  const longTerm = memoriesOf(
     db,
     `SELECT * FROM memories WHERE folder = ? AND ${ACTIVE} AND ${has(CONSOLIDATED)}
      AND NOT ${has(PROCEDURE)} AND ${sql} ORDER BY created_at DESC, id DESC`,
@@ -146,15 +123,15 @@ function fileGroup(db: DatabaseSync, folder: string, key: string): Group {
 }
 
 function procedureGroup(db: DatabaseSync, folder: string): Group | null {
-  const raw = rows(
+  const raw = memoriesOf(
     db,
     `SELECT * FROM memories WHERE folder = ? AND ${RAW} AND ${has(PROCEDURE)}
      AND id > ? ORDER BY id`,
     folder,
-    lastId(db, folder, PROCEDURES_KEY),
+    lastPass(db, folder, PROCEDURES_KEY),
   );
   if (raw.length < PENDING.procedures) return null;
-  const longTerm = rows(
+  const longTerm = memoriesOf(
     db,
     `SELECT * FROM memories WHERE folder = ? AND ${ACTIVE} AND ${has(CONSOLIDATED)}
      AND ${has(PROCEDURE)} ORDER BY created_at DESC, id DESC LIMIT 10`,
@@ -177,20 +154,52 @@ export type Tried = Map<string, number>;
 const wasTried = (skip: Tried, folder: string, g: Group) =>
   skip.get(triedKey(folder, g)) === g.newest;
 
-/** `folder`'s groups ready to consolidate: the procedures first (unless `procedures` is off), then files with the most pending; `skip` leaves out ones tried already that haven't grown. */
+/** Whether `key` names a file, not the procedures or a topic. */
+export const isFileKey = (key: string) =>
+  key !== PROCEDURES_KEY && key !== TOPICS_KEY;
+
+function* fileGroups(
+  db: DatabaseSync,
+  folder: string,
+  skip: Tried,
+  now: number,
+) {
+  for (const key of pendingFiles(db, folder, now)) {
+    const g = fileGroup(db, folder, key);
+    if (g.raw.length && !wasTried(skip, folder, g)) yield g;
+  }
+}
+
+function* alternate<T>(...iterators: Iterator<T>[]) {
+  const live = [...iterators];
+  while (live.length) {
+    const it = live.shift()!;
+    const next = it.next();
+    if (next.done) continue;
+    yield next.value;
+    live.push(it);
+  }
+}
+
+/** `folder`'s groups ready to consolidate: the procedures first (unless `procedures` is off), then files with the most pending taking turns with topics of memories with no file; `skip` leaves out ones tried already that haven't grown. */
 export function* groups(
   db: DatabaseSync,
   folder: string,
   options: { skip?: Tried; procedures?: boolean; now?: number } = {},
 ): Generator<Group> {
   const skip = options.skip ?? new Map<string, number>();
+  const now = options.now ?? Date.now();
   const procedures =
     options.procedures === false ? null : procedureGroup(db, folder);
   if (procedures && !wasTried(skip, folder, procedures)) yield procedures;
-  for (const key of pendingFiles(db, folder, options.now ?? Date.now())) {
-    const g = fileGroup(db, folder, key);
-    if (g.raw.length && !wasTried(skip, folder, g)) yield g;
-  }
+  yield* alternate(
+    fileGroups(db, folder, skip, now),
+    topicGroups(db, folder, {
+      since: now - WINDOW_MS,
+      skip: (g) => wasTried(skip, folder, g),
+      now,
+    }),
+  );
 }
 
 /** A long-term memory to write, with the group members it replaces. */
@@ -241,13 +250,10 @@ export function applyOutcome(
   const last = Math.max(...group.raw.map((m) => m.id));
   db.exec("BEGIN IMMEDIATE");
   try {
-    const taken = lastId(db, folder, group.key) >= last;
+    const taken = lastPass(db, folder, group.key) >= last;
     if (!taken) {
       write(db, outcome, now);
-      db.prepare(
-        `INSERT INTO consolidations (folder, key, last_id, at) VALUES (?, ?, ?, ?)
-         ON CONFLICT (folder, key) DO UPDATE SET last_id = excluded.last_id, at = excluded.at`,
-      ).run(folder, group.key, last, now);
+      recordPass(db, folder, group.key, last, now);
     }
     db.exec("COMMIT");
     return !taken;

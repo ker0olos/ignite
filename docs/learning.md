@@ -122,15 +122,16 @@ flowchart LR
   every run, feedback or not. Neither lessons nor reflector points hold project
   facts.
 - **How to get past a failed command** (a setup step, a command's right flags)
-  is a procedure, recorded with memory only when a command in the run exited
-  non-zero (never a block, the sandbox's included, a denial or a model's own
-  judgement) and no lesson was added, since a mistake the user corrected is a
-  lesson's. The writer sees the folder's procedures, so it doesn't record one
-  twice. While a new conversation's first message is sent, never held up, the
+  is a procedure, recorded with memory only when a command in the run (bash,
+  git or gh) exited non-zero (never a block, the sandbox's included, a denial,
+  a refusal or a model's own judgement). The writer sees the folder's
+  procedures, so it doesn't record one twice, and the lessons the run saved,
+  since a mistake the user corrected is a lesson's. While a new conversation's first message is sent, never held up, the
   cheapest model picks the ones it needs, usually none; they join its run once
   it has started, offered, never enforced.
-- **A pile of memories** about one file (or the procedures) is consolidated
-  after a run once enough are new: merged into long-term memories, judged
+- **A pile of memories** about one file (or the procedures, or one topic of
+  memories that name no file, found by their titles) is consolidated after a
+  run once enough are new: merged into long-term memories, judged
   against the file now and its commits, the merged and the provably false ones
   retired, never deleted. Long-term memories lead the recalled index.
 - Lesson calls are kept out of memory, and declined lesson changes out of the
