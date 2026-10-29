@@ -107,12 +107,13 @@ export default function App() {
           key={current}
           folder={current}
           folders={shownFolders}
-          {...{ settings, setSettings, menu, rows, session }}
+          {...{ settings, setSettings, menu, rows, session, host }}
           tags={list.tags}
           tagFilter={list.tagFilter}
           onToggleTagFilter={list.toggleTagFilter}
           onClearTagFilter={list.clearTagFilter}
           onSetConversationTags={list.setConversationTags}
+          onMoveConversation={list.move}
           {...{
             home,
             command,
@@ -122,7 +123,6 @@ export default function App() {
             openSettings,
           }}
           {...conversationTabs}
-          host={host}
           about={dialog.about}
         />
       ) : (

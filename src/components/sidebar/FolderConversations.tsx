@@ -5,6 +5,7 @@ import { ConversationForks } from "@/components/sidebar/ConversationForks";
 import { ConversationRow } from "@/components/sidebar/ConversationRow";
 import type { ChildActions } from "@/components/sidebar/FolderList";
 import type { Conversations } from "@/hooks/useConversations";
+import type { ConversationDragState } from "@/hooks/useConversationDrag";
 import { FolderTerminals } from "@/components/sidebar/FolderTerminals";
 import { terminalsByOwner } from "@/lib/childTabs";
 import {
@@ -28,6 +29,7 @@ export function FolderConversations({
   max,
   limited,
   onToggle,
+  drag,
 }: {
   cwd: string;
   rows: TaggedAgentStatus[];
@@ -44,6 +46,7 @@ export function FolderConversations({
   max: number;
   limited: boolean;
   onToggle: () => void;
+  drag: ConversationDragState;
 }) {
   const sessions = rows.map((r) => r.session);
   const visible = visibleRows(rows, shown, limited && !expanded, max);
@@ -88,6 +91,7 @@ export function FolderConversations({
             }
             allTags={tags}
             onSetTags={(next) => onSetTags(agent.session, next)}
+            drag={drag.row(cwd, agent.session)}
           />
           <ConversationForks
             agent={agent}

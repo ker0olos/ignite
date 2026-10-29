@@ -4,6 +4,8 @@ import { ConversationTagMenu } from "@/components/sidebar/ConversationTagMenu";
 import { TagChip } from "@/components/sidebar/TagChip";
 import { conversationTitle, type TaggedAgentStatus } from "@/lib/conversations";
 import { RowShortcut } from "@/components/sidebar/RowShortcut";
+import { DropLine } from "@/components/sidebar/DropLine";
+import type { RowDrag } from "@/hooks/useConversationDrag";
 import { cn } from "@/lib/utils";
 
 const ROW_TAGS = 2;
@@ -20,6 +22,7 @@ export function ConversationRow({
   onShow,
   onClose,
   onSetTags,
+  drag,
 }: {
   agent: TaggedAgentStatus;
   /** Every tag in use, offered as suggestions. */
@@ -30,6 +33,8 @@ export function ConversationRow({
   onShow: () => void;
   onClose: () => void;
   onSetTags: (tags: string[]) => void;
+  /** Dragging it to reorder its folder's conversations. */
+  drag: RowDrag;
 }) {
   const title = conversationTitle(agent);
   const tags = agent.tags ?? [];
@@ -39,15 +44,20 @@ export function ConversationRow({
 
   return (
     <div
+      data-conversation={agent.session}
+      data-folder={drag.folder}
       className={cn(
         "group relative flex min-h-7 items-center rounded-md",
         selected
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "hover:bg-sidebar-accent/50",
+        drag.dragging && "opacity-50",
       )}
     >
+      <DropLine edge={drag.edge} />
       <button
         onClick={onShow}
+        onPointerDown={drag.onPointerDown}
         aria-current={selected || undefined}
         className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-[13px]"
       >

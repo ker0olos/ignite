@@ -58,6 +58,7 @@ src/                     React frontend (almost all logic lives here)
     useDrop.ts           Drag-and-drop onto the window: folders open, images and other files attach to the composer
     useTabs.ts           Open file tabs, beside the conversation or docked under it, kept per conversation (⌘W closes one)
     useTabDrag.ts        Dragging a tab by pointer: reorders it, or moves it to the other dock
+    useConversationDrag.ts Dragging a sidebar conversation by pointer: reorders its folder's (kept in state.json)
     useConversationTabs.ts The shown conversation's tabs and the terminals: opening one (⌘P from its worktree),
                          dropping a closed conversation's, keeping the first message's with the conversation it starts
     useEditorOverlay.ts  The editor pane dragged past the conversation's minimum: drawn over it and the sidebar
