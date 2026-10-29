@@ -13,6 +13,7 @@ vi.mock("./waitingCalls.ts", () => ({
 vi.mock("./hostProjects.ts", () => ({ pushProjects: vi.fn() }));
 
 const MIN = 60_000;
+const TIME = APPROVAL_AWAY.afterMs;
 const AWAY = APPROVAL_AWAY.reason();
 
 function setup() {
@@ -48,7 +49,7 @@ describe("the away timer", () => {
   it("denies the first waiting call once its time is up, saying the user is away", () => {
     const { agent, ask } = setup();
     const answer = ask("t1");
-    vi.advanceTimersByTime(2 * MIN - 1);
+    vi.advanceTimersByTime(TIME - 1);
     expect(answer).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(answer).toHaveBeenCalledWith(false, undefined, undefined, AWAY);
@@ -63,7 +64,7 @@ describe("the away timer", () => {
     vi.advanceTimersByTime(30_000);
     reply("t1");
     expect(first).toHaveBeenCalledWith(true, undefined, undefined);
-    vi.advanceTimersByTime(2 * MIN - 1);
+    vi.advanceTimersByTime(TIME - 1);
     expect(second).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(second).toHaveBeenCalledWith(false, undefined, undefined, AWAY);
@@ -104,7 +105,7 @@ describe("the away timer", () => {
     const { ctx, ask } = setup();
     for (let i = 0; i < AWAY_STRIKES; i++) {
       ask(`t${i}`);
-      vi.advanceTimersByTime(2 * MIN);
+      vi.advanceTimersByTime(TIME);
     }
     const next = ask("next");
     vi.advanceTimersByTime(0);
@@ -115,7 +116,7 @@ describe("the away timer", () => {
     vi.advanceTimersByTime(0);
     expect(waiting).toHaveBeenCalledOnce();
     const later = ask("later");
-    vi.advanceTimersByTime(2 * MIN - 1);
+    vi.advanceTimersByTime(TIME - 1);
     expect(later).not.toHaveBeenCalled();
   });
 
@@ -123,12 +124,12 @@ describe("the away timer", () => {
     const { ctx, ask } = setup();
     (ctx as { shown: string | null }).shown = "s1";
     const answer = ask("t1");
-    vi.advanceTimersByTime(2 * MIN - 1);
+    vi.advanceTimersByTime(TIME - 1);
     answered(ctx, { type: "user_active" });
-    vi.advanceTimersByTime(2 * MIN - 1);
+    vi.advanceTimersByTime(TIME - 1);
     // Typing an answer counts too.
     answered(ctx, { type: "question_draft", toolCallId: "t1", answers: [] });
-    vi.advanceTimersByTime(2 * MIN - 1);
+    vi.advanceTimersByTime(TIME - 1);
     expect(answer).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(answer).toHaveBeenCalledOnce();
@@ -147,7 +148,7 @@ describe("the away timer", () => {
       });
       run.abort();
       expect(agent.approvals.size).toBe(0);
-      vi.advanceTimersByTime(2 * MIN);
+      vi.advanceTimersByTime(TIME);
       expect(answer).not.toHaveBeenCalled();
     }
     const next = vi.fn();
@@ -164,12 +165,12 @@ describe("the away timer", () => {
     const { ask, reply } = setup();
     for (let i = 0; i < AWAY_STRIKES - 1; i++) {
       ask(`t${i}`);
-      vi.advanceTimersByTime(2 * MIN);
+      vi.advanceTimersByTime(TIME);
     }
     ask("answered");
     reply("answered", false);
     ask("t9");
-    vi.advanceTimersByTime(2 * MIN);
+    vi.advanceTimersByTime(TIME);
     const next = ask("next");
     vi.advanceTimersByTime(MIN);
     expect(next).not.toHaveBeenCalled();
@@ -184,7 +185,7 @@ describe("the away timer", () => {
       answer: vi.fn(),
     };
     agent.approvals.set("t1", again);
-    vi.advanceTimersByTime(2 * MIN);
+    vi.advanceTimersByTime(TIME);
     expect(answer).not.toHaveBeenCalled();
     expect(again.answer).not.toHaveBeenCalled();
   });

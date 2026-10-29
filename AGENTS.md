@@ -719,7 +719,7 @@ answered as the user being away: an `ask_user` question after 5 minutes (the
 agent decides alone, told what the user had picked or noted without sending it,
 which the composer sends as `question_draft`), and in Auto an approval (a
 denylisted command, a path outside the folder, an MCP call, running outside the
-sandbox) after 2 minutes, denied with a reason telling the agent to carry on
+sandbox) after 5 minutes, denied with a reason telling the agent to carry on
 without it (`AWAY_DENIED`; its row says "Denied while you were away"). Manual's prompts, git and gh reviews, `task_add` and lesson changes
 wait forever, and so do the calls behind them. After 3 timed out in a row, later
 ones are answered at once until the user is back: they answer one, send a

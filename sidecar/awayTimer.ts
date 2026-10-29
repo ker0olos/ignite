@@ -6,9 +6,9 @@ import type { Agent } from "./hostTypes.ts";
 /** Unanswered calls in a row after which the next ones don't wait. */
 export const AWAY_STRIKES = 3;
 
-/** In Auto, an approval nobody answers is denied after 2 minutes. */
+/** In Auto, an approval nobody answers is denied after 5 minutes. */
 export const APPROVAL_AWAY: Away = {
-  afterMs: 2 * 60_000,
+  afterMs: 5 * 60_000,
   reason: () => AWAY_DENIED,
 };
 
