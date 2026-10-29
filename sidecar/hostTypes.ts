@@ -192,8 +192,10 @@ export type Agent = {
   cwd: string;
   /** Where it works: its own worktree, or `cwd` when the folder isn't in git. */
   workdir: string;
-  /** Its first user message, which names it in the sidebar. */
+  /** Its name in the sidebar: the model's title or `/rename`'s, else its first user message. */
   title: string;
+  /** No title saved yet, so the model titles it as a run settles (hostTitle.ts). */
+  untitled?: boolean;
   /** Null while it opens. */
   session: Session | null;
   opening: Promise<Session>;

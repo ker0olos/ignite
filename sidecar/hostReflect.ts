@@ -107,8 +107,8 @@ function answersOf(messages: AgentMessage[], m: ToolResultMessage): string[] {
     );
 }
 
-// Messages the app sends as the user's: a task's wrap-up and a fork's report.
-const fromApp = (text: string) => text === WRAP_UP || isForkReport(text);
+/** Whether a user message's text is one the app sends as theirs: a task's wrap-up or a fork's report. */
+export const fromApp = (text: string) => text === WRAP_UP || isForkReport(text);
 
 // What the user typed in message `m`, private text hidden; "" for what the app sends as theirs.
 function typedIn(m: AgentMessage) {

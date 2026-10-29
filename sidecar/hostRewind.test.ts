@@ -65,7 +65,7 @@ function setup(workdir = repo, branch = [message("u1", "user")]) {
       async () => ({ cancelled: false }),
     ),
     setSessionName: vi.fn(),
-    sessionManager: { getBranch: () => branch },
+    sessionManager: { getBranch: () => branch, getEntries: () => [] },
   };
   const agent = {
     id: "s1",

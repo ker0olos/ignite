@@ -37,6 +37,13 @@ const COMMANDS: SkillInfo[] = [
     argumentHint: "[first message]",
     argumentDescriptions: ["What the fork works on first"],
   },
+  {
+    name: "rename",
+    description:
+      "Rename this conversation; without a name, it's titled afresh from the conversation",
+    argumentHint: "[name]",
+    argumentDescriptions: ["The conversation's new name"],
+  },
 ];
 
 /** `skills` but those the app's commands shadow. */
@@ -169,7 +176,7 @@ export function skillPrompt(text: string, skills: SkillInfo[]) {
 
 /** The text after the app's `/name` command ("" for none), or null when `text` isn't that command. */
 export function appCommand(
-  name: "compact" | "fork",
+  name: "compact" | "fork" | "rename",
   text: string,
 ): string | null {
   const m = new RegExp(`^/${name}(?:\\s+([\\s\\S]*))?$`).exec(text.trim());
