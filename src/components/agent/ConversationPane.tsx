@@ -1,4 +1,5 @@
 import { memo, useMemo, useRef } from "react";
+import { ScrollToBottom } from "@/components/agent/ScrollToBottom";
 import { Conversation } from "@/components/conversation/Conversation";
 import {
   AskingStepContext,
@@ -66,7 +67,7 @@ export const ConversationPane = memo(function ConversationPane({
   const contentRef = useRef<HTMLDivElement>(null);
   // Here, not in Conversation: <main>'s ref is attached only after its children's layout effects.
   const items = shownItems(transcript);
-  useStickToBottom(ref, contentRef, items.at(-1), shown);
+  const stuck = useStickToBottom(ref, contentRef, items.at(-1), shown);
   const running = !!transcript.running;
   const disabled = !canRewind(transcript, waitingOnFork);
   const edit = useMemo(
@@ -74,45 +75,57 @@ export const ConversationPane = memo(function ConversationPane({
     [rewind, disabled],
   );
   return (
-    <main
-      ref={ref}
-      inert={!shown}
-      className={cn(
-        // useStickToBottom keeps the place; the browser's anchoring would move it on a resize.
-        "absolute inset-0 overscroll-contain overflow-y-auto [overflow-anchor:none]",
-        !shown && "invisible",
+    <>
+      <main
+        ref={ref}
+        inert={!shown}
+        className={cn(
+          // useStickToBottom keeps the place; the browser's anchoring would move it on a resize.
+          "absolute inset-0 overscroll-contain overflow-y-auto [overflow-anchor:none]",
+          !shown && "invisible",
+        )}
+      >
+        <ConversationIdContext.Provider value={session}>
+          <SkipWaitContext.Provider value={skipWait}>
+            <ContinueContext.Provider
+              value={running ? null : () => void send("Continue")}
+            >
+              <RunningContext.Provider value={running}>
+                <AskingStepContext.Provider value={askingStep}>
+                  <MessageEditContext.Provider value={edit ?? null}>
+                    <Conversation
+                      transcript={transcript}
+                      items={items}
+                      folder={folder}
+                      shown={shown}
+                      editor={editor}
+                      codeThemes={codeThemes}
+                      showThinking={showThinking}
+                      stickyUserMessages={stickyUserMessages}
+                      scrollRef={ref}
+                      contentRef={contentRef}
+                      waiting={waiting}
+                      onApprove={onApprove}
+                      waitingOnFork={waitingOnFork}
+                      stopForkWait={waitingOnFork ? stopForkWait : undefined}
+                    />
+                  </MessageEditContext.Provider>
+                </AskingStepContext.Provider>
+              </RunningContext.Provider>
+            </ContinueContext.Provider>
+          </SkipWaitContext.Provider>
+        </ConversationIdContext.Provider>
+      </main>
+      {shown && (
+        <ScrollToBottom
+          scrollRef={ref}
+          contentRef={contentRef}
+          onClick={() => {
+            stuck.current = true;
+            ref.current?.scrollTo({ top: ref.current.scrollHeight });
+          }}
+        />
       )}
-    >
-      <ConversationIdContext.Provider value={session}>
-        <SkipWaitContext.Provider value={skipWait}>
-          <ContinueContext.Provider
-            value={running ? null : () => void send("Continue")}
-          >
-            <RunningContext.Provider value={running}>
-              <AskingStepContext.Provider value={askingStep}>
-                <MessageEditContext.Provider value={edit ?? null}>
-                  <Conversation
-                    transcript={transcript}
-                    items={items}
-                    folder={folder}
-                    shown={shown}
-                    editor={editor}
-                    codeThemes={codeThemes}
-                    showThinking={showThinking}
-                    stickyUserMessages={stickyUserMessages}
-                    scrollRef={ref}
-                    contentRef={contentRef}
-                    waiting={waiting}
-                    onApprove={onApprove}
-                    waitingOnFork={waitingOnFork}
-                    stopForkWait={waitingOnFork ? stopForkWait : undefined}
-                  />
-                </MessageEditContext.Provider>
-              </AskingStepContext.Provider>
-            </RunningContext.Provider>
-          </ContinueContext.Provider>
-        </SkipWaitContext.Provider>
-      </ConversationIdContext.Provider>
-    </main>
+    </>
   );
 });
