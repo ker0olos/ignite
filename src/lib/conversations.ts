@@ -59,6 +59,23 @@ export function without(listed: Listed, cwd: string, session: string): Listed {
   return rows.length ? { ...rest, [cwd]: rows } : rest;
 }
 
+/** Moves `session` just before or after `target` in its folder's list. */
+export function moved(
+  listed: Listed,
+  cwd: string,
+  session: string,
+  target: string,
+  after: boolean,
+): Listed {
+  const rows = listed[cwd] ?? [];
+  const row = rows.find((r) => r.session === session);
+  const rest = rows.filter((r) => r !== row);
+  const i = rest.findIndex((r) => r.session === target);
+  if (!row || i === -1) return listed;
+  rest.splice(after ? i + 1 : i, 0, row);
+  return { ...listed, [cwd]: rest };
+}
+
 /** A folder's listed conversations with what they're doing; one not running is idle. */
 export function rowsOf(
   listed: Listed,
@@ -110,6 +127,10 @@ export function orderedRows(
 ): AgentStatus[] {
   return order === "newest_first" ? [...rows].reverse() : rows;
 }
+
+/** Whether a drop after a row, as `orderedRows` shows them, lands after it in the folder's list. */
+export const listedAfter = (after: boolean, order: ConversationOrder) =>
+  after !== (order === "newest_first");
 
 /** A folder's rows the sidebar shows: past `max` only the shown one, while collapsed. */
 export function visibleRows<R extends AgentStatus>(

@@ -15,7 +15,7 @@ import type { useTabs } from "@/hooks/useTabs";
 import type { useTerminalTabs } from "@/hooks/useTerminalTabs";
 import { childTabId } from "@/lib/childTabs";
 import { codeThemesFor } from "@/lib/codeThemes";
-import type { TaggedAgentStatus } from "@/lib/conversations";
+import { listedAfter, type TaggedAgentStatus } from "@/lib/conversations";
 import { needingSignIn } from "@/lib/mcpServers";
 import { basename } from "@/lib/paths";
 import type { HostClient } from "@/lib/piHost";
@@ -37,6 +37,13 @@ type AppWorkspaceProps = {
   onToggleTagFilter: (tag: string) => void;
   onClearTagFilter: () => void;
   onSetConversationTags: (session: string, tags: string[]) => void;
+  /** Moves a conversation just before or after another of its folder's list. */
+  onMoveConversation: (
+    cwd: string,
+    session: string,
+    target: string,
+    after: boolean,
+  ) => void;
   session: ReturnType<typeof useAgentSession>;
   conversations: Conversations;
   home: string;
@@ -83,6 +90,7 @@ export function AppWorkspace({
   onToggleTagFilter,
   onClearTagFilter,
   onSetConversationTags,
+  onMoveConversation,
   about,
 }: AppWorkspaceProps) {
   return (
@@ -118,6 +126,13 @@ export function AppWorkspace({
         onToggleTagFilter,
         onClearTagFilter,
         onSetConversationTags,
+        onMoveConversation: (cwd, session, { target, after }) =>
+          onMoveConversation(
+            cwd,
+            session,
+            target,
+            listedAfter(after, settings.sidebar.conversation_order),
+          ),
         childActions: {
           shownTabs: [tabs.side.active, tabs.bottom.active].filter(
             (t) => t !== null,

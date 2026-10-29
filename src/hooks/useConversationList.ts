@@ -5,6 +5,7 @@ import type { HostClient } from "@/lib/piHost";
 import { DEMO_FOLDER } from "@/lib/demo";
 import {
   allTags,
+  moved,
   rowsOf,
   withFirstMessage,
   withRunning,
@@ -87,6 +88,12 @@ export function useConversationList(
     setListed((l) => without(l, cwd, session));
   }, []);
 
+  const move = useCallback(
+    (cwd: string, session: string, target: string, after: boolean) =>
+      setListed((l) => moved(l, cwd, session, target, after)),
+    [],
+  );
+
   return {
     /** The folder's listed conversations, in order, with what each is doing. */
     rows: (cwd: string) =>
@@ -108,5 +115,7 @@ export function useConversationList(
     setConversationTags: tags.setTags,
     /** Takes a closed conversation off its folder's list. */
     forget,
+    /** Moves a conversation just before or after another of its folder's. */
+    move,
   };
 }

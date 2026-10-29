@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   conversationTitle,
+  listedAfter,
+  moved,
   orderedRows,
   replyNote,
   rowsOf,
@@ -68,6 +70,29 @@ describe("without", () => {
       "/b": [{ session: "3", title: "" }],
     });
     expect(without(listed, "/b", "3")).toEqual({ "/a": listed["/a"] });
+  });
+});
+
+describe("moved", () => {
+  const listed: Listed = {
+    "/a": ["1", "2", "3"].map((session) => ({ session, title: "" })),
+  };
+  const order = (l: Listed) => l["/a"].map((r) => r.session);
+
+  it("moves a conversation before or after another", () => {
+    expect(order(moved(listed, "/a", "3", "1", false))).toEqual([
+      "3",
+      "1",
+      "2",
+    ]);
+    expect(order(moved(listed, "/a", "1", "2", true))).toEqual(["2", "1", "3"]);
+  });
+
+  it("leaves the list when either isn't in the folder, or it's dropped on itself", () => {
+    expect(moved(listed, "/a", "9", "1", false)).toBe(listed);
+    expect(moved(listed, "/a", "1", "9", false)).toBe(listed);
+    expect(moved(listed, "/b", "1", "2", false)).toBe(listed);
+    expect(moved(listed, "/a", "1", "1", false)).toBe(listed);
   });
 });
 
@@ -161,6 +186,14 @@ describe("orderedRows", () => {
       "1",
     ]);
     expect(rows.map((r) => r.session)).toEqual(["1", "2"]);
+  });
+});
+
+describe("listedAfter", () => {
+  it("flips the side when the rows show newest first", () => {
+    expect(listedAfter(true, "oldest_first")).toBe(true);
+    expect(listedAfter(true, "newest_first")).toBe(false);
+    expect(listedAfter(false, "newest_first")).toBe(true);
   });
 });
 

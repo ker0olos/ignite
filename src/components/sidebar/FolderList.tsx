@@ -4,6 +4,10 @@ import { ConversationTagFilter } from "@/components/sidebar/ConversationTagFilte
 import { FolderConversations } from "@/components/sidebar/FolderConversations";
 import type { Conversations } from "@/hooks/useConversations";
 import { useConversationShortcuts } from "@/hooks/useConversationShortcuts";
+import {
+  useConversationDrag,
+  type ConversationDrop,
+} from "@/hooks/useConversationDrag";
 import { visibleRows, type TaggedAgentStatus } from "@/lib/conversations";
 import { sortedByName } from "@/lib/paths";
 import type { TerminalLabel } from "@/lib/childTabs";
@@ -43,6 +47,12 @@ export type ProjectListProps = {
   onToggleTagFilter?: (tag: string) => void;
   onClearTagFilter?: () => void;
   onSetConversationTags?: (session: string, tags: string[]) => void;
+  /** Moves a conversation where it was dropped among its folder's. */
+  onMoveConversation?: (
+    cwd: string,
+    session: string,
+    drop: ConversationDrop,
+  ) => void;
   /** The shown folder's shown conversation. */
   shown: string | null;
   conversations: Conversations;
@@ -76,6 +86,7 @@ export function FolderList({
   onToggleTagFilter = () => {},
   onClearTagFilter = () => {},
   onSetConversationTags = () => {},
+  onMoveConversation = () => {},
 }: {
   folder: string;
   folders: string[];
@@ -92,7 +103,9 @@ export function FolderList({
   onToggleTagFilter?: (tag: string) => void;
   onClearTagFilter?: () => void;
   onSetConversationTags?: (session: string, tags: string[]) => void;
+  onMoveConversation?: ProjectListProps["onMoveConversation"];
 }) {
+  const drag = useConversationDrag(onMoveConversation);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (path: string) =>
     setExpanded((open) => ({ ...open, [path]: !open[path] }));
@@ -145,6 +158,7 @@ export function FolderList({
             max={conversationLimit.max}
             limited={conversationLimit.enabled}
             onToggle={() => toggle(path)}
+            drag={drag}
           />
         </Fragment>
       ))}
