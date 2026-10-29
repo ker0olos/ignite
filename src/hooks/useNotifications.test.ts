@@ -12,13 +12,15 @@ vi.mock("@tauri-apps/plugin-notification", () => plugin);
 
 import { useNotifications } from "./useNotifications";
 
-const agent = (running: boolean): AgentStatus => ({
+const agent = (running: boolean, waiting = false): AgentStatus => ({
   cwd: "/a",
   session: "1",
   title: "Fix it",
   running,
-  waiting: false,
+  waiting,
 });
+
+const show = vi.fn();
 
 function setup(enabled = true, focused = false, sound = false) {
   vi.spyOn(document, "hasFocus").mockReturnValue(focused);
@@ -30,7 +32,7 @@ function setup(enabled = true, focused = false, sound = false) {
     },
   } as unknown as HostClient;
   const settings = { enabled, sound };
-  renderHook(() => useNotifications(host, settings, true));
+  renderHook(() => useNotifications(host, settings, show, true));
   return (agents: AgentStatus[]) =>
     act(() => listeners.forEach((cb) => cb({ type: "agents", agents })));
 }
@@ -91,5 +93,37 @@ describe("useNotifications", () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(plugin.requestPermission).toHaveBeenCalledTimes(1);
     expect(plugin.sendNotification).not.toHaveBeenCalled();
+  });
+
+  it("shows the notified conversation on the next focus, a waiting one first", async () => {
+    const push = setup();
+    push([agent(true), { ...agent(true), session: "2" }]);
+    push([agent(false, true), { ...agent(false), session: "2" }]);
+    await waitFor(() =>
+      expect(plugin.sendNotification).toHaveBeenCalledTimes(2),
+    );
+    window.dispatchEvent(new Event("focus"));
+    window.dispatchEvent(new Event("focus"));
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(show).toHaveBeenCalledWith("/a", "1");
+  });
+
+  it("drops the target once its conversation stops waiting, or after 10 minutes", async () => {
+    const push = setup();
+    push([agent(true)]);
+    push([agent(false, true)]);
+    await waitFor(() => expect(plugin.sendNotification).toHaveBeenCalled());
+    push([agent(true)]);
+    window.dispatchEvent(new Event("focus"));
+    expect(show).not.toHaveBeenCalled();
+
+    push([agent(false, true)]);
+    await waitFor(() =>
+      expect(plugin.sendNotification).toHaveBeenCalledTimes(2),
+    );
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 10 * 60_000);
+    window.dispatchEvent(new Event("focus"));
+    expect(show).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 });

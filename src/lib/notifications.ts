@@ -1,7 +1,13 @@
 import type { AgentStatus } from "../../shared/hostProtocol";
 import { basename } from "@/lib/paths";
 
-type Notice = { session: string; title: string; body: string };
+type Notice = {
+  session: string;
+  cwd: string;
+  waiting: boolean;
+  title: string;
+  body: string;
+};
 
 const waitingBody = (a: AgentStatus) =>
   a.review?.review?.pr ? "Pull request ready for review" : "Waiting for you";
@@ -26,6 +32,18 @@ export function notices(before: AgentStatus[], after: AgentStatus[]): Notice[] {
     const body = bodyOf(a, was.get(a.session));
     if (!body) return [];
     const title = `${a.title || "Conversation"} · ${basename(a.cwd)}`;
-    return [{ session: a.session, title, body }];
+    return [
+      { session: a.session, cwd: a.cwd, waiting: a.waiting, title, body },
+    ];
   });
+}
+
+/** Whether a notified conversation is still open and still waiting, or still finished, as its notice said. */
+export function stillAsNotified(
+  notice: { session: string; waiting: boolean },
+  agents: AgentStatus[],
+) {
+  const a = agents.find((x) => x.session === notice.session);
+  if (!a) return false;
+  return notice.waiting ? a.waiting : !a.running && !a.waiting;
 }
