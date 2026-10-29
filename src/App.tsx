@@ -46,7 +46,6 @@ export default function App() {
   const { host } = providers;
   const connectScreen = useConnectScreen(providers.statuses);
   const remote = useRemoteAccess(host, settings.remote);
-  useNotifications(host, settings.notifications);
   const agent = useAgentSession(host, current, providers.statuses);
   const session = shownSession(agent, providers.hostError);
   const mcp = useMcpServers(host, current);
@@ -56,6 +55,7 @@ export default function App() {
     dismiss: dismissFolder,
     forget: list.forget,
   });
+  useNotifications(host, settings.notifications, shownConversations.show);
   const conversationTabs = useConversationTabs(
     host,
     current,

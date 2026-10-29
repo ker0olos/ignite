@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentStatus } from "../../shared/hostProtocol";
-import { chime, notices } from "./notifications";
+import { chime, notices, stillAsNotified } from "./notifications";
 
 const agent = (over: Partial<AgentStatus> = {}): AgentStatus => ({
   cwd: "/work/app",
@@ -16,7 +16,13 @@ describe("notices", () => {
     expect(
       notices([agent({ running: true })], [agent({ waiting: true })]),
     ).toEqual([
-      { session: "s1", title: "Fix bug · app", body: "Waiting for you" },
+      {
+        session: "s1",
+        cwd: "/work/app",
+        waiting: true,
+        title: "Fix bug · app",
+        body: "Waiting for you",
+      },
     ]);
   });
 
@@ -83,5 +89,21 @@ describe("chime", () => {
   it("is a macOS system sound on the Mac, else the freedesktop one", () => {
     expect(chime(true)).toBe("Glass");
     expect(chime(false)).toBe("message-new-instant");
+  });
+});
+
+describe("stillAsNotified", () => {
+  const waiting = { session: "s1", waiting: true };
+  const finished = { session: "s1", waiting: false };
+
+  it("holds while the conversation is open and as notified", () => {
+    expect(stillAsNotified(waiting, [agent({ waiting: true })])).toBe(true);
+    expect(stillAsNotified(finished, [agent()])).toBe(true);
+  });
+
+  it("fails once it's closed, answered, or running again", () => {
+    expect(stillAsNotified(waiting, [])).toBe(false);
+    expect(stillAsNotified(waiting, [agent({ running: true })])).toBe(false);
+    expect(stillAsNotified(finished, [agent({ running: true })])).toBe(false);
   });
 });

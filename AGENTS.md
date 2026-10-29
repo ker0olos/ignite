@@ -638,7 +638,10 @@ Two places hold persisted data:
   sends a system notification when a conversation finishes or starts waiting
   on the user, only while the app window isn't focused
   (`hooks/useNotifications.ts`). `sound` (on by default) plays a chime with
-  it: macOS's Glass, the freedesktop theme's on Linux.
+  it: macOS's Glass, the freedesktop theme's on Linux. Desktop notifications
+  report no click, so the window's next focus within 10 minutes (clicking one
+  brings it) shows the notified conversation, a waiting one over a finished
+  one, unless it was closed, answered or ran again meanwhile.
 - **Remote settings** (`[remote]`): `enabled` (off by default) and `port`
   (4280). The main window's sidecar serves the UI to any browser that
   reaches the port, with no password; when Tailscale is connected (a
