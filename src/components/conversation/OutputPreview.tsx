@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { LinkedText } from "@/components/conversation/LinkedText";
-import { MoreLines } from "@/components/conversation/MoreLines";
-import { PREVIEW_CHARS, PREVIEW_LINES } from "@/components/conversation/shared";
-import { isShortOutput, outputPreview } from "@/lib/toolRows";
-import { cn } from "@/lib/utils";
+import { formatOutput, outputRecords } from "@/lib/outputFormat";
+import { OutputText } from "@/components/conversation/OutputText";
+import { OutputViews } from "@/components/conversation/OutputViews";
+import { isShortOutput } from "@/lib/toolRows";
 
 /**
  * Plain-text tool output, collapsed to "Output" unless it's one short line;
- * opened, a few lines with an expand button. Errors are red.
+ * opened, a few lines with an expand button, or a table when it holds JSON
+ * records. Errors are red.
  */
 export function OutputPreview({
   text,
@@ -22,9 +22,17 @@ export function OutputPreview({
 }) {
   const [opened, setOpen] = useState(false);
   // Decided on each render: streaming output starts short and grows.
-  const open = opened || (!label && isShortOutput(text));
-  const [all, setAll] = useState(false);
-  const trimmed = text.replace(/\n+$/, "");
+  const short = isShortOutput(text);
+  const open = opened || (!label && short);
+  const formatted = useMemo(
+    () => (open ? formatOutput(text) : ""),
+    [open, text],
+  );
+  // A one-line answer like {"ok":true} reads fine as text.
+  const records = useMemo(
+    () => (open && !short ? outputRecords(text) : undefined),
+    [open, short, text],
+  );
   if (!open) {
     return (
       <button
@@ -37,22 +45,8 @@ export function OutputPreview({
       </button>
     );
   }
-  const preview = all
-    ? { text: trimmed, hidden: 0 }
-    : outputPreview(text, PREVIEW_LINES, PREVIEW_CHARS);
-  return (
-    <div>
-      <pre
-        className={cn(
-          "font-mono text-[12px] whitespace-pre-wrap [overflow-wrap:anywhere]",
-          error && "text-destructive",
-        )}
-      >
-        <LinkedText text={preview.text} />
-      </pre>
-      {preview.hidden > 0 && (
-        <MoreLines count={preview.hidden} onClick={() => setAll(true)} />
-      )}
-    </div>
-  );
+  if (records && !error) {
+    return <OutputViews text={formatted} records={records} />;
+  }
+  return <OutputText text={formatted} error={error} />;
 }

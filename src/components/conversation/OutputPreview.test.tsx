@@ -20,3 +20,30 @@ it("keeps even short output under its label until opened", () => {
   fireEvent.click(screen.getByRole("button", { name: "Brought in 2 commits" }));
   expect(screen.getByText("Merge made.")).toBeTruthy();
 });
+
+const json = JSON.stringify(
+  [
+    { id: 1, name: "ada" },
+    { id: 2, name: "bob" },
+  ],
+  null,
+  1,
+);
+
+it("opens JSON records as a table", () => {
+  render(<OutputPreview text={json} />);
+  fireEvent.click(screen.getByRole("button", { name: "Output" }));
+  expect(screen.getByRole("table")).toBeTruthy();
+});
+
+it("shows JSON records in an error as plain text", () => {
+  render(<OutputPreview text={json} error />);
+  fireEvent.click(screen.getByRole("button", { name: "Output" }));
+  expect(screen.queryByRole("table")).toBe(null);
+});
+
+it("shows a one-line JSON answer as text", () => {
+  render(<OutputPreview text='{"ok":true}' />);
+  expect(screen.queryByRole("tablist")).toBe(null);
+  expect(screen.getByText(/"ok": true/)).toBeTruthy();
+});

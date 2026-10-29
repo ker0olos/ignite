@@ -195,6 +195,8 @@ src/                     React frontend (almost all logic lives here)
     rewind.ts            Editing user messages: which offer Edit (named, after the latest compaction), when (idle),
                          the conversation cut back to before one
     toolRows.ts          Conversation rows, parses edit diffs
+    outputFormat.ts      Tool output made readable: JSON indented, an MCP server's `{"result": "…"}` unwrapped;
+                         the records it holds, for the output's Table / Fields / Raw views
     sameTool.ts          Consecutive calls of one tool (or one MCP server), or reads and searches, as one row; tools with cards of their own stay alone
     toolIcon.ts          A tool call's tile: an MCP server's brand mark (simple-icons, on its colour; near-black and light brands
                          flipped), else a Lucide glyph
