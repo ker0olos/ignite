@@ -1,19 +1,8 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { GitPullRequestArrow } from "lucide-react";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 import type { GitReview } from "../../../shared/git";
-import { LinkPill } from "@/components/conversation/LinkPill";
+import { MarkdownPage } from "@/components/conversation/MarkdownPage";
 import { parseUnifiedDiff } from "@/lib/gitDiff";
 import { redline, remarkRedline } from "@/lib/redline";
-
-const COMPONENTS: Components = {
-  a: ({ href = "", children }) => (
-    <LinkPill kind="url" onOpen={() => href && openUrl(href).catch(() => {})}>
-      {children}
-    </LinkPill>
-  ),
-};
 
 /** What `gh pr edit` changes: the pull request's title and description as they'll read, its additions and removals marked. */
 export function GitPrEdit({ edit }: { edit: NonNullable<GitReview["edit"]> }) {
@@ -33,14 +22,11 @@ export function GitPrEdit({ edit }: { edit: NonNullable<GitReview["edit"]> }) {
           No change to its title or description.
         </p>
       ) : (
-        <div className="px-4 py-3 leading-relaxed [&_del]:rounded-sm [&_del]:bg-destructive/20 [&_del]:text-destructive [&_h1]:mb-2 [&_h1]:text-[1.2em] [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h2]:border-b [&_h2]:pb-1 [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:font-semibold [&_ins]:rounded-sm [&_ins]:bg-success/20 [&_ins]:no-underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_p]:last:mb-0 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:font-mono [&_pre]:text-xs [&_ul]:list-disc [&_ul]:pl-5">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkRedline]}
-            components={COMPONENTS}
-          >
-            {redline(lines)}
-          </ReactMarkdown>
-        </div>
+        <MarkdownPage
+          text={redline(lines)}
+          plugins={[remarkRedline]}
+          className="px-4 py-3 [&_h2]:border-b [&_h2]:pb-1 [&_del]:rounded-sm [&_del]:bg-destructive/20 [&_del]:text-destructive [&_ins]:rounded-sm [&_ins]:bg-success/20 [&_ins]:no-underline"
+        />
       )}
     </div>
   );
