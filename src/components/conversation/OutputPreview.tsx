@@ -1,24 +1,28 @@
 import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { formatOutput, outputRecords } from "@/lib/outputFormat";
+import { OutputShaped } from "@/components/conversation/OutputShaped";
 import { OutputText } from "@/components/conversation/OutputText";
 import { OutputViews } from "@/components/conversation/OutputViews";
 import { isShortOutput } from "@/lib/toolRows";
 
 /**
  * Plain-text tool output, collapsed to "Output" unless it's one short line;
- * opened, a few lines with an expand button, or a table when it holds JSON
- * records. Errors are red.
+ * opened, a table when it holds JSON records, a pill for a lone link, a page
+ * for markdown, else a terminal's text. Errors are red.
  */
 export function OutputPreview({
   text,
   error,
   label,
+  live,
 }: {
   text: string;
   error?: boolean;
   /** Shown collapsed in place of "Output", however short the output. */
   label?: string;
+  /** Still streaming: shown as a terminal's text, so its shape can't flip as it grows. */
+  live?: boolean;
 }) {
   const [opened, setOpen] = useState(false);
   // Decided on each render: streaming output starts short and grows.
@@ -45,8 +49,7 @@ export function OutputPreview({
       </button>
     );
   }
-  if (records && !error) {
-    return <OutputViews text={formatted} records={records} />;
-  }
-  return <OutputText text={formatted} error={error} />;
+  if (error || live) return <OutputText text={formatted} error={error} />;
+  if (records) return <OutputViews text={formatted} records={records} />;
+  return <OutputShaped text={formatted} />;
 }

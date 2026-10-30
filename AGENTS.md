@@ -197,6 +197,7 @@ src/                     React frontend (almost all logic lives here)
     toolRows.ts          Conversation rows, parses edit diffs
     outputFormat.ts      Tool output made readable: JSON indented, an MCP server's `{"result": "…"}` unwrapped;
                          the records it holds, for the output's Table / Fields / Raw views
+    outputKind.ts        Plain tool output's shape: a lone link (a pill), markdown (a page), else a terminal's text
     sameTool.ts          Consecutive calls of one tool (or one MCP server), or reads and searches, as one row; tools with cards of their own stay alone
     toolIcon.ts          A tool call's tile: an MCP server's brand mark (simple-icons, on its colour; near-black and light brands
                          flipped), else a Lucide glyph

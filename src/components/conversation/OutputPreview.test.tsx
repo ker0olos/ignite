@@ -1,6 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { OutputPreview } from "./OutputPreview";
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
+});
 
 it("collapses a long error like any output, and opens it on click", () => {
   render(<OutputPreview text={"184: one\n185: two\n186: three"} error />);
@@ -40,6 +50,30 @@ it("shows JSON records in an error as plain text", () => {
   render(<OutputPreview text={json} error />);
   fireEvent.click(screen.getByRole("button", { name: "Output" }));
   expect(screen.queryByRole("table")).toBe(null);
+});
+
+it("shows a lone pull request link as a pill naming it", () => {
+  render(
+    <OutputPreview
+      text={"https://github.com/lead-led/motr-server/pull/789\n"}
+    />,
+  );
+  expect(screen.getByRole("button", { name: /motr-server#789/ })).toBeTruthy();
+});
+
+it("shows output still streaming as a terminal's text, markdown or not", () => {
+  render(<OutputPreview text={"## What\n- **bold** item\n- two"} live />);
+  fireEvent.click(screen.getByRole("button", { name: "Output" }));
+  expect(screen.queryByRole("heading")).toBe(null);
+  expect(screen.getByText(/## What/)).toBeTruthy();
+});
+
+it("opens markdown as a page, and its raw text on Raw", () => {
+  render(<OutputPreview text={"Intro\n\n## What\n- **bold** item\n- two"} />);
+  fireEvent.click(screen.getByRole("button", { name: "Output" }));
+  expect(screen.getByRole("heading", { name: "What" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "Raw" }));
+  expect(screen.getByText(/## What/)).toBeTruthy();
 });
 
 it("shows a one-line JSON answer as text", () => {
