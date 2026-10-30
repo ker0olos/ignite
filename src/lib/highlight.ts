@@ -3,8 +3,10 @@ import {
   codeToHtml,
   codeToTokens,
   type BundledLanguage,
+  type ThemedToken,
 } from "shiki";
 import type { CodeThemes } from "./codeThemes";
+import type { DiffLine } from "./toolRows";
 import { resolveTheme } from "./codeThemeLoad";
 import { basename } from "./paths";
 
@@ -56,20 +58,44 @@ export async function highlight(
   return html;
 }
 
-/** Like `highlight`, but as tokens per line, for views that lay out lines themselves. */
-export async function highlightLines(
-  code: string,
+// Each hunk's old side (only when it removes lines) then its new side, so context takes the new side's tokens.
+function sides(lines: DiffLine[]) {
+  const runs: number[][] = [];
+  let hunk: number[] = [];
+  const flush = () => {
+    if (hunk.some((i) => lines[i].kind === "del"))
+      runs.push(hunk.filter((i) => lines[i].kind !== "add"));
+    if (hunk.length) runs.push(hunk.filter((i) => lines[i].kind !== "del"));
+    hunk = [];
+  };
+  lines.forEach((l, i) => (l.kind === "gap" ? flush() : hunk.push(i)));
+  flush();
+  return runs;
+}
+
+/** Tokens per diff line, each hunk's old and new side highlighted on its own so no line inherits another's state. */
+export async function highlightDiff(
+  lines: DiffLine[],
   path: string,
   themes: CodeThemes,
-): Promise<Token[][]> {
-  const { tokens } = await codeToTokens(
-    code,
-    await options(code, path, themes),
+): Promise<(Token[] | undefined)[]> {
+  const text = (i: number) => (lines[i] as { text: string }).text;
+  const all = lines.map((l) => (l.kind === "gap" ? "" : l.text)).join("\n");
+  const opts = await options(all, path, themes);
+  const runs = sides(lines);
+  const tokens = await Promise.all(
+    runs.map((rows) => codeToTokens(rows.map(text).join("\n"), opts)),
   );
-  return tokens.map((line) =>
-    line.map((t) => ({
-      content: t.content,
-      style: (t.htmlStyle ?? {}) as Record<string, string>,
-    })),
+  const out: (Token[] | undefined)[] = lines.map(() => undefined);
+  runs.forEach((rows, r) =>
+    rows.forEach((i, j) => (out[i] = tokens[r].tokens[j]?.map(toToken))),
   );
+  return out;
+}
+
+function toToken(t: ThemedToken): Token {
+  return {
+    content: t.content,
+    style: (t.htmlStyle ?? {}) as Record<string, string>,
+  };
 }

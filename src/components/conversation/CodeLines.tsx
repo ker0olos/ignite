@@ -4,7 +4,7 @@ import { FoldedLines } from "@/components/conversation/FoldedLines";
 import { MoreLines } from "@/components/conversation/MoreLines";
 import type { Editor, RowExtras } from "@/components/conversation/shared";
 import { foldUnchanged, keepUnfolded } from "@/lib/gitDiff";
-import { highlightLines, type Token } from "@/lib/highlight";
+import { highlightDiff, type Token } from "@/lib/highlight";
 import type { DiffLine } from "@/lib/toolRows";
 import type { CodeThemes } from "@/lib/codeThemes";
 import { cn } from "@/lib/utils";
@@ -31,11 +31,12 @@ export function CodeLines({
   const [all, setAll] = useState(false);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
   const [highlighted, setHighlighted] = useState<{
-    code: string;
-    tokens: Token[][];
+    key: string;
+    tokens: (Token[] | undefined)[];
   } | null>(null);
-  const code = lines.map((l) => (l.kind === "gap" ? "" : l.text)).join("\n");
-  const tokens = highlighted?.code === code ? highlighted.tokens : null;
+  // Callers parse their lines afresh each render, so the lines' content is what's compared.
+  const key = JSON.stringify(lines);
+  const tokens = highlighted?.key === key ? highlighted.tokens : null;
   const marks = lines.some((l) => l.kind === "add" || l.kind === "del");
   const shown = all ? lines : lines.slice(0, max);
   const changed = changedRanges(shown);
@@ -44,13 +45,13 @@ export function CodeLines({
 
   useEffect(() => {
     let cancelled = false;
-    highlightLines(code, path, codeThemes).then(
-      (t) => !cancelled && setHighlighted({ code, tokens: t }),
+    highlightDiff(lines, path, codeThemes).then(
+      (t) => !cancelled && setHighlighted({ key, tokens: t }),
     );
     return () => {
       cancelled = true;
     };
-  }, [code, path, codeThemes]);
+  }, [key, path, codeThemes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>

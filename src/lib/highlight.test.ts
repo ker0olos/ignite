@@ -1,6 +1,11 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { beforeEach, describe, expect, it } from "vitest";
-import { highlight, highlightLines, lastHighlight } from "./highlight";
+import {
+  highlight,
+  highlightDiff,
+  lastHighlight,
+  type Token,
+} from "./highlight";
 
 const THEMES = { light: "github-light", dark: "github-dark" };
 
@@ -81,12 +86,58 @@ describe("highlight", () => {
   });
 });
 
-describe("highlightLines", () => {
+describe("highlightDiff", () => {
+  const line = (kind: "add" | "del" | "ctx", text: string, num = 1) => ({
+    kind,
+    num,
+    text,
+  });
+  const text = (tokens: Token[] | undefined) =>
+    tokens?.map((t) => t.content).join("");
+
   it("returns tokens per line carrying both theme variables", async () => {
-    const lines = await highlightLines("const a = 1;\nlet b;", "/a.ts", THEMES);
+    const lines = await highlightDiff(
+      [line("ctx", "const a = 1;"), line("ctx", "let b;", 2)],
+      "/a.ts",
+      THEMES,
+    );
     expect(lines).toHaveLength(2);
-    expect(lines[0].map((t) => t.content).join("")).toBe("const a = 1;");
-    expect(lines[0][0].style["--shiki-light"]).toBeTruthy();
-    expect(lines[0][0].style["--shiki-dark"]).toBeTruthy();
+    expect(text(lines[0])).toBe("const a = 1;");
+    expect(lines[0]![0].style["--shiki-light"]).toBeTruthy();
+    expect(lines[0]![0].style["--shiki-dark"]).toBeTruthy();
+  });
+
+  it("highlights added lines apart from removed ones, and each hunk on its own", async () => {
+    const [plain] = await highlightDiff(
+      [line("ctx", "const a = 1;")],
+      "/a.ts",
+      THEMES,
+    );
+    const lines = await highlightDiff(
+      [
+        line("del", "const s = `"),
+        line("add", "const a = 1;"),
+        { kind: "gap" },
+        line("add", "/* open", 9),
+        { kind: "gap" },
+        line("ctx", "const a = 1;", 20),
+      ],
+      "/a.ts",
+      THEMES,
+    );
+    expect(text(lines[0])).toBe("const s = `");
+    expect(lines[1]).toEqual(plain);
+    expect(lines[2]).toBeUndefined();
+    expect(lines[5]).toEqual(plain);
+  });
+
+  it("leaves a diff past the size limit plain", async () => {
+    const big = "x".repeat(200_000);
+    const lines = await highlightDiff(
+      [line("del", `const a = "${big}";`), line("add", `const b = "${big}";`)],
+      "/a.ts",
+      THEMES,
+    );
+    expect(lines[1]).toHaveLength(1);
   });
 });
