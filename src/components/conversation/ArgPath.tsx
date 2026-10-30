@@ -6,13 +6,26 @@ import { inScratchpad } from "@/lib/scratchpad";
 /** A path in a tool call's argument; a link when it's a file. */
 export function ArgPath({ text, folder }: { text: string; folder: string }) {
   const open = useOpenFileLink(folder);
-  const shown = inScratchpad(text) ?? text;
+  const pad = inScratchpad(text);
+  const shown = pad ? (
+    <>
+      {pad.lead}
+      {pad.rest ? (
+        <span className="opacity-60">scratchpad/</span>
+      ) : (
+        "scratchpad"
+      )}
+      {pad.rest}
+    </>
+  ) : (
+    text
+  );
   if (!useFileExists(filePathTarget(folder, text), true)) return shown;
   return (
     <span
       role="link"
       tabIndex={0}
-      title={shown === text ? undefined : text}
+      title={pad ? text : undefined}
       onClick={(e) => {
         e.stopPropagation();
         open(text);

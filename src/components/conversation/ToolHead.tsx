@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { ArgPath } from "@/components/conversation/ArgPath";
 import { splitPaths } from "@/lib/fileLinks";
-import { inScratchpad } from "@/lib/scratchpad";
 import { cn } from "@/lib/utils";
 
 /** A tool call's title line: its title, an MCP server's name, and its argument, shown in full when clicked. */
@@ -21,9 +20,7 @@ export function ToolHead({
   muted?: boolean;
 }) {
   const [full, setFull] = useState(false);
-  const split = splitPaths(arg);
-  const scratch = split.some((p) => p.path && inScratchpad(p.text));
-  const parts = split.map((part, i) =>
+  const parts = splitPaths(arg).map((part, i) =>
     part.path ? (
       <ArgPath key={i} text={part.text} folder={folder} />
     ) : (
@@ -40,11 +37,6 @@ export function ToolHead({
           )}
         >
           {title}
-        </span>
-      )}
-      {scratch && (
-        <span className="shrink-0 self-center rounded-md border bg-muted px-1.5 text-[11px] leading-[18px] text-muted-foreground">
-          scratchpad
         </span>
       )}
       {server && (
