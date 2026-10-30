@@ -218,6 +218,7 @@ src/                     React frontend (almost all logic lives here)
     dropPreview.ts       While a drag hovers: which of four overlays (folder, image, file, both) and what letting go does
     userMessage.ts       A user message's typed text, images, attached files and diff comments, for its bubble
     gitDiff.ts           Unified diffs into diff lines; folding unchanged runs (never over a comment); stepping through changes
+    redline.ts           A markdown diff as the new text with its added and removed words marked (`gh pr edit`'s review)
     diffTabs.ts          Diff tabs beside file tabs (encoded ids with the conversation that opened one, labels),
                          reading a git review
     diffComments.ts      Diff tabs' comments, in memory per conversation until sent or deleted
@@ -500,7 +501,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   gitStatus.ts           The repositories a conversation's git calls and edits touched, and what isn't committed, pushed or merged
   gitUntracked.ts        New files git doesn't track yet: listed as added, and their whole-file diffs
   gitImages.ts           An image's versions before and after a review's range (git_image), for its diff tab
-  ghReview.ts            What `gh pr create` would open: title, branches, GitHub's compare of them
+  ghReview.ts            What `gh pr create` would open: title, branches, GitHub's compare of them;
+                         what `gh pr edit` changes in a title or description, as a diff
   headlessUI.ts          The UI context bound to sessions: declines prompts, passes errors to the app
   mcpPresets.ts          One-click MCP presets (the adapter's and ours)
   mcpCatalog.ts          Other apps' MCP servers to import

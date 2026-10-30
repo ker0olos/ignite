@@ -95,7 +95,7 @@ export function tabLabel(
 export function readGitReview(details: unknown): GitReview | null {
   if (typeof details !== "object" || details === null) return null;
   const { kind, files } = details as Partial<GitReview>;
-  return ["commit", "push", "update", "pr"].includes(kind ?? "") &&
+  return ["commit", "push", "update", "pr", "pr_edit"].includes(kind ?? "") &&
     Array.isArray(files)
     ? (details as GitReview)
     : null;

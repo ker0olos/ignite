@@ -1,5 +1,6 @@
 import type { GitReview } from "../../../shared/git";
 import { GitChanges } from "@/components/conversation/GitChanges";
+import { GitPrEdit } from "@/components/conversation/GitPrEdit";
 import { OutputPreview } from "@/components/conversation/OutputPreview";
 import { withoutDiffstat } from "@/lib/gitDiff";
 
@@ -22,7 +23,11 @@ export function GitReviewOutput({
   }
   return (
     <div className="space-y-2">
-      <GitChanges review={review} />
+      {review.edit ? (
+        <GitPrEdit edit={review.edit} />
+      ) : (
+        <GitChanges review={review} />
+      )}
       {text && <OutputPreview text={withoutDiffstat(text)} />}
     </div>
   );

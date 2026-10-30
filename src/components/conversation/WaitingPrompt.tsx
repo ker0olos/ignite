@@ -2,6 +2,7 @@ import { ASK_TOOL } from "../../../shared/questions";
 import { ApprovalCommand } from "@/components/conversation/ApprovalCommand";
 import { ApprovalPrompt } from "@/components/conversation/ApprovalPrompt";
 import { GitChanges } from "@/components/conversation/GitChanges";
+import { GitPrEdit } from "@/components/conversation/GitPrEdit";
 import { AskingLine } from "@/components/conversation/AskingLine";
 import type { ToolProps } from "@/components/conversation/shared";
 import { WaitingTurn } from "@/components/conversation/WaitingTurn";
@@ -38,7 +39,11 @@ export function WaitingPrompt({
       }
     >
       <ApprovalCommand call={call} editor={editor} codeThemes={codeThemes} />
-      {approval.review && <GitChanges review={approval.review} />}
+      {approval.review?.edit ? (
+        <GitPrEdit edit={approval.review.edit} />
+      ) : (
+        approval.review && <GitChanges review={approval.review} />
+      )}
     </ApprovalPrompt>
   );
 }

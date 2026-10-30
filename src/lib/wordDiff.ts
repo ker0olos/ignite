@@ -72,36 +72,56 @@ function cachedRanges(a: string, b: string) {
 
 /** Each line's changed character ranges by word, or null when the lines share too little for marks to help. */
 function wordRanges(a: string, b: string): [Range[], Range[]] | null {
-  const x = a.match(WORDS) ?? [];
-  const y = b.match(WORDS) ?? [];
-  if (x.length * y.length > MAX_CELLS) return null;
-  const { ra, rb, same } = walk(a, b, x, y);
-  const shorter = Math.min(a.trim().length, b.trim().length);
-  if (same === 0 || same * 2 < shorter) return null;
+  const ops = wordOps(a, b);
+  if (!ops) return null;
+  const ra: Range[] = [];
+  const rb: Range[] = [];
+  let [pa, pb] = [0, 0];
+  for (const { op, text } of ops) {
+    if (op === "del") pa = mark(ra, a, pa, text.length);
+    else if (op === "add") pb = mark(rb, b, pb, text.length);
+    else [pa, pb] = [pa + text.length, pb + text.length];
+  }
   return [trimmed(ra, a), trimmed(rb, b)];
 }
 
-/** Steps through both lines' words along their longest common run, marking the rest; `same` counts the shared text. */
-function walk(a: string, b: string, x: string[], y: string[]) {
+type WordOp = { op: "same" | "del" | "add"; text: string };
+
+/** Two lines as the words they share and the ones only one has, in order; null when they share too little. */
+export function wordOps(a: string, b: string): WordOp[] | null {
+  const x = a.match(WORDS) ?? [];
+  const y = b.match(WORDS) ?? [];
+  if (x.length * y.length > MAX_CELLS) return null;
+  const ops = opsAlong(x, y);
+  const same = ops
+    .filter((o) => o.op === "same")
+    .reduce((n, o) => n + o.text.trim().length, 0);
+  const shorter = Math.min(a.trim().length, b.trim().length);
+  return same === 0 || same * 2 < shorter ? null : ops;
+}
+
+// Both lines' words along their longest common run, neighbours of one kind joined.
+function opsAlong(x: string[], y: string[]) {
   const lcs = lcsTable(x, y);
-  const ra: Range[] = [];
-  const rb: Range[] = [];
-  let [i, j, pa, pb, same] = [0, 0, 0, 0, 0];
+  const ops: WordOp[] = [];
+  const push = (op: WordOp["op"], text: string) => {
+    const last = ops.at(-1);
+    if (last?.op === op) last.text += text;
+    else ops.push({ op, text });
+  };
+  let [i, j] = [0, 0];
   while (i < x.length || j < y.length) {
     if (x[i] !== undefined && x[i] === y[j]) {
-      same += x[i].trim().length;
-      pa += x[i++].length;
-      pb += y[j++].length;
+      push("same", x[i++]);
+      j++;
     } else if (
       j >= y.length ||
       (i < x.length && lcs[i + 1][j] >= lcs[i][j + 1])
     ) {
-      pa = mark(ra, a, pa, x[i++].length);
-    } else {
-      pb = mark(rb, b, pb, y[j++].length);
-    }
+      push("del", x[i++]);
+    } else push("add", y[j++]);
   }
-  return { ra, rb, same };
+  return ops;
 }
 
 function trimmed(ranges: Range[], text: string): Range[] {
