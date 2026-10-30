@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { validRange } from "../shared/git.ts";
-import { prFileDiff, prReview, readPrCreate } from "./ghReview.ts";
+import {
+  editsPrText,
+  prEditReview,
+  prFileDiff,
+  prReview,
+  readPrCreate,
+} from "./ghReview.ts";
 
 const COMPARE = JSON.stringify({
   files: [
@@ -31,6 +37,8 @@ const FAKE_GH = `#!/bin/sh
 case "$*" in
   *"application/vnd.github.diff"*) cat "$(dirname "$0")/diff.txt" ;;
   "api repos/o/r/compare/main...feat") cat "$(dirname "$0")/compare.json" ;;
+  "pr view 7 -R o/r --json number,title,body") echo '{"number":7,"title":"Fix it","body":"old"}' ;;
+  "pr view 8 --json number,title,body") echo "warning: update available" >&2; cat "$(dirname "$0")/pr8.json" ;;
   *) exit 1 ;;
 esac
 `;
@@ -112,6 +120,61 @@ describe("prReview", () => {
     const shown = await prReview(["pr", "create", "--fill"], bin);
     expect(shown.files).toEqual([]);
     expect(shown.pr?.title).toBe("From the commits");
+  });
+});
+
+describe("editsPrText", () => {
+  it("is a pr edit that sets the title or description", () => {
+    expect(editsPrText(["pr", "edit", "7", "--body", "x"])).toBe(true);
+    expect(editsPrText(["pr", "edit", "-F", "b.md"])).toBe(true);
+    expect(editsPrText(["pr", "edit", "7", "--add-label", "bug"])).toBe(false);
+    expect(editsPrText(["pr", "create", "-t", "x"])).toBe(false);
+  });
+});
+
+describe("prEditReview", () => {
+  it("diffs the pull request's title and description with the new ones", async () => {
+    const args = [
+      "pr",
+      "edit",
+      "--add-label",
+      "x",
+      "7",
+      "-R",
+      "o/r",
+      "-b",
+      "new",
+    ];
+    const shown = await prEditReview(args, bin);
+    expect(shown?.edit?.pr).toBe("o/r#7");
+    expect(shown?.edit?.diff).toMatch(/^@@ .*\n # Fix it\n \n-old\n\+new\n$/m);
+  });
+
+  it("finds the pull request after a flag that takes no value", async () => {
+    const args = [
+      "pr",
+      "edit",
+      "--remove-milestone",
+      "7",
+      "-R",
+      "o/r",
+      "-b",
+      "x",
+    ];
+    expect((await prEditReview(args, bin))?.edit?.pr).toBe("o/r#7");
+  });
+
+  it("reads gh's JSON past its warnings, and a body's CRLF as LF", async () => {
+    const pr = { number: 8, title: "T", body: "a\r\nb" };
+    await writeFile(join(bin, "pr8.json"), JSON.stringify(pr));
+    const shown = await prEditReview(["pr", "edit", "8", "-b", "a\nc"], bin);
+    expect(shown?.edit?.diff).toMatch(/\n a\n-b\n\+c\n$/);
+  });
+
+  it("shows no review when the pull request can't be read", async () => {
+    expect(await prEditReview(["pr", "edit", "9", "-t", "T"], bin)).toBe(
+      undefined,
+    );
   });
 });
 

@@ -18,8 +18,8 @@ export type GitChange = {
  * "staged", "HEAD" (the working tree), or two commits (`a...b`, `a^!`).
  */
 export type GitReview = {
-  /** "update": what a pull, merge or rebase brought in; "pr": a pull request to open. */
-  kind: "commit" | "push" | "update" | "pr";
+  /** "update": what a pull, merge or rebase brought in; "pr": a pull request to open; "pr_edit": one's title or description changed. */
+  kind: "commit" | "push" | "update" | "pr" | "pr_edit";
   /** The repository, absolute. */
   repo: string;
   range: string;
@@ -41,6 +41,8 @@ export type GitReview = {
     body: string;
     draft: boolean;
   };
+  /** The pull request `gh pr edit` changes (`owner/name#n`), and its title and description before and after as a unified diff. */
+  edit?: { pr: string; diff: string };
 };
 
 /** A repository a conversation worked in: what of its work isn't committed, pushed or merged. */

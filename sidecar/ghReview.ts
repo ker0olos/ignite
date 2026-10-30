@@ -1,7 +1,11 @@
 /**
  * What `gh pr create` would open, for the user's review: its title, body,
- * branches, and the commits and files GitHub compares between them.
+ * branches, and the commits and files GitHub compares between them; and
+ * what `gh pr edit` would change in one's title and description.
  */
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import type { GitChange, GitReview } from "../shared/git.ts";
 import { run } from "./gitRun.ts";
 
@@ -128,6 +132,96 @@ export async function prReview(
     range: `gh:${repo}:${base}...${head}`,
     ...found,
     pr: { repo, base, head, title, body, draft },
+  };
+}
+
+/** Whether a call is `gh pr edit` changing the title or description. */
+export function editsPrText(args: string[]) {
+  if (args[0] !== "pr" || args[1] !== "edit") return false;
+  const { values } = readPrCreate(args.slice(2));
+  return "title" in values || "body" in values || "bodyFile" in values;
+}
+
+// The pull request named in `pr edit`'s words: a word that's no option's value.
+function prSelector(rest: string[]) {
+  const takesValue = (flag = "") =>
+    /^-[^=]*$/.test(flag) && flag !== "--remove-milestone";
+  return rest.find(
+    (a, i) => !a.startsWith("-") && (i === 0 || !takesValue(rest[i - 1])),
+  );
+}
+
+type PrText = { number: number; title: string; body: string };
+
+// gh's output also carries its stderr, so warnings may surround the JSON.
+function readPr(output: string | null): PrText | null {
+  const json = output?.slice(output.indexOf("{"), output.lastIndexOf("}") + 1);
+  try {
+    const pr = json ? (JSON.parse(json) as PrText) : null;
+    return pr && { ...pr, body: pr.body.replace(/\r\n/g, "\n") };
+  } catch {
+    return null;
+  }
+}
+
+async function textDiff(before: string, after: string) {
+  const dir = await mkdtemp(join(tmpdir(), "ignite-pr-edit-"));
+  try {
+    await writeFile(join(dir, "before"), `${before}\n`);
+    await writeFile(join(dir, "after"), `${after}\n`);
+    const diff = ["diff", "--no-index", "--no-color", "--no-ext-diff"];
+    const { output } = await run(
+      "git",
+      [...diff, "-U100000", "before", "after"],
+      {
+        cwd: dir,
+      },
+    );
+    return output;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+const prText = (title: string, body: string) => `# ${title}\n\n${body}`;
+
+/** What a `gh pr edit` call changes: the pull request's title and description, as a diff; none when they can't be read. */
+export async function prEditReview(
+  args: string[],
+  cwd: string,
+): Promise<GitReview | undefined> {
+  const rest = args.slice(2);
+  const { values } = readPrCreate(rest);
+  const pick = prSelector(rest);
+  const repo = values.repo ? ["-R", values.repo] : [];
+  const was = readPr(
+    await gh(cwd, [
+      "pr",
+      "view",
+      ...(pick ? [pick] : []),
+      ...repo,
+      "--json",
+      "number,title,body",
+    ]),
+  );
+  if (!was) return undefined;
+  const file = values.bodyFile;
+  const body =
+    values.body ??
+    (file
+      ? await readFile(resolve(cwd, file), "utf8").catch(() => `(from ${file})`)
+      : was.body);
+  const diff = await textDiff(
+    prText(was.title, was.body),
+    prText(values.title ?? was.title, body.replace(/\r\n/g, "\n")),
+  );
+  const pr = `${values.repo ?? ""}#${was.number}`;
+  return {
+    kind: "pr_edit",
+    repo: cwd,
+    range: "",
+    files: [],
+    edit: { pr, diff },
   };
 }
 

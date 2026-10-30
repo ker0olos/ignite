@@ -32,6 +32,7 @@ import {
   type Then,
 } from "./gitPush.ts";
 import { resultText, run } from "./gitRun.ts";
+import { editsPrText, prEditReview } from "./ghReview.ts";
 import { committed, headOf, repoOf, review, updated } from "./gitReview.ts";
 import { askTask } from "./taskExtension.ts";
 import { gitOr } from "./worktreeGit.ts";
@@ -107,10 +108,21 @@ async function shownAfter(
 function ghGate(
   args: string[],
   place: { cwd: string; home: string },
-): { reason: string; review?: "commit" | "push" | "pr" } | null {
+): { reason: string; review?: "pr" | "pr_edit" } | null {
   const reason = ghApproval(args, place);
   if (!reason) return null;
-  return createsPr(GH_TOOL, args) ? { reason, review: "pr" } : { reason };
+  if (createsPr(GH_TOOL, args)) return { reason, review: "pr" };
+  return editsPrText(args) ? { reason, review: "pr_edit" } : { reason };
+}
+
+// An edited pull request's review is left out when gh can't read it.
+async function reviewOf(
+  kind: "commit" | "push" | "pr" | "pr_edit" | undefined,
+  args: string[],
+  cwd: string,
+) {
+  if (kind === "pr_edit") return prEditReview(args, cwd);
+  return kind && review(kind, args, cwd);
 }
 
 const opensPr = (tool: Tool, args: string[], then?: Then) =>
@@ -194,7 +206,7 @@ export default function gitTools(pi: ExtensionAPI) {
     if (!waits) return { allowed: true, asked: false };
     const { auto, manual, alone } = waits;
     // Taken before it runs, so the row shows what a task's commit or push changed.
-    const reviewed = auto?.review && (await review(auto.review, args, cwd));
+    const reviewed = await reviewOf(auto?.review, args, cwd);
     const shown = marked(reviewed, then);
     if (alone) return { allowed: true, asked: false, shown };
     const request = {
