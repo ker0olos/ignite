@@ -1,5 +1,4 @@
 /** The user's feedback on a conversation, reflected on once its run settles (see reflector.ts). */
-import { serializeConversation } from "@earendil-works/pi-coding-agent";
 import type {
   AgentMessage,
   ToolResultMessage,
@@ -20,6 +19,7 @@ import { learningOn } from "./learningSettings.ts";
 import { callText } from "./lessons.ts";
 import { scrubText } from "./memoryWriter.ts";
 import { reflect } from "./reflector.ts";
+import { conversationText } from "./roleLabelsExtension.ts";
 import { WRAP_UP } from "./taskExtension.ts";
 import {
   appliesIn,
@@ -72,9 +72,8 @@ export function noteRewound(agent: Agent, branch: Entry[], entryId: string) {
   const dropped = branch
     .slice(from)
     .flatMap((e) => (e.message && "content" in e.message ? [e.message] : []));
-  const llm = dropped as Parameters<typeof serializeConversation>[0];
   (agent.corrections ??= []).push(
-    `The user rewound the conversation, dropping this:\n${serializeConversation(llm).slice(0, DROPPED_CHARS)}\n` +
+    `The user rewound the conversation, dropping this:\n${conversationText(dropped).slice(0, DROPPED_CHARS)}\n` +
       "and sent the run's message instead.",
   );
 }

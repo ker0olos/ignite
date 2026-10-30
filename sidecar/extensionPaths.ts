@@ -11,6 +11,7 @@ export const mcpExtension = sibling("./mcpExtension.ts");
 const exploring = sibling("./exploreExtension.ts");
 const webSearch = sibling("./webSearchExtension.ts");
 const waitFirst = sibling("./waitFirstExtension.ts");
+const roleLabels = sibling("./roleLabelsExtension.ts");
 // Before approval, so a call a lesson blocks never asks.
 const lessons = sibling("./lessonExtension.ts");
 // After the extensions that block calls, so a refused call never waits first.
@@ -36,6 +37,7 @@ export const SESSION_EXTENSIONS = [
   sibling("./bashExtension.ts"),
   sibling("./terminalExtension.ts"),
   sibling("./forkExtension.ts"),
+  roleLabels,
   // ponytail: conversations only, so a subagent that hits the limit fails; load it in
   // SUBAGENT_EXTENSIONS with answerKeys on the subagent's runtime if that matters.
   sibling("./fallbackExtension.ts"),
@@ -59,6 +61,7 @@ export const SUBAGENT_EXTENSIONS = [
   webSearch,
   exploring,
   waitFirst,
+  roleLabels,
   lessons,
   ready,
   approval,

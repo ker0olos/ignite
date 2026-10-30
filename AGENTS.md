@@ -325,6 +325,8 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
   hostFollow.ts          Follows a conversation's session events: to the app if shown, run state, settling
   forks.ts               Forks' files, their reports (summaries since the last one) and the notes waiting for the original
   forkExtension.ts       Adds the notes waiting for a conversation (its forks' reports) to its next run
+  roleLabelsExtension.ts Conversation text for background models and pi's compaction, role labels (`[User]:`) in
+                         messages' own text marked quoted, so a page or tool output can't forge a user turn
   trust.ts               pi's trust store (trust.json); "ask" only when the folder has .pi/ resources,
                          or its .pi/ (the worktree's) isn't one the user trusted
   claudeBridgeExtension.ts pi-claude-bridge, its Claude Code kept off the worktree's settings, hooks and config;

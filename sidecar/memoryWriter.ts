@@ -4,13 +4,13 @@
  * later, as observations and the run's summary. Its rules follow cmem's
  * "code" mode (claude-mem, Apache-2.0), one call per run instead of per tool.
  */
-import { serializeConversation } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage, AssistantMessage } from "../shared/agentTypes.ts";
 import { CONCEPTS, PROCEDURE, SUMMARY_TYPE } from "../shared/memory.ts";
 import { askModel, cheapest } from "./cheapCall.ts";
 import { log } from "./hostLog.ts";
 import type { Session } from "./hostTypes.ts";
 import { summaryOf, trimmed, typeOf, type NewMemory } from "./memoryDb.ts";
+import { conversationText } from "./roleLabelsExtension.ts";
 
 /** A memory as the writer finds it; the host adds where and when. */
 export type Written = Omit<
@@ -115,9 +115,7 @@ export function runText(
     )
     .map((m) => trimmedCalls(scrubMessage(m), skipped))
     .filter((m) => ["user", "assistant", "toolResult"].includes(m.role))
-    .map((m) =>
-      serializeConversation([m] as Parameters<typeof serializeConversation>[0]),
-    )
+    .map((m) => conversationText([m]))
     .filter(Boolean)
     .map((t) => t.slice(0, size));
   const chunks: string[] = [];

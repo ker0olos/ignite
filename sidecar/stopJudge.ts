@@ -6,6 +6,7 @@ import {
 import type { AgentMessage, ImageContent } from "../shared/agentTypes.ts";
 import type { Session } from "./hostTypes.ts";
 import { askModel, cheapest } from "./cheapCall.ts";
+import { conversationText } from "./roleLabelsExtension.ts";
 import { STOP_EVENT, type StopAsk } from "./stopNudge.ts";
 
 export type Verdict = "done" | "continue" | "ask" | "lesson";
@@ -54,9 +55,9 @@ export function judgeInput(messages: readonly AgentMessage[]): string {
   // Each from its start, where the ask is, before what's pasted after it.
   const request = asked
     .slice(-REQUESTS)
-    .map((i) => serializeConversation([llm[i]!]).slice(0, REQUEST_CHARS))
+    .map((i) => conversationText([llm[i]!]).slice(0, REQUEST_CHARS))
     .join("\n\n");
-  return `${request}\n\n${serializeConversation(end).slice(-END_CHARS)}`.trim();
+  return `${request}\n\n${conversationText(end).slice(-END_CHARS)}`.trim();
 }
 
 /** Judges session `s`'s runs as its extensions ask on `bus`. */
