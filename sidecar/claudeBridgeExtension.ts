@@ -10,6 +10,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { mkdirSync } from "node:fs";
 import bridge, { __test } from "pi-claude-bridge/src/index.ts";
+import { idleCompaction, tapTurn, type Ask } from "./idleCompaction.ts";
 
 /** A bridge query's options as Ignite runs them: user settings only, no hooks, the SDK's own Claude Code. */
 export function guarded(options: Options = {}): Options {
@@ -30,10 +31,12 @@ export default function claudeBridge(pi: ExtensionAPI) {
   // Fails closed: a bridge without its query seam would run the worktree's settings.
   if (typeof __test?.setQuery !== "function")
     throw new Error("pi-claude-bridge no longer lets Ignite guard its queries");
-  __test.setQuery((params) =>
-    query({ ...params, options: guarded(params.options) }),
-  );
+  const ask: Ask = (params) =>
+    query({ ...params, options: guarded(params.options) });
+  __test.setQuery((params) => tapTurn(ask(params), params.options));
   retryUncaptured(pi);
+  const seam = __test;
+  idleCompaction(pi, ask, (id) => seam.getSharedSession?.(id)?.sessionId);
   // It reads its config from process.cwd() as it loads: agentDir has no .pi/ of its own.
   const at = process.cwd();
   // Not there yet on a first launch, before pi writes into it.

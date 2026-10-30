@@ -333,6 +333,9 @@ sidecar/                 pi host: a Node process the app starts (node sidecar/ma
                          or its .pi/ (the worktree's) isn't one the user trusted
   claudeBridgeExtension.ts pi-claude-bridge, its Claude Code kept off the worktree's settings, hooks and config;
                          a turn it refused for want of its prompt (prompt-capture: a session's first, racing tools registering) runs once more
+  idleCompaction.ts      A claude-bridge conversation over 200K tokens left idle (not a subagent's): 55 minutes after its last
+                         request, an unsaved fork of its Claude Code session (a cache read) writes a checkpoint; still idle
+                         once the cache's hour is up, it's compacted with it, file lists included
   approvalExtension.ts   pi extension: asks the app before tool calls, blocks denied ones
   approvalAsk.ts         The channel calls wait on the user through (pi event bus to the host)
   askingLine.ts          git and gh calls ask in the order the agent made them, though each prepares its review in parallel

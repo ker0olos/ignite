@@ -134,9 +134,10 @@ describe("retryUncaptured", () => {
   });
 });
 
-it("the installed bridge still has the query seam the guard needs", async () => {
-  const real = await vi.importActual<{ __test?: { setQuery?: unknown } }>(
-    "pi-claude-bridge/src/index.ts",
-  );
+it("the installed bridge still has the seams the guard and idle compaction need", async () => {
+  const real = await vi.importActual<{
+    __test?: { setQuery?: unknown; getSharedSession?: unknown };
+  }>("pi-claude-bridge/src/index.ts");
   expect(typeof real.__test?.setQuery).toBe("function");
+  expect(typeof real.__test?.getSharedSession).toBe("function");
 });
