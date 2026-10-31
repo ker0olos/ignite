@@ -1350,7 +1350,8 @@ the folder. A `system_prompt` lesson is listed in the system prompt (read once
 per conversation). A `tool_call` lesson names an exact tool (`git`, `bash`,
 `mcp__github`, or an MCP tool like `create_issue`) and is checked on that
 tool's calls, before approval: with `match`, plain text (3+ characters) in the
-call's argument values joined by spaces (`reason` left out), or with
+call's argument values joined by spaces (`reason` left out; an edit is held
+only for text it adds, not text it removes or keeps), or with
 `regex: true` a JavaScript regex (`s` flag, so `.` crosses lines), a matching
 call is always blocked with the lesson as the reason. A `bash` lesson may take
 `background` (true or false) to apply only to background or foreground calls. A regex is checked once,

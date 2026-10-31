@@ -182,6 +182,44 @@ describe("lessonFor", () => {
     expect(lessonFor([force], "git", why)).toBe(undefined);
   });
 
+  it("holds an edit adding what a lesson forbids, not one removing it", () => {
+    const eq = lesson({ id: "eq", tool: "edit", match: '.eq("limit"' });
+    const bad = '.eq("limit", 5)';
+    const adding = { path: "a.ts", edits: [{ oldText: "x", newText: bad }] };
+    expect(lessonFor([eq], "edit", adding)?.id).toBe("eq");
+    const removing = { path: "a.ts", edits: [{ oldText: bad, newText: "" }] };
+    expect(lessonFor([eq], "edit", removing)).toBe(undefined);
+    const kept = { oldText: `${bad}\nx`, newText: `${bad}\ny` };
+    expect(lessonFor([eq], "edit", { path: "a.ts", edits: [kept] })).toBe(
+      undefined,
+    );
+    const twice = { oldText: bad, newText: `${bad}\n${bad}` };
+    expect(lessonFor([eq], "edit", { path: "a.ts", ...twice })?.id).toBe("eq");
+  });
+
+  it("holds an edit by its path or a regex it adds", () => {
+    const gen = lesson({ id: "g", tool: "edit", match: "generated/" });
+    const edit = { path: "src/generated/a.ts", edits: [] };
+    expect(lessonFor([gen], "edit", edit)?.id).toBe("g");
+    const re = lesson({
+      id: "re",
+      tool: "edit",
+      match: "eq\\(.limit",
+      regex: true,
+    });
+    const adding = {
+      oldText: "eq('limit', 1)",
+      newText: "eq('limit', 1) eq('limit', 2)",
+    };
+    expect(lessonFor([re], "edit", { path: "a.ts", edits: [adding] })?.id).toBe(
+      "re",
+    );
+    const keeping = { oldText: "eq('limit', 1)", newText: "eq('limit', 2)" };
+    expect(lessonFor([re], "edit", { path: "a.ts", edits: [keeping] })).toBe(
+      undefined,
+    );
+  });
+
   it("only looks at the called tool's tool_call lessons", () => {
     const onGit = lesson({ id: "g", match: "commit" });
     expect(lessonFor([onGit], "bash", commit)).toBe(undefined);

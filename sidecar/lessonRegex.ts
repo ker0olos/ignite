@@ -60,12 +60,14 @@ export function regexSpeed(
   return "`match` could hang on a long call (nested repeats like `(a+)+`). Write a simpler regex.";
 }
 
-/** Whether call text `text` matches regex `pattern`; a `quadratic` one sees only its start. */
-export function regexMatches(
+/** How often regex `pattern` matches call text `text`; a `quadratic` one sees only its start. */
+export function regexCount(
   pattern: string,
   text: string,
   quadratic?: boolean,
-) {
+): number {
   const re = compile(pattern);
-  return !!re && re.test(quadratic ? text.slice(0, QUADRATIC_CHARS) : text);
+  if (!re) return 0;
+  const seen = quadratic ? text.slice(0, QUADRATIC_CHARS) : text;
+  return seen.match(new RegExp(re.source, "gs"))?.length ?? 0;
 }

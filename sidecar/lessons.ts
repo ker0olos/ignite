@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { lessonTool, type Lesson } from "../shared/lessons.ts";
 import { mcpCall } from "../src/lib/mcpToolCall.ts";
-import { regexFlaw, regexMatches, regexSpeed } from "./lessonRegex.ts";
+import { regexCount, regexFlaw, regexSpeed } from "./lessonRegex.ts";
 
 export type { Lesson };
 
@@ -91,10 +91,10 @@ function cleaned(lesson: NewLesson): NewLesson {
   return { ...call, match, ...kind, folder };
 }
 
-const matches = (l: Lesson, text: string) => {
-  if (!l.match) return false;
-  if (!l.regex) return text.includes(l.match);
-  return regexMatches(l.match, text, l.quadratic);
+const count = (l: Lesson, text: string) => {
+  if (!l.match) return 0;
+  if (!l.regex) return text.split(l.match).length - 1;
+  return regexCount(l.match, text, l.quadratic);
 };
 
 /** The lesson `id` among those that apply in `folder`, or throws. */
@@ -170,6 +170,26 @@ export function callText(value: unknown): string {
   return "";
 }
 
+type Edit = { oldText: string; newText: string };
+
+const isEdit = (v: unknown): v is Edit =>
+  !!v &&
+  typeof (v as Edit).oldText === "string" &&
+  typeof (v as Edit).newText === "string";
+
+const editsIn = (input: Record<string, unknown>) =>
+  [input, ...(Array.isArray(input.edits) ? input.edits : [])].filter(isEdit);
+
+// An edit is held only for what it adds: removing forbidden text, or keeping it as context, isn't repeating the mistake.
+function heldBy(l: Lesson, input: Record<string, unknown>, edits: Edit[]) {
+  if (!edits.length) return count(l, callText(input)) > 0;
+  const rest = { ...input, oldText: "", newText: "", edits: [] };
+  return (
+    count(l, callText(rest)) > 0 ||
+    edits.some((e) => count(l, e.newText) > count(l, e.oldText))
+  );
+}
+
 /** The lesson a tool call runs into: one whose `match` its arguments contain (or, a regex, match). */
 export function lessonFor(
   lessons: Lesson[],
@@ -185,6 +205,6 @@ export function lessonFor(
       tools.includes(l.tool) &&
       (l.background === undefined || l.background === background),
   );
-  const text = callText(input);
-  return mine.find((l) => matches(l, text));
+  const edits = editsIn(input);
+  return mine.find((l) => heldBy(l, input, edits));
 }
