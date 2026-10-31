@@ -6,6 +6,10 @@
  * the next with its own code, which installs packages without `patches/`.
  */
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
+import {
+  getCurrentSystemMessage,
+  getSystemMessageText,
+} from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { mkdirSync } from "node:fs";
@@ -35,6 +39,7 @@ export default function claudeBridge(pi: ExtensionAPI) {
     query({ ...params, options: guarded(params.options) });
   __test.setQuery((params) => tapTurn(ask(params), params.options));
   retryUncaptured(pi);
+  captureReplayedPrompt(pi);
   const seam = __test;
   idleCompaction(pi, ask, (id) => seam.getSharedSession?.(id)?.sessionId);
   // It reads its config from process.cwd() as it loads: agentDir has no .pi/ of its own.
@@ -80,5 +85,38 @@ export function retryUncaptured(pi: Pick<ExtensionAPI, "on">) {
         { type: "context_edit", targetId: last.id, replacement: null },
       ],
     };
+  });
+}
+
+type Capture = { source?: string };
+type Captures = {
+  resolve(prompt: string): Capture | undefined;
+  record(prompt: string, capture: Capture, source?: string): void;
+};
+
+// The bridge records ctx.getSystemPrompt(), sections in the order extensions add them, but the provider gets
+// the transcript's replay, where a section new since the conversation began comes last: same text, other order.
+/** Records the prompt the provider gets under the bridge's capture of the same sections in their fresh order. */
+export function captureReplayedPrompt(pi: Pick<ExtensionAPI, "on">) {
+  pi.on("context_with_system", (event, ctx) => {
+    const replayed = getCurrentSystemMessage(event.messages);
+    if (!replayed?.sections) return;
+    const sent = getSystemMessageText(replayed);
+    const fresh = ctx.getSystemPrompt();
+    if (sent === fresh) return;
+    const captures = (globalThis as Record<symbol, Captures | undefined>)[
+      Symbol.for("claude-bridge:promptCaptures")
+    ];
+    const capture = captures?.resolve(fresh);
+    if (!captures || !capture) return;
+    const inFreshOrder = Object.entries(replayed.sections).sort(
+      ([, a], [, b]) => fresh.indexOf(a ?? "") - fresh.indexOf(b ?? ""),
+    );
+    const reordered = {
+      ...replayed,
+      sections: Object.fromEntries(inFreshOrder),
+    };
+    if (getSystemMessageText(reordered) !== fresh) return;
+    captures.record(sent, capture, capture.source);
   });
 }

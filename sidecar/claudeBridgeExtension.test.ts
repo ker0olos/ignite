@@ -29,6 +29,7 @@ vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query }));
 
 const {
   default: claudeBridge,
+  captureReplayedPrompt,
   guarded,
   retryUncaptured,
 } = await import("./claudeBridgeExtension.ts");
@@ -131,6 +132,66 @@ describe("retryUncaptured", () => {
     ).toBeUndefined();
     expect(run([user("u1"), failed(uncaptured)], "done")).toBeUndefined();
     expect(run([user("u1")])).toBeUndefined();
+  });
+});
+
+const { sharedPromptCaptures } = await vi.importActual<{
+  sharedPromptCaptures(): {
+    record(prompt: string, input: object, source?: string): void;
+    resolveOrDerive(prompt: string): { sections?: object } | undefined;
+  };
+}>("pi-claude-bridge/src/prompt-capture.ts");
+
+describe("captureReplayedPrompt", () => {
+  const captures = sharedPromptCaptures();
+  const block = (name: string, text: string) =>
+    `<${name}>\n${text}\n</${name}>`;
+  const system = (sections: Record<string, string | null>) => ({
+    role: "system",
+    content: "",
+    sections,
+    timestamp: 0,
+  });
+  const contextWith = (fresh: string, messages: object[]) => {
+    let handler: (event: object, ctx: object) => unknown = () => {};
+    captureReplayedPrompt({
+      on: (_name: string, h: typeof handler) => (handler = h),
+    } as never);
+    handler({ messages }, { getSystemPrompt: () => fresh });
+  };
+  const sections = { questions: "Ask.", copyable: "Fence.", replies: "Short." };
+
+  it("lets the bridge resolve a section added since the conversation began, replayed last", () => {
+    const fresh = Object.entries({ ...sections, subagents: "Hand off." })
+      .map(([name, text]) => block(name, text))
+      .join("\n\n");
+    captures.record(
+      fresh,
+      { contextFiles: [], skills: [], sections },
+      "turn_start",
+    );
+    const began = system({
+      questions: block("questions", "Ask."),
+      copyable: block("copyable", "Fence."),
+      subagents: block("subagents", "Hand off."),
+    });
+    const added = system({ replies: block("replies", "Short.") });
+    const sent = [began, added]
+      .map((m) => Object.values(m.sections).join("\n\n"))
+      .join("\n\n");
+    expect(() => captures.resolveOrDerive(sent)).toThrow(/no capture/);
+    contextWith(fresh, [began, { role: "user" }, added]);
+    expect(captures.resolveOrDerive(sent)?.sections).toEqual(sections);
+  });
+
+  it("leaves a prompt whose sections differ, not just their order, unresolved", () => {
+    const fresh = block("questions", "Ask.");
+    captures.record(fresh, { contextFiles: [], skills: [] }, "turn_start");
+    const sent = system({ questions: block("questions", "Ask!") });
+    contextWith(fresh, [sent]);
+    expect(() => captures.resolveOrDerive(block("questions", "Ask!"))).toThrow(
+      /no capture/,
+    );
   });
 });
 
