@@ -277,7 +277,8 @@ export default function gitTools(pi: ExtensionAPI) {
     GH_TOOL,
     "Run the GitHub CLI (gh) with the user's login: read pull requests, their comments " +
       "and reviews (gh pr view --comments, gh api repos/{owner}/{repo}/pulls/N/comments), " +
-      "issues and checks; create or change them after the user approves.",
+      "issues and checks; create or change them after the user approves. " +
+      "Checks have passed only once every one has finished: name any still pending, and don't merge past them.",
   );
 
   pi.on("tool_call", async (event) => {

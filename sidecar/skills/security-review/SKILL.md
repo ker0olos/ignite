@@ -15,7 +15,9 @@ false positives, so each one judges the code without this conversation's
 assumptions. Start them without `explore`, which has no git and runs on a
 cheaper model, and leave out `model` and `effort` so they use yours. Give
 each a `description` like "Find vulnerabilities" or "Filter: auth.ts:42".
-Don't change any files unless the user asks you to fix what you found.
+Lay out the review's steps with `task_update` before the first subagent: only
+explore ones start before a plan. Don't change any files unless the user asks
+you to fix what you found.
 
 ## Step 0: Gather the changes
 

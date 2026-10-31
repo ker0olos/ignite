@@ -17,8 +17,9 @@ model and effort) find candidates and check them, so each one judges the code
 without this conversation's assumptions. Start them without `explore`, which
 has no git and runs on a cheaper model, and leave out `model` and `effort` so
 they use yours. Give each a `description` like "Find: line by line" or
-"Verify: promptCache.ts:86". Don't change any files unless the user asks you
-to fix what you found.
+"Verify: promptCache.ts:86". Lay out the review's steps with `task_update`
+before the first subagent: only explore ones start before a plan. Don't
+change any files unless the user asks you to fix what you found.
 
 ## Level
 
