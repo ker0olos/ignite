@@ -449,13 +449,21 @@ describe("reflectorInput", () => {
 
 describe("reflect", () => {
   it("returns the cheapest model's points, grounded in the feedback it was given", async () => {
-    const s = runtime(async () =>
-      answer(
-        reply([
-          { entry: "planning", text: "Plan first.", evidence: "plan it first" },
-          { entry: "asking", text: "Never ask." },
-        ]),
-      ),
+    const s = runtime(async (...args: unknown[]) =>
+      (args[1] as { systemPrompt: string }).systemPrompt.includes(
+        "taught by the user's own words",
+      )
+        ? answer("faithful")
+        : answer(
+            reply([
+              {
+                entry: "planning",
+                text: "Plan first.",
+                evidence: "plan it first",
+              },
+              { entry: "asking", text: "Never ask." },
+            ]),
+          ),
     );
     expect(await reflect(s, ["Plan it first!"], messages, [])).toEqual([
       expect.objectContaining({ entry: "planning", text: "Plan first." }),
@@ -529,6 +537,26 @@ describe("reflect", () => {
         : answer(reply([{ id: "r1", text: "Short.", evidence: "short" }])),
     );
     expect(await reflect(s, ["short"], messages, [short])).toBeUndefined();
+  });
+
+  it("reads an unclear check as wider, but keeps the point when the check fails", async () => {
+    const edit = reply([{ id: "r1", text: "Short.", evidence: "short" }]);
+    const checking = (args: unknown[]) =>
+      (args[1] as { systemPrompt: string }).systemPrompt.includes(
+        "taught by the user's own words",
+      );
+    const unclear = runtime(async (...args: unknown[]) =>
+      answer(checking(args) ? "faithful-ish" : edit),
+    );
+    expect(
+      await reflect(unclear, ["short"], messages, [short]),
+    ).toBeUndefined();
+    const failing = runtime(async (...args: unknown[]) =>
+      checking(args) ? answer("", "error") : answer(edit),
+    );
+    expect(await reflect(failing, ["short"], messages, [short])).toEqual([
+      expect.objectContaining({ id: "r1", text: "Short." }),
+    ]);
   });
 
   it("returns nothing when the call errors or fails", async () => {

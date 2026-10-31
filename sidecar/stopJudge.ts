@@ -92,7 +92,14 @@ export async function oneWord<W extends string>(
     signal,
     images = [],
     label,
-  }: { signal?: AbortSignal; images?: ImageContent[]; label: string },
+    unclear,
+  }: {
+    signal?: AbortSignal;
+    images?: ImageContent[];
+    label: string;
+    /** Taken when the model replied, but not with one of `words`. */
+    unclear?: W;
+  },
 ): Promise<W | null> {
   const found = await cheapest(s).catch(() => null);
   if (!found) return null;
@@ -104,6 +111,7 @@ export async function oneWord<W extends string>(
     seen.length ? [{ type: "text", text }, ...seen] : text,
     { label, timeoutMs: TIMEOUT_MS, signal },
   );
-  const word = reply?.replace(/^\W+|\W+$/g, "").toLowerCase();
-  return words.find((w) => w === word) ?? null;
+  if (reply == null) return null;
+  const word = reply.replace(/^\W+|\W+$/g, "").toLowerCase();
+  return words.find((w) => w === word) ?? unclear ?? null;
 }

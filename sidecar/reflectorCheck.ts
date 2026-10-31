@@ -4,11 +4,11 @@ import type { Session } from "./hostTypes.ts";
 import { oneWord } from "./stopJudge.ts";
 
 const CHECK_PROMPT = `A coding agent keeps points on how its user wants it to work, each taught by the user's own words. You get one point, the words that taught it, and the user's whole message they come from. Reply with exactly one word, nothing else:
-- faithful: the point says what the words say about how the agent should work, and no more.
+- faithful: every rule, case and step in the point is in the words, about how the agent should work.
 - wider: the point goes past the words: a rule, case, method or step they don't state ("i need to see the fix" doesn't say which browser, or "never use a harness").
 - against: the point says the opposite of the words, or would have the agent do what they complain about.
 - task: the words are about this task (what to build, a choice between options, a fact about the project), not how the agent works.
-When unsure, reply faithful.`;
+When unsure, reply wider.`;
 
 const VERDICTS = ["faithful", "wider", "against", "task"] as const;
 
@@ -43,6 +43,7 @@ const faithful = async (
   const text = `The point: ${statement(p)}\n\nThe words that taught it: "${words}"\n\nThe user's message: ${sourceOf(feedback, words)}`;
   const verdict = await oneWord(s, CHECK_PROMPT, text, VERDICTS, {
     label: "reflector check",
+    unclear: "wider",
   });
   // A check that can't run keeps the point, as before it.
   return verdict === null || verdict === "faithful";
