@@ -17,6 +17,8 @@ type Clock = {
   id?: string;
   timer?: ReturnType<typeof setTimeout>;
   expire?: () => void;
+  /** Tells the app when the timed call will be answered. */
+  tell?: (ask: ApprovalAsk) => void;
   strikes: number;
 };
 
@@ -28,17 +30,20 @@ function clockOf(agent: Agent) {
   return clock;
 }
 
-function arm(clock: Clock, ms: number) {
+function arm(clock: Clock, ask: ApprovalAsk, ms: number) {
   clearTimeout(clock.timer);
   clock.timer = setTimeout(() => clock.expire?.(), ms);
   // Never what keeps a quitting sidecar alive.
   clock.timer.unref?.();
+  ask.request.awayAt = Date.now() + ms;
+  clock.tell?.(ask);
 }
 
 /** Times the conversation's first waiting call, unless it already is; `expire` answers it once its time is up. */
 export function timeFirst(
   agent: Agent,
   expire: (id: string, ask: ApprovalAsk) => void,
+  tell: (ask: ApprovalAsk) => void,
 ) {
   const clock = clockOf(agent);
   const [id, ask] = agent.approvals.entries().next().value ?? [];
@@ -47,19 +52,20 @@ export function timeFirst(
   clock.id = undefined;
   if (!id || !ask?.away) return;
   clock.id = id;
+  clock.tell = tell;
   clock.expire = () => {
     clock.id = undefined;
     if (agent.approvals.get(id) !== ask) return;
     clock.strikes++;
     expire(id, ask);
   };
-  arm(clock, clock.strikes >= AWAY_STRIKES ? 0 : ask.away.afterMs);
+  arm(clock, ask, clock.strikes >= AWAY_STRIKES ? 0 : ask.away.afterMs);
 }
 
 /** The user is back: later calls wait their full time again; `looking` at the conversation, its timed call starts afresh too. */
 export function userBack(agent: Agent, looking = false) {
   const clock = clockOf(agent);
   clock.strikes = 0;
-  const away = looking && clock.id && agent.approvals.get(clock.id)?.away;
-  if (away) arm(clock, away.afterMs);
+  const ask = looking && clock.id ? agent.approvals.get(clock.id) : undefined;
+  if (ask?.away) arm(clock, ask, ask.away.afterMs);
 }

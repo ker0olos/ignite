@@ -107,6 +107,8 @@ export type ApprovalRequest = {
   review?: GitReview;
   /** What the sandbox blocked that the user may always allow (a host, socket, path, or a program to run outside it). */
   allow?: string;
+  /** When it's answered as the user being away (epoch ms), unless they come back first; unset when it waits forever. */
+  awayAt?: number;
 };
 
 /** What the agent is told of an approval denied because nobody answered it in time; its row says so. */
@@ -340,6 +342,8 @@ export type HostMessage =
   | { type: "extension_error"; message: string }
   /** A tool call waits for the user (see ApprovalMode). */
   | { type: "approval_request"; session: string; request: ApprovalRequest }
+  /** A waiting call's away timer started (again): its request's new `awayAt`. */
+  | { type: "approval_away"; session: string; request: ApprovalRequest }
   /** A conversation opened, closed, started or finished a run, or began or stopped waiting. */
   | { type: "agents"; agents: AgentStatus[] }
   /** A fork that failed to start: off its folder's list. */

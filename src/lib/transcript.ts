@@ -31,7 +31,13 @@ export type ToolRun = {
   /** Latest partial output while running, then the final result. */
   result?: ToolResult;
   /** Set while the call waits for the user to approve it. */
-  approval?: { reason?: string; review?: GitReview; allow?: string };
+  approval?: {
+    reason?: string;
+    review?: GitReview;
+    allow?: string;
+    /** When it's denied as the user being away (epoch ms). */
+    awayAt?: number;
+  };
   /** The review the user approved, shown until the result arrives. */
   review?: GitReview;
   /** A script's calls, in the order they started; each has its own run. */
@@ -74,14 +80,31 @@ export function fromHistory(
 /** Marks a tool call as waiting for the user. */
 export function requestApproval(
   t: Transcript,
-  { toolCallId, reason, review, allow }: ApprovalRequest,
+  { toolCallId, reason, review, allow, awayAt }: ApprovalRequest,
 ): Transcript {
   return setTool(t, toolCallId, {
     status: t.tools[toolCallId]?.status ?? "running",
     // A review says what the call does; a reason under it would repeat it.
-    approval: review
-      ? { review }
-      : { ...(reason && { reason }), ...(allow && { allow }) },
+    approval: {
+      ...(review
+        ? { review }
+        : { ...(reason && { reason }), ...(allow && { allow }) }),
+      ...(awayAt && { awayAt }),
+    },
+  });
+}
+
+/** A waiting call's away timer started again; a call no longer waiting is left alone. */
+export function approvalAway(
+  t: Transcript,
+  toolCallId: string,
+  awayAt: number | undefined,
+): Transcript {
+  const run = t.tools[toolCallId];
+  if (!run?.approval) return t;
+  return setTool(t, toolCallId, {
+    ...run,
+    approval: { ...run.approval, awayAt },
   });
 }
 

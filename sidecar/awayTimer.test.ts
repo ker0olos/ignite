@@ -176,6 +176,27 @@ describe("the away timer", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  it("tells the app when the first call will be answered, again each time it starts afresh", () => {
+    const { agent, ctx, ask } = setup();
+    (ctx as { shown: string | null }).shown = "s1";
+    ask("t1");
+    const away = (awayAt: number) => ({
+      type: "approval_away",
+      session: "s1",
+      request: { toolCallId: "t1", awayAt },
+    });
+    expect(ctx.send).toHaveBeenLastCalledWith(away(Date.now() + TIME));
+    expect(agent.approvals.get("t1")?.request.awayAt).toBe(Date.now() + TIME);
+    vi.advanceTimersByTime(MIN);
+    answered(ctx, { type: "user_active" });
+    expect(ctx.send).toHaveBeenLastCalledWith(away(Date.now() + TIME));
+    // A call behind it isn't timed yet.
+    ask("t2");
+    expect(ctx.send).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "approval_request" }),
+    );
+  });
+
   it("leaves a call answered meanwhile alone", () => {
     const { agent, ask } = setup();
     const answer = ask("t1");

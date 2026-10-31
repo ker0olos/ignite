@@ -34,6 +34,7 @@ export function WaitingPrompt({
       allow={approval.allow}
       shortcuts={first}
       queued={queued}
+      awayAt={approval.awayAt}
       onAnswer={(approved, always) =>
         onApprove(call.id, approved, undefined, always)
       }

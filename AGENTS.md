@@ -743,7 +743,9 @@ computer and can be undone, leaving what others would see, like tickets,
 comments, pushes and production data, until they're back), and in Auto an approval (a
 denylisted command, a path outside the folder, an MCP call, running outside the
 sandbox) after 5 minutes, denied with a reason telling the agent to carry on
-without it (`AWAY_DENIED`; its row says "Denied while you were away"). Manual's prompts, git and gh reviews, `task_add` and lesson changes
+without it (`AWAY_DENIED`; its row says "Denied while you were away"). With
+under 4 minutes left, an approval shows its countdown beside Deny (`awayAt`,
+sent again as `approval_away` whenever its timer starts afresh). Manual's prompts, git and gh reviews, `task_add` and lesson changes
 wait forever, and so do the calls behind them. After 3 timed out in a row, later
 ones are answered at once until the user is back: they answer one, send a
 message, or use the window (a key, a click, scrolling; `user_active`,

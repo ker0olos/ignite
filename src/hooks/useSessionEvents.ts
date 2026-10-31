@@ -5,6 +5,7 @@ import type { HostClient } from "@/lib/piHost";
 import {
   applyError,
   applyEvent,
+  approvalAway,
   requestApproval,
   settleApproval,
   type Transcript,
@@ -41,6 +42,9 @@ export function useSessionEvents(
         apply(message.session, (t) => applyError(t, message.error));
       } else if (message.type === "approval_request") {
         apply(message.session, (t) => requestApproval(t, message.request));
+      } else if (message.type === "approval_away") {
+        const { toolCallId, awayAt } = message.request;
+        apply(message.session, (t) => approvalAway(t, toolCallId, awayAt));
       }
     });
   }, [host, apply, onError, setState]);

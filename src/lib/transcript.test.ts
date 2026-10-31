@@ -10,6 +10,7 @@ import {
   applyError,
   applyEvent,
   fromHistory,
+  approvalAway,
   requestApproval,
   settleApproval,
   type Transcript,
@@ -330,6 +331,17 @@ describe("applyEvent", () => {
       approval: { reason: "Pipes text into a shell" },
     });
     expect(settleApproval(waiting, "c1").tools.c1.approval).toBeUndefined();
+  });
+
+  it("keeps when a waiting call is denied as the user being away, and its later restarts", () => {
+    const waiting = requestApproval(EMPTY, { toolCallId: "c1", awayAt: 5 });
+    expect(waiting.tools.c1.approval).toEqual({ awayAt: 5 });
+    expect(approvalAway(waiting, "c1", 9).tools.c1.approval).toEqual({
+      awayAt: 9,
+    });
+    // Answered meanwhile: the prompt doesn't come back.
+    const answered = settleApproval(waiting, "c1");
+    expect(approvalAway(answered, "c1", 9)).toBe(answered);
   });
 
   it("asks without a reason in Manual, even before the call has started", () => {

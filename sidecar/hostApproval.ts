@@ -37,10 +37,17 @@ function drop(ctx: HostContext, agent: Agent, id: string, ask: ApprovalAsk) {
 
 // The first waiting call's time starts; once it's up, the call is answered as the user being away.
 const timeAway = (ctx: HostContext, agent: Agent) =>
-  timeFirst(agent, (id, ask) => {
-    if (drop(ctx, agent, id, ask))
-      ask.answer(false, ask.draft, undefined, ask.away?.reason(ask.draft));
-  });
+  timeFirst(
+    agent,
+    (id, ask) => {
+      if (drop(ctx, agent, id, ask))
+        ask.answer(false, ask.draft, undefined, ask.away?.reason(ask.draft));
+    },
+    ({ request }) => {
+      if (tellsApp(ctx, agent))
+        ctx.send({ type: "approval_away", session: agent.id, request });
+    },
+  );
 
 /** Keeps what the user has answered so far in a waiting call's questions, sent with it if they're away. */
 export function keepAnswers(

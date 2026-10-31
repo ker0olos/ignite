@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ApprovalCallout } from "./ApprovalCallout";
+import { AwayCountdown } from "./AwayCountdown";
 import { useApprovalKeys } from "@/hooks/useApprovalKeys";
 import { approvalHints } from "@/lib/approvalKeys";
 
@@ -12,6 +13,7 @@ export function ApprovalPrompt({
   children,
   shortcuts = false,
   queued = 0,
+  awayAt,
   onAnswer,
 }: {
   /** The agent's own reason for the call. */
@@ -24,6 +26,8 @@ export function ApprovalPrompt({
   shortcuts?: boolean;
   /** Other calls waiting behind this one; each opens here once this is answered. */
   queued?: number;
+  /** When it's denied as the user being away; unset when it waits forever. */
+  awayAt?: number;
   onAnswer: (approved: boolean, always?: boolean) => void;
 }) {
   useApprovalKeys(shortcuts, onAnswer);
@@ -71,6 +75,7 @@ export function ApprovalPrompt({
             </span>
           )}
         </Button>
+        <AwayCountdown awayAt={awayAt} />
         {queued > 0 && (
           <span className="self-center text-xs text-muted-foreground">
             {queued} more waiting
