@@ -92,6 +92,19 @@ export function answeredAsSaved<M extends Message>(messages: M[]): M[] {
   });
 }
 
+const SPENT = Symbol.for(`${APP_NAME}.spentKeys`);
+const spent = globalThis as { [SPENT]?: Map<string, number> };
+
+const THROTTLED = /rate.?limit|too many requests|\b429\b/i;
+
+/** Notes a key failed: a throttled one rests a minute, any other isn't tried again until the subscription's limit resets (an hour at least). */
+export function keySpent(id: string, errorMessage = "") {
+  const until = THROTTLED.test(errorMessage)
+    ? Date.now() + 60_000
+    : Math.max(limitedUntil(), Date.now() + HOUR);
+  (spent[SPENT] ??= new Map()).set(id, until);
+}
+
 /** The keys to try after the one in use (`current`), in order; all of them when none is. */
 export function keysAfter(
   keys: FallbackKey[],
@@ -99,4 +112,10 @@ export function keysAfter(
 ): FallbackKey[] {
   const at = keys.findIndex((k) => k.id === current);
   return at < 0 ? keys : keys.slice(at + 1);
+}
+
+/** The keys still worth trying, in order. */
+export function usableKeys(keys: FallbackKey[]): FallbackKey[] {
+  const now = Date.now();
+  return keys.filter((k) => !(now < (spent[SPENT]?.get(k.id) ?? 0)));
 }

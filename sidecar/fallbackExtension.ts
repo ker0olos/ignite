@@ -11,11 +11,13 @@ import {
   answeredAsSaved,
   keyFailed,
   keysAfter,
+  keySpent,
   limitedUntil,
   limitUntil,
   resetFrom,
   resetIn,
   SUBSCRIPTION,
+  usableKeys,
 } from "./fallback.ts";
 import { limitHit } from "../shared/fallbackKeys.ts";
 import { loadKeys, type FallbackKey } from "./fallbackKeys.ts";
@@ -122,6 +124,19 @@ export default function fallback(pi: ExtensionAPI) {
   // Back on the subscription, the key stays out of the model menu and background calls.
   const dropKey = () => void ask(KEY_PROVIDER, null).catch(() => {});
 
+  /** Back on the subscription's model, its key dropped; false when that model is gone. */
+  const backToSubscription = async (ctx: ExtensionContext) => {
+    const { from } = state;
+    const model = from && ctx.modelRegistry.find(from.provider, from.id);
+    if (!model || !(await pi.setModel(model))) return false;
+    if (state.keyId) dropKey();
+    state = {};
+    return true;
+  };
+
+  const keyRemoved = async () =>
+    !!state.keyId && !(await loadKeys()).some((k) => k.id === state.keyId);
+
   // A reopened conversation's runtime has no runtime key yet.
   pi.on("session_start", async (_event, ctx) => {
     state = savedState(ctx);
@@ -129,6 +144,7 @@ export default function fallback(pi: ExtensionAPI) {
     if (!state.keyId) return;
     const key = (await loadKeys()).find((k) => k.id === state.keyId);
     if (key) await applyKey(key).catch(() => {});
+    else if (await backToSubscription(ctx)) pi.appendEntry(ENTRY, state);
   });
 
   // claude-bridge resumes Claude Code's own copy of the conversation; the rest replay pi's.
@@ -150,7 +166,7 @@ export default function fallback(pi: ExtensionAPI) {
   ) => {
     const model = ctx.modelRegistry.find(KEY_PROVIDER, from.id);
     if (!model) return false;
-    for (const key of keysAfter(await loadKeys(), state.keyId)) {
+    for (const key of usableKeys(keysAfter(await loadKeys(), state.keyId))) {
       const ok = await applyKey(key)
         .then(() => pi.setModel(model))
         .catch(() => false);
@@ -168,7 +184,16 @@ export default function fallback(pi: ExtensionAPI) {
       provider: ctx.model.provider,
       id: ctx.model.id,
     };
-    if (!(await switchKey(ctx, from))) return;
+    if (state.keyId) keySpent(state.keyId, failed.message.errorMessage);
+    if (!(await switchKey(ctx, from))) {
+      if (!state.keyId || !(await backToSubscription(ctx))) return;
+      return {
+        entries: [
+          ...event.entries,
+          { type: "custom", customType: ENTRY, data: state },
+        ],
+      };
+    }
     return {
       continue: true,
       // A boundary's result replaces the entries earlier handlers left: theirs go too.
@@ -189,12 +214,9 @@ export default function fallback(pi: ExtensionAPI) {
 
   pi.on("before_agent_start", async (_event, ctx) => {
     const out = Date.now() < limitedUntil();
-    if (!state.from && out) return startOnKey(ctx);
-    if (!state.from || out) return;
-    const model = ctx.modelRegistry.find(state.from.provider, state.from.id);
-    if (!model || !(await pi.setModel(model))) return;
-    if (state.keyId) dropKey();
-    state = {};
-    pi.appendEntry(ENTRY, state);
+    if (!state.from) return out ? startOnKey(ctx) : undefined;
+    if (out && !(await keyRemoved())) return;
+    if (out && (await switchKey(ctx, state.from))) pi.appendEntry(ENTRY, state);
+    else if (await backToSubscription(ctx)) pi.appendEntry(ENTRY, state);
   });
 }

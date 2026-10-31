@@ -1,20 +1,26 @@
 // @vitest-environment node
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   answeredAsSaved,
   keyFailed,
   keysAfter,
+  keySpent,
   limitedUntil,
   limitUntil,
   resetFrom,
   resetIn,
+  usableKeys,
 } from "./fallback.ts";
 import { limitHit } from "../shared/fallbackKeys.ts";
 import type { FallbackKey } from "./fallbackKeys.ts";
 
 const LIMIT = Symbol.for("ignite.subscriptionLimit");
+const SPENT = Symbol.for("ignite.spentKeys");
+const HOUR = 60 * 60 * 1000;
 afterEach(() => {
   delete (globalThis as { [LIMIT]?: number })[LIMIT];
+  delete (globalThis as { [SPENT]?: unknown })[SPENT];
+  vi.useRealTimers();
 });
 
 describe("limitHit", () => {
@@ -131,6 +137,34 @@ describe("the subscription's limit", () => {
     limitUntil(200);
     limitUntil(100);
     expect(limitedUntil()).toBe(200);
+  });
+});
+
+describe("usableKeys", () => {
+  const key = (id: string): FallbackKey => ({ id, key: "k" });
+  const keys = [key("a"), key("b"), key("c")];
+
+  it("leaves out a spent key until the subscription's limit resets, an hour at least", () => {
+    vi.useFakeTimers({ now: 1_000_000 });
+    expect(usableKeys(keys).map((k) => k.id)).toEqual(["a", "b", "c"]);
+    limitUntil(1_000_000 + 3 * HOUR);
+    keySpent("b");
+    delete (globalThis as { [LIMIT]?: number })[LIMIT];
+    keySpent("c");
+    expect(usableKeys(keys).map((k) => k.id)).toEqual(["a"]);
+    vi.setSystemTime(1_000_000 + 2 * HOUR);
+    expect(usableKeys(keys).map((k) => k.id)).toEqual(["a", "c"]);
+    vi.setSystemTime(1_000_000 + 3 * HOUR);
+    expect(usableKeys(keys).map((k) => k.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("rests a throttled key only a minute", () => {
+    vi.useFakeTimers({ now: 1_000_000 });
+    limitUntil(1_000_000 + 3 * HOUR);
+    keySpent("a", "429 rate_limit_error");
+    expect(usableKeys(keys).map((k) => k.id)).toEqual(["b", "c"]);
+    vi.setSystemTime(1_000_000 + 60_000);
+    expect(usableKeys(keys).map((k) => k.id)).toEqual(["a", "b", "c"]);
   });
 });
 

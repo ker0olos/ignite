@@ -4,7 +4,7 @@
  * leave the sidecar.
  */
 import { randomUUID } from "node:crypto";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { APP_NAME } from "../src/lib/app.ts";
@@ -29,13 +29,15 @@ export async function loadKeys(file = fallbackFile()): Promise<FallbackKey[]> {
   }
 }
 
+// Written aside and renamed in, so a conversation reading it mid-save never takes it for no keys.
 async function save(file: string, keys: FallbackKey[]) {
   await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, JSON.stringify({ keys }, null, 2) + "\n", {
+  const temp = `${file}.${randomUUID()}.tmp`;
+  await writeFile(temp, JSON.stringify({ keys }, null, 2) + "\n", {
     mode: 0o600,
   });
-  // writeFile's mode applies only when it creates the file.
-  await chmod(file, 0o600);
+  await chmod(temp, 0o600);
+  await rename(temp, file);
 }
 
 /** What the app may see of them. */

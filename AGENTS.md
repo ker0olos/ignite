@@ -1450,7 +1450,10 @@ the model's context, sets the key as the session runtime's runtime key (over
 the event bus to `start.ts`), switches to the same model on the API
 (`claude-bridge/claude-opus-5-5` to `anthropic/claude-opus-5-5`) and
 continues the run; a key that's spent, refused or throttled (`keyFailed`, not
-a transient or request error) moves on to the next. Until the reset, any other
+a transient or request error) moves on to the next, and isn't tried again until
+the reset (an hour at least; a throttled one, a minute). Once none is left, or the
+key in use was removed from the connect screen, the conversation goes back to the
+subscription (while still out, a removed key's first remaining one instead). Until the reset, any other
 conversation's next run starts on a key at once, rather than waiting on Claude
 Code's failure (about 30 seconds on a long conversation). The limit's reset comes
 from the rejected window's `anthropic-ratelimit-unified-reset` header the

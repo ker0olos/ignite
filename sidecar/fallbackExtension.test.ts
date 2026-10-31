@@ -13,6 +13,8 @@ const keys = vi.hoisted(() => ({ list: [] as FallbackKey[] }));
 vi.mock("./fallbackKeys.ts", () => ({ loadKeys: async () => keys.list }));
 
 const LIMIT = Symbol.for("ignite.subscriptionLimit");
+const SPENT = Symbol.for("ignite.spentKeys");
+const bridge = { provider: "claude-bridge", id: "claude-opus-5-5" };
 const HOUR = 60 * 60 * 1000;
 
 type Model = { provider: string; id: string };
@@ -81,6 +83,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   delete (globalThis as { [LIMIT]?: number })[LIMIT];
+  delete (globalThis as { [SPENT]?: unknown })[SPENT];
   vi.useRealTimers();
 });
 
@@ -287,6 +290,67 @@ describe("the fallback extension", () => {
     x.fail("billing");
     expect(await x.settle()).toBeUndefined();
     expect(x.used).toHaveLength(1);
+  });
+
+  it("goes back to the subscription once every key failed, and tries them no more", async () => {
+    const x = load({ catalog: [opus, bridge] });
+    x.fail(limitError);
+    await x.settle();
+    x.fail("insufficient credit");
+    await x.settle();
+    x.fail(
+      '400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}',
+    );
+    const last = await x.settle();
+    expect(last?.continue).toBeUndefined();
+    expect(last?.entries).toEqual([
+      { type: "custom", customType: "ignite.fallback", data: {} },
+    ]);
+    expect(x.model()).toEqual(bridge);
+    expect(x.used.at(-1)).toEqual({ provider: "anthropic", key: null });
+
+    const y = load({ catalog: [opus, bridge] });
+    y.fail(limitError);
+    expect(await y.settle()).toBeUndefined();
+    await y.run("before_agent_start");
+    expect(y.used).toEqual([]);
+  });
+
+  it("leaves a key removed while it was in use", async () => {
+    limitUntil(Date.now() + HOUR);
+    const x = load({ catalog: [opus, bridge] });
+    await x.run("before_agent_start");
+    expect(x.model()).toEqual(opus);
+    await x.run("before_agent_start");
+    expect(x.used).toHaveLength(1);
+
+    keys.list = [key("b")];
+    await x.run("before_agent_start");
+    expect(x.used.at(-1)).toEqual({ provider: "anthropic", key: "key-b" });
+    expect(x.appended.at(-1)).toMatchObject({ data: { keyId: "b" } });
+
+    keys.list = [];
+    await x.run("before_agent_start");
+    expect(x.model()).toEqual(bridge);
+    expect(x.appended.at(-1)).toEqual({
+      customType: "ignite.fallback",
+      data: {},
+    });
+  });
+
+  it("reopens on the subscription when its key was removed", async () => {
+    keys.list = [];
+    const x = load({ catalog: [opus, bridge] });
+    x.pi.setModel(opus);
+    x.branch.push({
+      id: "s",
+      type: "custom",
+      customType: "ignite.fallback",
+      data: { from: bridge, keyId: "a", until: Date.now() + HOUR },
+    });
+    await x.run("session_start");
+    expect(x.model()).toEqual(bridge);
+    expect(x.appended).toEqual([{ customType: "ignite.fallback", data: {} }]);
   });
 
   it("drops nothing going back when it never ran on a key", async () => {
