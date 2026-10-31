@@ -17,6 +17,31 @@ describe("outputRecords", () => {
     ]);
   });
 
+  it("reads an envelope's only list of rows", () => {
+    expect(outputRecords('{"tasks":[{"id":1},{"id":2}],"count":2}')).toEqual([
+      { id: 1 },
+      { id: 2 },
+    ]);
+    expect(outputRecords('{"a":[{"x":1}],"b":[{"y":2}]}')).toEqual([
+      { a: [{ x: 1 }], b: [{ y: 2 }] },
+    ]);
+    const withUser = '{"user":{"login":"x"},"repos":[{"id":1}]}';
+    expect(outputRecords(withUser)).toEqual([JSON.parse(withUser)]);
+  });
+
+  it("leaves JSON Lines whose entries hold lists alone", () => {
+    const log = '{"level":"info","items":[{"a":1}]}\n{"items":[{"a":2}]}';
+    expect(outputRecords(log)).toBeUndefined();
+    expect(formatOutput(log)).toBe(log);
+  });
+
+  it("finds an envelope's rows before the MCP adapter's structuredContent", () => {
+    const text =
+      '{"tasks":[{"id":"a"}],"count":1}\nstructuredContent:\n{\n  "tasks": [\n\n[MCP text output truncated]';
+    expect(outputRecords(text)).toEqual([{ id: "a" }]);
+    expect(formatOutput(text).startsWith('{\n  "tasks": [\n    {')).toBe(true);
+  });
+
   it("reads a JSON string's contents", () => {
     expect(outputRecords(JSON.stringify('[{"a":1}]'))).toEqual([{ a: 1 }]);
   });

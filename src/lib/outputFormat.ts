@@ -34,6 +34,22 @@ function isRecordList(value: unknown): value is OutputRecord[] {
   );
 }
 
+/** An envelope's only list of rows when its other fields are plain values (`{"tasks": […], "count": 83}`). */
+function envelopeRows(value: OutputRecord): OutputRecord[] | undefined {
+  const values = Object.values(value);
+  const lists = values.filter(isRecordList);
+  const plain = values.every((v) => isRecordList(v) || !isObject(v));
+  return lists.length === 1 && plain ? lists[0] : undefined;
+}
+
+const STRUCTURED = "\nstructuredContent:\n";
+
+/** pi-mcp-adapter appends a result's structuredContent (often the same data) after its text. */
+function splitStructured(text: string): [string, string] {
+  const at = text.indexOf(STRUCTURED);
+  return at < 0 ? [text, ""] : [text.slice(0, at), text.slice(at)];
+}
+
 /** The text an object wraps as its only field, like an MCP server's `{"result": "…"}`; a one-line field stays JSON. */
 function wrappedText(value: object): string | undefined {
   if (Array.isArray(value)) return undefined;
@@ -55,6 +71,11 @@ function prettyLines(text: string): string {
 
 /** Tool output made readable: JSON indented, a JSON string or wrapped text unescaped, a line of rows in text indented. */
 export function formatOutput(text: string): string {
+  const [head, structured] = splitStructured(text);
+  return formatText(head) + structured;
+}
+
+function formatText(text: string): string {
   const value = parseJson(text);
   if (typeof value === "string") return formatOutput(value);
   if (!isObject(value)) return prettyLines(text);
@@ -64,15 +85,16 @@ export function formatOutput(text: string): string {
     : formatOutput(inner);
 }
 
-/** The records tool output holds (a JSON object, or an array of objects alone or on a line of text), if any. */
+/** The records tool output holds (a JSON object, an envelope's rows, or rows alone or on a line of text), if any. */
 export function outputRecords(text: string): OutputRecord[] | undefined {
-  const value = parseJson(text);
+  const value = parseJson(splitStructured(text)[0]);
   if (typeof value === "string") return outputRecords(value);
   if (isObject(value)) {
     const inner = wrappedText(value);
     if (inner !== undefined) return outputRecords(inner);
     if (isRecordList(value)) return value;
-    return isRecord(value) && Object.keys(value).length ? [value] : undefined;
+    if (!isRecord(value) || !Object.keys(value).length) return undefined;
+    return envelopeRows(value) ?? [value];
   }
   for (const line of text.split("\n")) {
     const found = parseJson(line);
